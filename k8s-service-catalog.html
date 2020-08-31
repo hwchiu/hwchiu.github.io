@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="en">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=6.3.0" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.3.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.3.0" color="#222">
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.3.0',
+    sidebar: {"position":"left","display":"always","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="Service Catalog 是一套基於 Open Service Broker API 的資源創建解決方案，這邊的資源指得是一些並非 kubernetes 內建，但是常常被使用的資源，譬如資料庫等。透過 Service Catalog 的框架，使用者也可以透過 kubernetes yaml 的方式來創建與管理這些外部資源，並且使用 kubernetes secret 來保管相關的資訊檔案。">
+<meta name="keywords" content="Kubernetes,Network,Linux,Ubuntu">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Service Catalog">
+<meta property="og:url" content="https://www.hwchiu.com/k8s-service-catalog.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="Service Catalog 是一套基於 Open Service Broker API 的資源創建解決方案，這邊的資源指得是一些並非 kubernetes 內建，但是常常被使用的資源，譬如資料庫等。透過 Service Catalog 的框架，使用者也可以透過 kubernetes yaml 的方式來創建與管理這些外部資源，並且使用 kubernetes secret 來保管相關的資訊檔案。">
+<meta property="og:locale" content="en">
+<meta property="og:image" content="https://i.imgur.com/jhEXwKN.png">
+<meta property="og:updated_time" content="2020-08-31T01:59:56.728Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Service Catalog">
+<meta name="twitter:description" content="Service Catalog 是一套基於 Open Service Broker API 的資源創建解決方案，這邊的資源指得是一些並非 kubernetes 內建，但是常常被使用的資源，譬如資料庫等。透過 Service Catalog 的框架，使用者也可以透過 kubernetes yaml 的方式來創建與管理這些外部資源，並且使用 kubernetes secret 來保管相關的資訊檔案。">
+<meta name="twitter:image" content="https://i.imgur.com/jhEXwKN.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="Hwchiu Learning Note" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://www.hwchiu.com/k8s-service-catalog.html">
+
+
+
+<script type="text/javascript" id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>Service Catalog | Hwchiu Learning Note</title>
+  
+<script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '',
+      xfbml      : true,
+      version    : 'v2.10'
+    });
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "//connect.facebook.net/en/sdk.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+</script>
+
+
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-54006186-1');
+</script>
+
+
+
+
+
+
+  <noscript>
+  <style type="text/css">
+    .use-motion .motion-element,
+    .use-motion .brand,
+    .use-motion .menu-item,
+    .sidebar-inner,
+    .use-motion .post-block,
+    .use-motion .pagination,
+    .use-motion .comments,
+    .use-motion .post-header,
+    .use-motion .post-body,
+    .use-motion .collection-title { opacity: initial; }
+
+    .use-motion .logo,
+    .use-motion .site-title,
+    .use-motion .site-subtitle {
+      opacity: initial;
+      top: initial;
+    }
+
+    .use-motion {
+      .logo-line-before i { left: initial; }
+      .logo-line-after i { right: initial; }
+    }
+  </style>
+</noscript>
+
+  <script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({
+          google_ad_client: "ca-pub-1100711228720990",
+          enable_page_level_ads: true
+     });
+</script>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="en">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Hwchiu Learning Note</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</h1>
+      
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="Toggle navigation bar">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+    <a href="/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-home"></i> <br>Home</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+    <a href="/about/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-user"></i> <br>About</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+    <a href="/tags/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>Tags</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+    <a href="/archives/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>Archives</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-sitemap">
+    <a href="/sitemap.xml" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-sitemap"></i> <br>Sitemap</a>
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+  
+  
+  
+    
+      
+    
+    <a href="https://github.com/hwchiu" class="github-corner" target="_blank" title="Follow me on GitHub" aria-label="Follow me on GitHub"><svg width="80" height="80" viewbox="0 0 250 250" style="fill:#222; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg>
+    
+      </a>
+    
+
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/k8s-service-catalog.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">Service Catalog
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+
+              
+                
+              
+
+              <time title="Created: 2019-10-12 16:03:25" itemprop="dateCreated datePublished" datetime="2019-10-12T16:03:25-07:00">2019-10-12</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">Edited on</span>
+                
+                <time title="Modified: 2020-08-30 18:59:56" itemprop="dateModified" datetime="2020-08-30T18:59:56-07:00">2020-08-30</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/k8s-service-catalog.html#comments" itemprop="discussionUrl">
+                
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="k8s-service-catalog.html" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+              <div class="post-description">Service Catalog 是一套基於 Open Service Broker API 的資源創建解決方案，這邊的資源指得是一些並非 kubernetes 內建，但是常常被使用的資源，譬如資料庫等。透過 Service Catalog 的框架，使用者也可以透過 kubernetes yaml 的方式來創建與管理這些外部資源，並且使用 kubernetes secret 來保管相關的資訊檔案。</div>
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>探討完 Operator Pattern 後，我們來探討最後一個關於 kubernetes 擴充功能有關的元件， Service Catalog<br>這個元件其實我很少聽到有人在談，至少就我自己的瞭解其他滿多人都沒有聽過這個元件，也不知道這個元件可以做什麼，能夠提供什麼樣的好處.</p>
+<p>於是今天我們稍微來探討一下這個擴充元件的基本概念，包含運作流程，部署架構以及使用情境.</p>
+<h1 id="介紹"><a href="#介紹" class="headerlink" title="介紹"></a>介紹</h1><p>開始之前，先來思考一下一個使用情境，假設你作為一個 kubernetes 叢集管理人員，今天公司有使用公有雲服務  AWS 作為背後的營運商.</p>
+<p>這種情況下有一天，前線的應用程式開發人員跟你說，我們接下來需要一個 database 以及一個 redis 的支援，你可能會怎麼做？</p>
+<ol>
+<li>直接到 AWS 的服務上面透過 ElasticCache + RDS 去創造出需要的 <strong>Redis</strong> 以及 <strong>Datbase</strong>，並且準備好相關的存取資訊</li>
+<li>將存取資訊，譬如帳號密碼，連接 URL 等資訊轉交給應用程式開發人員進行使用</li>
+</ol>
+<p>接下來，譬如需要給 <strong>QA</strong> 測試的環境，或是正式上線的環境，這些環境基於考量希望使用全新的資源，這時候你又要再次重複上述的流程，去創建資源，準備資訊</p>
+<p>當然有些事情可以透過其他的解決工具，譬如 <strong>Terraform</strong> 來幫忙創建資源，達成 <strong>Infrastructure as a Code (IaaC)</strong> 的概念，用程式化的方式來完成這些資源的創造，也是一種有效率又好維護的方法。</p>
+<p>那上述的這些行為有沒有另外一種解決方案? 因為我所有的服務都是跟 <strong>kubernetes</strong> 綁定，有沒有辦法連這些資源都是透過 <strong>kubernetes</strong> 一起管理?<br>譬如我創造一個 <strong>yaml</strong> 檔案，裡面描述說我想要有一個 <strong>redis</strong>，接者該 <strong>redis</strong> 就會被創造出來，並且把相關的資訊都放到 <strong>kubernetes secret</strong> 之中去保存。 同樣的 <strong>database</strong> 也是透過 <strong>yaml</strong> 來描述。 這樣就可以基於 <strong>kubernetes</strong> 底下用不同的 <strong>namespace</strong> 來管理不同環境用到的資源</p>
+<p>這個方法就是今天要介紹的 <strong>Service Catalog</strong>，透過 <strong>Service Catalog</strong> 相關的應用程式與遠方的 <strong>Service Provider</strong> 連接，並且傳達幫忙創造 <strong>Redis/Database</strong> 的請求到遠方的 <strong>Service Provide</strong>並回傳相關資訊。</p>
+<h1 id="架構"><a href="#架構" class="headerlink" title="架構"></a>架構</h1><p>這邊直接使用下圖來瞭解一下整個架構，並且用上述的範例來解釋這些架構中的角色分別扮演什麼元件</p>
+<p>圖中總共有六個名詞(角色)，分別是</p>
+<ol>
+<li>API Server</li>
+<li>Service Catalog</li>
+<li>Serivce Broker</li>
+<li>Open Service Broker API</li>
+<li>Application</li>
+<li>Managed Service<br><img src="https://i.imgur.com/jhEXwKN.png" alt><br>上圖節錄自<a href="https://kubernetes.io/docs/concepts/extend-kubernetes/service-catalog/" target="_blank" rel="noopener">kubernetes service catalog</a></li>
+</ol>
+<p>首先 <strong>Serivce Broker</strong> 可以想成是 <strong>AWS</strong> 的角色，而 <strong>Managed Serivce</strong> 就是上述範例中要求的 <strong>Redis</strong> 或是 <strong>Database</strong>。</p>
+<p>所以可以看到 <strong>Service Broker</strong> 跟 <strong>Managed Service</strong> 是屬於同一個方框。</p>
+<p>接下來可以看到 <strong>API Server</strong>， 這邊指的就是 <strong>kubernetes API server</strong>，旁邊的 <strong>Service Catalog</strong> 代表的是一個運行於 <strong>Kubernetes</strong> 內的 Controller，主要是 <strong>Service Catalog</strong> 這個專案的應用程式。</p>
+<p>接下來中間有一個 <strong>OPen Service Broker API</strong> 則是一個標準 API，<strong>Service Catalog</strong> 利用此標準與各式各樣的 <strong>Service Broker</strong> 溝通，這意味者任何的服務供應商只要有實作一個基於 <strong>Open Service Broken API</strong>，就可以跟 <strong>Kubernetes Serivce Catalog</strong> 直接整合使用，不需要額外的程式碼修正或是更新。</p>
+<p>最後的 <strong>Application</strong> 就是上述開發者的應用程式。</p>
+<p>接下來把上述圖片中的一些連線關係講得更清楚一些，代表什麼意思。</p>
+<ol>
+<li>API Server <--> Serive Catalog<br>Service Catalog Controller 本身實作了新的 <strong>kubernetes API</strong> 以及支援其他資源，譬如 <strong>ServiceInstance, ServiceBinding</strong> 等。所以本身也會跟 <strong>kubernetes API</strong> 互動來處理各式各樣資源的創造。</--></li>
+<li>Service Catalog <---> Service Broker A<br>Service Catalog Controller 會透過 Open Service Broker API 與 Broker 溝通，主要有三個功能需要透過該API來處理<ul>
+<li>詢問對方有提供什麼服務可用</li>
+<li>請對方幫忙創建服務(譬如創建 Redis，這個動作稱為 Provision)</li>
+<li>請對方提供該服務的連線資訊，譬如帳號密碼， URL 等(這個動作稱為 Binding)</li>
+</ul>
+</---></li>
+<li>Service Catalog <---> Application<br>當 Service Catalog 透過 API 創建好相關的資源，並且透過 <strong>Bind</strong> 取得資訊，就可以把這些資訊傳遞應用程式，透過 <strong>kubernetes secret</strong> 的方式讓應用程式使用</---></li>
+<li>Appliction <---> Managed Service<br>當應用程式透過 <strong>kubernetes secret</strong> 取得服務的資訊後，就可以正式的連接到遠方 Service Broker 所創建的資源，這個連線指的就是應用程式與服務的連線。</---></li>
+</ol>
+<p>有興趣的歡迎觀賞這個影片 <a href="https://www.youtube.com/watch?v=bm59dpmMhAk" target="_blank" rel="noopener">Intro: Service Catalog SIG - Jonathan Berkhahn, IBM &amp; Carolyn Van Slyck, Microsoft Azure</a>，裡面介紹了這個功能的起源，以及怎麼使用。</p>
+<h1 id="範例"><a href="#範例" class="headerlink" title="範例"></a>範例</h1><p>接下來打算使用一個範例來分享到底使用起來會是什麼樣的情境，本範例基於<a href="https://svc-cat.io/docs/walkthrough/#step-1---installing-the-ups-broker-server" target="_blank" rel="noopener">Service Catalog Walkthrough</a></p>
+<h2 id="安裝-Service-Catalog"><a href="#安裝-Service-Catalog" class="headerlink" title="安裝 Service Catalog"></a>安裝 Service Catalog</h2><p>可以透過 <strong>helm</strong> 的方式來安裝 <strong>Service Catalog</strong> 的服務<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ helm repo add svc-cat https://svc-catalog-charts.storage.googleapis.com</span><br><span class="line">$ helm install svc-cat/catalog --name catalog --namespace catalog</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ kubectl api-resources | grep servicecatalog.k8s</span><br><span class="line">clusterservicebrokers                          servicecatalog.k8s.io          <span class="literal">false</span>        ClusterServiceBroker</span><br><span class="line">clusterserviceclasses                          servicecatalog.k8s.io          <span class="literal">false</span>        ClusterServiceClass</span><br><span class="line">clusterserviceplans                            servicecatalog.k8s.io          <span class="literal">false</span>        ClusterServicePlan</span><br><span class="line">servicebindings                                servicecatalog.k8s.io          <span class="literal">true</span>         ServiceBinding</span><br><span class="line">servicebrokers                                 servicecatalog.k8s.io          <span class="literal">true</span>         ServiceBroker</span><br><span class="line">serviceclasses                                 servicecatalog.k8s.io          <span class="literal">true</span>         ServiceClass</span><br><span class="line">serviceinstances                               servicecatalog.k8s.io          <span class="literal">true</span>         ServiceInstance</span><br><span class="line">serviceplans                                   servicecatalog.k8s.io          <span class="literal">true</span>         ServicePlan</span><br></pre></td></tr></table></figure></p>
+<p>可以觀察到安裝完畢之後，系統上多出了不少相關的定義，包含了 <strong>serviceborkers</strong>, <strong>serviceclasses</strong>, <strong>serviceinstances</strong> 等各類資訊</p>
+<h2 id="安裝minibroker"><a href="#安裝minibroker" class="headerlink" title="安裝minibroker"></a>安裝minibroker</h2><p>接下來機會安裝一個基於測試開發用的 <strong>Serive Broker</strong>, minibroker</p>
+<p>這部分也可以透過 <strong>helm</strong> 的方式進行安裝<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">helm repo add minibroker https://minibroker.blob.core.windows.net/charts</span><br><span class="line">helm install --name minibroker --namespace minibroker minibroker/minibroker</span><br></pre></td></tr></table></figure></p>
+<p>接者我們就可以觀察上述的這些資源，來瞭解目前多了哪些資源可以用<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl get --all-namespaces clusterservicebrokers</span><br><span class="line">NAME         URL                                                         STATUS   AGE</span><br><span class="line">minibroker   http://minibroker-minibroker.minibroker.svc.cluster.local   Ready    65m</span><br></pre></td></tr></table></figure></p>
+<p>首先透過 <strong>clusterservicebrokers</strong> 可以看到有一個新增的 <strong>service broker</strong>，包含對應的 <strong>URL</strong>，這部分是用 <strong>Kubernetes service</strong> 與 <strong>DNS</strong> 來處理連接行為的。</p>
+<p>接下來看一下這個 <strong>minibroker</strong> 提供什麼服務可以創造<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl get --all-namespaces clusterserviceclasses</span><br><span class="line">NAME         EXTERNAL-NAME   BROKER       AGE</span><br><span class="line">mariadb      mariadb         minibroker   66m</span><br><span class="line">mongodb      mongodb         minibroker   66m</span><br><span class="line">mysql        mysql           minibroker   66m</span><br><span class="line">postgresql   postgresql      minibroker   66m</span><br><span class="line">redis        redis           minibroker   66m</span><br></pre></td></tr></table></figure></p>
+<p>透過觀察 <strong>clusterserviceclasses</strong> 可以看到提供了五種類型，四種資料庫搭配一個 Redis 來創建，非常的有趣是吧</p>
+<p>這邊的 <strong>class</strong> 代表是類別，接下來可以透過 <strong>plan</strong> 的方式看到更細緻的資訊<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl get --all-namespaces clusterserviceplans  | grep redis</span><br><span class="line">redis-3-2-9                3-2-9              minibroker   redis        72m</span><br><span class="line">redis-4-0-10               4-0-10             minibroker   redis        72m</span><br><span class="line">redis-4-0-10-debian-9      4-0-10-debian-9    minibroker   redis        72m</span><br><span class="line">redis-4-0-11               4-0-11             minibroker   redis        72m</span><br><span class="line">redis-4-0-12               4-0-12             minibroker   redis        72m</span><br><span class="line">redis-4-0-13               4-0-13             minibroker   redis        72m</span><br><span class="line">redis-4-0-14               4-0-14             minibroker   redis        72m</span><br><span class="line">redis-4-0-2                4-0-2              minibroker   redis        72m</span><br><span class="line">redis-4-0-6                4-0-6              minibroker   redis        72m</span><br><span class="line">redis-4-0-7                4-0-7              minibroker   redis        72m</span><br><span class="line">redis-4-0-8                4-0-8              minibroker   redis        72m</span><br><span class="line">redis-4-0-9                4-0-9              minibroker   redis        72m</span><br><span class="line">redis-5-0-4                5-0-4              minibroker   redis        72m</span><br><span class="line">redis-5-0-5                5-0-5              minibroker   redis        72m</span><br></pre></td></tr></table></figure></p>
+<p>各種版本的 <strong>Redis</strong> 都有提供，接下來我們就用範例試試看來創建這些資源</p>
+<h2 id="Provision"><a href="#Provision" class="headerlink" title="Provision"></a>Provision</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">servicecatalog.k8s.io/v1beta1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">ServiceInstance</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">mini-instance</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">test-ns</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">clusterServiceClassExternalName:</span> <span class="string">mariadb</span></span><br><span class="line">  <span class="attr">clusterServicePlanExternalName:</span> <span class="number">10</span><span class="number">-1</span><span class="number">-26</span></span><br><span class="line">  <span class="attr">parameters:</span></span><br><span class="line">    <span class="attr">param-1:</span> <span class="string">value-1</span></span><br><span class="line">    <span class="attr">param-2:</span> <span class="string">value-2</span></span><br></pre></td></tr></table></figure>
+<p>上述的 <strong>yaml</strong> 描述了需要的資源 <strong>mariadb</strong> 以及對應的版本 <strong>10-1-26</strong>，同時若該服務有額外參數可以傳遞，也可以透過 <strong>parameters</strong> 一併傳送到最後的 <strong>service broker</strong> 去處理。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl get --all-namespaces serviceinstances</span><br><span class="line">NAMESPACE   NAME            CLASS                         PLAN      STATUS   AGE</span><br><span class="line"><span class="built_in">test</span>-ns     mini-instance   ClusterServiceClass/mariadb   10-1-26   Ready    39m</span><br></pre></td></tr></table></figure>
+<p>這時候只有單純的資源創造，還沒有對應的連線資訊，所以接下來透過 <strong>binding</strong> 的方式來處理</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">servicecatalog.k8s.io/v1beta1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">ServiceBinding</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">mini-binding</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">test-ns</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">instanceRef:</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">mini-instance</span></span><br></pre></td></tr></table></figure>
+<p>非常簡單的格式，最重要的時一但這個資源創建完畢後，系統也會順便產生一個 <strong>secret</strong> 來放置相關的資訊<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl -n <span class="built_in">test</span>-ns describe secret mini-binding</span><br><span class="line">Name:         mini-binding</span><br><span class="line">Namespace:    <span class="built_in">test</span>-ns</span><br><span class="line">Labels:       &lt;none&gt;</span><br><span class="line">Annotations:  &lt;none&gt;</span><br><span class="line"></span><br><span class="line">Type:  Opaque</span><br><span class="line"></span><br><span class="line">Data</span><br><span class="line">====</span><br><span class="line">username:               4 bytes</span><br><span class="line">Protocol:               5 bytes</span><br><span class="line">host:                   49 bytes</span><br><span class="line">mariadb-password:       10 bytes</span><br><span class="line">mariadb-root-password:  10 bytes</span><br><span class="line">password:               10 bytes</span><br><span class="line">port:                   4 bytes</span><br><span class="line">uri:                    78 bytes</span><br></pre></td></tr></table></figure></p>
+<p>可以看到這時候系統上產生了對應的資訊，接下來我們嘗試看看這些數值<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl -n <span class="built_in">test</span>-ns get secret mini-binding -o json  | jq <span class="string">'.data | map_values(@base64d)'</span></span><br><span class="line">&#123;</span><br><span class="line">  <span class="string">"Protocol"</span>: <span class="string">"mysql"</span>,</span><br><span class="line">  <span class="string">"host"</span>: <span class="string">"eager-greyhound-mariadb.test-ns.svc.cluster.local"</span>,</span><br><span class="line">  <span class="string">"mariadb-password"</span>: <span class="string">"cWmMvYGu9W"</span>,</span><br><span class="line">  <span class="string">"mariadb-root-password"</span>: <span class="string">"E8KJnmqrrt"</span>,</span><br><span class="line">  <span class="string">"password"</span>: <span class="string">"E8KJnmqrrt"</span>,</span><br><span class="line">  <span class="string">"port"</span>: <span class="string">"3306"</span>,</span><br><span class="line">  <span class="string">"uri"</span>: <span class="string">"mysql://root:E8KJnmqrrt@eager-greyhound-mariadb.test-ns.svc.cluster.local:3306"</span>,</span><br><span class="line">  <span class="string">"username"</span>: <span class="string">"root"</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>這邊可以看到各種連線的資訊，同時也可以觀察 pod 的資訊<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl -n <span class="built_in">test</span>-ns get all</span><br><span class="line">NAME                                           READY   STATUS    RESTARTS   AGE</span><br><span class="line">pod/eager-greyhound-mariadb-647888fb8b-gdcf8   1/1     Running   0          72m</span><br><span class="line"></span><br><span class="line">NAME                              TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE</span><br><span class="line">service/eager-greyhound-mariadb   ClusterIP   10.103.69.162   &lt;none&gt;        3306/TCP   72m</span><br><span class="line"></span><br><span class="line">NAME                                      READY   UP-TO-DATE   AVAILABLE   AGE</span><br><span class="line">deployment.apps/eager-greyhound-mariadb   1/1     1            1           72m</span><br><span class="line"></span><br><span class="line">NAME                                                 DESIRED   CURRENT   READY   AGE</span><br><span class="line">replicaset.apps/eager-greyhound-mariadb-647888fb8b   1         1         1       72m</span><br></pre></td></tr></table></figure></p>
+<p>可以看到創建了 deployment 以及 service 來幫忙完成這些資源的連動。</p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>本篇介紹的 <strong>Service Catalog</strong> 可以讓管理者直接在 <strong>Kubernetes</strong> 內直接去得到需要的服務資源，譬如 <strong>Redis</strong> 或是資料庫之類的，當然資源的多寡還是依據每家 <strong>Service Broker</strong> 去設計與處理，通過這個方式也是可以拿到 <strong>IaaC</strong> 的架構來建置服務。</p>
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ul>
+<li><a href="https://kubernetes.io/docs/concepts/extend-kubernetes/service-catalog/" target="_blank" rel="noopener">https://kubernetes.io/docs/concepts/extend-kubernetes/service-catalog/</a></li>
+<li><a href="https://www.youtube.com/watch?v=bm59dpmMhAk" target="_blank" rel="noopener">https://www.youtube.com/watch?v=bm59dpmMhAk</a></li>
+<li><a href="https://svc-cat.io" target="_blank" rel="noopener">https://svc-cat.io</a></li>
+<li><a href="https://svc-cat.io/docs/install/" target="_blank" rel="noopener">https://svc-cat.io/docs/install/</a></li>
+<li><a href="https://svc-cat.io/docs/walkthrough/#step-4---creating-a-new-serviceinstance" target="_blank" rel="noopener">https://svc-cat.io/docs/walkthrough/#step-4---creating-a-new-serviceinstance</a></li>
+</ul>
+
+      
+    </div>
+
+    
+      
+
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/aks-cni-i.html" rel="bookmark">Azure Kubernetes Service (AKS) - CNI (I)</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/cert-manager.html" rel="bookmark">Automatically Renew Your Certificated in kubernetes by Cert-Manager</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/cni-experience.html" rel="bookmark">CNI 閒談</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/cni-compare.html" rel="bookmark">常見 CNI (Container Network Interface) Plugin 介紹</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/cni-flannel-i.html" rel="bookmark">CNI - Flannel - 安裝設定篇</a></div>
+      
+    </li>
+  
+  </ul>
+
+
+    
+
+    
+    
+    
+
+    
+
+    
+
+    
+      <div>
+        <ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>Post author:  </strong>Hwchiu</li>
+  <li class="post-copyright-link">
+    <strong>Post link: </strong>
+    <a href="https://www.hwchiu.com/k8s-service-catalog.html" title="Service Catalog">https://www.hwchiu.com/k8s-service-catalog.html</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="external nofollow" target="_blank">CC BY-NC-SA 4.0</a> unless stating additionally.</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+          
+            <a href="/tags/ServiceCatalog/" rel="tag"># ServiceCatalog</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/k8s-operator-pattern.html" rel="next" title="Kubernetes - Operator Pattern 介紹">
+                <i class="fa fa-chevron-left"></i> Kubernetes - Operator Pattern 介紹
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/k8s-security.html" rel="prev" title="Kubernetes Container Security 探討">
+                Kubernetes Container Security 探討 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar.jpg" alt="Hwchiu">
+            
+              <p class="site-author-name" itemprop="name">Hwchiu</p>
+              <p class="site-description motion-element" itemprop="description">kubernetes/SDN/DevOps</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">201</span>
+                    <span class="site-state-item-name">posts</span>
+                  </a>
+                </div>
+              
+
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">106</span>
+                    <span class="site-state-item-name">tags</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  <a href="https://github.com/hwchiu" target="_blank" title="Github" rel="external nofollow"><i class="fa fa-fw fa-github"></i>Github</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.linkedin.com/in/hung-wei-chiu-52561494/" target="_blank" title="Linkedin" rel="external nofollow"><i class="fa fa-fw fa-linkedin"></i>Linkedin</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="mailto:sppsorrg@gmail.com" target="_blank" title="E-Mail" rel="external nofollow"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://twitter.com/hw_chiu" target="_blank" title="Twitter" rel="external nofollow"><i class="fa fa-fw fa-twitter"></i>Twitter</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.facebook.com/hongwei.qiu" target="_blank" title="FB Page" rel="external nofollow"><i class="fa fa-fw fa-facebook"></i>FB Page</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://instagram.com/hwchiu" target="_blank" title="Instagram" rel="external nofollow"><i class="fa fa-fw fa-instagram"></i>Instagram</a>
+                  
+                </span>
+              
+            </div>
+          
+
+          
+          
+
+          
+
+    <div class="links-of-blogroll motion-element links-of-blogroll-block">
+      <div class="links-of-blogroll-title">
+        <!-- modify icon to fire by szw -->
+        <i class="fa fa-history fa-" aria-hidden="true"></i>
+        Recent Posts
+      </div>
+      <ul class="links-of-blogroll-list">
+        
+        
+          <li>
+            <a href="/ipvs-4.html" title="IPvS 學習手冊(四)" target="_blank">IPvS 學習手冊(四)</a>
+          </li>
+        
+          <li>
+            <a href="/gitops.html" title="淺談 GitOps 的概念" target="_blank">淺談 GitOps 的概念</a>
+          </li>
+        
+          <li>
+            <a href="/iptables-1.html" title="初探 IPTABLES 流動之路 - 以 Docker 為範例" target="_blank">初探 IPTABLES 流動之路 - 以 Docker 為範例</a>
+          </li>
+        
+          <li>
+            <a href="/k8s-course-2.html" title="Kubernetes 線上課程 - CI/CD" target="_blank">Kubernetes 線上課程 - CI/CD</a>
+          </li>
+        
+          <li>
+            <a href="/ipvs-3.html" title="IPvS 學習手冊(三)" target="_blank">IPvS 學習手冊(三)</a>
+          </li>
+        
+      </ul>
+    </div>
+
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                Friends
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.evanlin.com/" title="KKDAI 大大" target="_blank">KKDAI 大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://kairen.github.io/" title="凱仁大大" target="_blank">凱仁大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.pichuang.com.tw/" title="小飛機" target="_blank">小飛機</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/cloudnative.tw/" title="CNTUG" target="_blank">CNTUG</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/sdnds.tw/" title="SDNDS-TW" target="_blank">SDNDS-TW</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://medium.com/@yayajacky" title="Jack" target="_blank">Jack</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#介紹"><span class="nav-number">2.</span> <span class="nav-text">介紹</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#架構"><span class="nav-number">3.</span> <span class="nav-text">架構</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#範例"><span class="nav-number">4.</span> <span class="nav-text">範例</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#安裝-Service-Catalog"><span class="nav-number">4.1.</span> <span class="nav-text">安裝 Service Catalog</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#安裝minibroker"><span class="nav-number">4.2.</span> <span class="nav-text">安裝minibroker</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Provision"><span class="nav-number">4.3.</span> <span class="nav-text">Provision</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">5.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#參考"><span class="nav-number">6.</span> <span class="nav-text">參考</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+
+  
+
+  
+</div>
+
+
+  
+
+
+
+  <div class="powered-by">Powered by <a class="theme-link" target="_blank" rel="external nofollow" href="https://hexo.io">Hexo</a> v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme &mdash; <a class="theme-link" target="_blank" rel="external nofollow" href="https://theme-next.org">NexT.Pisces</a> v6.3.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+	
+    
+
+    
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=6.3.0"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=6.3.0"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=6.3.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=6.3.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=6.3.0"></script>
+
+
+
+  
+
+  
+    <script id="dsq-count-scr" src="https://hwchiublog.disqus.com/count.js" async></script>
+  
+
+  
+    <script type="text/javascript">
+      var disqus_config = function () {
+        this.page.url = 'https://www.hwchiu.com/k8s-service-catalog.html';
+        this.page.identifier = 'k8s-service-catalog.html';
+        this.page.title = 'Service Catalog';
+        };
+      function loadComments () {
+        var d = document, s = d.createElement('script');
+        s.src = 'https://hwchiublog.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', '' + +new Date());
+        (d.head || d.body).appendChild(s);
+      }
+      
+        loadComments();
+      
+    </script>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  <style>
+    .copy-btn {
+      display: inline-block;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 20px;
+      color: #333;
+      white-space: nowrap;
+      vertical-align: middle;
+      cursor: pointer;
+      background-color: #eee;
+      background-image: linear-gradient(#fcfcfc, #eee);
+      border: 1px solid #d5d5d5;
+      border-radius: 3px;
+      user-select: none;
+      outline: 0;
+    }
+
+    .highlight-wrap .copy-btn {
+      transition: opacity .3s ease-in-out;
+      opacity: 0;
+      padding: 2px 6px;
+      position: absolute;
+      right: 4px;
+      top: 8px;
+    }
+
+    .highlight-wrap:hover .copy-btn,
+    .highlight-wrap .copy-btn:focus {
+      opacity: 1
+    }
+
+    .highlight-wrap {
+      position: relative;
+    }
+  </style>
+  <script>
+    $('.highlight').each(function (i, e) {
+      var $wrap = $('<div>').addClass('highlight-wrap')
+      $(e).after($wrap)
+      $wrap.append($('<button>').addClass('copy-btn').append('Copy').on('click', function (e) {
+        var code = $(this).parent().find('.code').find('.line').map(function (i, e) {
+          return $(e).text()
+        }).toArray().join('\n')
+        var ta = document.createElement('textarea')
+        document.body.appendChild(ta)
+        ta.style.position = 'absolute'
+        ta.style.top = '0px'
+        ta.style.left = '0px'
+        ta.value = code
+        ta.select()
+        ta.focus()
+        var result = document.execCommand('copy')
+        document.body.removeChild(ta)
+        
+        $(this).blur()
+      })).on('mouseleave', function (e) {
+        var $b = $(this).find('.copy-btn')
+        setTimeout(function () {
+          $b.text('Copy')
+        }, 300)
+      }).append(e)
+    })
+  </script>
+
+
+</body>
+</html>

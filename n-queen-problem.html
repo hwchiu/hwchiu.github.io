@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="en">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=6.3.0" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.3.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.3.0" color="#222">
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.3.0',
+    sidebar: {"position":"left","display":"always","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="本文介紹一個常見也是著名的演算法題目， N-Queue(N皇后),該題目假設在一個 NxN的棋盤上面，想求得總共有多少種的辦法去放置 N 的皇后且這些皇后彼此都不會互相影響，影響的定義則是上下左右直線，以及左下右上斜線總共六條斜線中都不能有其他的皇后。 這個經典問題有非常多種的解決方法，最簡單的就是透過遞迴配上剪枝來加速，然而在N過大的時候，盤面的數量太多，每次的運算都太花時間會導致整體求解速度過">
+<meta name="keywords" content="NQueen,N Queen, Algorithm, c++">
+<meta property="og:type" content="article">
+<meta property="og:title" content="N-Queen problem">
+<meta property="og:url" content="https://www.hwchiu.com/n-queen-problem.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文介紹一個常見也是著名的演算法題目， N-Queue(N皇后),該題目假設在一個 NxN的棋盤上面，想求得總共有多少種的辦法去放置 N 的皇后且這些皇后彼此都不會互相影響，影響的定義則是上下左右直線，以及左下右上斜線總共六條斜線中都不能有其他的皇后。 這個經典問題有非常多種的解決方法，最簡單的就是透過遞迴配上剪枝來加速，然而在N過大的時候，盤面的數量太多，每次的運算都太花時間會導致整體求解速度過">
+<meta property="og:locale" content="en">
+<meta property="og:updated_time" content="2020-08-31T01:59:56.733Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="N-Queen problem">
+<meta name="twitter:description" content="本文介紹一個常見也是著名的演算法題目， N-Queue(N皇后),該題目假設在一個 NxN的棋盤上面，想求得總共有多少種的辦法去放置 N 的皇后且這些皇后彼此都不會互相影響，影響的定義則是上下左右直線，以及左下右上斜線總共六條斜線中都不能有其他的皇后。 這個經典問題有非常多種的解決方法，最簡單的就是透過遞迴配上剪枝來加速，然而在N過大的時候，盤面的數量太多，每次的運算都太花時間會導致整體求解速度過">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="Hwchiu Learning Note" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://www.hwchiu.com/n-queen-problem.html">
+
+
+
+<script type="text/javascript" id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>N-Queen problem | Hwchiu Learning Note</title>
+  
+<script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '',
+      xfbml      : true,
+      version    : 'v2.10'
+    });
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "//connect.facebook.net/en/sdk.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+</script>
+
+
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-54006186-1');
+</script>
+
+
+
+
+
+
+  <noscript>
+  <style type="text/css">
+    .use-motion .motion-element,
+    .use-motion .brand,
+    .use-motion .menu-item,
+    .sidebar-inner,
+    .use-motion .post-block,
+    .use-motion .pagination,
+    .use-motion .comments,
+    .use-motion .post-header,
+    .use-motion .post-body,
+    .use-motion .collection-title { opacity: initial; }
+
+    .use-motion .logo,
+    .use-motion .site-title,
+    .use-motion .site-subtitle {
+      opacity: initial;
+      top: initial;
+    }
+
+    .use-motion {
+      .logo-line-before i { left: initial; }
+      .logo-line-after i { right: initial; }
+    }
+  </style>
+</noscript>
+
+  <script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({
+          google_ad_client: "ca-pub-1100711228720990",
+          enable_page_level_ads: true
+     });
+</script>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="en">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Hwchiu Learning Note</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</h1>
+      
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="Toggle navigation bar">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+    <a href="/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-home"></i> <br>Home</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+    <a href="/about/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-user"></i> <br>About</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+    <a href="/tags/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>Tags</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+    <a href="/archives/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>Archives</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-sitemap">
+    <a href="/sitemap.xml" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-sitemap"></i> <br>Sitemap</a>
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+  
+  
+  
+    
+      
+    
+    <a href="https://github.com/hwchiu" class="github-corner" target="_blank" title="Follow me on GitHub" aria-label="Follow me on GitHub"><svg width="80" height="80" viewbox="0 0 250 250" style="fill:#222; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg>
+    
+      </a>
+    
+
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/n-queen-problem.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">N-Queen problem
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+
+              
+                
+              
+
+              <time title="Created: 2014-09-19 09:01:00" itemprop="dateCreated datePublished" datetime="2014-09-19T09:01:00-07:00">2014-09-19</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">Edited on</span>
+                
+                <time title="Modified: 2020-08-30 18:59:56" itemprop="dateModified" datetime="2020-08-30T18:59:56-07:00">2020-08-30</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/n-queen-problem.html#comments" itemprop="discussionUrl">
+                
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="n-queen-problem.html" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+              <div class="post-description">本文介紹一個常見也是著名的演算法題目， N-Queue(N皇后),該題目假設在一個 NxN的棋盤上面，想求得總共有多少種的辦法去放置 N 的皇后且這些皇后彼此都不會互相影響，影響的定義則是上下左右直線，以及左下右上斜線總共六條斜線中都不能有其他的皇后。 這個經典問題有非常多種的解決方法，最簡單的就是透過遞迴配上剪枝來加速，然而在N過大的時候，盤面的數量太多，每次的運算都太花時間會導致整體求解速度過慢。因此本文使用基於 Bit 為單位的方式去進行運算，能夠更快速的求出答案。</div>
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>在成功嶺新訓得十六天，為了不讓自己的腦袋沒有運轉，上課的時候我就到處找東西想，腦中第一個想到可以動腦的題目就是Ｎ皇后</p>
+<p>N皇后是一個經典的題目，最初是8皇后，後來被推廣至Ｎ皇后，想要瞭解此題目的規則可以參考<a href="http://zh.wikipedia.org/wiki/%E5%85%AB%E7%9A%87%E5%90%8E%E9%97%AE%E9%A2%98" target="_blank" rel="noopener">八皇后問題</a></p>
+<p>此題目最直覺的解決方法就是Backtracking，去枚舉所有可能性，對於每種可能性檢查是否合法，這部分可以透過一些機制來達到剪枝的效果，藉此減少運算次數已提升運算速度。<br>由於之前跟Ensky一起合作寫<a href="https://github.com/ensky/GroundGame-scheduler" target="_blank" rel="noopener">大地遊戲產生器</a>時，我有嘗試使用bitwise的架構來進行加速，因此這次我決定在成功嶺上課的時間，想辦法把N皇后的問題也用bitwise的方式來處理。</p>
+<p>雖然以前就知道N皇后有用bitwise的方式來運算，但是這次想要靠自己慢慢思考，去想出每一個步驟來解決此問題。因此我就在成功嶺上課的過程中，將程式碼給手寫下來，待新訓結束後趕緊來測試結果。</p>
+<h1 id="Algorithm"><a href="#Algorithm" class="headerlink" title="Algorithm"></a>Algorithm</h1><p>在原本沒有加速的版本中，我們會使用<strong>2D Array</strong>來表示當前的盤面，每次選擇下一個皇后位置時，都會根據此盤面來選擇一個合法的位置。再選擇一個合法的位置時，不但要確認該col上是否已經有放過，還要檢查是否有斜線通過，這部分算法中比較麻煩的部分。<br>再<strong>Bitwise</strong>的版本中，我們不使用<strong>2D Array</strong>來表示盤面，而是使用一個整數的bit來表示當前盤面的狀況，利用0與1分別代表是否有放置皇后，舉例來說，以6X6的盤面來講，<strong>001001</strong>就代表者第三個col跟第六個col上都有皇后存在。這邊我使用了三個變數，分別是<strong>position</strong>,<strong>left</strong>,<strong>right</strong>三個變數來記錄盤面上的可能性。<strong>position</strong>紀錄的是皇后在哪些col上面有放置，<strong>left</strong>紀錄的是所有皇后左對角線的位置而<strong>right</strong>則是所有皇后右對角線的位置。<br>以下面5X5的圖為例。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">10000</span><br><span class="line">00100</span><br><span class="line">00001</span><br><span class="line">01000</span><br><span class="line">00010</span><br></pre></td></tr></table></figure></p>
+<p>此圖中1代表皇后的位置，所以第一個row中，皇后放到第一個col，第二個row中，皇后放到第三個col的位置，以此類推。在這種情況下，我們要如何用剛剛所說的三個整數來描述此情況。這邊我們會採取漸進式的方式來描述此三個變數，一開始只有第一個row，接下來是包含了前兩個row，再來就前三個row，以此類推。</p>
+<h2 id="第一回合"><a href="#第一回合" class="headerlink" title="第一回合"></a>第一回合</h2><p>Position: 10000<br>Left: 00000  (因為1的左對角線就超出邊界了，所以此時的Left就是空的）<br>Right: 01000 </p>
+<h2 id="第二回合"><a href="#第二回合" class="headerlink" title="第二回合"></a>第二回合</h2><p>Position: 10100 (因為第二個row的皇后是放在第三個col，因此就跟上一回合的Position給結合)<br>Left: 01000<br>Right: 00110 (之前的Right到了這一個回合，要先往右邊移動一格，變成00100，然後第二回合的皇后所產生的右對角線則是00010，將這兩個集合起來就會變成00110)</p>
+<h2 id="第三回合"><a href="#第三回合" class="headerlink" title="第三回合"></a>第三回合</h2><p>Position: 10101<br>Left: 10010 (上一回合的Left到此回合後，就要往左移動一格）<br>Right: 00011</p>
+<h2 id="第四回合"><a href="#第四回合" class="headerlink" title="第四回合"></a>第四回合</h2><p>Position: 11101<br>Left: 10100<br>Right: 00101<br>…以此類推<br>所以目前已經想好了要如何使用三個整數的bit來表示當前盤面的情況，如果要挑選一個合法的位置，首先將<strong>Position</strong>|<strong>Left</strong>|<strong>Right</strong>給得到一個新的值，這個值中為0的bit就代表是可以用的地方，因此從這些地方來挑選下一個合法位置即可。<br>以剛剛的範例來說，過的第一回合後，<br>Position: 10000<br>Left: 00000<br>Right: 01000<br>將三個變數取ＯＲ得到新的值（101000），此值代表了第二回合要選取皇后時，第一跟第三個col都不能放皇后，只能放2,4,5,6四個col。<br>這些表達方式都釐清後，接下來最困難的就是如何自動的選出合法位置，以剛剛的範例來說(101000)，針對此範例，我們知道皇后只能放在2,4,5,6四個col，我希望能夠找出一種方法來依序取出這四個位置，並且在四個位置都去放下皇后試試看。<br>這邊最直覺的方法就是將該值(101000)不停地<strong>/2</strong>與<strong>%2</strong>，如此一來就可以知道每個bit是0還是1，但是這種方法的卻點就是要跑太多次迭代了，我希望能夠找出一個方法，該數值中有多少個0，就迭代多少次，不需要額外的次數來處理。<br>原本數值:<strong>101000</strong></p>
+<h2 id="第一次迭代"><a href="#第一次迭代" class="headerlink" title="第一次迭代"></a>第一次迭代</h2><p>這次選出了第一個0，（000001)<br>因此當前的Position就會變成 (101000) | (000001)  = 101001</p>
+<h2 id="第二次迭代"><a href="#第二次迭代" class="headerlink" title="第二次迭代"></a>第二次迭代</h2><p>這次選出了第二個0，（000010)<br>因此當前的Position就會變成 (101000) | (000010)  = 101010</p>
+<h2 id="第三次迭代"><a href="#第三次迭代" class="headerlink" title="第三次迭代"></a>第三次迭代</h2><p>這次選出了第三個0，（000100)<br>因此當前的Position就會變成 (101000) | (000100)  = 101100</p>
+<h2 id="第四次迭代"><a href="#第四次迭代" class="headerlink" title="第四次迭代"></a>第四次迭代</h2><p>這次選出了第四個0，（010000)<br>因此當前的Position就會變成 (101000) | (010000)  = 111000<br>除了更新Position，Left以及Right也都要一併更新。簡單來說，我希望依序取出bit中是0的位置。<br>這邊我使用了二補數的概念來處理，如下。<br>由於使用的是一個32bit的整數來處理，但是實際上對於8X8盤面只需要8個bit，因此在計算時，必須要注意沒有使用到超過8bit以後得值，這邊我用一個limit (11111111)來作為一個極限的判斷。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">	currentPos = position | left | right;</span><br><span class="line">	<span class="keyword">int</span> newPos;</span><br><span class="line"><span class="keyword">while</span>( currentPos &lt; limit)&#123;</span><br><span class="line">  newPos = (currentPos+<span class="number">1</span>) &amp; ~currentPos;</span><br><span class="line">  newPosition = position | newPos;</span><br><span class="line">  left = limit &amp; ((left | newPos) &lt;&lt;<span class="number">1</span>);</span><br><span class="line">  right = limit &amp; ((right | newPos) &gt;&gt;<span class="number">1</span>);</span><br><span class="line">  <span class="comment">//dosomething</span></span><br><span class="line">  currentPos = currentPos | newPos;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>這邊會將每次選到的位置都放到<strong>newPos</strong>，並用此變數來更新<strong>Position</strong>等變數，<br>最後使用<strong>currentPos</strong>來記錄還有哪些位置可以選，如此一來就能夠依序的把bit為0的位置取出來。</p>
+<p>整個程式的完整程式碼如下，執行時輸入N，此Ｎ代表的是該局為NXN的皇后。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span><span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</span><br><span class="line"><span class="keyword">int</span> limit;</span><br><span class="line"><span class="keyword">int</span> N;</span><br><span class="line"><span class="keyword">int</span> counter;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">DFS</span><span class="params">(<span class="keyword">int</span> position,<span class="keyword">int</span> left, <span class="keyword">int</span> right,<span class="keyword">int</span> depth)</span></span>&#123;</span><br><span class="line">    <span class="keyword">if</span>(depth == N)&#123;</span><br><span class="line">        counter++;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">int</span> currentPos = position | left | right;</span><br><span class="line">    <span class="keyword">int</span> newPos;</span><br><span class="line">    <span class="keyword">while</span>( currentPos &lt; limit )&#123;</span><br><span class="line">        newPos = (currentPos+<span class="number">1</span>) &amp; ~currentPos;</span><br><span class="line">        DFS( position | newPos, limit &amp; ((left | newPos)&lt;&lt;<span class="number">1</span>), limit&amp;((right | newPos)&gt;&gt;<span class="number">1</span>),depth+<span class="number">1</span>);</span><br><span class="line">        currentPos = currentPos | newPos;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="built_in">cin</span> &gt;&gt; N;</span><br><span class="line">    counter =<span class="number">0</span>;</span><br><span class="line">    limit = (<span class="number">1</span>&lt;&lt;(N))<span class="number">-1</span>;</span><br><span class="line">    DFS(<span class="number">0</span>,<span class="number">0</span>,<span class="number">0</span>,<span class="number">0</span>);</span><br><span class="line">    <span class="built_in">cout</span> &lt;&lt; counter&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+      
+    </div>
+
+    
+      
+
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/floodlights-dijkstra.html" rel="bookmark">Floodlight Dijkstra</a></div>
+      
+    </li>
+  
+  </ul>
+
+
+    
+
+    
+    
+    
+
+    
+
+    
+
+    
+      <div>
+        <ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>Post author:  </strong>Hwchiu</li>
+  <li class="post-copyright-link">
+    <strong>Post link: </strong>
+    <a href="https://www.hwchiu.com/n-queen-problem.html" title="N-Queen problem">https://www.hwchiu.com/n-queen-problem.html</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="external nofollow" target="_blank">CC BY-NC-SA 4.0</a> unless stating additionally.</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Algorithm/" rel="tag"># Algorithm</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2014-08-23-mininet-and-network-subnet.html" rel="next" title="Mininet with different network subnet">
+                <i class="fa fa-chevron-left"></i> Mininet with different network subnet
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2014-09-19-mininet-with-different-network-subnet-v2.html" rel="prev" title="Mininet with different network subnet (v2)">
+                Mininet with different network subnet (v2) <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar.jpg" alt="Hwchiu">
+            
+              <p class="site-author-name" itemprop="name">Hwchiu</p>
+              <p class="site-description motion-element" itemprop="description">kubernetes/SDN/DevOps</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">201</span>
+                    <span class="site-state-item-name">posts</span>
+                  </a>
+                </div>
+              
+
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">106</span>
+                    <span class="site-state-item-name">tags</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  <a href="https://github.com/hwchiu" target="_blank" title="Github" rel="external nofollow"><i class="fa fa-fw fa-github"></i>Github</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.linkedin.com/in/hung-wei-chiu-52561494/" target="_blank" title="Linkedin" rel="external nofollow"><i class="fa fa-fw fa-linkedin"></i>Linkedin</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="mailto:sppsorrg@gmail.com" target="_blank" title="E-Mail" rel="external nofollow"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://twitter.com/hw_chiu" target="_blank" title="Twitter" rel="external nofollow"><i class="fa fa-fw fa-twitter"></i>Twitter</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.facebook.com/hongwei.qiu" target="_blank" title="FB Page" rel="external nofollow"><i class="fa fa-fw fa-facebook"></i>FB Page</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://instagram.com/hwchiu" target="_blank" title="Instagram" rel="external nofollow"><i class="fa fa-fw fa-instagram"></i>Instagram</a>
+                  
+                </span>
+              
+            </div>
+          
+
+          
+          
+
+          
+
+    <div class="links-of-blogroll motion-element links-of-blogroll-block">
+      <div class="links-of-blogroll-title">
+        <!-- modify icon to fire by szw -->
+        <i class="fa fa-history fa-" aria-hidden="true"></i>
+        Recent Posts
+      </div>
+      <ul class="links-of-blogroll-list">
+        
+        
+          <li>
+            <a href="/ipvs-4.html" title="IPvS 學習手冊(四)" target="_blank">IPvS 學習手冊(四)</a>
+          </li>
+        
+          <li>
+            <a href="/gitops.html" title="淺談 GitOps 的概念" target="_blank">淺談 GitOps 的概念</a>
+          </li>
+        
+          <li>
+            <a href="/iptables-1.html" title="初探 IPTABLES 流動之路 - 以 Docker 為範例" target="_blank">初探 IPTABLES 流動之路 - 以 Docker 為範例</a>
+          </li>
+        
+          <li>
+            <a href="/k8s-course-2.html" title="Kubernetes 線上課程 - CI/CD" target="_blank">Kubernetes 線上課程 - CI/CD</a>
+          </li>
+        
+          <li>
+            <a href="/ipvs-3.html" title="IPvS 學習手冊(三)" target="_blank">IPvS 學習手冊(三)</a>
+          </li>
+        
+      </ul>
+    </div>
+
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                Friends
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.evanlin.com/" title="KKDAI 大大" target="_blank">KKDAI 大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://kairen.github.io/" title="凱仁大大" target="_blank">凱仁大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.pichuang.com.tw/" title="小飛機" target="_blank">小飛機</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/cloudnative.tw/" title="CNTUG" target="_blank">CNTUG</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/sdnds.tw/" title="SDNDS-TW" target="_blank">SDNDS-TW</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://medium.com/@yayajacky" title="Jack" target="_blank">Jack</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Algorithm"><span class="nav-number">2.</span> <span class="nav-text">Algorithm</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#第一回合"><span class="nav-number">2.1.</span> <span class="nav-text">第一回合</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#第二回合"><span class="nav-number">2.2.</span> <span class="nav-text">第二回合</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#第三回合"><span class="nav-number">2.3.</span> <span class="nav-text">第三回合</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#第四回合"><span class="nav-number">2.4.</span> <span class="nav-text">第四回合</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#第一次迭代"><span class="nav-number">2.5.</span> <span class="nav-text">第一次迭代</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#第二次迭代"><span class="nav-number">2.6.</span> <span class="nav-text">第二次迭代</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#第三次迭代"><span class="nav-number">2.7.</span> <span class="nav-text">第三次迭代</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#第四次迭代"><span class="nav-number">2.8.</span> <span class="nav-text">第四次迭代</span></a></li></ol></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+
+  
+
+  
+</div>
+
+
+  
+
+
+
+  <div class="powered-by">Powered by <a class="theme-link" target="_blank" rel="external nofollow" href="https://hexo.io">Hexo</a> v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme &mdash; <a class="theme-link" target="_blank" rel="external nofollow" href="https://theme-next.org">NexT.Pisces</a> v6.3.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+	
+    
+
+    
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=6.3.0"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=6.3.0"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=6.3.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=6.3.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=6.3.0"></script>
+
+
+
+  
+
+  
+    <script id="dsq-count-scr" src="https://hwchiublog.disqus.com/count.js" async></script>
+  
+
+  
+    <script type="text/javascript">
+      var disqus_config = function () {
+        this.page.url = 'https://www.hwchiu.com/n-queen-problem.html';
+        this.page.identifier = 'n-queen-problem.html';
+        this.page.title = 'N-Queen problem';
+        };
+      function loadComments () {
+        var d = document, s = d.createElement('script');
+        s.src = 'https://hwchiublog.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', '' + +new Date());
+        (d.head || d.body).appendChild(s);
+      }
+      
+        loadComments();
+      
+    </script>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  <style>
+    .copy-btn {
+      display: inline-block;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 20px;
+      color: #333;
+      white-space: nowrap;
+      vertical-align: middle;
+      cursor: pointer;
+      background-color: #eee;
+      background-image: linear-gradient(#fcfcfc, #eee);
+      border: 1px solid #d5d5d5;
+      border-radius: 3px;
+      user-select: none;
+      outline: 0;
+    }
+
+    .highlight-wrap .copy-btn {
+      transition: opacity .3s ease-in-out;
+      opacity: 0;
+      padding: 2px 6px;
+      position: absolute;
+      right: 4px;
+      top: 8px;
+    }
+
+    .highlight-wrap:hover .copy-btn,
+    .highlight-wrap .copy-btn:focus {
+      opacity: 1
+    }
+
+    .highlight-wrap {
+      position: relative;
+    }
+  </style>
+  <script>
+    $('.highlight').each(function (i, e) {
+      var $wrap = $('<div>').addClass('highlight-wrap')
+      $(e).after($wrap)
+      $wrap.append($('<button>').addClass('copy-btn').append('Copy').on('click', function (e) {
+        var code = $(this).parent().find('.code').find('.line').map(function (i, e) {
+          return $(e).text()
+        }).toArray().join('\n')
+        var ta = document.createElement('textarea')
+        document.body.appendChild(ta)
+        ta.style.position = 'absolute'
+        ta.style.top = '0px'
+        ta.style.left = '0px'
+        ta.value = code
+        ta.select()
+        ta.focus()
+        var result = document.execCommand('copy')
+        document.body.removeChild(ta)
+        
+        $(this).blur()
+      })).on('mouseleave', function (e) {
+        var $b = $(this).find('.copy-btn')
+        setTimeout(function () {
+          $b.text('Copy')
+        }, 300)
+      }).append(e)
+    })
+  </script>
+
+
+</body>
+</html>

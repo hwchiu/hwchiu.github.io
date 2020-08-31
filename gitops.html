@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="en">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=6.3.0" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.3.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.3.0" color="#222">
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.3.0',
+    sidebar: {"position":"left","display":"always","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="本篇文章主要跟大家介紹這幾年伴隨者 Kubernetes 出現的一個名詞 `GitOps`, 內容主要會包含1)GitOps 概念介紹 2)相關開源專案介紹">
+<meta name="keywords" content="Kubernetes,Network,Linux,Ubuntu">
+<meta property="og:type" content="article">
+<meta property="og:title" content="淺談 GitOps 的概念">
+<meta property="og:url" content="https://www.hwchiu.com/gitops.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本篇文章主要跟大家介紹這幾年伴隨者 Kubernetes 出現的一個名詞 `GitOps`, 內容主要會包含1)GitOps 概念介紹 2)相關開源專案介紹">
+<meta property="og:locale" content="en">
+<meta property="og:image" content="https://i.imgur.com/ddbE07f.png">
+<meta property="og:image" content="https://i.imgur.com/pcoqV4r.png">
+<meta property="og:image" content="https://i.imgur.com/tEvad8A.png">
+<meta property="og:image" content="https://i.imgur.com/8PYHp7u.png">
+<meta property="og:image" content="https://i.imgur.com/QPoBG3V.png">
+<meta property="og:image" content="https://i.imgur.com/IrBUV57.png">
+<meta property="og:image" content="https://i.imgur.com/mHhBL09.png">
+<meta property="og:image" content="https://i.imgur.com/DZrsRI1.png">
+<meta property="og:updated_time" content="2020-08-31T01:59:56.722Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="淺談 GitOps 的概念">
+<meta name="twitter:description" content="本篇文章主要跟大家介紹這幾年伴隨者 Kubernetes 出現的一個名詞 `GitOps`, 內容主要會包含1)GitOps 概念介紹 2)相關開源專案介紹">
+<meta name="twitter:image" content="https://i.imgur.com/ddbE07f.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="Hwchiu Learning Note" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://www.hwchiu.com/gitops.html">
+
+
+
+<script type="text/javascript" id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>淺談 GitOps 的概念 | Hwchiu Learning Note</title>
+  
+<script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '',
+      xfbml      : true,
+      version    : 'v2.10'
+    });
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "//connect.facebook.net/en/sdk.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+</script>
+
+
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-54006186-1');
+</script>
+
+
+
+
+
+
+  <noscript>
+  <style type="text/css">
+    .use-motion .motion-element,
+    .use-motion .brand,
+    .use-motion .menu-item,
+    .sidebar-inner,
+    .use-motion .post-block,
+    .use-motion .pagination,
+    .use-motion .comments,
+    .use-motion .post-header,
+    .use-motion .post-body,
+    .use-motion .collection-title { opacity: initial; }
+
+    .use-motion .logo,
+    .use-motion .site-title,
+    .use-motion .site-subtitle {
+      opacity: initial;
+      top: initial;
+    }
+
+    .use-motion {
+      .logo-line-before i { left: initial; }
+      .logo-line-after i { right: initial; }
+    }
+  </style>
+</noscript>
+
+  <script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({
+          google_ad_client: "ca-pub-1100711228720990",
+          enable_page_level_ads: true
+     });
+</script>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="en">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Hwchiu Learning Note</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</h1>
+      
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="Toggle navigation bar">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+    <a href="/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-home"></i> <br>Home</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+    <a href="/about/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-user"></i> <br>About</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+    <a href="/tags/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>Tags</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+    <a href="/archives/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>Archives</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-sitemap">
+    <a href="/sitemap.xml" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-sitemap"></i> <br>Sitemap</a>
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+  
+  
+  
+    
+      
+    
+    <a href="https://github.com/hwchiu" class="github-corner" target="_blank" title="Follow me on GitHub" aria-label="Follow me on GitHub"><svg width="80" height="80" viewbox="0 0 250 250" style="fill:#222; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg>
+    
+      </a>
+    
+
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/gitops.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">淺談 GitOps 的概念
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+
+              
+                
+              
+
+              <time title="Created: 2020-06-22 06:34:39" itemprop="dateCreated datePublished" datetime="2020-06-22T06:34:39-07:00">2020-06-22</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">Edited on</span>
+                
+                <time title="Modified: 2020-08-30 18:59:56" itemprop="dateModified" datetime="2020-08-30T18:59:56-07:00">2020-08-30</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/gitops.html#comments" itemprop="discussionUrl">
+                
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="gitops.html" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+              <div class="post-description">本篇文章主要跟大家介紹這幾年伴隨者 Kubernetes 出現的一個名詞 `GitOps`, 內容主要會包含1)GitOps 概念介紹 2)相關開源專案介紹</div>
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h1 id="介紹"><a href="#介紹" class="headerlink" title="介紹"></a>介紹</h1><p><code>GitOps</code> 這個詞就我了解，最早是由 <a href="https://www.weave.works/technologies/gitops/" target="_blank" rel="noopener">Weave Net</a> 所提出的概念，要瞭解 <code>GitOps</code>  的優劣，最好的方式還是透過比較的方式來理解 <code>GitOps</code> 與原先習慣的 <code>CI/CD</code> 部署方式的差異。</p>
+<p>註: 這邊探討的所有架構都以 Kubernetes 為主</p>
+<h2 id="傳統部署方式"><a href="#傳統部署方式" class="headerlink" title="傳統部署方式"></a>傳統部署方式</h2><p>下圖是一個常見的 <code>CD</code> 流水線流程(常見，非唯一，非絕對)<br><img src="https://i.imgur.com/ddbE07f.png" alt></p>
+<p>這個範例中，我們有一些基本元件</p>
+<ol>
+<li>Git Repo<br>這個 Git Repository 中至少會放置關於 Kubernetes 資源的描述檔案(Manifests), 可以是原生的 Yaml， Helm Charts 或是 Kustomize 的檔案。</li>
+<li>CI/CD Pipeline<br>譬如 <code>Jenkins/GitHub Action/CirecleCI</code> 等常見系統，這個 <code>Pipeline</code> 裡面會有一些工作，譬如測試，建置 Contianer Image, 更新 Container Image，以及跟 Kubernetes 溝通</li>
+<li>Operator/Devloper<br>實際上操作的人員，譬如專案開發人員或是架構維運人員。<br>對於開發人員來說，可能會透過 1) PullRequest 的產生， 2) PR 被合併或是有特定的 Tag 被產生 等諸多條件觸發 <code>CI/CD Pipeline</code> 來進行後續行為<br>對於架構維運人員來說可已透過 1)直接要求 <code>CI/CD Pipeline</code> 運行來進行後續行為 2) 直接對目標 Kubernetes Cluster 進行操控</li>
+</ol>
+<p>從上述的範例中可以看到，如果沒有嚴厲的去限制 <strong>直接對 Kubernetes 進行更新</strong> 這個行為，就有兩個不同的觸發點可以對 Kubernetes 進行更新，這種情況可能會造成的問題是<br><strong>沒有辦法控管</strong><br><strong>Kubernetes 正在運行的資源狀態 (Living Status)</strong> 與<br><strong>Kubernetes 被期望的資源狀態 (Desired Yaml)</strong> 一致<br>特別是當有人員會直接透過 <strong>kubectl edit</strong>, <strong>kubectl patch</strong> 等方式直接修改運行狀態卻又沒有要更新描述資源 (Yaml) 時更容易發生。</p>
+<p>除此之外，這個部署模型還有一個容易引人詬病的問題就是 <strong>KUBECONFIG</strong> 的散佈，為了讓外部環境(CI/CD Pipeline, 特定人員 laptop) 能夠對 Kubernetes 進行操作，必須要將連接 Kubernetes Cluster 所需要的 KUBECONFIG (Token/Credentail/API Address:Port) 等資訊給分享出去，這無疑造成了一些安全性的隱憂。<br>這意味者只要任何人有機會取得這份 <strong>KUBECONFIG</strong>，就有能力對你欲使用的 Kubernetes Cluster 進行各式各樣的操作，這部分就算透過 <strong>RBAC</strong> 去限制基本上也沒有太大用途。<br>因為你本來期望 1) CI/CD Pipeline, 2)維運人員 能夠擁有的操作權限也都一併跟者該份 KUBECONFIG 一併洩漏出去。</p>
+<p>簡單整理以下上述部署流程可能的缺失<br>1) Kubernetes Cluster 的連線資訊必須要暴露在外，一旦被外界拿到則整個 Cluster 都有被破壞的可能<br>2) 難以確保 Kubernetes 內運行的狀態與描述的資源檔案 (Yaml/Helm Chart) 一致，因為有太多地方可以進行操作</p>
+<p>接下來我們就看一下對於 <strong>GitOps</strong> 來說，要如何解決上面兩個潛在問題，並且是透過何種方式來處理。</p>
+<h2 id="GitOps"><a href="#GitOps" class="headerlink" title="GitOps"></a>GitOps</h2><p>GitOps 的概念如下圖呈現<br><img src="https://i.imgur.com/pcoqV4r.png" alt><br>與前述的部署方式最大的差距就是</p>
+<ol>
+<li>CI/CD Pipeline 內不進行任何部署動作</li>
+<li>資源的描述狀態 (Yaml/Helm Chart) 放在 Git 裡面，Git 作為 Single Source of Truth的角色</li>
+<li>Kubernetes 內部有一個 Controller 會定期去偵測 <strong>Git</strong> 的變化，並且把 <strong>Git</strong> 內的變動都更新到 Kubernetes 裡面</li>
+</ol>
+<p>這意味者任何人如果想要對 <strong>Kubernetes Cluster</strong> 進行修改，只有一個辦法就是 <strong>更新 Git Repo</strong>，一旦 <strong>Git Repo</strong> 內描述的 <strong>Yaml/Helm Chart</strong> 有任何修改，Kubernetes Cluster內的  Controller 會負責將這些變動的差異性更新到 Kubernetes Cluster 內。<br>因此 Git repo 就是唯一的來源，同時透過 Git 版本控制的特性，如果想要針對資源進行跳板, rollback 等操作，直接針對 Git 管理（譬如 git revert).</p>
+<p>此外，GitOps 的過程中，任何人都不應該直接對 Kubernetes Cluster 直接操作，因此也不需要將 KUBECONFIG 這個檔案給分享出去，因此安全性的隱憂也就迎刃而解.</p>
+<p>所以這邊針對 GitOps 下個一個總結</p>
+<ol>
+<li>KUBECONFIG 不分享出去，因此不希望任何人/環境有辦法直接從外部去操作 Kubernetes</li>
+<li>將所有描述 Kubernetes 資源狀態的檔案（Yaml/Helm Chart)用 Git 保存</li>
+<li>Kubernetes 內會安裝相對應的 controller 來監控 Git Repo 的更新並且將一切的更新都更新到 kubernetes cluster 內</li>
+<li>(可能的優勢)，透過 <strong>GitOps</strong> 這種架構，Kubernetes Cluster 本身不需要將 API Server 的存取方式給暴露出去，可以透過 Firewall 的方式把常見的 <strong>6443</strong> 連接埠給關閉，對於安全性來說也是減少了一些潛在的問題。</li>
+</ol>
+<h1 id="開源專案介紹"><a href="#開源專案介紹" class="headerlink" title="開源專案介紹"></a>開源專案介紹</h1><p>接下來我們將探討兩個有實現 GitOps 的開源專案，這邊不會有太仔細的 Demo 與操作，主要是針對架構來進行介紹，並且最後針對兩個專案進行一些比較，之後有時間會再針對這兩個專案寫篇比較細節的介紹</p>
+<h2 id="ArgoCD"><a href="#ArgoCD" class="headerlink" title="ArgoCD"></a>ArgoCD</h2><h3 id="介紹-1"><a href="#介紹-1" class="headerlink" title="介紹"></a>介紹</h3><p>ArgoCD 的架構引用其<a href="https://argoproj.github.io/argo-cd/" target="_blank" rel="noopener">官網</a></p>
+<p><img src="https://i.imgur.com/tEvad8A.png" alt></p>
+<p>這個架構圖分成幾個部分來看</p>
+<ol>
+<li><p>ArgoCD 於 Kubernetes Cluster 內安裝的服務，這些服務包含了</p>
+<ul>
+<li>Argo API Server<br>提供介面給外界操控 ArgoCD 服務，本身提供了 CLI, GUI 以及 gRPC/REST 等介面，最簡單的 Demo 可以使用 GUI 來操作。</li>
+<li>Repository Service.<br>本身作為一個遠方 <strong>Git Repo</strong> 的本地快取，主要是儲存該 <strong>Git Repo</strong> 內的資源預期檔案 (Yaml/Helm Chart)</li>
+<li>Application Controller<br>負責跟 Kubernetes 溝通，會比較 <strong>Kubernetes Cluster</strong> 內的運行狀態 (living status) 以及 <strong>Git Repository</strong> 內所描述的資源預期狀態 (Yaml/Helm Chart), 並且更新 Kubernetes Cluster 一旦發現 <strong>Git Repository</strong> 內有更動</li>
+</ul>
+</li>
+<li><p>上方的 Git Repo, 該 <strong>Git Repo</strong> 本身有兩種方式與 <strong>ArgoCD</strong> 互動</p>
+<ul>
+<li>Webhook 主動告知 ArgoCD</li>
+<li><strong>ArgoCD</strong> 本身定期去觀察 <strong>Git Repo</strong> 的狀態，並且一旦有更新就會讓 <strong>Controller</strong> 來更新相關的應用程式</li>
+</ul>
+</li>
+<li><p>左方的開發人員/維護人員，這些人員可以透過 <strong>UI/CLI/gRPC/REST</strong> 等方式來操作 <strong>ArgoCD</strong> 的服務。 </p>
+<ul>
+<li>開發人員可以透過對 <strong>Git Repo</strong> 的修改與合併來觸發 ArgoCD</li>
+<li>部署人員可以透過 <strong>UI/CLI</strong> 等方式來觀察與設定當前應用程式的狀態</li>
+</ul>
+</li>
+<li><p>左下方的是 <strong>Hook</strong> 點， <strong>ArgoCD</strong> 本身針對 <strong>Git Repo</strong> 更新前後有提供相關的 <strong>Hook</strong>，可以在這邊將相關的訊息與其他系統銜接，譬如 Slack, Webhook 等，讓你的系統能夠有辦法接收到當前部署的狀況</p>
+</li>
+<li>右下方則是目標的 <strong>Kubernetes Cluster</strong><ul>
+<li>對於 <strong>ArgoCD</strong> 來說，本身要先透過一套 <strong>Kubernetes</strong> 來架設服務，接者該 <strong>ArgoCD</strong> 可以針對不同的 <strong>Kuberentes Cluster</strong> 進行設定與存取。</li>
+<li>舉例來說，如果你環境內有多套 Kubernetes Cluster, 可以只用一套 <strong>ArgoCD</strong> 來管理這些 <strong>Kubernetes Cluster</strong>，將關注的 <strong>Git Repo</strong> 給部署到不同 <strong>Kubernetes Cluster</strong> 內的不同 namespace 下。</li>
+</ul>
+</li>
+</ol>
+<h3 id="使用範例"><a href="#使用範例" class="headerlink" title="使用範例"></a>使用範例</h3><p><a href="https://argoproj.github.io/argo-cd/getting_started/" target="_blank" rel="noopener">官網的使用範例</a>, 有興趣的可以參考連結來設定玩看看，基本上全部都是基於 GUI 來進行操作</p>
+<p>以下圖片都來自官網範例<br><img src="https://i.imgur.com/8PYHp7u.png" alt><br>上圖範例就是建立一個 Application, 其追蹤的 Git Repo 是 <code>https://github.com/argoproj/argocd-example-apps</code>，並且追蹤的是目標 Repo 的 <code>HEAD</code>(latest) branch 下的 <strong>guestbook</strong> 資料夾內的資源描述檔案.</p>
+<p>此外當有任何更新的時候，會將相關的應用程式部署到 <strong><a href="https://kubernetes.default.svc" target="_blank" rel="noopener">https://kubernetes.default.svc</a></strong> 該 <strong>API server</strong> 所對應的 <strong>Kubernetes Cluster</strong> 內，並且放到 <strong>default namespace</strong></p>
+<p><img src="https://i.imgur.com/QPoBG3V.png" alt><br>ArgoCD 本身也會透過 GUI 的方式來視覺化呈現部署的資源，包含其狀態，名稱以及彼此的關係</p>
+<h2 id="Flux"><a href="#Flux" class="headerlink" title="Flux"></a>Flux</h2><h3 id="介紹-2"><a href="#介紹-2" class="headerlink" title="介紹"></a>介紹</h3><p>Flux 的架構圖參考自其<a href="https://github.com/fluxcd/flux" target="_blank" rel="noopener">官網</a><br><img src="https://i.imgur.com/IrBUV57.png" alt></p>
+<p>Ｆlux 這個專案的開發者也就是本文一開始所提到的 <strong>Weave Net</strong> 這間公司，此專案早期與該公司的產品 <strong>Weave Cloud</strong> 有緊密的連結性，後期的開發則是逐漸讓此專案變成一個獨立專案，更能夠被應用到不同的環境之中。</p>
+<p>此專案與 <strong>ArgoCD</strong> 最大的差異性有幾點</p>
+<ol>
+<li>除了偵測 <strong>Git Repo</strong> 之外，也可以偵測 <strong>Container Image</strong> 的變動，一旦 <strong>Image 有變動</strong>，也會自行更新部署的應用程式</li>
+<li>由於 Image 版本變動造成 Kubernetes 內運行資源的更新，同時又要維持 <strong>Git Repo</strong> 是 <strong>Single Source of Truth</strong> 的概念，因此 <strong>Flex</strong> 本身會對該 <strong>Git Repo</strong> 進行修改，將相關的 <strong>Image tag</strong> 給修改並且自己上一筆 Commit</li>
+<li>由於上述需求， Flex 必要時要有能對 GitRepo 擁有寫入的權限，同時為了避免混淆整個專案， Flex會希望將 <strong>程式碼</strong> 以及 <strong>描述資源狀態的檔案(Yaml/Helm Chart)</strong> 分開放，</li>
+</ol>
+<p>所以由上方的架構圖可以看到， <strong>Flux Controller</strong> 本身會關注 1) Git Repo, 2) Container Registry。</p>
+<ul>
+<li>如果是 <strong>Git Repo</strong> 有任何更動，就將更動部署到 Kubernetes Cluster 內，與 <strong>ArgoCD</strong> 的邏輯雷同，</li>
+<li>如果是 <strong>Container Registry</strong> 有任何更動，就將更動部署到 Kubernetes Cluster 內，同時將新的版本號給寫回到關注的 <strong>Git Repo</strong> 並且產生一筆 Commit</li>
+</ul>
+<h3 id="使用範例-1"><a href="#使用範例-1" class="headerlink" title="使用範例"></a>使用範例</h3><p>有興趣的可以參考<a href="https://docs.fluxcd.io/en/latest/tutorials/get-started-helm/" target="_blank" rel="noopener">官方教學</a> 來操作，基本上指令弄過去就可以架起整個環境，此外官方也有準備示範用的 <strong>Manifest(Yaml/Helm Chart) Repo</strong>，可以非常無腦的架起整個環境來觀察這一切。</p>
+<p>整個操作結果可能如下圖<br><img src="https://i.imgur.com/mHhBL09.png" alt><br>可以看到 <strong>Flux</strong> 本身會幫忙上 Commit, 除了 <strong>自動更新版本號</strong> 之外，透過 <strong>Flux</strong> 工具對應用程式進行的任何設定修改也都會被寫回到 <strong>Git Repo</strong> 之中，非常堅持的去滿足 <strong>Git Repo is a single source of truth</strong> 的概念。</p>
+<p><img src="https://i.imgur.com/DZrsRI1.png" alt><br>上圖是個範例，當觀察的 <strong>Image Tag</strong> 出現如預期般的變化時，就會自動更新並且寫入一筆 Commit.</p>
+<h1 id="總結"><a href="#總結" class="headerlink" title="總結"></a>總結</h1><ol>
+<li>GitOps 關注的是如何自動化部署(CD)，跟 <strong>CI</strong>, <strong>Pipeline</strong> 關係不大</li>
+<li>GitOps 要求的是以 <strong>Git Repo</strong> 為來源，如果要對應用程式進版或是退版，都直接對 Git 修正即可，後續讓相關的 Controller 來幫忙同步資源狀態</li>
+<li>(個人想法): Flux 相對於 ArgoCD 來得更加強韌，除了監控 <strong>Git Repo</strong> 外也可以針對 <strong>Contaienr Image</strong> 來處理</li>
+<li>針對不能夠被外界存取的 <strong>Kubernetes Cluster</strong>來說， <strong>GitOps</strong> 的概念可以解決自動部署的困境，同時也能夠減少外洩 KUBECONFIG 這個檔案的潛在性</li>
+<li>如果對上述專案有興趣，根據官網的操作連結，大概 10mins 內就可以架起一個測試環境來玩耍</li>
+<li>Flux 本身還有更多功能，包含還可以針對特定版本鎖定，禁止任何更新等功能</li>
+</ol>
+<h1 id="工商時間"><a href="#工商時間" class="headerlink" title="工商時間"></a>工商時間</h1><p>小弟我目前有於 Hiskio 開設 Kubernetes 相關課程，目前針對主要有兩門課程，有興趣的可以參考看看</p>
+<ol>
+<li><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">Kubernetes 入門</a></li>
+</ol>
+<p>從 Container 部署談到 Kubernetes 所欲解決的問題，並且針對 運算/儲存/網路 三大區塊來介紹 Kubernetes 的設計思維 (CRI/CSI/CNI) 以及各式各樣的部署工具。 </p>
+<ol start="2">
+<li><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">CI/CD 與 Kubernetes 的議題探討</a><br>從 Manifest 的管理，自架 Kubernetes 的方式， CI pipeline 與 K8S 整合到 CD 部署的相關議題</li>
+</ol>
+<p>一次購買兩個課程可參考<a href="https://hiskio.com/packages/D7RZGWrNK" target="_blank" rel="noopener">組合包</a></p>
+<h1 id="社群資源-CNTUG-Cloud-Native-Taiwan-User-Group"><a href="#社群資源-CNTUG-Cloud-Native-Taiwan-User-Group" class="headerlink" title="社群資源 - CNTUG(Cloud Native Taiwan User Group)"></a>社群資源 - CNTUG(Cloud Native Taiwan User Group)</h1><ul>
+<li><a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA" target="_blank" rel="noopener">Youtube 議程影片紀錄</a></li>
+<li><a href="https://t.me/cntug" target="_blank" rel="noopener">Telegram</a></li>
+<li><a href="https://www.meetup.com/CloudNative-Taiwan/" target="_blank" rel="noopener">Meetup</a></li>
+<li><a href="https://github.com/cloud-native-taiwan/meetups" target="_blank" rel="noopener">每次 Meetup 投影片紀錄</a></li>
+<li><a href="https://github.com/cloud-native-taiwan/kourse" target="_blank" rel="noopener">演講相關範例程式碼與相關文章</a></li>
+</ul>
+<h1 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h1><ul>
+<li><a href="https://www.weave.works/technologies/gitops/" target="_blank" rel="noopener">https://www.weave.works/technologies/gitops/</a></li>
+<li><a href="https://argoproj.github.io/argo-cd/" target="_blank" rel="noopener">https://argoproj.github.io/argo-cd/</a></li>
+<li><a href="https://argoproj.github.io/argo-cd/getting_started/" target="_blank" rel="noopener">https://argoproj.github.io/argo-cd/getting_started/</a></li>
+<li><a href="https://fluxcd.io/" target="_blank" rel="noopener">https://fluxcd.io/</a></li>
+</ul>
+
+      
+    </div>
+
+    
+      
+
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/keel.html" rel="bookmark">[DevOps] 基於 Kubernetes 的自動部屬流程 - Keel</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/travisci-k8s.html" rel="bookmark">使用 Travis CI 為你的 Kubernetes 應用程式打造自動化測試</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/aks-cni-i.html" rel="bookmark">Azure Kubernetes Service (AKS) - CNI (I)</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/cert-manager.html" rel="bookmark">Automatically Renew Your Certificated in kubernetes by Cert-Manager</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/cni-experience.html" rel="bookmark">CNI 閒談</a></div>
+      
+    </li>
+  
+  </ul>
+
+
+    
+
+    
+    
+    
+
+    
+
+    
+
+    
+      <div>
+        <ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>Post author:  </strong>Hwchiu</li>
+  <li class="post-copyright-link">
+    <strong>Post link: </strong>
+    <a href="https://www.hwchiu.com/gitops.html" title="淺談 GitOps 的概念">https://www.hwchiu.com/gitops.html</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="external nofollow" target="_blank">CC BY-NC-SA 4.0</a> unless stating additionally.</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+          
+            <a href="/tags/CI-CD/" rel="tag"># CI/CD</a>
+          
+            <a href="/tags/GitOps/" rel="tag"># GitOps</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/iptables-1.html" rel="next" title="初探 IPTABLES 流動之路 - 以 Docker 為範例">
+                <i class="fa fa-chevron-left"></i> 初探 IPTABLES 流動之路 - 以 Docker 為範例
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/ipvs-4.html" rel="prev" title="IPvS 學習手冊(四)">
+                IPvS 學習手冊(四) <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar.jpg" alt="Hwchiu">
+            
+              <p class="site-author-name" itemprop="name">Hwchiu</p>
+              <p class="site-description motion-element" itemprop="description">kubernetes/SDN/DevOps</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">201</span>
+                    <span class="site-state-item-name">posts</span>
+                  </a>
+                </div>
+              
+
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">106</span>
+                    <span class="site-state-item-name">tags</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  <a href="https://github.com/hwchiu" target="_blank" title="Github" rel="external nofollow"><i class="fa fa-fw fa-github"></i>Github</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.linkedin.com/in/hung-wei-chiu-52561494/" target="_blank" title="Linkedin" rel="external nofollow"><i class="fa fa-fw fa-linkedin"></i>Linkedin</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="mailto:sppsorrg@gmail.com" target="_blank" title="E-Mail" rel="external nofollow"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://twitter.com/hw_chiu" target="_blank" title="Twitter" rel="external nofollow"><i class="fa fa-fw fa-twitter"></i>Twitter</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.facebook.com/hongwei.qiu" target="_blank" title="FB Page" rel="external nofollow"><i class="fa fa-fw fa-facebook"></i>FB Page</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://instagram.com/hwchiu" target="_blank" title="Instagram" rel="external nofollow"><i class="fa fa-fw fa-instagram"></i>Instagram</a>
+                  
+                </span>
+              
+            </div>
+          
+
+          
+          
+
+          
+
+    <div class="links-of-blogroll motion-element links-of-blogroll-block">
+      <div class="links-of-blogroll-title">
+        <!-- modify icon to fire by szw -->
+        <i class="fa fa-history fa-" aria-hidden="true"></i>
+        Recent Posts
+      </div>
+      <ul class="links-of-blogroll-list">
+        
+        
+          <li>
+            <a href="/ipvs-4.html" title="IPvS 學習手冊(四)" target="_blank">IPvS 學習手冊(四)</a>
+          </li>
+        
+          <li>
+            <a href="/gitops.html" title="淺談 GitOps 的概念" target="_blank">淺談 GitOps 的概念</a>
+          </li>
+        
+          <li>
+            <a href="/iptables-1.html" title="初探 IPTABLES 流動之路 - 以 Docker 為範例" target="_blank">初探 IPTABLES 流動之路 - 以 Docker 為範例</a>
+          </li>
+        
+          <li>
+            <a href="/k8s-course-2.html" title="Kubernetes 線上課程 - CI/CD" target="_blank">Kubernetes 線上課程 - CI/CD</a>
+          </li>
+        
+          <li>
+            <a href="/ipvs-3.html" title="IPvS 學習手冊(三)" target="_blank">IPvS 學習手冊(三)</a>
+          </li>
+        
+      </ul>
+    </div>
+
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                Friends
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.evanlin.com/" title="KKDAI 大大" target="_blank">KKDAI 大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://kairen.github.io/" title="凱仁大大" target="_blank">凱仁大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.pichuang.com.tw/" title="小飛機" target="_blank">小飛機</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/cloudnative.tw/" title="CNTUG" target="_blank">CNTUG</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/sdnds.tw/" title="SDNDS-TW" target="_blank">SDNDS-TW</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://medium.com/@yayajacky" title="Jack" target="_blank">Jack</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#介紹"><span class="nav-number">1.</span> <span class="nav-text">介紹</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#傳統部署方式"><span class="nav-number">1.1.</span> <span class="nav-text">傳統部署方式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#GitOps"><span class="nav-number">1.2.</span> <span class="nav-text">GitOps</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#開源專案介紹"><span class="nav-number">2.</span> <span class="nav-text">開源專案介紹</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#ArgoCD"><span class="nav-number">2.1.</span> <span class="nav-text">ArgoCD</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#介紹-1"><span class="nav-number">2.1.1.</span> <span class="nav-text">介紹</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#使用範例"><span class="nav-number">2.1.2.</span> <span class="nav-text">使用範例</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Flux"><span class="nav-number">2.2.</span> <span class="nav-text">Flux</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#介紹-2"><span class="nav-number">2.2.1.</span> <span class="nav-text">介紹</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#使用範例-1"><span class="nav-number">2.2.2.</span> <span class="nav-text">使用範例</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#總結"><span class="nav-number">3.</span> <span class="nav-text">總結</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#工商時間"><span class="nav-number">4.</span> <span class="nav-text">工商時間</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#社群資源-CNTUG-Cloud-Native-Taiwan-User-Group"><span class="nav-number">5.</span> <span class="nav-text">社群資源 - CNTUG(Cloud Native Taiwan User Group)</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Reference"><span class="nav-number">6.</span> <span class="nav-text">Reference</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+
+  
+
+  
+</div>
+
+
+  
+
+
+
+  <div class="powered-by">Powered by <a class="theme-link" target="_blank" rel="external nofollow" href="https://hexo.io">Hexo</a> v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme &mdash; <a class="theme-link" target="_blank" rel="external nofollow" href="https://theme-next.org">NexT.Pisces</a> v6.3.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+	
+    
+
+    
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=6.3.0"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=6.3.0"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=6.3.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=6.3.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=6.3.0"></script>
+
+
+
+  
+
+  
+    <script id="dsq-count-scr" src="https://hwchiublog.disqus.com/count.js" async></script>
+  
+
+  
+    <script type="text/javascript">
+      var disqus_config = function () {
+        this.page.url = 'https://www.hwchiu.com/gitops.html';
+        this.page.identifier = 'gitops.html';
+        this.page.title = '淺談 GitOps 的概念';
+        };
+      function loadComments () {
+        var d = document, s = d.createElement('script');
+        s.src = 'https://hwchiublog.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', '' + +new Date());
+        (d.head || d.body).appendChild(s);
+      }
+      
+        loadComments();
+      
+    </script>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  <style>
+    .copy-btn {
+      display: inline-block;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 20px;
+      color: #333;
+      white-space: nowrap;
+      vertical-align: middle;
+      cursor: pointer;
+      background-color: #eee;
+      background-image: linear-gradient(#fcfcfc, #eee);
+      border: 1px solid #d5d5d5;
+      border-radius: 3px;
+      user-select: none;
+      outline: 0;
+    }
+
+    .highlight-wrap .copy-btn {
+      transition: opacity .3s ease-in-out;
+      opacity: 0;
+      padding: 2px 6px;
+      position: absolute;
+      right: 4px;
+      top: 8px;
+    }
+
+    .highlight-wrap:hover .copy-btn,
+    .highlight-wrap .copy-btn:focus {
+      opacity: 1
+    }
+
+    .highlight-wrap {
+      position: relative;
+    }
+  </style>
+  <script>
+    $('.highlight').each(function (i, e) {
+      var $wrap = $('<div>').addClass('highlight-wrap')
+      $(e).after($wrap)
+      $wrap.append($('<button>').addClass('copy-btn').append('Copy').on('click', function (e) {
+        var code = $(this).parent().find('.code').find('.line').map(function (i, e) {
+          return $(e).text()
+        }).toArray().join('\n')
+        var ta = document.createElement('textarea')
+        document.body.appendChild(ta)
+        ta.style.position = 'absolute'
+        ta.style.top = '0px'
+        ta.style.left = '0px'
+        ta.value = code
+        ta.select()
+        ta.focus()
+        var result = document.execCommand('copy')
+        document.body.removeChild(ta)
+        
+        $(this).blur()
+      })).on('mouseleave', function (e) {
+        var $b = $(this).find('.copy-btn')
+        setTimeout(function () {
+          $b.text('Copy')
+        }, 300)
+      }).append(e)
+    })
+  </script>
+
+
+</body>
+</html>

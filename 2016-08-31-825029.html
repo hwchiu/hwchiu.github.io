@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="en">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=6.3.0" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.3.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.3.0" color="#222">
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.3.0',
+    sidebar: {"position":"left","display":"always","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="之前在網路上看到了一篇 papermTCP: A Highly Scalable User-level TCP Stack for Multicore Systems標題覺得還滿有趣的，就花了些時間將其看完，並且用這篇文章當作筆記 Introduction 當前的 TCP connection 中，大部分的封包都是小size的，如何快速的處理這些封包是個提升效能的重點 根據這篇論文，在特定的網路環">
+<meta name="keywords" content="System,Network,Paper">
+<meta property="og:type" content="article">
+<meta property="og:title" content="mTCP 讀後筆記">
+<meta property="og:url" content="https://www.hwchiu.com/2016-08-31-825029.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="之前在網路上看到了一篇 papermTCP: A Highly Scalable User-level TCP Stack for Multicore Systems標題覺得還滿有趣的，就花了些時間將其看完，並且用這篇文章當作筆記 Introduction 當前的 TCP connection 中，大部分的封包都是小size的，如何快速的處理這些封包是個提升效能的重點 根據這篇論文，在特定的網路環">
+<meta property="og:locale" content="en">
+<meta property="og:updated_time" content="2020-08-31T01:59:56.711Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="mTCP 讀後筆記">
+<meta name="twitter:description" content="之前在網路上看到了一篇 papermTCP: A Highly Scalable User-level TCP Stack for Multicore Systems標題覺得還滿有趣的，就花了些時間將其看完，並且用這篇文章當作筆記 Introduction 當前的 TCP connection 中，大部分的封包都是小size的，如何快速的處理這些封包是個提升效能的重點 根據這篇論文，在特定的網路環">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="Hwchiu Learning Note" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://www.hwchiu.com/2016-08-31-825029.html">
+
+
+
+<script type="text/javascript" id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>mTCP 讀後筆記 | Hwchiu Learning Note</title>
+  
+<script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '',
+      xfbml      : true,
+      version    : 'v2.10'
+    });
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "//connect.facebook.net/en/sdk.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+</script>
+
+
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-54006186-1');
+</script>
+
+
+
+
+
+
+  <noscript>
+  <style type="text/css">
+    .use-motion .motion-element,
+    .use-motion .brand,
+    .use-motion .menu-item,
+    .sidebar-inner,
+    .use-motion .post-block,
+    .use-motion .pagination,
+    .use-motion .comments,
+    .use-motion .post-header,
+    .use-motion .post-body,
+    .use-motion .collection-title { opacity: initial; }
+
+    .use-motion .logo,
+    .use-motion .site-title,
+    .use-motion .site-subtitle {
+      opacity: initial;
+      top: initial;
+    }
+
+    .use-motion {
+      .logo-line-before i { left: initial; }
+      .logo-line-after i { right: initial; }
+    }
+  </style>
+</noscript>
+
+  <script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({
+          google_ad_client: "ca-pub-1100711228720990",
+          enable_page_level_ads: true
+     });
+</script>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="en">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Hwchiu Learning Note</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</h1>
+      
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="Toggle navigation bar">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+    <a href="/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-home"></i> <br>Home</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+    <a href="/about/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-user"></i> <br>About</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+    <a href="/tags/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>Tags</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+    <a href="/archives/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>Archives</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-sitemap">
+    <a href="/sitemap.xml" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-sitemap"></i> <br>Sitemap</a>
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+  
+  
+  
+    
+      
+    
+    <a href="https://github.com/hwchiu" class="github-corner" target="_blank" title="Follow me on GitHub" aria-label="Follow me on GitHub"><svg width="80" height="80" viewbox="0 0 250 250" style="fill:#222; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg>
+    
+      </a>
+    
+
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/2016-08-31-825029.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">mTCP 讀後筆記
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+
+              
+                
+              
+
+              <time title="Created: 2016-08-31 14:39:00" itemprop="dateCreated datePublished" datetime="2016-08-31T14:39:00-07:00">2016-08-31</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">Edited on</span>
+                
+                <time title="Modified: 2020-08-30 18:59:56" itemprop="dateModified" datetime="2020-08-30T18:59:56-07:00">2020-08-30</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/2016-08-31-825029.html#comments" itemprop="discussionUrl">
+                
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="2016-08-31-825029.html" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>之前在網路上看到了一篇 paper<br><a href="http://www.ndsl.kaist.edu/~kyoungsoo/papers/mtcp.pdf" target="_blank" rel="noopener">mTCP: A Highly Scalable User-level TCP Stack for Multicore Systems</a><br>標題覺得還滿有趣的，就花了些時間將其看完，並且用這篇文章當作筆記</p>
+<h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><ul>
+<li>當前的 TCP connection 中，大部分的封包都是小size的，如何快速的處理這些封包是個提升效能的重點</li>
+<li>根據這篇<a href="http://dl.acm.org/citation.cfm?id=2464442" target="_blank" rel="noopener">論文</a>，在特定的網路環境下(large cellular network)，超過 90% 的 TCP 封包都小於 32KB，超過 50% 的則是小於 4KB。</li>
+<li>當前的 Linux Kenrl 的架構使得處理小封包的速度沒有很好的表現。</li>
+<li>目前世界上有很多種方案嘗試解決此問題。<ul>
+<li>修改 kernel 的，如 MegaPipe, FlexSC<ul>
+<li>在 user-space 提供高速的 Packet I/O，這部分通常是直接跟網卡操作，跳過 kernel。如 netmap, DPDK, PSIO。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>上述的方案都難以應用到現有的系統<ul>
+<li>改 kernel code 對於已經應用的伺服器來說，不是那麼方便<ul>
+<li>user-space library 的缺點</li>
+</ul>
+<ol>
+<li>沒有實作 TCP stack，所以使用者都要自己想辦法去處理整個data (每個 Layer 自行處理）</li>
+<li>沒有提供統一的介面，現存的應用程式很難 porting</li>
+</ol>
+</li>
+</ul>
+</li>
+<li>本篇 paper 提出的一個新的架構 mTCP，宗旨就是解決上述所有問題<ul>
+<li>不修改 kernel, 實作於 user-space<ul>
+<li>讓現有的應用程式可以容易使用，快速轉換</li>
+</ul>
+<ol>
+<li>提供良好的 wrapper 給當前的 BSD-socket API，同時也提供 event 相關的(epoll)</li>
+<li>實作 TCP stack</li>
+</ol>
+</li>
+</ul>
+<ol start="3">
+<li>架構上要解決當前 kernel 的架構問提，提升整體的處理速度</li>
+</ol>
+</li>
+</ul>
+<a id="more"></a>
+<h2 id="Current-Limitation"><a href="#Current-Limitation" class="headerlink" title="Current Limitation"></a>Current Limitation</h2><p>作者在文章中提及當前 linux kernel 的四個問題，這些問題導致當前的 TCP stack 沒有辦法很有效率的處理封包。</p>
+<p>####Lack of connection locality<br>        有不少應用程式會使用 Multi-Thread，這些 threads 會一起共享一個 listen socket’s accept queue. 這種情況下這些 thread 彼此間要透過 lock 來搶奪該 socket 的使用權，這邊會使得thread的效率下降<br>        Kernel 對於 connection locality的不 support 會因為 CPU 的cache miss產生額外的負擔</p>
+<p>####Shared file descriptor space<br>        對於 POSIX-compliant 的 OS 來說， 對於每個 process 來說，其 fd 是共享的，舉例來說每次在創建新的 fd 時，都要去尋找當前最小可用的數字來使用。<br>    對於一個處理大量連線的忙碌 server 來說，每個 thread 在建立 socket 的時候，就會因為 lock 間的爭奪而產生一個額外的負擔。<br>    對 socket 也使用 fd 來進行操作，也會對 linux kernel 內的 VFS 造成額外的負擔。（這邊我看不太懂）</p>
+<p>####Inefficient per-packet processing<br>        先前的研究指出，龐大的封包結構(sk_buff),每個封包的記憶體處理以及ＤＭＡ這些行為是小封包處理效率不佳的主因。</p>
+<p>####System call overhead<br>        對於短週期的連線來說，BSD socket API 需要頻繁地在 user/kernel space做切換，根據 FlexSC 和 VOS的研究指出，大量的system call會對 cpu的處理狀態造成混亂(top-level caches, branch prediction table, etc)，因此效能會下降。</p>
+<h2 id="Current-Solution"><a href="#Current-Solution" class="headerlink" title="Current Solution"></a>Current Solution</h2><p>####Lack of connection locality</p>
+<ul>
+<li>Affinity-Accept</li>
+<li>MegaPipe</li>
+<li>Linux kernel’s socket option SO_REUSEPORT (after 3.9.4)</li>
+</ul>
+<p>####Shared file descriptor space</p>
+<ul>
+<li>MegaPipe</li>
+</ul>
+<p>####Inefficient per-packet processing</p>
+<ul>
+<li>User level packet I/O libray<ul>
+<li>Intel DPDK<ul>
+<li>Libzero for DNA</li>
+<li>netmap</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>####System call overhead</p>
+<ul>
+<li>FlexSC</li>
+<li>VOS</li>
+</ul>
+<h2 id="Why-User-level-TCP"><a href="#Why-User-level-TCP" class="headerlink" title="Why User-level TCP"></a>Why User-level TCP</h2><ol>
+<li>可擺脫和 kernel 的糾纏<ul>
+<li>當前 kernel 中的架構，因為 fd 的共用，TCP stack 很難從 kernel 中獨立抽出來。</li>
+</ul>
+</li>
+<li>可直接套用當前一些高效率的 packet I/O library，如 netmap, DPDK,etc.</li>
+<li>在不修改 kernel 的情況下，可以批次的處理封包。</li>
+<li>能夠輕易的支援現存的 application。<ul>
+<li>mTCP 提供了類似 BSD-like 的 socket API.</li>
+</ul>
+</li>
+</ol>
+<h2 id="Design"><a href="#Design" class="headerlink" title="Design"></a>Design</h2><p>####Introduction</p>
+<ul>
+<li>mTCP 希望在向下支援當前的 multi-threaded, event-driven 應用程式的前提下，提供在多核心系統下有高擴展性的系統</li>
+<li>mTCP 必須要提供 BSD-like 的 socket API 以及 event-driven API，能夠讓現存的應用程式簡單的轉換過去</li>
+<li>mTCP 由兩大物件組成，分別是 <strong>User-level TCP stack</strong> 以及 <strong>Packet I/O library</strong>.</li>
+</ul>
+<p>####Implementation</p>
+<ul>
+<li>對於每一個應用程式來說，mTCP於每個 CPU Core 上運行一個 thread.<br><blockquote class="imgur-embed-pub" lang="en" data-id="a/2fQFi"><a href="//imgur.com/2fQFi"></a></blockquote><script async src="//s.imgur.com/min/embed.js" charset="utf-8"></script></li>
+<li>mTCP 會透過其 <strong>Packet I/O library</strong>直接對 NIC 處理封包的收送<ul>
+<li>由於 mTCP 這部分是依賴現存的解決方案，而當前所有的 <strong>Packet I/O library</strong> 都有一個限制，就是每個 NIC 上面只能運行一個 application。</li>
+<li>這限制作者相信未來會被解決的。</li>
+</ul>
+</li>
+</ul>
+<h2 id="User-level-Packet-I-O-Library"><a href="#User-level-Packet-I-O-Library" class="headerlink" title="User-level Packet I/O Library"></a>User-level Packet I/O Library</h2><h4 id="Introduction-1"><a href="#Introduction-1" class="headerlink" title="Introduction"></a>Introduction</h4><pre><code>    當前有很多高速的 (100M packets/seconds) packet I/O system 都不適合來實作 Transport-layer stack (such TCP),因為這些 system 的底層都是採用 polliing 的方ㄕ取處理封包，採用 pollung 的方式會浪費 cpu cycle。
+    此外，mTCP 希望能夠提供在多網卡狀況下，能夠高效率處理 TX/RX queues 的多工能力。舉例來說，假如系統當前正在等待 control packet 的到來，若此時因為要去 polling RX 封包，就會導致 TX 沒有辦法順利的將封包送出，若 TX 想要送出的是如 ACK/SYN 之類的封包，可能就會觸發 TCP 的重傳機制導致整體速度下降。
+
+為了解決這個問題， mTCP 這邊採用了 PacketShader I/O engine (PSIO) 來提供高效率的 event-driven packet I/O interface.
+    PSIO 使用 RSS 這個技術來達到 flow-level 的封包分配技術，讓每條 connection 的封包都能夠維持在同一個 RX queue中。藉此降低不同 CPU競爭封包的負擔。  
+</code></pre><h4 id="Implementation"><a href="#Implementation" class="headerlink" title="Implementation"></a>Implementation</h4><ul>
+<li>提供了與 <strong>select</strong> 類似的 <strong>ps_select</strong>。<ul>
+<li>此 API 會去監聽有興趣網卡的TX/RX queue事件，與 netmap 提供的 selece/poll 類似</li>
+</ul>
+</li>
+</ul>
+<h2 id="User-level-TCP-Stack"><a href="#User-level-TCP-Stack" class="headerlink" title="User-level TCP Stack"></a>User-level TCP Stack</h2><h4 id="Introduction-2"><a href="#Introduction-2" class="headerlink" title="Introduction"></a>Introduction</h4><ul>
+<li>為了減少大量 <strong>system call</strong> 對於 kernel 造成的負擔，必須要將kernel內關於TCP的操作都搬移到 user-space來操作</li>
+<li>在 mTCP 中，採用一個名為 <strong>zero-thread TCP</strong>來提供此功能，主要的應用程式可以透過簡單的 function call而不是system call來達到一樣的功能，同時有更好的效能。</li>
+<li>上述設計的唯一限制就是內部 TCP 處理的正確性會依賴於該 application 是如何去呼叫 TCP 相關的 function( timely invocation)</li>
+<li>在 mTCP 中，採用不同的 thread 來處理上述的問題，應用程式的 thread 跟 mTCP 的 thread 中間是透過一個 share buffer 來交換資料，而 application 只能使用 mTCP 提供的 function 來操作 share buffer。<br>藉由這種方式，可以確保 TCP 的 data在共用上是安全且正確無誤的.<br>當應用程式想要修改 share buffer 時，會發送一個 write request 到所謂的 job queue內，接者 mTCP 內的 thread當搶到 CPU 後，會去把 job queue 內的工作取出，然後執行對應的指令。</li>
+<li>然而，上述的設計其實會因為共用的資料跟mTCP與application的切換而產生額外的負擔，這些負擔反而比傳統的system call還來得龐大</li>
+<li>接下來的章節，會講述 mTCP 最後如何實作並且克服上述的問題</li>
+</ul>
+<h4 id="Implementation-1"><a href="#Implementation-1" class="headerlink" title="Implementation"></a>Implementation</h4><h5 id="Basic-TCP-Processing"><a href="#Basic-TCP-Processing" class="headerlink" title="Basic TCP Processing"></a>Basic TCP Processing</h5><p><blockquote class="imgur-embed-pub" lang="en" data-id="AMYWvLB"><a href="//imgur.com/AMYWvLB"></a></blockquote><script async src="//s.imgur.com/min/embed.js" charset="utf-8"></script></p>
+<ul>
+<li>mTCP Thtread 從網卡的 RX queue 讀取批次資料(batch)後，直接傳給內部的 TCP 邏輯處理。</li>
+<li>對於每一個封包來說，首先會先搜尋(或創造)對應的 TCP control block(TCB)，此 TCB 會存放於 flow hash table。<br>以上圖為例，當 server 收到一個對應於其 SYN/ACK 的ACK時，新的 connection 就會被建立，此時會將對應的 TCB 給放到 <strong>accept queue</strong>，同時會在產生一個 <strong>read event</strong> 給對應的 <strong>listen socket</strong>。<br>在連線建立後，當資料封包到達 mTCP時，mTCP 會將封包的內容給複製一份到 socket 的 <strong>read buffer</strong>，同時也產生一份 <strong>read event</strong> 給對應的 socket，這樣 application 那邊就可以用 <strong>read</strong> 的函式讀取到封包的內容。</li>
+<li>當 mTCP 處理好所有接收到的封包後，會將所有在 <strong>queue </strong>內的 <strong>event </strong>都推到 application 上的 <strong>queue</strong> 去，同時透過 <strong>signal</strong> 的方式叫起該 application 來處理封包。</li>
+<li>對於 application 來說，接下來封包的 write 處理都不會產生 content switch，而是會透過 mTCP 的架構將所有要往外送的封包都寫入一個 send buffer 同時也將對應的 tcb 放到 <strong>write queue</strong>內。接下來 mTCP 會收集所有要往外送的 tcb，然後統一放入一個 <strong>send list</strong>中，最後批次的將這些封包直接送到網卡的 <strong>TX queue</strong> 處理。</li>
+</ul>
+<h5 id="Lock-free-Per-core-Data-Structures"><a href="#Lock-free-Per-core-Data-Structures" class="headerlink" title="Lock-free, Per-core Data Structures"></a>Lock-free, Per-core Data Structures</h5><ul>
+<li>為了減少mTCP threads之間的 CPU 競爭， mTCP 將所有資源(flow pool, socket buffers,etc.)每個 CPU core都放置一份，此外，還可以透過 <em>RSS</em>的技術來達到 flow-level 的CPU affinity。<br>此外，mTCP在 <strong>application</strong> 與 <strong>mTCP </strong>之間使用了 <strong>lock-free</strong> 的資料結構，同時也提供了一種更有效率的方式來管理 TCP timer相關的操作。</li>
+</ul>
+<p><strong>Thread mapping and flow-level core affinity</strong><br>Flow-level core affinity 總共分成兩個階段執行</p>
+<ol>
+<li>packet I/O 這層要確保在當前可用且搭配 <em>RSS</em> 的 <em>CPU</em> 上去分配 TCP connection，透過此機制可以處理每個 core 上面的 TCP 規模問題。</li>
+<li>mTCP 對於每個 <strong>application thread</strong>都會產生一個 thread，並且讓這兩個 thread 都處於同一個 physical CPU core上，這樣可以確保<strong>packet</strong>與<strong>flow</strong>的在處理上能夠享有 core affinity。</li>
+</ol>
+<p><strong>Multi-core and cache-friendly data structures</strong></p>
+<ol>
+<li>下列常用的資料結構都會存放在每個 TCP Thread 中保有獨立一份<ul>
+<li>Flow Hash Table<ul>
+<li>Socket Id Manger</li>
+<li>Pool of TCB</li>
+<li>socket buffers.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>藉由上述資料的安排，能夠大幅減少跨 threads/CPU cores 之間的資料存取，同時提供良好的平行性。</li>
+<li>假如今天有一個資料必須要跨 Thread 存取(譬如 mTCP thread 跟 application thread)，首先會先將所有的資料結構對每一個CPU都放一份，然後使用single-producer/single-consumer來達到lock-free data structure的存取<br>從 application 到 mTCP 來看， mTCP 維護 <strong>write</strong>, <strong>connect</strong> <strong>close</strong> 的 queues，反過來則是維護一個<strong>accept</strong>的 queue。</li>
+<li>為了能夠更加利用 CPU cacue 機制，mTCP也會記住目前比較常用的資料結構大小並使其符合CPU cache的機制，然後讓其大小對齊於CPU的 cache line 大小<br>舉例來說，TCB會被分成兩個部分，第一個部分是 64 bytes，存放了最常使用到的欄位以及兩個指標指向剩下比較少用到的部分，分別是128以及192 bytes<br>5.為了將記憶體要求與釋放造成的負擔最小化，mTCP會在每個core都去要求記憶體來存放<strong>TCB</strong>與<strong>socket buffers</strong>，<br>此外，由於<strong>TCB</strong>存取模式很隨機，為了降低<strong>TCB</strong>在 <strong>TLM</strong> miss 的機率，於是使用了大量的 page，並且將 tcb 與 hash table index 相關的資訊都放入pages中。</li>
+</ol>
+<p><strong>Efficient TCP timter management:</strong></p>
+<ol>
+<li>在 TCP 的運作過程中，有三個地方需要有 timrer 的處理<ul>
+<li>重傳的 timeout<ul>
+<li>connection 在TIME_WAIT狀態時的等待</li>
+<li>connection keep-alive 的檢查</li>
+</ul>
+</li>
+</ul>
+</li>
+</ol>
+<p>mTCP 提供了兩種模式的 timers，一種是以排序的list來管理，另外一種則是以hash table來管理。<br>對於<strong>coarse grain timers</strong>來說(如TIME_WAIT, keep-alive check)，mTCP使用一個 list來記住所有tcb，並且依據其timeout的值來進行排序。(要維護這個 sorting list是簡單的事情，因為每次要被加進來的新TCB，其timeout一定是比當前list內的還要大)<br>mTCP每一秒都會進行確認，檢查該 list 內是否有 tcb 已經過時需要被處理了。<br>對於<strong>fine-grained retransmission timers</strong>來說，mTCP使用了 hash table 來找查 tcb，而使用的 key 則是當前剩下的時間(使用milliseconds為單位)。當一個 hash bucket的時間到達時，就會一口氣將bucket內所有的 <strong>tcbs</strong>一起進行處理。</p>
+<h5 id="Batched-Event-Handling"><a href="#Batched-Event-Handling" class="headerlink" title="Batched Event Handling"></a>Batched Event Handling</h5><p><blockquote class="imgur-embed-pub" lang="en" data-id="a/hHYNf"><a href="//imgur.com/hHYNf"></a></blockquote><script async src="//s.imgur.com/min/embed.js" charset="utf-8"></script></p>
+<ul>
+<li>mTCP 藉由batch的方式一口氣處理多個 flow event，藉此可以降低大量 event 造成的 content switch。</li>
+<li>當 mTCP 收到封包時，會自己產生一個 flow-level event，最後會統一將該 event 通知到 application。如上圖所示<br>若 application 要送封包時，會把所有的 write event 放到 write queue，之後 mTCP 會從 queue 內將 jobs取出，然後一口氣送到 NIC 的 TX queue去處理。</li>
+<li>這部分的並不是獨創的想法，目前<strong>MegaPipe</strong>,<strong>VOS</strong>都有實作這功能</li>
+</ul>
+<h5 id="Optimizing-for-Short-lived-Connections"><a href="#Optimizing-for-Short-lived-Connections" class="headerlink" title="Optimizing for Short-lived Connections"></a>Optimizing for Short-lived Connections</h5><p>mTCP 採用了兩個方式來最佳化小封包的傳輸，分別是<br><strong>Priority-based packet queueing</strong> 以及<strong>Lightweight connection setup</strong>。</p>
+<h5 id="Priority-based-packet-queueing"><a href="#Priority-based-packet-queueing" class="headerlink" title="Priority-based packet queueing"></a>Priority-based packet queueing</h5><p>對於TCP連線來說，控制封包(SYN/ACK)不但是個小封包的傳輸，也對整個傳輸速率扮演很重要的角色，因此SYN/ACK能夠愈早送到對方是愈好的。<br>然後當系統中有大量的資料封包要傳輸時，這些控制封包可能就會因為要競爭 TX queue 而提高了 queueing dealy。<br>mTCP為了解決這個問題，決定導入Priority的概念來處理封包，針對這些控制封包給予更高的優先權，能夠盡早的往外送，<br>外了達成這個概念，在TX部分實作了三種list，每種list分別存放不同種類的封包，分別是 Control, Ack, Data 三種。<br>當要把封包推向TX queue的時候，會依此順序將三個 list 的封包從TX queue 送出，藉此避免這些重要封包會有過大的queueing delay。</p>
+<h5 id="Lightweight-connection-setup"><a href="#Lightweight-connection-setup" class="headerlink" title="Lightweight connection setup"></a>Lightweight connection setup</h5><p>根據研究發現，在建立起整個 TCP connection 過程中，有很大一部份的負擔都是在於要配置記憶體給TCB以及Socket Buffer。<br>當同時有多個thread呼叫<strong>malloc</strong>,<strong>free</strong>時，kernel內的記憶體管理者會很忙碌地來服務每個thread的請求。<br>為了解決這個問題，mTCP會事先從kernel配置一個很大的記憶體池，當有任何Thread想要配置記憶體時，就可以直接從該記憶體池中去存取，</p>
+
+      
+    </div>
+
+    
+      
+
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/paper-redesign-data-center.html" rel="bookmark">[論文導讀] Re-architecting datacenter networks and stacks for low latency and high performance</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/2013-04-01-1741.html" rel="bookmark">Linux-Kernel-PacketCapture</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/2016-03-27-switchdev-i.html" rel="bookmark">[Switchdev] Introduuction To Switchdev</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/2016-04-04-switchdev-ii.html" rel="bookmark">[Switchdev] How Kernel Implement SwitchDev(i)</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/2016-04-04-switchdev-iii.html" rel="bookmark">[Switchdev] How Kernel Implement SwitchDev(ii)</a></div>
+      
+    </li>
+  
+  </ul>
+
+
+    
+
+    
+    
+    
+
+    
+
+    
+
+    
+      <div>
+        <ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>Post author:  </strong>Hwchiu</li>
+  <li class="post-copyright-link">
+    <strong>Post link: </strong>
+    <a href="https://www.hwchiu.com/2016-08-31-825029.html" title="mTCP 讀後筆記">https://www.hwchiu.com/2016-08-31-825029.html</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="external nofollow" target="_blank">CC BY-NC-SA 4.0</a> unless stating additionally.</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/System/" rel="tag"># System</a>
+          
+            <a href="/tags/Network/" rel="tag"># Network</a>
+          
+            <a href="/tags/Paper/" rel="tag"># Paper</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/coscup-mininet.html" rel="next" title="COSCUP 2016 Workshop 投影片">
+                <i class="fa fa-chevron-left"></i> COSCUP 2016 Workshop 投影片
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2016-11-02-1069385.html" rel="prev" title="Build Mozilla NSS on windows">
+                Build Mozilla NSS on windows <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar.jpg" alt="Hwchiu">
+            
+              <p class="site-author-name" itemprop="name">Hwchiu</p>
+              <p class="site-description motion-element" itemprop="description">kubernetes/SDN/DevOps</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">201</span>
+                    <span class="site-state-item-name">posts</span>
+                  </a>
+                </div>
+              
+
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">106</span>
+                    <span class="site-state-item-name">tags</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  <a href="https://github.com/hwchiu" target="_blank" title="Github" rel="external nofollow"><i class="fa fa-fw fa-github"></i>Github</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.linkedin.com/in/hung-wei-chiu-52561494/" target="_blank" title="Linkedin" rel="external nofollow"><i class="fa fa-fw fa-linkedin"></i>Linkedin</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="mailto:sppsorrg@gmail.com" target="_blank" title="E-Mail" rel="external nofollow"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://twitter.com/hw_chiu" target="_blank" title="Twitter" rel="external nofollow"><i class="fa fa-fw fa-twitter"></i>Twitter</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.facebook.com/hongwei.qiu" target="_blank" title="FB Page" rel="external nofollow"><i class="fa fa-fw fa-facebook"></i>FB Page</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://instagram.com/hwchiu" target="_blank" title="Instagram" rel="external nofollow"><i class="fa fa-fw fa-instagram"></i>Instagram</a>
+                  
+                </span>
+              
+            </div>
+          
+
+          
+          
+
+          
+
+    <div class="links-of-blogroll motion-element links-of-blogroll-block">
+      <div class="links-of-blogroll-title">
+        <!-- modify icon to fire by szw -->
+        <i class="fa fa-history fa-" aria-hidden="true"></i>
+        Recent Posts
+      </div>
+      <ul class="links-of-blogroll-list">
+        
+        
+          <li>
+            <a href="/ipvs-4.html" title="IPvS 學習手冊(四)" target="_blank">IPvS 學習手冊(四)</a>
+          </li>
+        
+          <li>
+            <a href="/gitops.html" title="淺談 GitOps 的概念" target="_blank">淺談 GitOps 的概念</a>
+          </li>
+        
+          <li>
+            <a href="/iptables-1.html" title="初探 IPTABLES 流動之路 - 以 Docker 為範例" target="_blank">初探 IPTABLES 流動之路 - 以 Docker 為範例</a>
+          </li>
+        
+          <li>
+            <a href="/k8s-course-2.html" title="Kubernetes 線上課程 - CI/CD" target="_blank">Kubernetes 線上課程 - CI/CD</a>
+          </li>
+        
+          <li>
+            <a href="/ipvs-3.html" title="IPvS 學習手冊(三)" target="_blank">IPvS 學習手冊(三)</a>
+          </li>
+        
+      </ul>
+    </div>
+
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                Friends
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.evanlin.com/" title="KKDAI 大大" target="_blank">KKDAI 大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://kairen.github.io/" title="凱仁大大" target="_blank">凱仁大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.pichuang.com.tw/" title="小飛機" target="_blank">小飛機</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/cloudnative.tw/" title="CNTUG" target="_blank">CNTUG</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/sdnds.tw/" title="SDNDS-TW" target="_blank">SDNDS-TW</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://medium.com/@yayajacky" title="Jack" target="_blank">Jack</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Introduction"><span class="nav-number">1.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Current-Limitation"><span class="nav-number">2.</span> <span class="nav-text">Current Limitation</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Current-Solution"><span class="nav-number">3.</span> <span class="nav-text">Current Solution</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Why-User-level-TCP"><span class="nav-number">4.</span> <span class="nav-text">Why User-level TCP</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Design"><span class="nav-number">5.</span> <span class="nav-text">Design</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#User-level-Packet-I-O-Library"><span class="nav-number">6.</span> <span class="nav-text">User-level Packet I/O Library</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Introduction-1"><span class="nav-number">6.0.1.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Implementation"><span class="nav-number">6.0.2.</span> <span class="nav-text">Implementation</span></a></li></ol></li></ol><li class="nav-item nav-level-2"><a class="nav-link" href="#User-level-TCP-Stack"><span class="nav-number">7.</span> <span class="nav-text">User-level TCP Stack</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Introduction-2"><span class="nav-number">7.0.1.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Implementation-1"><span class="nav-number">7.0.2.</span> <span class="nav-text">Implementation</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#Basic-TCP-Processing"><span class="nav-number">7.0.2.1.</span> <span class="nav-text">Basic TCP Processing</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Lock-free-Per-core-Data-Structures"><span class="nav-number">7.0.2.2.</span> <span class="nav-text">Lock-free, Per-core Data Structures</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Batched-Event-Handling"><span class="nav-number">7.0.2.3.</span> <span class="nav-text">Batched Event Handling</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Optimizing-for-Short-lived-Connections"><span class="nav-number">7.0.2.4.</span> <span class="nav-text">Optimizing for Short-lived Connections</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Priority-based-packet-queueing"><span class="nav-number">7.0.2.5.</span> <span class="nav-text">Priority-based packet queueing</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Lightweight-connection-setup"><span class="nav-number">7.0.2.6.</span> <span class="nav-text">Lightweight connection setup</span></a></li></ol></li></ol></li></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+
+  
+
+  
+</div>
+
+
+  
+
+
+
+  <div class="powered-by">Powered by <a class="theme-link" target="_blank" rel="external nofollow" href="https://hexo.io">Hexo</a> v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme &mdash; <a class="theme-link" target="_blank" rel="external nofollow" href="https://theme-next.org">NexT.Pisces</a> v6.3.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+	
+    
+
+    
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=6.3.0"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=6.3.0"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=6.3.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=6.3.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=6.3.0"></script>
+
+
+
+  
+
+  
+    <script id="dsq-count-scr" src="https://hwchiublog.disqus.com/count.js" async></script>
+  
+
+  
+    <script type="text/javascript">
+      var disqus_config = function () {
+        this.page.url = 'https://www.hwchiu.com/2016-08-31-825029.html';
+        this.page.identifier = '2016-08-31-825029.html';
+        this.page.title = 'mTCP 讀後筆記';
+        };
+      function loadComments () {
+        var d = document, s = d.createElement('script');
+        s.src = 'https://hwchiublog.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', '' + +new Date());
+        (d.head || d.body).appendChild(s);
+      }
+      
+        loadComments();
+      
+    </script>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  <style>
+    .copy-btn {
+      display: inline-block;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 20px;
+      color: #333;
+      white-space: nowrap;
+      vertical-align: middle;
+      cursor: pointer;
+      background-color: #eee;
+      background-image: linear-gradient(#fcfcfc, #eee);
+      border: 1px solid #d5d5d5;
+      border-radius: 3px;
+      user-select: none;
+      outline: 0;
+    }
+
+    .highlight-wrap .copy-btn {
+      transition: opacity .3s ease-in-out;
+      opacity: 0;
+      padding: 2px 6px;
+      position: absolute;
+      right: 4px;
+      top: 8px;
+    }
+
+    .highlight-wrap:hover .copy-btn,
+    .highlight-wrap .copy-btn:focus {
+      opacity: 1
+    }
+
+    .highlight-wrap {
+      position: relative;
+    }
+  </style>
+  <script>
+    $('.highlight').each(function (i, e) {
+      var $wrap = $('<div>').addClass('highlight-wrap')
+      $(e).after($wrap)
+      $wrap.append($('<button>').addClass('copy-btn').append('Copy').on('click', function (e) {
+        var code = $(this).parent().find('.code').find('.line').map(function (i, e) {
+          return $(e).text()
+        }).toArray().join('\n')
+        var ta = document.createElement('textarea')
+        document.body.appendChild(ta)
+        ta.style.position = 'absolute'
+        ta.style.top = '0px'
+        ta.style.left = '0px'
+        ta.value = code
+        ta.select()
+        ta.focus()
+        var result = document.execCommand('copy')
+        document.body.removeChild(ta)
+        
+        $(this).blur()
+      })).on('mouseleave', function (e) {
+        var $b = $(this).find('.copy-btn')
+        setTimeout(function () {
+          $b.text('Copy')
+        }, 300)
+      }).append(e)
+    })
+  </script>
+
+
+</body>
+</html>

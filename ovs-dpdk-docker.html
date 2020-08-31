@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="en">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=6.3.0" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.3.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.3.0" color="#222">
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.3.0',
+    sidebar: {"position":"left","display":"always","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="本文介紹了一種將 Contaienr 創建於 OpenvSwitch 與 DPDK 整合的網路拓墣下所遇到的連線問題。開頭先闡述了拓墣架構以及相關的軟體版本，接者介紹是如何搭建起整個測試環境，並且在測試環境中遇到了網路連線的問題，眾多的測試組合中，卻只有一種組合能夠正常的在 Container 間建立起能夠傳輸的 TCP 連線。最後透過 AB 測試的方法歸納出一些會造成問題出現的環境。">
+<meta name="keywords" content="OVS,dpdk, docker,container,veth">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OVS + DPDK + Docker 共同玩耍">
+<meta property="og:url" content="https://www.hwchiu.com/ovs-dpdk-docker.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文介紹了一種將 Contaienr 創建於 OpenvSwitch 與 DPDK 整合的網路拓墣下所遇到的連線問題。開頭先闡述了拓墣架構以及相關的軟體版本，接者介紹是如何搭建起整個測試環境，並且在測試環境中遇到了網路連線的問題，眾多的測試組合中，卻只有一種組合能夠正常的在 Container 間建立起能夠傳輸的 TCP 連線。最後透過 AB 測試的方法歸納出一些會造成問題出現的環境。">
+<meta property="og:locale" content="en">
+<meta property="og:image" content="https://i.imgur.com/X8Rriqu.jpg">
+<meta property="og:image" content="https://i.imgur.com/uQ4LKoJ.png">
+<meta property="og:image" content="https://i.imgur.com/VxcKkWo.png">
+<meta property="og:image" content="https://i.imgur.com/26wuweJ.png">
+<meta property="og:image" content="https://i.imgur.com/Ue15uf7.png">
+<meta property="og:image" content="https://i.imgur.com/fYe9AT9.png">
+<meta property="og:image" content="https://i.imgur.com/72or38f.png">
+<meta property="og:updated_time" content="2020-08-31T01:59:56.736Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="OVS + DPDK + Docker 共同玩耍">
+<meta name="twitter:description" content="本文介紹了一種將 Contaienr 創建於 OpenvSwitch 與 DPDK 整合的網路拓墣下所遇到的連線問題。開頭先闡述了拓墣架構以及相關的軟體版本，接者介紹是如何搭建起整個測試環境，並且在測試環境中遇到了網路連線的問題，眾多的測試組合中，卻只有一種組合能夠正常的在 Container 間建立起能夠傳輸的 TCP 連線。最後透過 AB 測試的方法歸納出一些會造成問題出現的環境。">
+<meta name="twitter:image" content="https://i.imgur.com/X8Rriqu.jpg">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="Hwchiu Learning Note" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://www.hwchiu.com/ovs-dpdk-docker.html">
+
+
+
+<script type="text/javascript" id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>OVS + DPDK + Docker 共同玩耍 | Hwchiu Learning Note</title>
+  
+<script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '',
+      xfbml      : true,
+      version    : 'v2.10'
+    });
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "//connect.facebook.net/en/sdk.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+</script>
+
+
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-54006186-1');
+</script>
+
+
+
+
+
+
+  <noscript>
+  <style type="text/css">
+    .use-motion .motion-element,
+    .use-motion .brand,
+    .use-motion .menu-item,
+    .sidebar-inner,
+    .use-motion .post-block,
+    .use-motion .pagination,
+    .use-motion .comments,
+    .use-motion .post-header,
+    .use-motion .post-body,
+    .use-motion .collection-title { opacity: initial; }
+
+    .use-motion .logo,
+    .use-motion .site-title,
+    .use-motion .site-subtitle {
+      opacity: initial;
+      top: initial;
+    }
+
+    .use-motion {
+      .logo-line-before i { left: initial; }
+      .logo-line-after i { right: initial; }
+    }
+  </style>
+</noscript>
+
+  <script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({
+          google_ad_client: "ca-pub-1100711228720990",
+          enable_page_level_ads: true
+     });
+</script>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="en">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Hwchiu Learning Note</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</h1>
+      
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="Toggle navigation bar">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+    <a href="/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-home"></i> <br>Home</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+    <a href="/about/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-user"></i> <br>About</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+    <a href="/tags/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>Tags</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+    <a href="/archives/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>Archives</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-sitemap">
+    <a href="/sitemap.xml" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-sitemap"></i> <br>Sitemap</a>
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+  
+  
+  
+    
+      
+    
+    <a href="https://github.com/hwchiu" class="github-corner" target="_blank" title="Follow me on GitHub" aria-label="Follow me on GitHub"><svg width="80" height="80" viewbox="0 0 250 250" style="fill:#222; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg>
+    
+      </a>
+    
+
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ovs-dpdk-docker.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">OVS + DPDK + Docker 共同玩耍
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+
+              
+                
+              
+
+              <time title="Created: 2017-09-15 13:33:17" itemprop="dateCreated datePublished" datetime="2017-09-15T13:33:17-07:00">2017-09-15</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">Edited on</span>
+                
+                <time title="Modified: 2020-08-30 18:59:56" itemprop="dateModified" datetime="2020-08-30T18:59:56-07:00">2020-08-30</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/ovs-dpdk-docker.html#comments" itemprop="discussionUrl">
+                
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="ovs-dpdk-docker.html" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+              <div class="post-description">本文介紹了一種將 Contaienr 創建於 OpenvSwitch 與 DPDK 整合的網路拓墣下所遇到的連線問題。開頭先闡述了拓墣架構以及相關的軟體版本，接者介紹是如何搭建起整個測試環境，並且在測試環境中遇到了網路連線的問題，眾多的測試組合中，卻只有一種組合能夠正常的在 Container 間建立起能夠傳輸的 TCP 連線。最後透過 AB 測試的方法歸納出一些會造成問題出現的環境。</div>
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>最近在操作 OpenvSwitch 時遇到了一些問題，由於此問題實在過於有趣，所以決定寫下這篇文章來記錄此問題。</p>
+<p>此問題會牽扯到三個元件，分別是 <code>OVS</code>, <code>DPDK</code> 以及 <code>Docker</code>，首先來看一下網路拓墣，如下。</p>
+<p><img src="https://i.imgur.com/X8Rriqu.jpg" alt></p>
+<h1 id="Topology"><a href="#Topology" class="headerlink" title="Topology"></a>Topology</h1><p>首先，準備好兩台機器，其中一台機器為 <strong>Linux Based</strong> 機器，在其環境中安裝了</p>
+<ol>
+<li>OpenvSwitch 2.8</li>
+<li>Docker + ubuntu image</li>
+<li>NIC (Support DPDK)</li>
+<li>DPDK 17.05.2</li>
+</ol>
+<p>此環境中，我們透過 <code>ovs-vsctl</code> 創造了一個 <code>userspace mode</code> 的 <code>ovs switch(datapath)</code>, 其命名為 <code>ovs_br</code>。<br>然後我們透過 <code>docker</code> 與 <a href="https://github.com/jpetazzo/pipework" target="_blank" rel="noopener">pipework</a> 在系統上開啟了兩個基本的 <code>ubuntu</code>   container, 並且將這兩個 container 都掛到 <code>ovs_br</code> 上。<br>這兩個 <code>container</code> 裡面都有一張網卡 <strong>eth0</strong>、ip 地址分別是 10.55.66.8 以及 10.55.66.7。<br>然後將 <strong>ovs_br</strong> 設定為 10.55.66.1<br>最後再將系統上的網卡以<code>DPDK</code>的形式連接到 <strong>ovs_br</strong> 上。</p>
+<p>接下來我們透過一般的 switch 將該 <code>Linux Based</code> 的機器與一般的 server相連，該 server 的IP 設定為 <code>10.55.66.10</code>。</p>
+<p>整個網路環境就上圖所呈現。</p>
+<p>所以目前網路中有四個元件可以用來進行操作，分別是兩台 Container， Linux Host 本體，以及外面的那台 server。</p>
+<h1 id="Scripts"><a href="#Scripts" class="headerlink" title="Scripts"></a>Scripts</h1><p>首先我們使用<code>ping</code> 指令來測試網路狀況，沒意外的任意兩台機器都能夠順利的連接到對方。然而接下來使用<strong>TCP</strong>作為測試時，卻發現了一些詭異的情況。</p>
+<p>在上述四種狀況中，總共有六種組合可以測試，然而其中卻只有一種組合能夠讓 TCP/UDP 順利連接成功。此組合就是 <strong>Linux Host</strong> 配上 <strong>外面那台 server</strong>。<br>其他組合完全沒有辦法建立起一條 <strong>TCP Connection</strong>。</p>
+<p>為了解決此問題，我們使用了下列方式釐清問題所在</p>
+<ol>
+<li>tcpdump 擷取封包，以 TCP 為例，發現只要是 <strong>Container</strong> 內部傳送回來的封包，雖然透過 <code>tcpdump</code> 可以看到該封包回來，但是另外一端的應用程式都不會將該封包收上去處理。因此對於 <strong>TCP</strong> 來說沒有辦法建立起一個正常的連線。</li>
+<li>懷疑是 <strong>container</strong> 的問題，所以手動用 <strong>ip netns</strong> 創建了兩個 <strong>namespace</strong>, 結果有一樣的問題。</li>
+<li>懷疑是 <strong>OVS</strong> 的問題，因此將 <strong>OVS</strong> 切換成 <strong>Linux bridge</strong>(DPDK也取消使用)，結果問題就順利解決了，一切網路都通了。</li>
+<li>懷疑是 <strong>Userspace OVS</strong> 的問題，因此切換成 <strong>kernel module mode</strong>(DPDK取消)，結果問題也是順利解決了。</li>
+</ol>
+<p>最後經過網路上不停的搜查，我們找到了一篇文章在講類似的問題<br><a href="https://stackoverflow.com/questions/45167203/connection-issue-between-docker-container-and-other-machine" target="_blank" rel="noopener">connection-issue-between-docker-container-and-other-machine</a></p>
+<p>最後嘗試透過該文章所提到的方法，我們到 <strong>Container</strong> 裡面透過<code>ethtool</code>將其對外網卡<code>eth0</code>相關的 <code>TX/RX offloading</code> 功能關閉，果然功能就一切正常了。</p>
+<p>為了釐清這個這個功能為什麼會對網路造成這些影響，我們重新利用<code>tcpdump</code>擷取封包，並且使用 <code>wireshark</code> 來觀察，發現了一個有趣的事情。</p>
+<p>以下好所有圖示中的ＩＰ位置可能與上述拓墣不同，不過重點不在那邊，所以忽略即可。</p>
+<p>首先，我們可以看到當網路不通時 <strong>wireshark</strong> 的解析，如下圖<br><img src="https://i.imgur.com/uQ4LKoJ.png" alt><br>可以看到對於 <strong>TCP</strong> 連線來說，其實只有 <strong>SYN</strong> 以及 <strong>SYN/ACK</strong>，主要是 <strong>Client</strong> 端沒有將該 <strong>SYN/ACK</strong> 給收起來，最後導致一連串的重送。<br>所以接下來針對 <strong>SYN</strong> 以及 <strong>SYN/ACK</strong> 兩個封包去看看。</p>
+<p><img src="https://i.imgur.com/VxcKkWo.png" alt><br><img src="https://i.imgur.com/26wuweJ.png" alt></p>
+<p>這兩個封包最有趣的地方就是，其 <strong>TCP</strong> 標頭檔怎麼看都不一樣，結果 <strong>Checksum</strong> 卻完全一樣，這邊看起來就是有問題。馬上懷疑是這邊造成收端沒有辦法收起對應的 <strong>SYN/ACK</strong>。<br>於是接下來馬上去試試看正常的 <strong>TCP</strong> 連線。</p>
+<p><img src="https://i.imgur.com/Ue15uf7.png" alt><br><img src="https://i.imgur.com/fYe9AT9.png" alt><br><img src="https://i.imgur.com/72or38f.png" alt></p>
+<p>結果如同預期般，不同封包因為 <strong>TCP</strong> 標頭檔不同，其 <strong>Checksum</strong> 也不同。<br>所以整個問題就是 <strong>Container</strong> 內的 <strong>TX/RX offload</strong> 造成了其 <strong>Checksum</strong> 出現問題導致無法讓封包正確被處理。<br>而且此問題只會出現在 <strong>OVS+DPDK</strong> 上。</p>
+<p>所以我又跑回去翻了一下最初 OVS+DPDK 相關的程式碼，在最初版本的 <code>netdev-dpdk.c</code> 中有提到<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">+Restrictions:</span><br><span class="line"> +-------------</span><br><span class="line"> +</span><br><span class="line"> +  - This Support is <span class="keyword">for</span> Physical NIC. I have tested with Intel NIC only.</span><br><span class="line"> +  - vswitchd userspace datapath does affine polling thread but it is</span><br><span class="line"> +    assumed that devices are on numa node <span class="number">0.</span> Therefore <span class="keyword">if</span> device is</span><br><span class="line"> +    attached to non zero numa node switching performance would be</span><br><span class="line"> +    suboptimal.</span><br><span class="line"> +  - There are fixed number of polling thread <span class="keyword">and</span> fixed number of per</span><br><span class="line"> +    device queues configured.</span><br><span class="line"> +  - Work with <span class="number">1500</span> MTU, needs few changes in DPDK lib to fix <span class="keyword">this</span> issue.</span><br><span class="line"> +  - Currently DPDK port does <span class="keyword">not</span> make use any offload functionality.</span><br></pre></td></tr></table></figure></p>
+<p>其中的 <code>Currently DPDK port does not make use any offload</code> 其中的段話讓我滿好奇的，但是在最新 OVS 2.8 中該敘述也已經不見了, 可能此限制也已經排除。所以我們為什麼會遇到這個問題，暫時還沒有頭緒，等有時間時再來細追看看，不然就先去 <strong>ovs-dicuss</strong> 那邊發問一下好了。</p>
+<p>Reference</p>
+<ul>
+<li><a href="https://github.com/openvswitch/ovs/commit/8a9562d21a40c765a8ae6775a070cb279cb2147a#diff-c43dadca1fdb46e2bf2e3f928a8529fbR77" target="_blank" rel="noopener">First release of netdev-dpdk</a></li>
+<li><a href="https://stackoverflow.com/questions/45167203/connection-issue-between-docker-container-and-other-machine" target="_blank" rel="noopener">connection-issue-between-docker-container-and-other-machine</a></li>
+</ul>
+
+      
+    </div>
+
+    
+      
+
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/ovs-dpdk-docker-2.html" rel="bookmark">OVS + DPDK + Docker 共同玩耍(二)</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/introduce-cni-i.html" rel="bookmark">[Container Network Interface] Bridge Network In Docker</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/introduce-cni-iii.html" rel="bookmark">[Container Network Interface] Implement Your CNI In Golang</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/slides-high-performace-network.html" rel="bookmark">Slides - High Performance Network</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/2016-03-27-switchdev-i.html" rel="bookmark">[Switchdev] Introduuction To Switchdev</a></div>
+      
+    </li>
+  
+  </ul>
+
+
+    
+
+    
+    
+    
+
+    
+
+    
+
+    
+      <div>
+        <ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>Post author:  </strong>Hwchiu</li>
+  <li class="post-copyright-link">
+    <strong>Post link: </strong>
+    <a href="https://www.hwchiu.com/ovs-dpdk-docker.html" title="OVS + DPDK + Docker 共同玩耍">https://www.hwchiu.com/ovs-dpdk-docker.html</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="external nofollow" target="_blank">CC BY-NC-SA 4.0</a> unless stating additionally.</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Network/" rel="tag"># Network</a>
+          
+            <a href="/tags/SDN/" rel="tag"># SDN</a>
+          
+            <a href="/tags/OpenvSwitch/" rel="tag"># OpenvSwitch</a>
+          
+            <a href="/tags/Linux/" rel="tag"># Linux</a>
+          
+            <a href="/tags/Kernel/" rel="tag"># Kernel</a>
+          
+            <a href="/tags/Ubuntu/" rel="tag"># Ubuntu</a>
+          
+            <a href="/tags/DPDK/" rel="tag"># DPDK</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/android-http.html" rel="next" title="How to download http file in Android">
+                <i class="fa fa-chevron-left"></i> How to download http file in Android
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/ovs-dpdk-docker-2.html" rel="prev" title="OVS + DPDK + Docker 共同玩耍(二)">
+                OVS + DPDK + Docker 共同玩耍(二) <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar.jpg" alt="Hwchiu">
+            
+              <p class="site-author-name" itemprop="name">Hwchiu</p>
+              <p class="site-description motion-element" itemprop="description">kubernetes/SDN/DevOps</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">201</span>
+                    <span class="site-state-item-name">posts</span>
+                  </a>
+                </div>
+              
+
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">106</span>
+                    <span class="site-state-item-name">tags</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  <a href="https://github.com/hwchiu" target="_blank" title="Github" rel="external nofollow"><i class="fa fa-fw fa-github"></i>Github</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.linkedin.com/in/hung-wei-chiu-52561494/" target="_blank" title="Linkedin" rel="external nofollow"><i class="fa fa-fw fa-linkedin"></i>Linkedin</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="mailto:sppsorrg@gmail.com" target="_blank" title="E-Mail" rel="external nofollow"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://twitter.com/hw_chiu" target="_blank" title="Twitter" rel="external nofollow"><i class="fa fa-fw fa-twitter"></i>Twitter</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.facebook.com/hongwei.qiu" target="_blank" title="FB Page" rel="external nofollow"><i class="fa fa-fw fa-facebook"></i>FB Page</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://instagram.com/hwchiu" target="_blank" title="Instagram" rel="external nofollow"><i class="fa fa-fw fa-instagram"></i>Instagram</a>
+                  
+                </span>
+              
+            </div>
+          
+
+          
+          
+
+          
+
+    <div class="links-of-blogroll motion-element links-of-blogroll-block">
+      <div class="links-of-blogroll-title">
+        <!-- modify icon to fire by szw -->
+        <i class="fa fa-history fa-" aria-hidden="true"></i>
+        Recent Posts
+      </div>
+      <ul class="links-of-blogroll-list">
+        
+        
+          <li>
+            <a href="/ipvs-4.html" title="IPvS 學習手冊(四)" target="_blank">IPvS 學習手冊(四)</a>
+          </li>
+        
+          <li>
+            <a href="/gitops.html" title="淺談 GitOps 的概念" target="_blank">淺談 GitOps 的概念</a>
+          </li>
+        
+          <li>
+            <a href="/iptables-1.html" title="初探 IPTABLES 流動之路 - 以 Docker 為範例" target="_blank">初探 IPTABLES 流動之路 - 以 Docker 為範例</a>
+          </li>
+        
+          <li>
+            <a href="/k8s-course-2.html" title="Kubernetes 線上課程 - CI/CD" target="_blank">Kubernetes 線上課程 - CI/CD</a>
+          </li>
+        
+          <li>
+            <a href="/ipvs-3.html" title="IPvS 學習手冊(三)" target="_blank">IPvS 學習手冊(三)</a>
+          </li>
+        
+      </ul>
+    </div>
+
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                Friends
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.evanlin.com/" title="KKDAI 大大" target="_blank">KKDAI 大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://kairen.github.io/" title="凱仁大大" target="_blank">凱仁大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.pichuang.com.tw/" title="小飛機" target="_blank">小飛機</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/cloudnative.tw/" title="CNTUG" target="_blank">CNTUG</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/sdnds.tw/" title="SDNDS-TW" target="_blank">SDNDS-TW</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://medium.com/@yayajacky" title="Jack" target="_blank">Jack</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Topology"><span class="nav-number">2.</span> <span class="nav-text">Topology</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Scripts"><span class="nav-number">3.</span> <span class="nav-text">Scripts</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+
+  
+
+  
+</div>
+
+
+  
+
+
+
+  <div class="powered-by">Powered by <a class="theme-link" target="_blank" rel="external nofollow" href="https://hexo.io">Hexo</a> v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme &mdash; <a class="theme-link" target="_blank" rel="external nofollow" href="https://theme-next.org">NexT.Pisces</a> v6.3.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+	
+    
+
+    
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=6.3.0"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=6.3.0"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=6.3.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=6.3.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=6.3.0"></script>
+
+
+
+  
+
+  
+    <script id="dsq-count-scr" src="https://hwchiublog.disqus.com/count.js" async></script>
+  
+
+  
+    <script type="text/javascript">
+      var disqus_config = function () {
+        this.page.url = 'https://www.hwchiu.com/ovs-dpdk-docker.html';
+        this.page.identifier = 'ovs-dpdk-docker.html';
+        this.page.title = 'OVS + DPDK + Docker 共同玩耍';
+        };
+      function loadComments () {
+        var d = document, s = d.createElement('script');
+        s.src = 'https://hwchiublog.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', '' + +new Date());
+        (d.head || d.body).appendChild(s);
+      }
+      
+        loadComments();
+      
+    </script>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  <style>
+    .copy-btn {
+      display: inline-block;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 20px;
+      color: #333;
+      white-space: nowrap;
+      vertical-align: middle;
+      cursor: pointer;
+      background-color: #eee;
+      background-image: linear-gradient(#fcfcfc, #eee);
+      border: 1px solid #d5d5d5;
+      border-radius: 3px;
+      user-select: none;
+      outline: 0;
+    }
+
+    .highlight-wrap .copy-btn {
+      transition: opacity .3s ease-in-out;
+      opacity: 0;
+      padding: 2px 6px;
+      position: absolute;
+      right: 4px;
+      top: 8px;
+    }
+
+    .highlight-wrap:hover .copy-btn,
+    .highlight-wrap .copy-btn:focus {
+      opacity: 1
+    }
+
+    .highlight-wrap {
+      position: relative;
+    }
+  </style>
+  <script>
+    $('.highlight').each(function (i, e) {
+      var $wrap = $('<div>').addClass('highlight-wrap')
+      $(e).after($wrap)
+      $wrap.append($('<button>').addClass('copy-btn').append('Copy').on('click', function (e) {
+        var code = $(this).parent().find('.code').find('.line').map(function (i, e) {
+          return $(e).text()
+        }).toArray().join('\n')
+        var ta = document.createElement('textarea')
+        document.body.appendChild(ta)
+        ta.style.position = 'absolute'
+        ta.style.top = '0px'
+        ta.style.left = '0px'
+        ta.value = code
+        ta.select()
+        ta.focus()
+        var result = document.execCommand('copy')
+        document.body.removeChild(ta)
+        
+        $(this).blur()
+      })).on('mouseleave', function (e) {
+        var $b = $(this).find('.copy-btn')
+        setTimeout(function () {
+          $b.text('Copy')
+        }, 300)
+      }).append(e)
+    })
+  </script>
+
+
+</body>
+</html>

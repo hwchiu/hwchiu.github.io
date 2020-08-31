@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="en">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=6.3.0" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.3.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.3.0" color="#222">
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.3.0',
+    sidebar: {"position":"left","display":"always","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="於 kubernetes 叢集中，我們會部屬大量的容器應用程式,而這些應用程式有些是面向使用者,也有些是彼此容器間互相溝通使用的.舉例來說,管理人員可能會在叢集中佈署了相關的資料庫容器服務,而其他的應用服務就必須要透過網路連線的方式來存取該資料庫.為了要透過網路的方式存取,就意味要使用 IP 地址的方式來存取對應的容器服務,然而在 kubernetes 的叢集中,這些 Pod 重啟後預設情況下都會">
+<meta name="keywords" content="Kubernetes,Service,Linux,k8s">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Kubernetes] What Is Service?">
+<meta property="og:url" content="https://www.hwchiu.com/kubernetes-service-i.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="於 kubernetes 叢集中，我們會部屬大量的容器應用程式,而這些應用程式有些是面向使用者,也有些是彼此容器間互相溝通使用的.舉例來說,管理人員可能會在叢集中佈署了相關的資料庫容器服務,而其他的應用服務就必須要透過網路連線的方式來存取該資料庫.為了要透過網路的方式存取,就意味要使用 IP 地址的方式來存取對應的容器服務,然而在 kubernetes 的叢集中,這些 Pod 重啟後預設情況下都會">
+<meta property="og:locale" content="en">
+<meta property="og:image" content="https://i.imgur.com/PBRRRA9.png">
+<meta property="og:image" content="https://i.imgur.com/lhICs7Q.png">
+<meta property="og:image" content="https://i.imgur.com/tmLI7a4.png">
+<meta property="og:image" content="https://i.imgur.com/q0j2z4J.png">
+<meta property="og:image" content="https://i.imgur.com/osNqxlw.png">
+<meta property="og:updated_time" content="2020-08-31T04:56:45.892Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="[Kubernetes] What Is Service?">
+<meta name="twitter:description" content="於 kubernetes 叢集中，我們會部屬大量的容器應用程式,而這些應用程式有些是面向使用者,也有些是彼此容器間互相溝通使用的.舉例來說,管理人員可能會在叢集中佈署了相關的資料庫容器服務,而其他的應用服務就必須要透過網路連線的方式來存取該資料庫.為了要透過網路的方式存取,就意味要使用 IP 地址的方式來存取對應的容器服務,然而在 kubernetes 的叢集中,這些 Pod 重啟後預設情況下都會">
+<meta name="twitter:image" content="https://i.imgur.com/PBRRRA9.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="Hwchiu Learning Note" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://www.hwchiu.com/kubernetes-service-i.html">
+
+
+
+<script type="text/javascript" id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>[Kubernetes] What Is Service? | Hwchiu Learning Note</title>
+  
+<script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '',
+      xfbml      : true,
+      version    : 'v2.10'
+    });
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "//connect.facebook.net/en/sdk.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+</script>
+
+
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-54006186-1');
+</script>
+
+
+
+
+
+
+  <noscript>
+  <style type="text/css">
+    .use-motion .motion-element,
+    .use-motion .brand,
+    .use-motion .menu-item,
+    .sidebar-inner,
+    .use-motion .post-block,
+    .use-motion .pagination,
+    .use-motion .comments,
+    .use-motion .post-header,
+    .use-motion .post-body,
+    .use-motion .collection-title { opacity: initial; }
+
+    .use-motion .logo,
+    .use-motion .site-title,
+    .use-motion .site-subtitle {
+      opacity: initial;
+      top: initial;
+    }
+
+    .use-motion {
+      .logo-line-before i { left: initial; }
+      .logo-line-after i { right: initial; }
+    }
+  </style>
+</noscript>
+
+  <script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({
+          google_ad_client: "ca-pub-1100711228720990",
+          enable_page_level_ads: true
+     });
+</script>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="en">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Hwchiu Learning Note</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</h1>
+      
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="Toggle navigation bar">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+    <a href="/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-home"></i> <br>Home</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+    <a href="/about/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-user"></i> <br>About</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+    <a href="/tags/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>Tags</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+    <a href="/archives/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>Archives</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-sitemap">
+    <a href="/sitemap.xml" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-sitemap"></i> <br>Sitemap</a>
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+  
+  
+  
+    
+      
+    
+    <a href="https://github.com/hwchiu" class="github-corner" target="_blank" title="Follow me on GitHub" aria-label="Follow me on GitHub"><svg width="80" height="80" viewbox="0 0 250 250" style="fill:#222; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg>
+    
+      </a>
+    
+
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/kubernetes-service-i.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">[Kubernetes] What Is Service?
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+
+              
+                
+              
+
+              <time title="Created: 2018-08-18 17:08:45" itemprop="dateCreated datePublished" datetime="2018-08-18T17:08:45-07:00">2018-08-18</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">Edited on</span>
+                
+                <time title="Modified: 2020-08-30 21:56:45" itemprop="dateModified" datetime="2020-08-30T21:56:45-07:00">2020-08-30</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/kubernetes-service-i.html#comments" itemprop="discussionUrl">
+                
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="kubernetes-service-i.html" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+              <div class="post-description">於 kubernetes 叢集中，我們會部屬大量的容器應用程式,而這些應用程式有些是面向使用者,也有些是彼此容器間互相溝通使用的.舉例來說,管理人員可能會在叢集中佈署了相關的資料庫容器服務,而其他的應用服務就必須要透過網路連線的方式來存取該資料庫.為了要透過網路的方式存取,就意味要使用 IP 地址的方式來存取對應的容器服務,然而在 kubernetes 的叢集中,這些 Pod 重啟後預設情況下都會拿到不相同的 IP 地址， 這意味我們的客戶端應用程式就沒有辦法寫死這些 IP 地址來存取,必須要有更動態的方式讓客戶端應用程式可以取得當前目標容器(資料庫)的最新 IP 地址. 為了解決這個問題, 我們可以透過 kubernetes service 的架構來達成上述的目的。本文會跟大家介紹什麼是 kubernetes service 以及透過實際範例介紹該如何使用</div>
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>本文章是屬於 <code>kubernetes</code> service 系列文之一，該系列文希望能夠與大家討論下列兩個觀念</p>
+<ol>
+<li>什麼是 <code>Kubernetes Service</code>, 為什麼我們需要它？ 它能夠幫忙解決什麼問題</li>
+<li><code>Kubernetes Service</code> 是怎麼實現的?， 讓我們用 Iptables 來徹徹底底的理解他</li>
+</ol>
+<p>相關文章:<br><a href="https://www.hwchiu.com/kubernetes-service-ii.html">[Kubernetes] How To Implement Kubernetes Service - ClusterIP</a><br><a href="https://www.hwchiu.com/kubernetes-service-iii.html">[Kubernetes] How To Implement Kubernetes Service - NodePort</a><br><a href="https://www.hwchiu.com/kubernetes-service-iiii.html">[Kubernetes] How To Implement Kubernetes Service - SessionAffinity</a></p>
+<p>本篇文章偏向介紹，要跟大家討論為什麼在 <code>kubernetes</code> 叢集內需要有 <code>service</code> 的服務，這個服務能夠解決什麼問題<br>以及最後透過實際範例跟大家介紹如何使用</p>
+<h1 id="What-Problems"><a href="#What-Problems" class="headerlink" title="What Problems"></a>What Problems</h1><p>我們都知道 <code>kubernets</code> 叢集擁有非常強大的功能，可以讓管理者透過 <code>Deployment</code> 很輕鬆的去部署各式各樣的服務，譬如 <code>Web Server</code>, <code>database</code>,<code>monitor</code> 等各式各樣的服務。</p>
+<p>舉一個使用場景來説，假設我今天在叢集內部署了<code>MongoDB</code> 作為我的資料庫服務，同時我其他的應用程式需要透過網路跟該 <code>MongoDB</code> 進行連線存取。<br>此外，此情境中使用了 <code>MongoDB</code> 叢集的概念，讓<code>MongoDB</code>本身同時會有多個<code>Pod</code>運行在叢集之中</p>
+<p>上述的情境如下圖所示，圖中紅色顯設的則是 <code>MongoDB</code> 所對應的 <code>Pod</code>, 而每個 <code>Pod</code> 底下都有一個屬於自己的 <code>IP</code> 地址<br><img src="https://i.imgur.com/PBRRRA9.png" alt="Imgur"></p>
+<p>在這種情況下，我們自己邏輯業務的應用程式則是用綠色區塊顯示，在該應用程式內，為了要跟 <code>mongo</code> 進行連線存取，則必須要知道這些 <code>mongo</code> 應用程式的 <code>IP</code> 地址</p>
+<p>但是在 <code>kubernetes</code> 叢集中，要是這些 <code>Mongo</code> 對應的容器發生錯誤或是因為其他問題而發生的容器停止然後重啟的事件<br>會導致這些容器之後都會擁有一個完全不同的 <code>IP</code> 地址<br>事實上，如果夠熟悉 CNI 與 IPAM 的開發者，其實是有辦法讓Pod擁有固定 <code>IP</code> 地址的</p>
+<p>如下圖所示。<br>在這種情況下，我們的應用程式要怎麼知道這些 <code>IP</code> 已經改變? 如何應因這些改變而修正我們應用程式連線的對象?<br><img src="https://i.imgur.com/lhICs7Q.png" alt="Imgur"></p>
+<h1 id="How-To-Solve"><a href="#How-To-Solve" class="headerlink" title="How To Solve"></a>How To Solve</h1><p>以前撰寫應用程式的時候，針對目標的<code>IP</code>地址根據情境會有不同的處理方式，可能會寫死在應用程式裡面，也有可能會透過設定檔案來讀取，也有可能會透過 <code>DNS</code> 解析的方式來處理這個問題。<br>然後不是每個人都會架設 <code>DNS</code> 伺服器來處理。</p>
+<p>為了解決這個問題， <code>Kuberntes Service</code> 就是這個問題的救命仙丹。<br><code>service</code> 的概念非常簡單，將整個<code>IP</code>地址與連線的方法給分層次處理。</p>
+<p>我們使用下圖來展示這個概念<br><img src="https://i.imgur.com/tmLI7a4.png" alt="Imgur"><br>首先圖示中橘色的部份就是 <code>Kubernetes Service</code> 的邏輯概念</p>
+<ol>
+<li>該 <code>Service</code> 本身會先綁定特定的應用程式，在此範例內就是這些 <code>Mongo</code> 的容器們，<code>kubernetes service</code> 本身會自己去追蹤並且更新對應<code>Mongo</code>容器的 <code>IP</code> 地址</li>
+<li><code>Service</code> 此外還會提供一組 <code>FQDN</code> 的名稱去供其他的應用程式使用。<br>舉例來說，我們的<code>App</code>可以透過這組 <code>FQDN</code> 去存取這些 <code>Mongo</code> 容器，對於 <code>App</code> 來說，只要相信這組 <code>FQDN</code> 即可，至於背後到底會對應到哪些 <code>Mongo</code> 容器，則是交由 <code>Service</code> 幫忙處理。</li>
+</ol>
+<p>引入了 <code>Kubernetes Service</code>  這種架構後，我們需要部署到 <code>kubernetes</code> 叢集的服務流程如下 (有 <code>re-try</code> 機制的話順序其實不重要)</p>
+<ol>
+<li>部屬 <code>Mongo</code> 服務到叢集(有多少個Pod都沒關係)</li>
+<li>部屬 <code>Kubernetes Service</code> 到叢集，並且設定該 <code>Service</code> 連接到上述部屬的 <code>Mongo</code> 服務</li>
+<li>部屬自行的應用程式，該應用程式則用 (2) <code>kubernetes service</code> 所產生的 <code>FQDN</code> 來連線。</li>
+</ol>
+<p><code>kubernetes service</code> 本身也有不少種類可以選擇，目前總共有四種可以使用，分別是</p>
+<ol>
+<li>ClusterIP</li>
+<li>NodePort</li>
+<li>LoadBalancer</li>
+<li>External</li>
+</ol>
+<p>其中目前大家最常用的就是 <code>ClusterIP</code> 以及 <code>NodePort</code>，所以下面介紹一下這兩者的差異。<br>本篇文章著重在特性與概念的介紹，背後的實作原理會等到下篇文章在來介紹與分析。</p>
+<h2 id="ClusterIP"><a href="#ClusterIP" class="headerlink" title="ClusterIP"></a>ClusterIP</h2><p><code>ClusterIP</code> 的意思就是只有叢集內的應用程式/節點可以透過該組 <code>FQDN</code> 去存取背後的服務。<br>在此情況下，除了透過<code>kubernetes</code>去部屬的應用程式外，預設情況下都沒有辦法透過該<code>FQDN</code>去存取，即使你直接使用了<code>kubernetes dns</code>來問到對應的<code>IP</code>地址也沒有辦法。<br>這邊指的是預設情況下，如果夠懂網路以及背後原理，當然還是有辦法可以從外面存取到這些服務的</p>
+<h2 id="NodePort"><a href="#NodePort" class="headerlink" title="NodePort"></a>NodePort</h2><p><code>NodePort</code> 本身包含了 <code>ClusterIP</code> 的能力，此外多提供了一種能力讓<code>非叢集</code>的應用程式/節點也有辦法存取叢集內的應用程式。<br>舉例來說，我們可以部屬多個網頁伺服器，然後透過 <code>NodePort</code> 的方式讓外部的電腦(瀏覽器）來存取這些在 <code>kubernetes</code> 叢集內的網頁伺服器。</p>
+<p>由前面我們知道，<code>kubernetes service</code> 務提供的 <code>FQDN</code> 只能供<code>叢集</code>內的應用程式去存取。<br>那要如何達到<code>非叢集</code>的應用程式也能夠存取叢集內的應用程式?<br>這邊就如同其字面<code>NodePort</code>一樣，任何<code>非叢集</code>內的應用程式都可以透過存取<code>叢集</code>節點上的特定<code>Port</code>轉而存取到叢集內的應用服務。</p>
+<p>詳細的運作原理留到下篇文章在好好的跟大家探討與分享</p>
+<p>最後用一張圖片來說明 <code>ClusterIP</code> 以及 <code>NodePort</code> 兩者的關係<br><img src="https://i.imgur.com/q0j2z4J.png" alt="Imgur"></p>
+<p>在圖示中，紫色的<code>K8S App</code>就是所謂的叢集內應用程式，而紅色的<code>HostApp</code>就是所謂<code>非叢集</code>的應用程式。</p>
+<ul>
+<li>ClusterIP: 只有紫色的應用程式以及叢集內的節點可以存取</li>
+<li>NodePort: 紫色跟紅色的應用程式都可以存取，只是存取的方式些許不同。注意的是該非叢集內的應用程式可以運行在任何節點上，只要有辦法透過網路與<code>kubernetes</code>叢集內集點相連即可。</li>
+</ul>
+<h1 id="How-To-Use-It"><a href="#How-To-Use-It" class="headerlink" title="How To Use It"></a>How To Use It</h1><p>接下來使用<a href="https://github.com/hwchiu/kubeDemo" target="_blank" rel="noopener">kubeDemo</a>專案內的內容來展示一下如何使用 <code>ClusterIP</code> 以及 對應的 <code>NodePort</code> 服務。</p>
+<p>在此範例中，我採用 <code>Nginx</code> 作為一個後端的服務，然後用 <code>ubuntu</code> 當做一個叢集內的應用程式，想要透過 <code>Service</code> 的方式存取到 <code>Nginx</code></p>
+<p><img src="https://i.imgur.com/osNqxlw.png" alt="Imgur"></p>
+<p>首先，我們先部屬相關的應用程式<code>Ngnix</code> 以及用來測試用的 <code>ubuntu</code><br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:04:10:45 [~/go/src/github.com/hwchiu/kubeDemo](master)vagrant</span><br><span class="line"><span class="variable">$kubectl</span> apply -f services/deployment/nginx.yml</span><br><span class="line">deployment.apps/k8s-nginx created</span><br><span class="line"></span><br><span class="line">vortex-dev:04:16:17 [~/go/src/github.com/hwchiu/kubeDemo](master)vagrant</span><br><span class="line"><span class="variable">$kubectl</span> apply -f services/application/ubuntu.yml</span><br><span class="line">pod/ubuntu created</span><br></pre></td></tr></table></figure></p>
+<p>部屬完畢後，接下來我們要來部屬相關的 <code>Cluster-IP</code> 以及 <code>NodePort</code> 兩個服務</p>
+<h2 id="Deploy-ClusterIP"><a href="#Deploy-ClusterIP" class="headerlink" title="Deploy ClusterIP"></a>Deploy ClusterIP</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:04:29:45 [~/go/src/github.com/hwchiu/kubeDemo](master)vagrant</span><br><span class="line"><span class="variable">$kubectl</span> apply -f services/service/nginx-cluster.yml</span><br><span class="line">service/k8s-nginx-cluster created</span><br></pre></td></tr></table></figure>
+<p>仔細研究一下 <code>services/service/nginx-cluster.yml</code> 檔案的內容<br><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Service</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">k8s-nginx-cluster</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">run:</span> <span class="string">k8s-nginx-cluster</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">ports:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">port:</span> <span class="number">80</span></span><br><span class="line">    <span class="attr">protocol:</span> <span class="string">TCP</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">run:</span> <span class="string">k8s-nginx</span></span><br></pre></td></tr></table></figure></p>
+<p>這邊用的是非常簡單範例</p>
+<ol>
+<li>這邊沒寫 Type, 預設就會是 <code>ClusterIP</code>.</li>
+<li>該 <code>service</code> 會透過 <code>selector</code> 去找名稱是 <code>k8s-nginx</code> 的<code>nginx</code>的應用服務，並且告知該應用服務是使用 <code>TCP:80</code> 去連線</li>
+<li>該 <code>service</code> 本身是名稱是 <code>k8s-nginx-cluster</code></li>
+</ol>
+<p>接下來透過 <code>kubectl describe</code> 來觀察一下該 <code>service</code>.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:04:32:55 [~/go/src/github.com/hwchiu/kubeDemo](master)vagrant</span><br><span class="line"><span class="variable">$kubectl</span>  describe svc k8s-nginx-cluster</span><br><span class="line">Name:              k8s-nginx-cluster</span><br><span class="line">Namespace:         default</span><br><span class="line">Labels:            run=k8s-nginx-cluster</span><br><span class="line">Annotations:       kubectl.kubernetes.io/last-applied-configuration=&#123;<span class="string">"apiVersion"</span>:<span class="string">"v1"</span>,<span class="string">"kind"</span>:<span class="string">"Service"</span>,<span class="string">"metadata"</span>:&#123;<span class="string">"annotations"</span>:&#123;&#125;,<span class="string">"labels"</span>:&#123;<span class="string">"run"</span>:<span class="string">"k8s-nginx-cluster"</span>&#125;,<span class="string">"name"</span>:<span class="string">"k8s-nginx-cluster"</span>,<span class="string">"namespace"</span>:<span class="string">"default"</span>&#125;...</span><br><span class="line">Selector:          run=k8s-nginx</span><br><span class="line">Type:              ClusterIP</span><br><span class="line">IP:                10.98.51.150</span><br><span class="line">Port:              &lt;<span class="built_in">unset</span>&gt;  80/TCP</span><br><span class="line">TargetPort:        80/TCP</span><br><span class="line">Endpoints:         10.244.0.88:80,10.244.0.89:80,10.244.0.90:80</span><br><span class="line">Session Affinity:  None</span><br><span class="line">Events:            &lt;none&gt;</span><br></pre></td></tr></table></figure>
+<p>這邊先注意的就是 <code>Name</code> 以及 <code>Namespace</code>  這兩個欄位，因為該 <code>service</code> 會用 <strong>\$Name.$Namespace</strong> 的方式吐出一個可以使用的 <code>FQDN</code> 供其他應用程式使用<br>此範例中就是 <code>k8s-nginx-cluster.default</code>。</p>
+<p>為了驗證這個情境，我們嘗試透過剛剛部屬的 <code>Ubuntu</code> 去嘗試對 <code>NGINX</code> 存取網頁看看<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:04:48:50 [~/go/src/github.com/hwchiu/kubeDemo](master)vagrant</span><br><span class="line"><span class="variable">$kubectl</span> <span class="built_in">exec</span> ubuntu curl -- -s k8s-nginx-cluster.default</span><br><span class="line">&lt;!DOCTYPE html&gt;</span><br><span class="line">&lt;html&gt;</span><br><span class="line">&lt;head&gt;</span><br><span class="line">&lt;title&gt;Welcome to nginx!&lt;/title&gt;</span><br><span class="line">&lt;style&gt;</span><br><span class="line">    body &#123;</span><br><span class="line">        width: 35em;</span><br><span class="line">        margin: 0 auto;</span><br><span class="line">        font-family: Tahoma, Verdana, Arial, sans-serif;</span><br><span class="line">    &#125;</span><br><span class="line">&lt;/style&gt;</span><br><span class="line">&lt;/head&gt;</span><br><span class="line">&lt;body&gt;</span><br><span class="line">&lt;h1&gt;Welcome to nginx!&lt;/h1&gt;</span><br><span class="line">&lt;p&gt;If you see this page, the nginx web server is successfully installed and</span><br><span class="line">working. Further configuration is required.&lt;/p&gt;</span><br><span class="line"></span><br><span class="line">&lt;p&gt;For online documentation and support please refer to</span><br><span class="line">&lt;a href=<span class="string">"http://nginx.org/"</span>&gt;nginx.org&lt;/a&gt;.&lt;br/&gt;</span><br><span class="line">Commercial support is available at</span><br><span class="line">&lt;a href=<span class="string">"http://nginx.com/"</span>&gt;nginx.com&lt;/a&gt;.&lt;/p&gt;</span><br><span class="line"></span><br><span class="line">&lt;p&gt;&lt;em&gt;Thank you <span class="keyword">for</span> using nginx.&lt;/em&gt;&lt;/p&gt;</span><br><span class="line">&lt;/body&gt;</span><br><span class="line">&lt;/html&gt;</span><br></pre></td></tr></table></figure></p>
+<p>非常順利的存取到網頁了，這時候如果想要從節點本身(<code>非叢集應用程式</code>)去存取看看呢?<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:04:54:37 [~/go/src/github.com/hwchiu/kubeDemo](master)vagrant</span><br><span class="line"><span class="variable">$curl</span> k8s-nginx-cluster.default</span><br><span class="line">curl: (6) Could not resolve host: k8s-nginx-cluster.default</span><br></pre></td></tr></table></figure></p>
+<p>會發現根本連該 <code>FQDN</code> 的 <code>DNS</code> 解析都沒有辦法。</p>
+<p>實際上 ClusterIP 是因為 kube-dns 的關係沒有辦法解析該位置<br>但是若嘗試直接使用解析過後的IP位置去存取<br>叢集內的節點透過解析後的地址是可以存取到目標的。<br>只是一般人不會想要直接使用該 <code>IP</code>，而是更依賴使用 <code>FQDN</code> 的方式。</p>
+<h2 id="Deploy-NodePort"><a href="#Deploy-NodePort" class="headerlink" title="Deploy NodePort"></a>Deploy NodePort</h2><p>接下來我們嘗試部屬看看 <code>NodePort</code> 的 <code>service</code></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:04:29:45 [~/go/src/github.com/hwchiu/kubeDemo](master)vagrant</span><br><span class="line"><span class="variable">$kubectl</span> apply -f services/service/nginx-node.yml</span><br><span class="line">service/k8s-nginx-node created</span><br></pre></td></tr></table></figure>
+<p>仔細研究一下 <code>services/service/nginx-cluster.yml</code> 檔案的內容<br><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Service</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">k8s-nginx-node</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">run:</span> <span class="string">k8s-nginx-node</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">ports:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">port:</span> <span class="number">80</span></span><br><span class="line">    <span class="attr">protocol:</span> <span class="string">TCP</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">run:</span> <span class="string">k8s-nginx</span></span><br><span class="line">  <span class="attr">type:</span> <span class="string">NodePort</span></span><br></pre></td></tr></table></figure></p>
+<p>這邊可以觀察到</p>
+<ol>
+<li>特別標示該 <code>Type</code> 是 <code>NodePort</code></li>
+<li>該 <code>service</code> 本身是名稱是 <code>k8s-nginx-node</code></li>
+</ol>
+<p>接下來透過 <code>kubectl describe</code> 來觀察一下該 <code>service</code>.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:04:32:55 [~/go/src/github.com/hwchiu/kubeDemo](master)vagrant</span><br><span class="line"><span class="variable">$kubectl</span>  describe svc k8s-nginx-node</span><br><span class="line">Name:                     k8s-nginx-node</span><br><span class="line">Namespace:                default</span><br><span class="line">Labels:                   run=k8s-nginx-node</span><br><span class="line">Annotations:              kubectl.kubernetes.io/last-applied-configuration=&#123;<span class="string">"apiVersion"</span>:<span class="string">"v1"</span>,<span class="string">"kind"</span>:<span class="string">"Service"</span>,<span class="string">"metadata"</span>:&#123;<span class="string">"annotations"</span>:&#123;&#125;,<span class="string">"labels"</span>:&#123;<span class="string">"run"</span>:<span class="string">"k8s-nginx-node"</span>&#125;,<span class="string">"name"</span>:<span class="string">"k8s-nginx-node"</span>,<span class="string">"namespace"</span>:<span class="string">"default"</span>&#125;,<span class="string">"spec...</span></span><br><span class="line"><span class="string">Selector:                 run=k8s-nginx</span></span><br><span class="line"><span class="string">Type:                     NodePort</span></span><br><span class="line"><span class="string">IP:                       10.99.157.45</span></span><br><span class="line"><span class="string">Port:                     &lt;unset&gt;  80/TCP</span></span><br><span class="line"><span class="string">TargetPort:               80/TCP</span></span><br><span class="line"><span class="string">NodePort:                 &lt;unset&gt;  32293/TCP</span></span><br><span class="line"><span class="string">Endpoints:                10.244.0.88:80,10.244.0.89:80,10.244.0.90:80</span></span><br><span class="line"><span class="string">Session Affinity:         None</span></span><br><span class="line"><span class="string">External Traffic Policy:  Cluster</span></span><br><span class="line"><span class="string">Events:                   &lt;none&gt;</span></span><br></pre></td></tr></table></figure>
+<p>這邊要注意的是除了之前的 <code>Name/Namespace</code> 之外，多了 <code>NodePort</code> 的欄位出現了，這邊後面的 <code>32293</code> 就是代表可以透過任意叢集節點上面的 <code>TCP:32293</code> 去存取到內部的 <code>Nginx</code> 服務器</p>
+<p>我們直接使用 <code>172.17.8.100:32293</code> 嘗試看看<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:05:03:44 [~/go/src/github.com/hwchiu/kubeDemo](master)vagrant</span><br><span class="line"><span class="variable">$curl</span> 172.17.8.100:32293</span><br><span class="line">&lt;!DOCTYPE html&gt;</span><br><span class="line">&lt;html&gt;</span><br><span class="line">&lt;head&gt;</span><br><span class="line">&lt;title&gt;Welcome to nginx!&lt;/title&gt;</span><br><span class="line">&lt;style&gt;</span><br><span class="line">    body &#123;</span><br><span class="line">        width: 35em;</span><br><span class="line">        margin: 0 auto;</span><br><span class="line">        font-family: Tahoma, Verdana, Arial, sans-serif;</span><br><span class="line">    &#125;</span><br><span class="line">&lt;/style&gt;</span><br><span class="line">&lt;/head&gt;</span><br><span class="line">&lt;body&gt;</span><br><span class="line">&lt;h1&gt;Welcome to nginx!&lt;/h1&gt;</span><br><span class="line">&lt;p&gt;If you see this page, the nginx web server is successfully installed and</span><br><span class="line">working. Further configuration is required.&lt;/p&gt;</span><br><span class="line"></span><br><span class="line">&lt;p&gt;For online documentation and support please refer to</span><br><span class="line">&lt;a href=<span class="string">"http://nginx.org/"</span>&gt;nginx.org&lt;/a&gt;.&lt;br/&gt;</span><br><span class="line">Commercial support is available at</span><br><span class="line">&lt;a href=<span class="string">"http://nginx.com/"</span>&gt;nginx.com&lt;/a&gt;.&lt;/p&gt;</span><br><span class="line"></span><br><span class="line">&lt;p&gt;&lt;em&gt;Thank you <span class="keyword">for</span> using nginx.&lt;/em&gt;&lt;/p&gt;</span><br><span class="line">&lt;/body&gt;</span><br><span class="line">&lt;/html&gt;</span><br></pre></td></tr></table></figure></p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>本章節中，我們介紹了 <code>Kubernetes Serive</code>, 為什麼需要 <code>Service</code> 以及 <code>Service</code> 如何解決我們的問題<br>同時介紹了常用的 <code>ClusterIP</code> 以及 <code>NodePort</code> 這兩種類型的差異以及概念<br>最後透過幾個簡單的範例展示下如何使用 <code>ClusterIP</code>/<code>NodePort</code> 讓我們能夠更方便的透過 <code>service</code> 去存取我們的後端服務</p>
+
+      
+    </div>
+
+    
+      
+
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/introduce-cni-i.html" rel="bookmark">[Container Network Interface] Bridge Network In Docker</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/introduce-cni-ii.html" rel="bookmark">[Container Network Interface] CNI Introduction</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/introduce-cni-iii.html" rel="bookmark">[Container Network Interface] Implement Your CNI In Golang</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/k8s-security-11tips-i.html" rel="bookmark">11個保護你 Kubernetes 集群的技巧與觀念(上)</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/k8s-security-11tips-ii.html" rel="bookmark">11個保護你 Kubernetes 集群的技巧與觀念(下)</a></div>
+      
+    </li>
+  
+  </ul>
+
+
+    
+
+    
+    
+    
+
+    
+
+    
+
+    
+      <div>
+        <ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>Post author:  </strong>Hwchiu</li>
+  <li class="post-copyright-link">
+    <strong>Post link: </strong>
+    <a href="https://www.hwchiu.com/kubernetes-service-i.html" title="[Kubernetes] What Is Service?">https://www.hwchiu.com/kubernetes-service-i.html</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="external nofollow" target="_blank">CC BY-NC-SA 4.0</a> unless stating additionally.</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Linux/" rel="tag"># Linux</a>
+          
+            <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/kubernetes-dns-iiii.html" rel="next" title="[Kubernetes] DNS Setting with Dockerd(原始碼分析下)">
+                <i class="fa fa-chevron-left"></i> [Kubernetes] DNS Setting with Dockerd(原始碼分析下)
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/kubernetes-service-ii.html" rel="prev" title="[Kubernetes] How to Implement Kubernetes Service - ClusterIP">
+                [Kubernetes] How to Implement Kubernetes Service - ClusterIP <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar.jpg" alt="Hwchiu">
+            
+              <p class="site-author-name" itemprop="name">Hwchiu</p>
+              <p class="site-description motion-element" itemprop="description">kubernetes/SDN/DevOps</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">201</span>
+                    <span class="site-state-item-name">posts</span>
+                  </a>
+                </div>
+              
+
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">106</span>
+                    <span class="site-state-item-name">tags</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  <a href="https://github.com/hwchiu" target="_blank" title="Github" rel="external nofollow"><i class="fa fa-fw fa-github"></i>Github</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.linkedin.com/in/hung-wei-chiu-52561494/" target="_blank" title="Linkedin" rel="external nofollow"><i class="fa fa-fw fa-linkedin"></i>Linkedin</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="mailto:sppsorrg@gmail.com" target="_blank" title="E-Mail" rel="external nofollow"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://twitter.com/hw_chiu" target="_blank" title="Twitter" rel="external nofollow"><i class="fa fa-fw fa-twitter"></i>Twitter</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.facebook.com/hongwei.qiu" target="_blank" title="FB Page" rel="external nofollow"><i class="fa fa-fw fa-facebook"></i>FB Page</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://instagram.com/hwchiu" target="_blank" title="Instagram" rel="external nofollow"><i class="fa fa-fw fa-instagram"></i>Instagram</a>
+                  
+                </span>
+              
+            </div>
+          
+
+          
+          
+
+          
+
+    <div class="links-of-blogroll motion-element links-of-blogroll-block">
+      <div class="links-of-blogroll-title">
+        <!-- modify icon to fire by szw -->
+        <i class="fa fa-history fa-" aria-hidden="true"></i>
+        Recent Posts
+      </div>
+      <ul class="links-of-blogroll-list">
+        
+        
+          <li>
+            <a href="/ipvs-4.html" title="IPvS 學習手冊(四)" target="_blank">IPvS 學習手冊(四)</a>
+          </li>
+        
+          <li>
+            <a href="/gitops.html" title="淺談 GitOps 的概念" target="_blank">淺談 GitOps 的概念</a>
+          </li>
+        
+          <li>
+            <a href="/iptables-1.html" title="初探 IPTABLES 流動之路 - 以 Docker 為範例" target="_blank">初探 IPTABLES 流動之路 - 以 Docker 為範例</a>
+          </li>
+        
+          <li>
+            <a href="/k8s-course-2.html" title="Kubernetes 線上課程 - CI/CD" target="_blank">Kubernetes 線上課程 - CI/CD</a>
+          </li>
+        
+          <li>
+            <a href="/ipvs-3.html" title="IPvS 學習手冊(三)" target="_blank">IPvS 學習手冊(三)</a>
+          </li>
+        
+      </ul>
+    </div>
+
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                Friends
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.evanlin.com/" title="KKDAI 大大" target="_blank">KKDAI 大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://kairen.github.io/" title="凱仁大大" target="_blank">凱仁大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.pichuang.com.tw/" title="小飛機" target="_blank">小飛機</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/cloudnative.tw/" title="CNTUG" target="_blank">CNTUG</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/sdnds.tw/" title="SDNDS-TW" target="_blank">SDNDS-TW</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://medium.com/@yayajacky" title="Jack" target="_blank">Jack</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#What-Problems"><span class="nav-number">2.</span> <span class="nav-text">What Problems</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#How-To-Solve"><span class="nav-number">3.</span> <span class="nav-text">How To Solve</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#ClusterIP"><span class="nav-number">3.1.</span> <span class="nav-text">ClusterIP</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#NodePort"><span class="nav-number">3.2.</span> <span class="nav-text">NodePort</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#How-To-Use-It"><span class="nav-number">4.</span> <span class="nav-text">How To Use It</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Deploy-ClusterIP"><span class="nav-number">4.1.</span> <span class="nav-text">Deploy ClusterIP</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Deploy-NodePort"><span class="nav-number">4.2.</span> <span class="nav-text">Deploy NodePort</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">5.</span> <span class="nav-text">Summary</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+
+  
+
+  
+</div>
+
+
+  
+
+
+
+  <div class="powered-by">Powered by <a class="theme-link" target="_blank" rel="external nofollow" href="https://hexo.io">Hexo</a> v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme &mdash; <a class="theme-link" target="_blank" rel="external nofollow" href="https://theme-next.org">NexT.Pisces</a> v6.3.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+	
+    
+
+    
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=6.3.0"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=6.3.0"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=6.3.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=6.3.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=6.3.0"></script>
+
+
+
+  
+
+  
+    <script id="dsq-count-scr" src="https://hwchiublog.disqus.com/count.js" async></script>
+  
+
+  
+    <script type="text/javascript">
+      var disqus_config = function () {
+        this.page.url = 'https://www.hwchiu.com/kubernetes-service-i.html';
+        this.page.identifier = 'kubernetes-service-i.html';
+        this.page.title = '[Kubernetes] What Is Service?';
+        };
+      function loadComments () {
+        var d = document, s = d.createElement('script');
+        s.src = 'https://hwchiublog.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', '' + +new Date());
+        (d.head || d.body).appendChild(s);
+      }
+      
+        loadComments();
+      
+    </script>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  <style>
+    .copy-btn {
+      display: inline-block;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 20px;
+      color: #333;
+      white-space: nowrap;
+      vertical-align: middle;
+      cursor: pointer;
+      background-color: #eee;
+      background-image: linear-gradient(#fcfcfc, #eee);
+      border: 1px solid #d5d5d5;
+      border-radius: 3px;
+      user-select: none;
+      outline: 0;
+    }
+
+    .highlight-wrap .copy-btn {
+      transition: opacity .3s ease-in-out;
+      opacity: 0;
+      padding: 2px 6px;
+      position: absolute;
+      right: 4px;
+      top: 8px;
+    }
+
+    .highlight-wrap:hover .copy-btn,
+    .highlight-wrap .copy-btn:focus {
+      opacity: 1
+    }
+
+    .highlight-wrap {
+      position: relative;
+    }
+  </style>
+  <script>
+    $('.highlight').each(function (i, e) {
+      var $wrap = $('<div>').addClass('highlight-wrap')
+      $(e).after($wrap)
+      $wrap.append($('<button>').addClass('copy-btn').append('Copy').on('click', function (e) {
+        var code = $(this).parent().find('.code').find('.line').map(function (i, e) {
+          return $(e).text()
+        }).toArray().join('\n')
+        var ta = document.createElement('textarea')
+        document.body.appendChild(ta)
+        ta.style.position = 'absolute'
+        ta.style.top = '0px'
+        ta.style.left = '0px'
+        ta.value = code
+        ta.select()
+        ta.focus()
+        var result = document.execCommand('copy')
+        document.body.removeChild(ta)
+        
+        $(this).blur()
+      })).on('mouseleave', function (e) {
+        var $b = $(this).find('.copy-btn')
+        setTimeout(function () {
+          $b.text('Copy')
+        }, 300)
+      }).append(e)
+    })
+  </script>
+
+
+</body>
+</html>

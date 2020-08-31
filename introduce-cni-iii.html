@@ -1,0 +1,1452 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="en">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=6.3.0" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.3.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.3.0" color="#222">
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.3.0',
+    sidebar: {"position":"left","display":"always","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="As we know, the kubernetes use the CNI to provide the network connectivity for its Pod unit and the cluster administrator can choose what kind of the CNI should be installed in the cluster. For exampl">
+<meta name="keywords" content="Container,Network,Interface,golang,implement,program">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Container Network Interface] Implement Your CNI In Golang">
+<meta property="og:url" content="https://www.hwchiu.com/introduce-cni-iii.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="As we know, the kubernetes use the CNI to provide the network connectivity for its Pod unit and the cluster administrator can choose what kind of the CNI should be installed in the cluster. For exampl">
+<meta property="og:locale" content="en">
+<meta property="og:updated_time" content="2020-08-31T01:59:56.724Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="[Container Network Interface] Implement Your CNI In Golang">
+<meta name="twitter:description" content="As we know, the kubernetes use the CNI to provide the network connectivity for its Pod unit and the cluster administrator can choose what kind of the CNI should be installed in the cluster. For exampl">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="Hwchiu Learning Note" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://www.hwchiu.com/introduce-cni-iii.html">
+
+
+
+<script type="text/javascript" id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>[Container Network Interface] Implement Your CNI In Golang | Hwchiu Learning Note</title>
+  
+<script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '',
+      xfbml      : true,
+      version    : 'v2.10'
+    });
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "//connect.facebook.net/en/sdk.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+</script>
+
+
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-54006186-1');
+</script>
+
+
+
+
+
+
+  <noscript>
+  <style type="text/css">
+    .use-motion .motion-element,
+    .use-motion .brand,
+    .use-motion .menu-item,
+    .sidebar-inner,
+    .use-motion .post-block,
+    .use-motion .pagination,
+    .use-motion .comments,
+    .use-motion .post-header,
+    .use-motion .post-body,
+    .use-motion .collection-title { opacity: initial; }
+
+    .use-motion .logo,
+    .use-motion .site-title,
+    .use-motion .site-subtitle {
+      opacity: initial;
+      top: initial;
+    }
+
+    .use-motion {
+      .logo-line-before i { left: initial; }
+      .logo-line-after i { right: initial; }
+    }
+  </style>
+</noscript>
+
+  <script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({
+          google_ad_client: "ca-pub-1100711228720990",
+          enable_page_level_ads: true
+     });
+</script>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="en">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Hwchiu Learning Note</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</h1>
+      
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="Toggle navigation bar">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+    <a href="/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-home"></i> <br>Home</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+    <a href="/about/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-user"></i> <br>About</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+    <a href="/tags/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>Tags</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+    <a href="/archives/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>Archives</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-sitemap">
+    <a href="/sitemap.xml" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-sitemap"></i> <br>Sitemap</a>
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+  
+  
+  
+    
+      
+    
+    <a href="https://github.com/hwchiu" class="github-corner" target="_blank" title="Follow me on GitHub" aria-label="Follow me on GitHub"><svg width="80" height="80" viewbox="0 0 250 250" style="fill:#222; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg>
+    
+      </a>
+    
+
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/introduce-cni-iii.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">[Container Network Interface] Implement Your CNI In Golang
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+
+              
+                
+              
+
+              <time title="Created: 2018-06-16 08:34:18" itemprop="dateCreated datePublished" datetime="2018-06-16T08:34:18-07:00">2018-06-16</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">Edited on</span>
+                
+                <time title="Modified: 2020-08-30 18:59:56" itemprop="dateModified" datetime="2020-08-30T18:59:56-07:00">2020-08-30</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/introduce-cni-iii.html#comments" itemprop="discussionUrl">
+                
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="introduce-cni-iii.html" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+              <div class="post-description">As we know, the kubernetes use the CNI to provide the network connectivity for its Pod unit and the cluster administrator can choose what kind of the CNI should be installed in the cluster. For example, if the only requirement is the overlay network, you can choose the flannel CNI and choose the calico CNI if you have the requirement of the BGP. In this post, we will learn how to write your own CNI in golang language. Actually, You can implement it with any language as you like.</div>
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>It’s a series post about the Container Network Interface and you can find other posts below.<br><a href="https://www.hwchiu.com/introduce-cni-i.html">[Container Network Interface] Bridge Network In Docker</a><br><a href="https://www.hwchiu.com/introduce-cni-ii.html">[Container Network Interface] CNI Introduction </a></p>
+<p>In this post, I will show how to write your own CNI program.</p>
+<p>Container Network Interface(CNI) can be implemented by any programming languages as you like.</p>
+<p>You just to follow the interface and your program can be used for every infrastructure using the CNI for their network connectivity.</p>
+<p>In this tutorial, I will use the <code>golang</code> to implement a simple CNI witch create a <code>Linux Bridge</code> in the host and connect the container and the host itself.</p>
+<p>I have create a github repo for this tutorial and you can find it on <a href="HTTPS://github.com/hwchiu/CNI_Tutorial_2018" target="_blank" rel="noopener">hwchiu CNI_Tutorial_2018</a></p>
+<h1 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h1><p>In order to help the develop to develop their own CNI, the <code>CNCF</code> had setup two projects for developers.</p>
+<p>Those projects are based on the golang language and provide useful libraries for the developer to control the Linux network functions, such as <code>IP</code>, <code>netlink</code> and <code>network namespace</code>.</p>
+<p>The <a href="HTTPS://github.com/containernetworking/cni" target="_blank" rel="noopener">ContainerNetworking/CNI</a> provides the basic function for CNI implementation in golang and you can see the introduction of that project in its README</p>
+<blockquote>
+<p>As well as the specification, this repository contains the Go source code of a library for integrating CNI into applications and an example command-line tool for executing CNI plugins. A separate repository contains reference plugins and a template for making new plugins.</p>
+</blockquote>
+<p>The other project <a href="HTTPS://github.com/containernetworking/plugins" target="_blank" rel="noopener">ContainerNetwokring/Plugins</a> provides some basic network functions for your CNI and it can be divided into two types.</p>
+<h2 id="Basic-CNI"><a href="#Basic-CNI" class="headerlink" title="Basic CNI"></a>Basic CNI</h2><p>It provides some basic CNI, such as <code>Bridge</code>, <code>MacVlan</code>, <code>Host Device</code>.. And so on.<br>You can chain those CNI into your own CNI and combine those into a more powerful CNI.</p>
+<h2 id="IPAM"><a href="#IPAM" class="headerlink" title="IPAM"></a>IPAM</h2><p>IPAM (IP Address Management) provides some method to handle the IP/Route management. It provides <code>host-local</code>, <code>dhcp</code> and <code>static</code> three methods now.</p>
+<p>In the <code>host-local</code>, you just need to provide a configuration file to describe what subnet/gateway you want to use and it will allocate a unused IP address from that subnet for your CNI.<br>And the <code>dhcp</code> will runs a <code>DHCP</code> client in each container and send a <code>dhcp request</code> to get a IP address from the <code>dhcp</code> server.</p>
+<p>In this tutorial, we will implement a <code>bridge</code> CNI and explain those functions step by step.</p>
+<h1 id="Before-We-Start"><a href="#Before-We-Start" class="headerlink" title="Before We Start"></a>Before We Start</h1><p>Before we start to implement the CNI, we must know the <code>interface</code>/<code>specification</code> of the <code>CNI</code>.</p>
+<ol>
+<li>Your CNI will be invoked when the container is <code>ready to create or has been terminated</code>.</li>
+</ol>
+<ul>
+<li>Allocate resources for the container, including the <code>IP address</code> and the network connectivity.</li>
+<li>Remove all resources you allocated before when a container has been terminated.</li>
+</ul>
+<ol start="2">
+<li>The caller will pass the following information into your CNI program</li>
+</ol>
+<ul>
+<li>Command (What kind of the event you should care)<ul>
+<li>ADD</li>
+<li>DELETE</li>
+<li>VERSION</li>
+</ul>
+</li>
+<li>ContainerID (The target ContainerID)</li>
+<li>NetNS (THe network namespace path of the container)</li>
+<li>IFNAME (The interface name should be created in the container)</li>
+<li>PATH (The current working PATH, you should use it to execute other CNI)</li>
+<li>STDIN (The configuration file of your CNI)</li>
+</ul>
+<h1 id="Step-By-Step"><a href="#Step-By-Step" class="headerlink" title="Step By Step"></a>Step By Step</h1><p>For each step, you can find a corresponding folder in my github repo and there’s all golang files for each steps.</p>
+<h2 id="Step1"><a href="#Step1" class="headerlink" title="Step1"></a>Step1</h2><p>First, we need to provide two function for <code>ADD</code> and <code>DELETE</code> event which is used to allocate/recycle resource when the container has been start/terminated.</p>
+<p>We use the framework provided by the The <a href="HTTPS://github.com/containernetworking/cni" target="_blank" rel="noopener">ContainerNetworking/CNI</a> and it will encapsulate</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">Package main</span><br><span class="line"></span><br><span class="line">Import (</span><br><span class="line">    <span class="string">"github.com/containernetworking/cni/pkg/skel"</span></span><br><span class="line">    <span class="string">"github.com/containernetworking/cni/pkg/version"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">cmdAdd</span><span class="params">(args *skel.CmdArgs)</span> <span class="title">error</span></span> &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">cmdDel</span><span class="params">(args *skel.CmdArgs)</span> <span class="title">error</span></span> &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    skel.PluginMain(cmdAdd, cmdDel, version.All)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>In this framework, it encapsulates all information we need into a predefined type <code>skel.CmdArgs</code></p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> CmdArgs <span class="keyword">struct</span> &#123;</span><br><span class="line">    ContainerID <span class="keyword">string</span></span><br><span class="line">    Netns <span class="keyword">string</span></span><br><span class="line">    IfName <span class="keyword">string</span></span><br><span class="line">    Args <span class="keyword">string</span></span><br><span class="line">    Path <span class="keyword">string</span></span><br><span class="line">    StdinData []<span class="keyword">byte</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>Use the <code>go build</code> to build the binary and assume our execution file  is <code>example</code> and then we should provide a basic configuration which should contains useful information for our CNI.<br>Maybe we call the file <code>configuration</code> its contents looks like<br><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">	<span class="attr">"name"</span>: <span class="string">"mynet"</span>,</span><br><span class="line">	<span class="attr">"BridgeName"</span>: <span class="string">"test"</span>,</span><br><span class="line">	<span class="attr">"IP"</span>: <span class="string">"192.0.2.1/24"</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>Now, We can use the following command to execute our CNI program.<br><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">sudo CNI_COMMAND=ADD CNI_CONTAINERID=ns1 \</span><br><span class="line">CNI_NETNS=/var/run/netns/ns1 CNI_IFNAME=eth10 \</span><br><span class="line">CNI_PATH=`pwd` \</span><br><span class="line">./example &lt; config</span><br></pre></td></tr></table></figure></p>
+<p>For that go CNI framework, those infromation should be passed by the <code>environement</code> and we can get that from the <code>CmdArgs</code>.</p>
+<p>Actually, we have done the basic CNI program but it does nothing.</p>
+<p>A good CNI should make a container network connectivity and assign a valid IP address to the container and we will do that in the foloowing tutorial.</p>
+<h2 id="Step-2"><a href="#Step-2" class="headerlink" title="Step 2"></a>Step 2</h2><p>Now, we will create a linux bridge for the container and the logical flow looks like</p>
+<ol>
+<li>Read the bridge information from the config.</li>
+<li>Get the bridge name we want to use.</li>
+<li>Create the bridge if it doesn’t exist in the system.</li>
+</ol>
+<p>Since the frametwork store the config content in the <code>CmdArgs</code> object as a <code>[]byte</code> form. we should create a <code>structure</code> to decode those <code>[]byte</code> data.</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> SimpleBridge <span class="keyword">struct</span> &#123;</span><br><span class="line">    BridgeName <span class="keyword">string</span> <span class="string">`json:"bridgeName"`</span></span><br><span class="line">    IP    <span class="keyword">string</span> <span class="string">`json:"ip"`</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>and decode the config content in the <code>CmdAdd</code> function.</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">cmdAdd</span><span class="params">(args *skel.CmdArgs)</span> <span class="title">error</span></span> &#123;</span><br><span class="line">	sb := SimpleBridge&#123;&#125;</span><br><span class="line">	<span class="keyword">if</span> err := json.Unmarshal(args.StdinData, &amp;sb); err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line">	fmt.Println(sb)</span><br></pre></td></tr></table></figure>
+<p>There’re many ways for creating the Linuxu Bridge, we can use the system commadn <code>brctl addbr</code> via the <code>os.Exec</code> or use the <code>netlink</code> to create.</p>
+<p>We choose the <code>netlink</code> method here since the <code>os.Exec</code> is too easy for developer.</p>
+<p>First, we should import the <code>netlink</code> package <code>&quot;github.com/vishvananda/netlink&quot;</code><br>and we will use the type <code>netlink.Bridge</code> to describe the bridge we want.</p>
+<p>In the following example, we will do three things.</p>
+<ol>
+<li>Prepare the netlink.Bridge object we want.</li>
+<li>Create the Bridge</li>
+<li>Setup the Linux Bridge.</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">br := &amp;netlink.Bridge&#123;</span><br><span class="line">	LinkAttrs: netlink.LinkAttrs&#123;</span><br><span class="line">		Name: sb.BridgeName,</span><br><span class="line">		MTU:  <span class="number">1500</span>,</span><br><span class="line">		<span class="comment">// Let kernel use default txqueuelen; leaving it unset</span></span><br><span class="line">		<span class="comment">// means 0, and a zero-length TX queue messes up FIFO</span></span><br><span class="line">		<span class="comment">// traffic shapers which use TX queue length as the</span></span><br><span class="line">		<span class="comment">// default packet limit</span></span><br><span class="line">		TxQLen: <span class="number">-1</span>,</span><br><span class="line">	&#125;,</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">err := netlink.LinkAdd(br)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &amp;&amp; err != syscall.EEXIST &#123;</span><br><span class="line">	<span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br><span class="line">   </span><br><span class="line"><span class="keyword">if</span> err := netlink.LinkSetUp(br); err != <span class="literal">nil</span> &#123;</span><br><span class="line">	<span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>Now. The <code>CmdAdd</code> function should look like below.<br><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">cmdAdd</span><span class="params">(args *skel.CmdArgs)</span> <span class="title">error</span></span> &#123;</span><br><span class="line">    sb := SimpleBridge&#123;&#125;</span><br><span class="line">    <span class="keyword">if</span> err := json.Unmarshal(args.StdinData, &amp;sb); err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> err</span><br><span class="line">    &#125;</span><br><span class="line">    fmt.Println(sb)</span><br><span class="line"></span><br><span class="line">    br := &amp;netlink.Bridge&#123;</span><br><span class="line">        LinkAttrs: netlink.LinkAttrs&#123;</span><br><span class="line">            Name: sb.BridgeName,</span><br><span class="line">            MTU:  <span class="number">1500</span>,</span><br><span class="line">            <span class="comment">// Let kernel use default txqueuelen; leaving it unset</span></span><br><span class="line">            <span class="comment">// means 0, and a zero-length TX queue messes up FIFO</span></span><br><span class="line">            <span class="comment">// traffic shapers which use TX queue length as the</span></span><br><span class="line">            <span class="comment">// default packet limit</span></span><br><span class="line">            TxQLen: <span class="number">-1</span>,</span><br><span class="line">        &#125;,</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    err := netlink.LinkAdd(br)</span><br><span class="line">    <span class="keyword">if</span> err != <span class="literal">nil</span> &amp;&amp; err != syscall.EEXIST &#123;</span><br><span class="line">        <span class="keyword">return</span> err</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> err := netlink.LinkSetUp(br); err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> err</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<p>Use the aforementioned command to call the binary again and you should see the linux bridge <code>test</code> has been created.</p>
+<p>If youu don’t have the <code>brctl</code> command, use the <code>apt-get install bridge-utils to</code> to install the bridge tools.</p>
+<h2 id="Step3"><a href="#Step3" class="headerlink" title="Step3"></a>Step3</h2><p>In the next step, we will creat a <code>veth</code> for connecting the <code>linux</code> bridge and the taget <code>container</code>.</p>
+<p>The logical flow are</p>
+<ol>
+<li>Get the bridge object from the <code>Bridge</code> we created before</li>
+<li>Get the namespace of the container</li>
+<li>Create a veth on the container and move the host-end veth to host ns.</li>
+<li>Attach a host-end veth to linux bridge</li>
+</ol>
+<p>This step is more complicate then previous steps. since we will handle the <code>network namespace</code> here.<br>Fortunately, the <code>CNI</code> project has provided convenience function to handle the veth and it can cover the (3) action itom above.</p>
+<p>First, we use the <code>netlink.LinkByName</code> method to lookup the <code>netlink</code> object.</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">l, err := netlink.LinkByName(sb.BridgeName)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> fmt.Errorf(<span class="string">"could not lookup %q: %v"</span>, sb.BridgeName, err)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>and the we need to make sure that object is <code>netlink.Bridge</code>, so we do the type casting.<br><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">newBr, ok := l.(*netlink.Bridge)</span><br><span class="line"><span class="keyword">if</span> !ok &#123;</span><br><span class="line">    <span class="keyword">return</span> fmt.Errorf(<span class="string">"%q already exists but is not a bridge"</span>, sb.BridgeName)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>Second, since the <code>CmdArgs</code> already provide the <code>network namespace</code> path of the container, we can use the method from the <code>ns</code> package to load the object of the network namespace.</p>
+<p>import <code>&quot;github.com/containernetworking/plugins/pkg/ns&quot;</code></p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">netns, err := ns.GetNS(args.Netns)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">	<span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>For each <code>NetNS</code> object, it implement a function <code>Do</code> which take a function as its parameter and that function’s parameter is the caller’s network namespace.</p>
+<p>The <code>do</code> function will switch the network namespace to <code>NetNS</code> object itself and call the function(parameter) and feed the original network namespace as parameter.</p>
+<p>See the following example to learn more about <code>do</code> function.</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> handler = <span class="function"><span class="keyword">func</span><span class="params">(hostNS ns.NetNS)</span> <span class="title">error</span></span> &#123;</span><br><span class="line">    hostVeth, containerVeth, err := ip.SetupVeth(args.IfName, <span class="number">1500</span>, hostNS)   </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> err := netns.Do(handler); err != <span class="literal">nil</span> &#123;</span><br><span class="line"><span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>First , we create a function handler which calls the <code>ip.SetpuVeth</code> to create a veth pair on caller’s network namespace and move one side of veth pair to its third parameter(<code>hostNS</code>)</p>
+<p>When we call the <code>netns.Do(handler)</code>, it will call the function <code>handler</code> in <code>netns&#39;s</code> network namepsace and pass the caller’s network namespace to the <code>function handler</code>.<br>Which will result in that there will be a veth pair between the host’s network namespace and <code>netns&#39;s</code> netowkr namespace.</p>
+<p>In order to store the information about that veth pair, we can use the <code>current.Interface{}</code> object to store the data.</p>
+<p>First, we need to import the library<br><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> <span class="string">"github.com/containernetworking/cni/pkg/types/current"</span></span><br></pre></td></tr></table></figure></p>
+<p>and then create a variable represent to host side network interface in the function handler.</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">hostIface := &amp;current.Interface&#123;&#125;</span><br><span class="line"><span class="keyword">var</span> handler = <span class="function"><span class="keyword">func</span><span class="params">(hostNs ns.Netns)</span> <span class="title">error</span></span> &#123;</span><br><span class="line">    hostVeth, _, err := ip.SetupVeth(args.IfName, <span class="number">1500</span>, hostNS) </span><br><span class="line">    <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> err</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    hostIface.Name = hostVeth.Name</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>Now, we can get the interface name of veth pair in the host side by <code>hostIface.Name</code> and then we will attach that link to the <code>Linux Bridge</code> we created before.</p>
+<ol>
+<li>Get the link object from the interface name by function call <code>netlink.LinkByName</code></li>
+<li>Connect the link to bridge by function call <code>netlink.LinkSetMaster</code></li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">hostVeth, err := netlink.LinkByName(hostIface.Name)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> err := netlink.LinkSetMaster(hostVeth, newBr); err != <span class="literal">nil</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>There is one important thing we need to care is the OS thread. since we will switch the <code>netns</code> to handle the namespace things.<br>We must make sure the OS won’t switch the thread during the <code>namespace</code> operations.</p>
+<p>Use the function <code>runtime.LockOSThread()</code> in the golang predefined function <code>init()</code>.</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">init</span><span class="params">()</span></span> &#123;</span><br><span class="line">        <span class="comment">// this ensures that main runs only on main thread (thread group leader).</span></span><br><span class="line">        <span class="comment">// since namespace ops (unshare, setns) are done for a single thread, we</span></span><br><span class="line">        <span class="comment">// must ensure that the goroutine does not jump from OS thread to thread</span></span><br><span class="line">        runtime.LockOSThread()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>See the whole example program in <a href="https://github.com/hwchiu/CNI_Tutorial_2018/tree/master/tutorial/step3" target="_blank" rel="noopener">https://github.com/hwchiu/CNI_Tutorial_2018/tree/master/tutorial/step3</a> and you can directly run<br>the <code>run.sh</code> in your linux machine to see the following output.<br><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">Ready to call the step3 example</span><br><span class="line">&#123;test 192.0.2.1/24&#125;</span><br><span class="line">The CNI has been called, see the following results</span><br><span class="line">The bridge and the veth has been attatch to</span><br><span class="line">bridge name     bridge id               STP enabled     interfaces</span><br><span class="line">test            8000.aa6e12faa09b       no              vethff65a064</span><br><span class="line">The interface in the netns</span><br><span class="line">eth10     Link encap:Ethernet  HWaddr 7e:23:e2:e5:8f:c4</span><br><span class="line">          inet6 addr: fe80::7c23:e2ff:fee5:8fc4/64 Scope:Link</span><br><span class="line">          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1</span><br><span class="line">          RX packets:1 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:1 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:0</span><br><span class="line">          RX bytes:90 (90.0 B)  TX bytes:90 (90.0 B)</span><br><span class="line"></span><br><span class="line">lo        Link encap:Local Loopback</span><br><span class="line">          LOOPBACK  MTU:65536  Metric:1</span><br><span class="line">          RX packets:0 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:1</span><br><span class="line">          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)</span><br></pre></td></tr></table></figure></p>
+<p>We have successfully create a linux bridge and connect to the other network namespace via the veth pair and the interface in that namepsace is <code>eth10</code> which has been defiend in the config file.</p>
+<h2 id="Step4"><a href="#Step4" class="headerlink" title="Step4"></a>Step4</h2><p>In this step, we will setup the IP address into the target network namespace.<br>To make the problem easy, we had set the target IP address in the config and we can get via the <code>sp.IP</code></p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> SimpleBridge <span class="keyword">struct</span> &#123;</span><br><span class="line">        BridgeName <span class="keyword">string</span> <span class="string">`json:"bridgeName"`</span></span><br><span class="line">        IP         <span class="keyword">string</span> <span class="string">`json:"ip"`</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>The function we used to assign the IP address is <code>netlink.AddrAdd</code><br>So the workflow is </p>
+<ol>
+<li>Generate a IP object from the config.</li>
+<li>Call the <code>nelink.AddrAdd</code> in the target network namespace.</li>
+</ol>
+<p>The parameter of <code>netlink.AddrAdd</code> is <code>netlink.Addr</code> and see its structure below.<br><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Addr <span class="keyword">struct</span> &#123;</span><br><span class="line">        *net.IPNet</span><br><span class="line">        Label       <span class="keyword">string</span></span><br><span class="line">        Flags       <span class="keyword">int</span></span><br><span class="line">        Scope       <span class="keyword">int</span></span><br><span class="line">        Peer        *net.IPNet</span><br><span class="line">        Broadcast   net.IP</span><br><span class="line">        PreferedLft <span class="keyword">int</span></span><br><span class="line">        ValidLft    <span class="keyword">int</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>We can use the <code>net</code> package provided by official golang to generate the <code>net.IPNet</code> type and its a CIDR form (IP address and the Mask).</p>
+<p>Since the IP address in our config is a string<code>192.0.2.15/24</code>,<br>we use the <code>net.ParseCIDR</code> to parse the string and return a pointer of <code>net.IPNet</code></p>
+<p>So, modify the previous handler to assign the IP address when we create a veth.</p>
+<p>Since the <code>net.IPNet</code> object get from the <code>net.ParseCIDR</code> is the <code>subnet</code>  not a <code>real IP</code> addrees, we should reassign the <code>IP</code> address to its IP field again. </p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> handler = <span class="function"><span class="keyword">func</span><span class="params">(hostNS ns.NetNS)</span> <span class="title">error</span></span> &#123;</span><br><span class="line">    hostVeth, containerVeth, err := ip.SetupVeth(args.IfName, <span class="number">1500</span>, hostNS)</span><br><span class="line">    <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> err</span><br><span class="line">    &#125;</span><br><span class="line">    hostIface.Name = hostVeth.Name</span><br><span class="line"></span><br><span class="line">    ipv4Addr, ipv4Net, err := net.ParseCIDR(sb.IP)</span><br><span class="line">    <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> err</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    link, err := netlink.LinkByName(containerVeth.Name)</span><br><span class="line">    <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> err</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ipv4Net.IP = ipv4Addr</span><br><span class="line"></span><br><span class="line">    addr := &amp;netlink.Addr&#123;IPNet: ipv4Net, Label: <span class="string">""</span>&#125;</span><br><span class="line">    <span class="keyword">if</span> err = netlink.AddrAdd(link, addr); err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> err</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>See the whole example program in <a href="https://github.com/hwchiu/CNI_Tutorial_2018/tree/master/tutorial/step4" target="_blank" rel="noopener">https://github.com/hwchiu/CNI_Tutorial_2018/tree/master/tutorial/step4</a> and you can directly run<br>the <code>run.sh</code> in your linux machine to see the following output.</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">Ready to call the step4 example</span><br><span class="line">&#123;test 192.0.2.15/24&#125;</span><br><span class="line">The CNI has been called, see the following results</span><br><span class="line">The bridge and the veth has been attatch to</span><br><span class="line">bridge name     bridge id               STP enabled     interfaces</span><br><span class="line">test            8000.a6f55b2927c0       no              vethd611bb3b</span><br><span class="line">The interface in the netns</span><br><span class="line">eth10     Link encap:Ethernet  HWaddr aa:a0:96:45:65:c5</span><br><span class="line">          inet addr:192.0.2.15  Bcast:192.0.2.255  Mask:255.255.255.0</span><br><span class="line">          inet6 addr: fe80::a8a0:96ff:fe45:65c5/64 Scope:Link</span><br><span class="line">          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1</span><br><span class="line">          RX packets:2 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:1 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:0</span><br><span class="line">          RX bytes:168 (168.0 B)  TX bytes:90 (90.0 B)</span><br><span class="line"></span><br><span class="line">lo        Link encap:Local Loopback</span><br><span class="line">          LOOPBACK  MTU:65536  Metric:1</span><br><span class="line">          RX packets:0 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:1</span><br><span class="line">          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)</span><br></pre></td></tr></table></figure>
+<p>And you can see we have already set the IP address to the interface <code>eth10</code>.<br>You can use the following command to mamually set the IP address to the linux bridge and use the <code>ping</code> command to check the network connectiviy between the host and the target network namespace.<br><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sudo ifconfig test 192.0.2.1</span><br><span class="line">sudo ip netns exec ns1 ping 192.0.2.1</span><br></pre></td></tr></table></figure></p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>In this tutorial, we have implemented a simple Linux Bridge CNI (only Add function) in golang.</p>
+<p>We create the linux bridge and use the veth to connect the linux bridge with the target netowrk namespace.<br>Besides, we also fethc the information we want from the pre-defined config file which means we can more flexible to change the behavior of your own CNI implementation.</p>
+<p>To make the problem simple, we don’t use any complicated method to acquire a unique address from the config but you can desing you own algorithm to do that.<br>If you want to learn more about the IP related operations, you can go to the <a href="https://github.com/containernetworking/plugins/tree/master/plugins/ipam/host-local" target="_blank" rel="noopener">host-local</a> to learn more.</p>
+
+      
+    </div>
+
+    
+      
+
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/introduce-cni-i.html" rel="bookmark">[Container Network Interface] Bridge Network In Docker</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/introduce-cni-ii.html" rel="bookmark">[Container Network Interface] CNI Introduction</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/cni-compare.html" rel="bookmark">常見 CNI (Container Network Interface) Plugin 介紹</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/cni-questions.html" rel="bookmark">CNI 常見問題整理</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/ovs-dpdk-docker.html" rel="bookmark">OVS + DPDK + Docker 共同玩耍</a></div>
+      
+    </li>
+  
+  </ul>
+
+
+    
+
+    
+    
+    
+
+    
+
+    
+
+    
+      <div>
+        <ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>Post author:  </strong>Hwchiu</li>
+  <li class="post-copyright-link">
+    <strong>Post link: </strong>
+    <a href="https://www.hwchiu.com/introduce-cni-iii.html" title="[Container Network Interface] Implement Your CNI In Golang">https://www.hwchiu.com/introduce-cni-iii.html</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="external nofollow" target="_blank">CC BY-NC-SA 4.0</a> unless stating additionally.</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Network/" rel="tag"># Network</a>
+          
+            <a href="/tags/Linux/" rel="tag"># Linux</a>
+          
+            <a href="/tags/Kernel/" rel="tag"># Kernel</a>
+          
+            <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+          
+            <a href="/tags/CNI/" rel="tag"># CNI</a>
+          
+            <a href="/tags/Docker/" rel="tag"># Docker</a>
+          
+            <a href="/tags/Golang/" rel="tag"># Golang</a>
+          
+            <a href="/tags/Ubuntu/" rel="tag"># Ubuntu</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/slides-high-performace-network.html" rel="next" title="Slides - High Performance Network">
+                <i class="fa fa-chevron-left"></i> Slides - High Performance Network
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/gpu-gke.html" rel="prev" title="Install GPU in GKE(Google Kubernetes Engine)">
+                Install GPU in GKE(Google Kubernetes Engine) <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar.jpg" alt="Hwchiu">
+            
+              <p class="site-author-name" itemprop="name">Hwchiu</p>
+              <p class="site-description motion-element" itemprop="description">kubernetes/SDN/DevOps</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">201</span>
+                    <span class="site-state-item-name">posts</span>
+                  </a>
+                </div>
+              
+
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">106</span>
+                    <span class="site-state-item-name">tags</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  <a href="https://github.com/hwchiu" target="_blank" title="Github" rel="external nofollow"><i class="fa fa-fw fa-github"></i>Github</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.linkedin.com/in/hung-wei-chiu-52561494/" target="_blank" title="Linkedin" rel="external nofollow"><i class="fa fa-fw fa-linkedin"></i>Linkedin</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="mailto:sppsorrg@gmail.com" target="_blank" title="E-Mail" rel="external nofollow"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://twitter.com/hw_chiu" target="_blank" title="Twitter" rel="external nofollow"><i class="fa fa-fw fa-twitter"></i>Twitter</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.facebook.com/hongwei.qiu" target="_blank" title="FB Page" rel="external nofollow"><i class="fa fa-fw fa-facebook"></i>FB Page</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://instagram.com/hwchiu" target="_blank" title="Instagram" rel="external nofollow"><i class="fa fa-fw fa-instagram"></i>Instagram</a>
+                  
+                </span>
+              
+            </div>
+          
+
+          
+          
+
+          
+
+    <div class="links-of-blogroll motion-element links-of-blogroll-block">
+      <div class="links-of-blogroll-title">
+        <!-- modify icon to fire by szw -->
+        <i class="fa fa-history fa-" aria-hidden="true"></i>
+        Recent Posts
+      </div>
+      <ul class="links-of-blogroll-list">
+        
+        
+          <li>
+            <a href="/ipvs-4.html" title="IPvS 學習手冊(四)" target="_blank">IPvS 學習手冊(四)</a>
+          </li>
+        
+          <li>
+            <a href="/gitops.html" title="淺談 GitOps 的概念" target="_blank">淺談 GitOps 的概念</a>
+          </li>
+        
+          <li>
+            <a href="/iptables-1.html" title="初探 IPTABLES 流動之路 - 以 Docker 為範例" target="_blank">初探 IPTABLES 流動之路 - 以 Docker 為範例</a>
+          </li>
+        
+          <li>
+            <a href="/k8s-course-2.html" title="Kubernetes 線上課程 - CI/CD" target="_blank">Kubernetes 線上課程 - CI/CD</a>
+          </li>
+        
+          <li>
+            <a href="/ipvs-3.html" title="IPvS 學習手冊(三)" target="_blank">IPvS 學習手冊(三)</a>
+          </li>
+        
+      </ul>
+    </div>
+
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                Friends
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.evanlin.com/" title="KKDAI 大大" target="_blank">KKDAI 大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://kairen.github.io/" title="凱仁大大" target="_blank">凱仁大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.pichuang.com.tw/" title="小飛機" target="_blank">小飛機</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/cloudnative.tw/" title="CNTUG" target="_blank">CNTUG</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/sdnds.tw/" title="SDNDS-TW" target="_blank">SDNDS-TW</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://medium.com/@yayajacky" title="Jack" target="_blank">Jack</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Introduction"><span class="nav-number">2.</span> <span class="nav-text">Introduction</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Basic-CNI"><span class="nav-number">2.1.</span> <span class="nav-text">Basic CNI</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#IPAM"><span class="nav-number">2.2.</span> <span class="nav-text">IPAM</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Before-We-Start"><span class="nav-number">3.</span> <span class="nav-text">Before We Start</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Step-By-Step"><span class="nav-number">4.</span> <span class="nav-text">Step By Step</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Step1"><span class="nav-number">4.1.</span> <span class="nav-text">Step1</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Step-2"><span class="nav-number">4.2.</span> <span class="nav-text">Step 2</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Step3"><span class="nav-number">4.3.</span> <span class="nav-text">Step3</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Step4"><span class="nav-number">4.4.</span> <span class="nav-text">Step4</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">5.</span> <span class="nav-text">Summary</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+
+  
+
+  
+</div>
+
+
+  
+
+
+
+  <div class="powered-by">Powered by <a class="theme-link" target="_blank" rel="external nofollow" href="https://hexo.io">Hexo</a> v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme &mdash; <a class="theme-link" target="_blank" rel="external nofollow" href="https://theme-next.org">NexT.Pisces</a> v6.3.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+	
+    
+
+    
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=6.3.0"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=6.3.0"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=6.3.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=6.3.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=6.3.0"></script>
+
+
+
+  
+
+  
+    <script id="dsq-count-scr" src="https://hwchiublog.disqus.com/count.js" async></script>
+  
+
+  
+    <script type="text/javascript">
+      var disqus_config = function () {
+        this.page.url = 'https://www.hwchiu.com/introduce-cni-iii.html';
+        this.page.identifier = 'introduce-cni-iii.html';
+        this.page.title = '[Container Network Interface] Implement Your CNI In Golang';
+        };
+      function loadComments () {
+        var d = document, s = d.createElement('script');
+        s.src = 'https://hwchiublog.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', '' + +new Date());
+        (d.head || d.body).appendChild(s);
+      }
+      
+        loadComments();
+      
+    </script>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  <style>
+    .copy-btn {
+      display: inline-block;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 20px;
+      color: #333;
+      white-space: nowrap;
+      vertical-align: middle;
+      cursor: pointer;
+      background-color: #eee;
+      background-image: linear-gradient(#fcfcfc, #eee);
+      border: 1px solid #d5d5d5;
+      border-radius: 3px;
+      user-select: none;
+      outline: 0;
+    }
+
+    .highlight-wrap .copy-btn {
+      transition: opacity .3s ease-in-out;
+      opacity: 0;
+      padding: 2px 6px;
+      position: absolute;
+      right: 4px;
+      top: 8px;
+    }
+
+    .highlight-wrap:hover .copy-btn,
+    .highlight-wrap .copy-btn:focus {
+      opacity: 1
+    }
+
+    .highlight-wrap {
+      position: relative;
+    }
+  </style>
+  <script>
+    $('.highlight').each(function (i, e) {
+      var $wrap = $('<div>').addClass('highlight-wrap')
+      $(e).after($wrap)
+      $wrap.append($('<button>').addClass('copy-btn').append('Copy').on('click', function (e) {
+        var code = $(this).parent().find('.code').find('.line').map(function (i, e) {
+          return $(e).text()
+        }).toArray().join('\n')
+        var ta = document.createElement('textarea')
+        document.body.appendChild(ta)
+        ta.style.position = 'absolute'
+        ta.style.top = '0px'
+        ta.style.left = '0px'
+        ta.value = code
+        ta.select()
+        ta.focus()
+        var result = document.execCommand('copy')
+        document.body.removeChild(ta)
+        
+        $(this).blur()
+      })).on('mouseleave', function (e) {
+        var $b = $(this).find('.copy-btn')
+        setTimeout(function () {
+          $b.text('Copy')
+        }, 300)
+      }).append(e)
+    })
+  </script>
+
+
+</body>
+</html>

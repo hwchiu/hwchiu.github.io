@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="en">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=6.3.0" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.3.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.3.0" color="#222">
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.3.0',
+    sidebar: {"position":"left","display":"always","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="在前述中我們已經學過了什麼是 kubernetes service 以及如何實現 ClusterIP 這種類型的 service. 透過對 iptables 的探討與研究, 我們可以理解到 ClusterIP 本身會提供一個虛擬的 IP 地址,接下來只要跟這個地址有關的封包,都會透過 DNAT 的方式進行轉換找到最後的 Endpoint IP. 至於如何選擇的部分,則是透過機率的方式去尋找. 接下">
+<meta name="keywords" content="Kubernetes,Service,Linux,k8s,iptables,NodePort">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Kubernetes] How to Implement Kubernetes Service - NodePort">
+<meta property="og:url" content="https://www.hwchiu.com/kubernetes-service-iii.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="在前述中我們已經學過了什麼是 kubernetes service 以及如何實現 ClusterIP 這種類型的 service. 透過對 iptables 的探討與研究, 我們可以理解到 ClusterIP 本身會提供一個虛擬的 IP 地址,接下來只要跟這個地址有關的封包,都會透過 DNAT 的方式進行轉換找到最後的 Endpoint IP. 至於如何選擇的部分,則是透過機率的方式去尋找. 接下">
+<meta property="og:locale" content="en">
+<meta property="og:image" content="https://i.imgur.com/xoPvipq.png">
+<meta property="og:image" content="https://i.imgur.com/9amwybH.png">
+<meta property="og:image" content="https://i.imgur.com/9amwybH.png">
+<meta property="og:updated_time" content="2020-08-31T04:58:51.288Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="[Kubernetes] How to Implement Kubernetes Service - NodePort">
+<meta name="twitter:description" content="在前述中我們已經學過了什麼是 kubernetes service 以及如何實現 ClusterIP 這種類型的 service. 透過對 iptables 的探討與研究, 我們可以理解到 ClusterIP 本身會提供一個虛擬的 IP 地址,接下來只要跟這個地址有關的封包,都會透過 DNAT 的方式進行轉換找到最後的 Endpoint IP. 至於如何選擇的部分,則是透過機率的方式去尋找. 接下">
+<meta name="twitter:image" content="https://i.imgur.com/xoPvipq.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="Hwchiu Learning Note" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://www.hwchiu.com/kubernetes-service-iii.html">
+
+
+
+<script type="text/javascript" id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>[Kubernetes] How to Implement Kubernetes Service - NodePort | Hwchiu Learning Note</title>
+  
+<script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '',
+      xfbml      : true,
+      version    : 'v2.10'
+    });
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "//connect.facebook.net/en/sdk.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+</script>
+
+
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-54006186-1');
+</script>
+
+
+
+
+
+
+  <noscript>
+  <style type="text/css">
+    .use-motion .motion-element,
+    .use-motion .brand,
+    .use-motion .menu-item,
+    .sidebar-inner,
+    .use-motion .post-block,
+    .use-motion .pagination,
+    .use-motion .comments,
+    .use-motion .post-header,
+    .use-motion .post-body,
+    .use-motion .collection-title { opacity: initial; }
+
+    .use-motion .logo,
+    .use-motion .site-title,
+    .use-motion .site-subtitle {
+      opacity: initial;
+      top: initial;
+    }
+
+    .use-motion {
+      .logo-line-before i { left: initial; }
+      .logo-line-after i { right: initial; }
+    }
+  </style>
+</noscript>
+
+  <script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({
+          google_ad_client: "ca-pub-1100711228720990",
+          enable_page_level_ads: true
+     });
+</script>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="en">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Hwchiu Learning Note</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</h1>
+      
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="Toggle navigation bar">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+    <a href="/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-home"></i> <br>Home</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+    <a href="/about/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-user"></i> <br>About</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+    <a href="/tags/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>Tags</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+    <a href="/archives/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>Archives</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-sitemap">
+    <a href="/sitemap.xml" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-sitemap"></i> <br>Sitemap</a>
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+  
+  
+  
+    
+      
+    
+    <a href="https://github.com/hwchiu" class="github-corner" target="_blank" title="Follow me on GitHub" aria-label="Follow me on GitHub"><svg width="80" height="80" viewbox="0 0 250 250" style="fill:#222; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg>
+    
+      </a>
+    
+
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/kubernetes-service-iii.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">[Kubernetes] How to Implement Kubernetes Service - NodePort
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+
+              
+                
+              
+
+              <time title="Created: 2018-08-25 01:17:08" itemprop="dateCreated datePublished" datetime="2018-08-25T01:17:08-07:00">2018-08-25</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">Edited on</span>
+                
+                <time title="Modified: 2020-08-30 21:58:51" itemprop="dateModified" datetime="2020-08-30T21:58:51-07:00">2020-08-30</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/kubernetes-service-iii.html#comments" itemprop="discussionUrl">
+                
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="kubernetes-service-iii.html" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+              <div class="post-description">在前述中我們已經學過了什麼是 kubernetes service 以及如何實現 ClusterIP 這種類型的 service. 透過對 iptables 的探討與研究, 我們可以理解到 ClusterIP 本身會提供一個虛擬的 IP 地址,接下來只要跟這個地址有關的封包,都會透過 DNAT 的方式進行轉換找到最後的 Endpoint IP. 至於如何選擇的部分,則是透過機率的方式去尋找. 接下來我們要來探討另外一個也是很常使用的 kubernetes service 類型, 也就是 NodePort. NodePort 本身包含了 ClusterIP 的所有功能, 此外也額外開啟了一個新的存取方式. 透過直接存取節點的 IP 地址配上一個設定好的 Port, 也可以將該封包直接送到最後面的容器應用程式. 因此本文也要延續上一篇的思路,繼續研究 iptables 的規則來探討 NodePort 到底是如何實現的</div>
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>本文章是屬於 <code>kubernetes</code> service 系列文之一，該系列文希望能夠與大家討論下列兩個觀念</p>
+<ol>
+<li>什麼是 <code>Kubernetes Service</code>, 為什麼我們需要它？ 它能夠幫忙解決什麼問題</li>
+<li><code>Kubernetes Service</code> 是怎麼實現的?， 讓我們用 iptables 來徹徹底底的理解他</li>
+</ol>
+<p>相關文章:<br><a href="https://www.hwchiu.com/kubernetes-service-i.html">[Kubernetes] What is Service</a><br><a href="https://www.hwchiu.com/kubernetes-service-ii.html">[Kubernetes] How To Implement Kubernetes Service - ClusterIP</a><br><a href="https://www.hwchiu.com/kubernetes-service-iiii.html">[Kubernetes] How To Implement Kubernetes Service - SessionAffinity</a></p>
+<p>本文銜接上篇文章，繼續透過對 <code>iptables</code> 的分析來研究 <code>kubernetes service</code> 中 <code>NodePort</code> 的實作原理。</p>
+<a id="more"></a>
+<p><code>NodePort</code> 的功能就如同字面上的意思一樣,<code>Node Port</code>, 提供了一種透過存取叢集節點上事先定義好的<code>Port Number</code> 就可以輾轉存取到後端的真正服務。</p>
+<p>作為一個靠腦力生存的人，每次遇到全新概念的時候，都要問問自己幾個問題</p>
+<ol>
+<li>這個概念是想要解決什麼問題?</li>
+<li>什麼時候會用到?</li>
+<li>如果是我，我會怎麼實作?</li>
+</ol>
+<h1 id="Why-We-Need-NortPort"><a href="#Why-We-Need-NortPort" class="headerlink" title="Why We Need NortPort"></a>Why We Need NortPort</h1><p><code>NodePort</code> 本身是屬於 <code>kubernetes service</code>的一環，自然就是要提供一個方式可以讓外部來存取集群內的服務，而且可以不用去理會後面這些容器們的真實<code>IP</code>地址。</p>
+<p>既然已經有前面的 <code>ClusterIP</code> 提供了一種叢集內存取的方式，什麼情況下我們會需要 <code>NodePort</code> 這種透過存取節點的方式?</p>
+<p>這邊使用一個下列的範例來解釋可能的情況 </p>
+<p>以下只是一種範例，但是未必是最佳解</p>
+<p>假設今天有一個試驗環境，在<code>Cloud Provider(Google/Azure/AWS...etc)</code>中架設了一個<code>kubernetes</code>叢集，裡面透過 <code>nginx</code> 的方式部屬了一個網頁伺服器。<br>與此同時，我希望該叢集能夠提供下列的特性供我使用</p>
+<ul>
+<li>我希望管理人員可以不需要去擔心該 <code>nginx</code> 的狀態，其網頁服務能夠一直正常運作。</li>
+<li>我可以在任意地方直接連接到該 <code>nginx</code> 提供的網頁伺服器服務</li>
+</ul>
+<p>為了滿足第一個條件，我們可以透過 <code>kubernetes deployment</code> 的方式去確保 <code>nginx</code> 的容器處於一種運行的狀態。<br>為了滿足第二個條件，我們可以透過 <code>kubernetes service</code> 的方式去連接上述的 <code>nginx</code> 容器們並且提供一種接口讓外部存取<br>在這種情況下，只要<code>kubernetes</code>叢集內的節點擁有一個固定的對外<code>IP</code>地址，同時 <code>kubernetes server</code> 透過 <code>NodePorts</code> 的方式提供該<code>nginx</code>往外存取的能力。<br>這種情況下，我們就可以在任何地方，透過直接存取該節點的對外<code>IP</code>地址，然後間接透過<code>NodePort</code>的功能存取到集群內的<code>nginx</code>服務。</p>
+<h1 id="How-It-Works"><a href="#How-It-Works" class="headerlink" title="How It Works"></a>How It Works</h1><p>已經有了前述關於 <code>ClusterIP</code> 運作的概念後，其實要探討 <code>NodePort</code> 是如何實現的就非常簡單了。</p>
+<p>我們先快速複習一下 <code>ClusterIP</code> 的運作流程<br><img src="https://i.imgur.com/xoPvipq.png" alt="Imgur"></p>
+<ol>
+<li>封包若來自叢集上的應用程式/節點，則跳到 `KUBE-SVC</li>
+<li>如果封包的目標<code>IP</code>地址是 <code>ClusterIP</code> 所提供的虛擬<code>IP</code>地址, 則跳到 <code>KUBE-SVC-XXXX</code></li>
+<li><code>KUBE-SVC-XXX</code> 裡面根據機率的方式，選到一個 <code>Endpoints</code>，最後跳到 <code>KUBE-SEP-XXX</code></li>
+<li><code>KUBE-SEP-XXX</code> 裡面執行 <code>DNAT</code>, 將封包的目標地址改成真正的容器地址，然後轉發</li>
+</ol>
+<p>有了上述的概念，我們如果要支援 <code>NodePort</code> 這種能夠透過<code>節點IP</code>的方式存取的話。<br>想了一下，其實就是把上述的(1)/(2)改掉就好，能夠跳到 <code>KUBE-SVC-XXX</code>的話，後續就完全一致了。</p>
+<p>接下來，我們繼續使用<a href="https://github.com/hwchiu/kubeDemo" target="_blank" rel="noopener">kubeDemo</a>來進行相關的服務部屬以及<code>iptables</code>規則研究。</p>
+<p>首先，我們先在環境內部署相關的 <code>nginx</code> 以及 <code>kubernetes service(NodePort)</code></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:06:36:12 [~/go/src/github.com/hwchiu/kubeDemo/services](master)vagrant</span><br><span class="line"><span class="variable">$kubectl</span> apply -f deployment/nginx.yml</span><br><span class="line">deployment.apps/k8s-nginx created</span><br><span class="line"></span><br><span class="line">vortex-dev:06:36:18 [~/go/src/github.com/hwchiu/kubeDemo/services](master)vagrant</span><br><span class="line"><span class="variable">$kubectl</span> apply -f service/nginx-node.yml</span><br><span class="line">service/k8s-nginx-node created</span><br></pre></td></tr></table></figure>
+<p>這邊就不再敘述太多跟 <code>service/endpoints</code> 相關的資訊與位置，直接從 <code>iptables</code> 的角度出發。</p>
+<p>我個人非常喜歡 <code>kubernetes</code>的一點就是所有的 <code>iptables</code> 的規則都會下註解，所以其實可以很輕易的透過 <code>grep</code> 的方式找到相關的規則。<br>以上述的範例來說，我們在 <code>default</code> namespace 中部屬了一個 <code>k8s-nginx-node</code> 的 <code>kubernetes service</code>.<br>所以透過 <code>grep default/k8s-nginx-node</code> 的方式就可以過濾出所有跟這個<code>Service</code>有關的所有規則。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:03:17:35 [~]vagrant</span><br><span class="line"><span class="variable">$sudo</span> iptables-save  | grep default/k8s-nginx-node</span><br><span class="line">-A KUBE-NODEPORTS -p tcp -m comment --comment <span class="string">"default/k8s-nginx-node:"</span> -m tcp --dport 30136 -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-NODEPORTS -p tcp -m comment --comment <span class="string">"default/k8s-nginx-node:"</span> -m tcp --dport 30136 -j KUBE-SVC-RD5DSC6PXE26GCYZ</span><br><span class="line">-A KUBE-SEP-VRKO3GZ2XUCPVWY5 -s 10.244.0.115/32 -m comment --comment <span class="string">"default/k8s-nginx-node:"</span> -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-SEP-VRKO3GZ2XUCPVWY5 -p tcp -m comment --comment <span class="string">"default/k8s-nginx-node:"</span> -m tcp -j DNAT --to-destination 10.244.0.115:80</span><br><span class="line">-A KUBE-SEP-YNJKNN6SS5424R7C -s 10.244.0.113/32 -m comment --comment <span class="string">"default/k8s-nginx-node:"</span> -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-SEP-YNJKNN6SS5424R7C -p tcp -m comment --comment <span class="string">"default/k8s-nginx-node:"</span> -m tcp -j DNAT --to-destination 10.244.0.113:80</span><br><span class="line">-A KUBE-SEP-ZGMDZ7UNNV74OV5B -s 10.244.0.114/32 -m comment --comment <span class="string">"default/k8s-nginx-node:"</span> -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-SEP-ZGMDZ7UNNV74OV5B -p tcp -m comment --comment <span class="string">"default/k8s-nginx-node:"</span> -m tcp -j DNAT --to-destination 10.244.0.114:80</span><br><span class="line">-A KUBE-SERVICES ! -s 10.244.0.0/16 -d 10.98.128.179/32 -p tcp -m comment --comment <span class="string">"default/k8s-nginx-node: cluster IP"</span> -m tcp --dport 80 -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-SERVICES -d 10.98.128.179/32 -p tcp -m comment --comment <span class="string">"default/k8s-nginx-node: cluster IP"</span> -m tcp --dport 80 -j KUBE-SVC-RD5DSC6PXE26GCYZ</span><br><span class="line">-A KUBE-SVC-RD5DSC6PXE26GCYZ -m comment --comment <span class="string">"default/k8s-nginx-node:"</span> -m statistic --mode random --probability 0.33332999982 -j KUBE-SEP-YNJKNN6SS5424R7C</span><br><span class="line">-A KUBE-SVC-RD5DSC6PXE26GCYZ -m comment --comment <span class="string">"default/k8s-nginx-node:"</span> -m statistic --mode random --probability 0.50000000000 -j KUBE-SEP-ZGMDZ7UNNV74OV5B</span><br><span class="line">-A KUBE-SVC-RD5DSC6PXE26GCYZ -m comment --comment <span class="string">"default/k8s-nginx-node:"</span> -j KUBE-SEP-VRKO3GZ2XUCPVWY5</span><br></pre></td></tr></table></figure>
+<p>我們快速的掃過所有的規則，根據 <code>custom chain</code> 來看，分成四個部分</p>
+<ol>
+<li>KUBE-NODEPORTS</li>
+<li>KUBE-SEP-XXXX</li>
+<li>KUBE-SERVICES</li>
+<li>KUBE-SVC-XXXX</li>
+</ol>
+<p>這邊目前只有 <code>KUBE-NODEPORTS</code> 還沒有看過，剩下的都跟 <code>ClusterIP</code> 是一樣的功能的。</p>
+<p>NodePort 的功能基於 ClusterIP 之上再添加新功能，所以本來 Cluster 該有的規則對於 NodePort 來說都不會少 </p>
+<h1 id="KUBE-NODEPORTS"><a href="#KUBE-NODEPORTS" class="headerlink" title="KUBE-NODEPORTS"></a>KUBE-NODEPORTS</h1><p>我們仔細觀察 <code>KUBE-NODEPORTS</code> 相關的兩條規則<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">-A KUBE-NODEPORTS -p tcp -m comment --comment <span class="string">"default/k8s-nginx-node:"</span> -m tcp --dport 30136 -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-NODEPORTS -p tcp -m comment --comment <span class="string">"default/k8s-nginx-node:"</span> -m tcp --dport 30136 -j KUBE-SVC-RD5DSC6PXE26GCYZ</span><br></pre></td></tr></table></figure></p>
+<p>第一條規則的目標是 <code>-j KUBE-MARK-MASQ</code>, 這部份是跟 <code>SNAT</code> 有關的，這個之後有機會再寫額外的文章來介紹 <code>SNAT</code> 相關的功能以及處理方式。<br>這邊只要知道這是修改封包的來源<code>IP</code>位址即可<br>第二條規則比較重要，我們可以觀察到</p>
+<ol>
+<li>其比對條件是 <code>-m tcp --dport 30136</code>.</li>
+<li>符合條件後執行的行為是 <code>-j KUBE-SVC-RD5DSC6PXE26GCYZ</code></li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:03:34:14 [~]vagrant</span><br><span class="line"><span class="variable">$kubectl</span> get svc</span><br><span class="line">NAME             TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE</span><br><span class="line">k8s-nginx-node   NodePort    10.98.128.179   &lt;none&gt;        80:30136/TCP   1d</span><br></pre></td></tr></table></figure>
+<p>根據查詢 <code>kubernetes svc</code> 的結果，我們可以觀察到透過存取 <code>30136/TCP</code> 的方式就可以存取 <code>NodePOrt</code>.<br>而這個資訊與我們前面看到的 <code>KUBE-NODEPORTS</code> 這邊的規則完全一樣<br>最後可以發現當規則一致時，就會跳到 <code>KUBE-SVC-XXX</code> 去進行 <code>endpoints</code> 的挑選以及相關的 <code>DNAT</code> 功能。</p>
+<p>哪接下來的問題只剩下一個<br>到底封包什麼時候會進入到 <code>KUBE-NODEPORTS</code> ? 只要釐清這個問題，剩下的處理方式就都跟 <code>ClusterIP</code> 完全一樣了。<br>這時候我們就要一條一條 <code>iptables</code> 的規則來慢慢查詢</p>
+<p>我偷懶直接使用 <code>-j KUBE-NODEPORTS</code> 的方式來查詢，到底誰會跳入 <code>KUBE-NODEPORT</code><br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:03:43:42 [~]vagrant</span><br><span class="line"><span class="variable">$sudo</span> iptables-save  | grep <span class="string">"\-j KUBE-NODEPORTS"</span></span><br><span class="line">-A KUBE-SERVICES -m comment --comment <span class="string">"kubernetes service nodeports; NOTE: this must be the last rule in this chain"</span> -m addrtype --dst-type LOCAL -j KUBE-NODEPORTS</span><br></pre></td></tr></table></figure></p>
+<p>這個規則非常有趣，首先我們可以觀察到，他在 <code>KUBE-SERVICES</code> 這個 <code>custom chain</code> 裡面。 接下來可以觀察他的註解<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubernetes service nodeports; NOTE: this must be the last rule in this chain</span><br></pre></td></tr></table></figure></p>
+<p>然後看一下比對條件以及執行目標</p>
+<ol>
+<li>-m addrtype –dst-type LOCAL</li>
+<li>-j KUBE-NODEPORTS</li>
+</ol>
+<p>第一個比對條件我們從文字上來解讀，只要封包的目標<code>IP</code>地址是屬於本節點上的任何網卡<code>IP</code>。<br>只要符合上述規則，就會跳到 <code>KUBE-NODEPORT</code> 裡面進行比對，然後就按照前述的去處理了。</p>
+<p>對於 –dst-type LOCAL 有興趣的人可以嘗試閱讀下列這個檔案<br><a href="https://elixir.bootlin.com/linux/v4.7.8/source/net/netfilter/xt_addrtype.c#L119" target="_blank" rel="noopener">https://elixir.bootlin.com/linux/v4.7.8/source/net/netfilter/xt_addrtype.c#L119</a><br><a href="https://elixir.bootlin.com/linux/v4.7.8/source/include/uapi/linux/rtnetlink.h#L203" target="_blank" rel="noopener">https://elixir.bootlin.com/linux/v4.7.8/source/include/uapi/linux/rtnetlink.h#L203</a><br>看看 kernel 內大致上是怎麼處理這系列操作的</p>
+<p>到這邊我們整理一下所有的思路。</p>
+<ol>
+<li>NodePort 也是倚賴 <code>KUBE-SERVICES</code>，當封包目標是本地端的 <code>IP</code> 位置的時候，就會跳到 <code>KUBE-NODEPORT</code> 裡面去比對 <code>protocol/port</code> 來進行後續跟 <code>ClusterIP</code> 相同的處理</li>
+<li>所有的 <code>kubernetes NodePort service</code> 都會共用同一個 <code>KUBE-NODEPORT</code>, 因此所有的 <code>NodePort</code> 使用的 <code>Port</code> 都不能一樣</li>
+</ol>
+<p>我們用下列這張圖來總結 <code>NodePort</code> 的運作</p>
+<p><img src="https://i.imgur.com/9amwybH.png" alt="Imgur"></p>
+<h1 id="PortBinding"><a href="#PortBinding" class="headerlink" title="PortBinding"></a>PortBinding</h1><p>由於 <code>NodePort</code> 會使用到節點上面的 <code>Port</code> 來提供服務<br>但從 <code>iptables</code> 的規則觀察下，其實 <code>NodePort</code> 所用到的 <code>Port</code> 就是一個虛擬的 <code>Port</code>，譬如上述範例的 <code>30136</code>。<br>為了避免有任何應用程式之後將 <code>NodePort</code> 要用到的 <code>Port</code> 給拿去使用，導致整個有任何非預期的行為出現</p>
+<ul>
+<li>譬如某服務想要用 30136 port, 但是所有的封包都被 iptables 導走了，導致該服務一直沒有辦法接收到真正的連線</li>
+</ul>
+<p>為了解決這個問題就是不要讓任何應用程式有機會使用到 <code>30136</code> 的連接埠，因此每個節點上面的 <code>kube-proxy</code> 就會幫忙做這件事情。</p>
+<p>一旦 <code>NodePort</code> 成功建立後，就會將該 <code>Port</code> 給使用走，讓其他的應用程式沒有機會使用。</p>
+<p>這部份我們可以透過 <code>netstat</code> 的指令來觀察<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:04:08:18 [~]vagrant</span><br><span class="line"><span class="variable">$sudo</span> netstat -ltpn | grep 30136</span><br><span class="line">tcp6       0      0 :::30136                :::*                    LISTEN      10181/kube-proxy</span><br></pre></td></tr></table></figure></p>
+<p>這點跟 <code>docker</code> 的想法是很類似的，不過 <code>docker</code> 所啟用的 <code>docker-proxy</code> 其實也會幫忙 <code>forward</code> 這些封包，而不是單純的搶占避免服務失效而已。<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:01:08:39 [~/go/src/github.com/linkernetworks/vortex/vendor](hwchiu/VX-62)vagrant</span><br><span class="line"><span class="variable">$sudo</span> docker run -d -p 5566:80 nginx</span><br><span class="line">f4b6b72ad82c170a92cd6ea272fc8d665b69835b8508d20e1ac2b220b2ba5b31</span><br><span class="line">vortex-dev:01:08:43 [~/go/src/github.com/linkernetworks/vortex/vendor](hwchiu/VX-62)vagrant</span><br><span class="line"><span class="variable">$ps</span> axuw  | grep docker-p</span><br><span class="line">root     21499  0.0  0.0  59068  2852 ?        Sl   01:08   0:00 /usr/bin/docker-proxy -proto tcp -host-ip 0.0.0.0 -host-port 5566 -container-ip 172.18.0.2 -container-port 80</span><br></pre></td></tr></table></figure></p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>本章節我們仔細的討論了 <code>NodePort</code> 各種面向的概念，最後發現其實 <code>NodePort</code> 的規則非常簡單，建立於 <code>ClusterIP</code> 之上。<br>只要能夠掌握 <code>ClusterIP</code> 是如何運作的，回過頭來看 <code>NodePort</code> 就不難理解這整個過程。</p>
+<p>最後繼續使用這張圖作為總結，希望大家這時候都能夠順利的看懂這張圖要表達的一切概念<br><img src="https://i.imgur.com/9amwybH.png" alt="Imgur"></p>
+
+      
+    </div>
+
+    
+      
+
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/kubernetes-service-ii.html" rel="bookmark">[Kubernetes] How to Implement Kubernetes Service - ClusterIP</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/kubernetes-service-iiii.html" rel="bookmark">[Kubernetes] How to Implement Kubernetes Service - SessionAffinity</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/introduce-cni-i.html" rel="bookmark">[Container Network Interface] Bridge Network In Docker</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/introduce-cni-ii.html" rel="bookmark">[Container Network Interface] CNI Introduction</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/iptables-1.html" rel="bookmark">初探 IPTABLES 流動之路 - 以 Docker 為範例</a></div>
+      
+    </li>
+  
+  </ul>
+
+
+    
+
+    
+    
+    
+
+    
+
+    
+
+    
+      <div>
+        <ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>Post author:  </strong>Hwchiu</li>
+  <li class="post-copyright-link">
+    <strong>Post link: </strong>
+    <a href="https://www.hwchiu.com/kubernetes-service-iii.html" title="[Kubernetes] How to Implement Kubernetes Service - NodePort">https://www.hwchiu.com/kubernetes-service-iii.html</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="external nofollow" target="_blank">CC BY-NC-SA 4.0</a> unless stating additionally.</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Linux/" rel="tag"># Linux</a>
+          
+            <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+          
+            <a href="/tags/Iptables/" rel="tag"># Iptables</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/kubernetes-service-ii.html" rel="next" title="[Kubernetes] How to Implement Kubernetes Service - ClusterIP">
+                <i class="fa fa-chevron-left"></i> [Kubernetes] How to Implement Kubernetes Service - ClusterIP
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/kubernetes-service-iiii.html" rel="prev" title="[Kubernetes] How to Implement Kubernetes Service - SessionAffinity">
+                [Kubernetes] How to Implement Kubernetes Service - SessionAffinity <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar.jpg" alt="Hwchiu">
+            
+              <p class="site-author-name" itemprop="name">Hwchiu</p>
+              <p class="site-description motion-element" itemprop="description">kubernetes/SDN/DevOps</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">201</span>
+                    <span class="site-state-item-name">posts</span>
+                  </a>
+                </div>
+              
+
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">106</span>
+                    <span class="site-state-item-name">tags</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  <a href="https://github.com/hwchiu" target="_blank" title="Github" rel="external nofollow"><i class="fa fa-fw fa-github"></i>Github</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.linkedin.com/in/hung-wei-chiu-52561494/" target="_blank" title="Linkedin" rel="external nofollow"><i class="fa fa-fw fa-linkedin"></i>Linkedin</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="mailto:sppsorrg@gmail.com" target="_blank" title="E-Mail" rel="external nofollow"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://twitter.com/hw_chiu" target="_blank" title="Twitter" rel="external nofollow"><i class="fa fa-fw fa-twitter"></i>Twitter</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.facebook.com/hongwei.qiu" target="_blank" title="FB Page" rel="external nofollow"><i class="fa fa-fw fa-facebook"></i>FB Page</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://instagram.com/hwchiu" target="_blank" title="Instagram" rel="external nofollow"><i class="fa fa-fw fa-instagram"></i>Instagram</a>
+                  
+                </span>
+              
+            </div>
+          
+
+          
+          
+
+          
+
+    <div class="links-of-blogroll motion-element links-of-blogroll-block">
+      <div class="links-of-blogroll-title">
+        <!-- modify icon to fire by szw -->
+        <i class="fa fa-history fa-" aria-hidden="true"></i>
+        Recent Posts
+      </div>
+      <ul class="links-of-blogroll-list">
+        
+        
+          <li>
+            <a href="/ipvs-4.html" title="IPvS 學習手冊(四)" target="_blank">IPvS 學習手冊(四)</a>
+          </li>
+        
+          <li>
+            <a href="/gitops.html" title="淺談 GitOps 的概念" target="_blank">淺談 GitOps 的概念</a>
+          </li>
+        
+          <li>
+            <a href="/iptables-1.html" title="初探 IPTABLES 流動之路 - 以 Docker 為範例" target="_blank">初探 IPTABLES 流動之路 - 以 Docker 為範例</a>
+          </li>
+        
+          <li>
+            <a href="/k8s-course-2.html" title="Kubernetes 線上課程 - CI/CD" target="_blank">Kubernetes 線上課程 - CI/CD</a>
+          </li>
+        
+          <li>
+            <a href="/ipvs-3.html" title="IPvS 學習手冊(三)" target="_blank">IPvS 學習手冊(三)</a>
+          </li>
+        
+      </ul>
+    </div>
+
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                Friends
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.evanlin.com/" title="KKDAI 大大" target="_blank">KKDAI 大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://kairen.github.io/" title="凱仁大大" target="_blank">凱仁大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.pichuang.com.tw/" title="小飛機" target="_blank">小飛機</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/cloudnative.tw/" title="CNTUG" target="_blank">CNTUG</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/sdnds.tw/" title="SDNDS-TW" target="_blank">SDNDS-TW</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://medium.com/@yayajacky" title="Jack" target="_blank">Jack</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Why-We-Need-NortPort"><span class="nav-number">2.</span> <span class="nav-text">Why We Need NortPort</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#How-It-Works"><span class="nav-number">3.</span> <span class="nav-text">How It Works</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#KUBE-NODEPORTS"><span class="nav-number">4.</span> <span class="nav-text">KUBE-NODEPORTS</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#PortBinding"><span class="nav-number">5.</span> <span class="nav-text">PortBinding</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">6.</span> <span class="nav-text">Summary</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+
+  
+
+  
+</div>
+
+
+  
+
+
+
+  <div class="powered-by">Powered by <a class="theme-link" target="_blank" rel="external nofollow" href="https://hexo.io">Hexo</a> v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme &mdash; <a class="theme-link" target="_blank" rel="external nofollow" href="https://theme-next.org">NexT.Pisces</a> v6.3.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+	
+    
+
+    
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=6.3.0"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=6.3.0"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=6.3.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=6.3.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=6.3.0"></script>
+
+
+
+  
+
+  
+    <script id="dsq-count-scr" src="https://hwchiublog.disqus.com/count.js" async></script>
+  
+
+  
+    <script type="text/javascript">
+      var disqus_config = function () {
+        this.page.url = 'https://www.hwchiu.com/kubernetes-service-iii.html';
+        this.page.identifier = 'kubernetes-service-iii.html';
+        this.page.title = '[Kubernetes] How to Implement Kubernetes Service - NodePort';
+        };
+      function loadComments () {
+        var d = document, s = d.createElement('script');
+        s.src = 'https://hwchiublog.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', '' + +new Date());
+        (d.head || d.body).appendChild(s);
+      }
+      
+        loadComments();
+      
+    </script>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  <style>
+    .copy-btn {
+      display: inline-block;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 20px;
+      color: #333;
+      white-space: nowrap;
+      vertical-align: middle;
+      cursor: pointer;
+      background-color: #eee;
+      background-image: linear-gradient(#fcfcfc, #eee);
+      border: 1px solid #d5d5d5;
+      border-radius: 3px;
+      user-select: none;
+      outline: 0;
+    }
+
+    .highlight-wrap .copy-btn {
+      transition: opacity .3s ease-in-out;
+      opacity: 0;
+      padding: 2px 6px;
+      position: absolute;
+      right: 4px;
+      top: 8px;
+    }
+
+    .highlight-wrap:hover .copy-btn,
+    .highlight-wrap .copy-btn:focus {
+      opacity: 1
+    }
+
+    .highlight-wrap {
+      position: relative;
+    }
+  </style>
+  <script>
+    $('.highlight').each(function (i, e) {
+      var $wrap = $('<div>').addClass('highlight-wrap')
+      $(e).after($wrap)
+      $wrap.append($('<button>').addClass('copy-btn').append('Copy').on('click', function (e) {
+        var code = $(this).parent().find('.code').find('.line').map(function (i, e) {
+          return $(e).text()
+        }).toArray().join('\n')
+        var ta = document.createElement('textarea')
+        document.body.appendChild(ta)
+        ta.style.position = 'absolute'
+        ta.style.top = '0px'
+        ta.style.left = '0px'
+        ta.value = code
+        ta.select()
+        ta.focus()
+        var result = document.execCommand('copy')
+        document.body.removeChild(ta)
+        
+        $(this).blur()
+      })).on('mouseleave', function (e) {
+        var $b = $(this).find('.copy-btn')
+        setTimeout(function () {
+          $b.text('Copy')
+        }, 300)
+      }).append(e)
+    })
+  </script>
+
+
+</body>
+</html>

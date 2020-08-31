@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="en">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=6.3.0" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.3.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.3.0" color="#222">
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.3.0',
+    sidebar: {"position":"left","display":"always","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="本篇文章作為 Storage 的最後一塊，就沒有特別針對主題探討，反而是聊聊閒聊一些 Storage 方面的議題，順便聊聊 Mount 這個東西除了常見的功能之外，還有什麼參數可以使用，並且有什麼樣的效果。">
+<meta name="keywords" content="Kubernetes, CSI, storage">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CSI 雜談">
+<meta property="og:url" content="https://www.hwchiu.com/csi-iii.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本篇文章作為 Storage 的最後一塊，就沒有特別針對主題探討，反而是聊聊閒聊一些 Storage 方面的議題，順便聊聊 Mount 這個東西除了常見的功能之外，還有什麼參數可以使用，並且有什麼樣的效果。">
+<meta property="og:locale" content="en">
+<meta property="og:updated_time" content="2020-08-31T01:59:56.720Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="CSI 雜談">
+<meta name="twitter:description" content="本篇文章作為 Storage 的最後一塊，就沒有特別針對主題探討，反而是聊聊閒聊一些 Storage 方面的議題，順便聊聊 Mount 這個東西除了常見的功能之外，還有什麼參數可以使用，並且有什麼樣的效果。">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="Hwchiu Learning Note" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://www.hwchiu.com/csi-iii.html">
+
+
+
+<script type="text/javascript" id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>CSI 雜談 | Hwchiu Learning Note</title>
+  
+<script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '',
+      xfbml      : true,
+      version    : 'v2.10'
+    });
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "//connect.facebook.net/en/sdk.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+</script>
+
+
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-54006186-1');
+</script>
+
+
+
+
+
+
+  <noscript>
+  <style type="text/css">
+    .use-motion .motion-element,
+    .use-motion .brand,
+    .use-motion .menu-item,
+    .sidebar-inner,
+    .use-motion .post-block,
+    .use-motion .pagination,
+    .use-motion .comments,
+    .use-motion .post-header,
+    .use-motion .post-body,
+    .use-motion .collection-title { opacity: initial; }
+
+    .use-motion .logo,
+    .use-motion .site-title,
+    .use-motion .site-subtitle {
+      opacity: initial;
+      top: initial;
+    }
+
+    .use-motion {
+      .logo-line-before i { left: initial; }
+      .logo-line-after i { right: initial; }
+    }
+  </style>
+</noscript>
+
+  <script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({
+          google_ad_client: "ca-pub-1100711228720990",
+          enable_page_level_ads: true
+     });
+</script>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="en">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Hwchiu Learning Note</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</h1>
+      
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="Toggle navigation bar">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+    <a href="/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-home"></i> <br>Home</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+    <a href="/about/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-user"></i> <br>About</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+    <a href="/tags/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>Tags</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+    <a href="/archives/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>Archives</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-sitemap">
+    <a href="/sitemap.xml" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-sitemap"></i> <br>Sitemap</a>
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+  
+  
+  
+    
+      
+    
+    <a href="https://github.com/hwchiu" class="github-corner" target="_blank" title="Follow me on GitHub" aria-label="Follow me on GitHub"><svg width="80" height="80" viewbox="0 0 250 250" style="fill:#222; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg>
+    
+      </a>
+    
+
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/csi-iii.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">CSI 雜談
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+
+              
+                
+              
+
+              <time title="Created: 2019-10-07 00:54:01" itemprop="dateCreated datePublished" datetime="2019-10-07T00:54:01-07:00">2019-10-07</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">Edited on</span>
+                
+                <time title="Modified: 2020-08-30 18:59:56" itemprop="dateModified" datetime="2020-08-30T18:59:56-07:00">2020-08-30</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/csi-iii.html#comments" itemprop="discussionUrl">
+                
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="csi-iii.html" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+              <div class="post-description">本篇文章作為 Storage 的最後一塊，就沒有特別針對主題探討，反而是聊聊閒聊一些 Storage 方面的議題，順便聊聊 Mount 這個東西除了常見的功能之外，還有什麼參數可以使用，並且有什麼樣的效果。</div>
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>作為 <strong>Container Storage Interface</strong> 的最後一篇，如同慣例這篇文章就不會探討太多深入的議題，分享一些我自己目前對儲存這方面的一些經驗與想法。</p>
+<p>就 <strong>CRI/CNI/CSI</strong> 三個面向的議題來說，我認為 <strong>CSI</strong> 是最困難的，對於 <strong>CRI</strong> 來說，一般使用根本不會在意底層到底是走哪套實現來提供容器的功能，更何況很多公有雲提供的 kubernetes service 是根本沒有機會讓你去修改 <strong>kubelet</strong> 的參數，讓你來替換不同的 <strong>CRI</strong> 解決方案。</p>
+<p>而 <strong>CNI</strong> 的選擇相對於 <strong>CRI</strong> 又多了一些，不過滿多的使用情境都是基於網路能通即可，這種情況下反而 <strong>CNI</strong> 的選擇也不會太大的問題。不過相較於 <strong>CRI</strong>來說，地端部署的 <strong>kubernetes</strong> 有時候會有滿多網路的限制需要處理，甚至是一些 load-balancer 等相關功能的引進，這時候也需要對 <strong>CNI</strong> 稍微看一下是否能完全支援所需。<br>此外就如同 <strong>CRI</strong> 一樣，公有雲上面的 kubernetes service 也是不方便讓你去修改 <strong>CNI</strong> 的設定，通常都會與該公有雲本身的基礎建設整合一起。</p>
+<p>最後的 <strong>CSI</strong> 則不一樣了，不同於 <strong>CRI/CNI</strong> 為一個堪用容器的最低限度，很多時候甚至沒有額外的儲存設備整個 kubernetes cluster 還是可以運作得很好<br>而且 <strong>CSI</strong> 本身又因為透過 <strong>StorageClass, PV, PVC</strong> 等不同層次架構的抽象化，比較不會有公有雲跟自架的區別，你可以隨時安裝相關的套件到需要使用的節點上去，而且也可以隨時抽換，這相對起來選擇性非常多。也因為選擇性眾多，才會導致選擇性障礙而難以選擇一個適合自己的儲存解決方案。</p>
+<h1 id="儲存選擇"><a href="#儲存選擇" class="headerlink" title="儲存選擇"></a>儲存選擇</h1><p>儲存方案的互相比較一直都沒有停止，不同的儲存方案都有各自的特色與使用場景，就如同第一篇文章所說的，很多時候都要先從使用情境下手，去估算</p>
+<ol>
+<li>空間要多大，會增長嗎</li>
+<li>存取速度要多快，是讀重要，還是寫重要</li>
+<li>讀寫的資料是隨機讀寫，還是依序讀寫</li>
+<li>希望面向的是 Block Device 還是 Mountable Volume?</li>
+<li>希望可以多重讀寫？</li>
+<li>本身能否有快照? 快照大概要多久</li>
+<li>快照能否復原，復原大概要多久</li>
+<li>儲存設備本身要地端還是雲端?</li>
+<li>本身能不能有備份的效果，硬碟壞掉能夠承受多少顆？</li>
+</ol>
+<p>相關的議題列也列不完，針對每個答案都會有不同適合的儲存方案可以使用，而每個儲存方案又分成</p>
+<ol>
+<li>開源軟體，自己架設自己維護</li>
+<li>購買商業解決方案，從硬體到軟體一次搞定</li>
+</ol>
+<p>這時候又要考量到預算的多寡，到底是找人維護方便還是購買解決方案方便? 這個問題也是沒有標準答案，就看每個單位自己的處理方式</p>
+<p>選擇玩解決方案後，如果今天要導入到不同的管理平台，又要開始思考這些解決方案跟 <strong>kubernetes</strong> 是否整合良好？<br>整合的專案是否屬於活躍維護的狀態，相關的議題跟開發熱度夠不夠，甚至說是不是廠商自己有提供的相關的整合</p>
+<p>無論如何，我堅決反對基於 <strong>別人怎麼說，所以我就想要</strong> 的這種心態去選擇儲存方案，沒有事先研究與評估，這種通常到後來都只會帶來各種災難。</p>
+<h1 id="Mount"><a href="#Mount" class="headerlink" title="Mount"></a>Mount</h1><p>接下來探討一下關於 <strong>Mount Propagation</strong> 的概念，這篇功能於 <strong>kubernetes</strong> v1.8 之後推出，再一些比較複雜的系統設定中都會看到需要設定 <strong>Mount propagation</strong>，但是這個功能到底會做造成什麼變化與影響</p>
+<p>詳細的過程非常複雜，牽扯到 <strong>Linux Kernel</strong> 內對於檔案系統的實作以及變化，欲知詳情可以參閱這篇文章 <a href="https://medium.com/kokster/kubernetes-mount-propagation-5306c36a4a2d" target="_blank" rel="noopener">Kubernetes Mount Propagation</a>。</p>
+<p>一個最簡單會影響的功能就是對已經 <strong>Mount</strong> 過後的資料夾內，再次透過 <strong>Mount</strong> 掛載資料夾進去會發生什麼事情</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo docker run -d -v /home/vagrant/kubeDemo/:/kubeDemo --name <span class="literal">false</span> hwchiu/netutils</span><br><span class="line">288ddbb01a1b0e020bc227f1e9dfb58e9aba8885256bd394ebe2c74fbb6f05ad</span><br></pre></td></tr></table></figure>
+<p>首先我們透過 <strong>docker</strong> 創建一個測試的容器，命名為 <strong>false</strong>，接者將本地的 <strong>/home/vagrant/kubeDemo</strong> 資料夾掛載進去到容器裡面的 <strong>/kubeDemo</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo docker <span class="built_in">exec</span> <span class="literal">false</span> ls /kubeDemo</span><br><span class="line">Vagrantfile</span><br><span class="line">cert-manager</span><br><span class="line">dns</span><br><span class="line">docker</span><br><span class="line">ingress</span><br><span class="line">services</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ ls /home/vagrant/kubeDemo/</span><br><span class="line">cert-manager  dns  docker  ingress  services  Vagrantfile</span><br></pre></td></tr></table></figure>
+<p>接者先觀察 mount 的資訊是否正確，兩邊看到的資料夾與內容一致</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ mkdir kubeDemo/k8s</span><br><span class="line">vagrant@k8s-dev:~$ sudo mount --<span class="built_in">bind</span> k8s-course/ kubeDemo/k8s/</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ ls -ls kubeDemo/</span><br><span class="line">total 28</span><br><span class="line">4 drwxrwxr-x  3 vagrant vagrant 4096 Sep 29 07:17 cert-manager</span><br><span class="line">4 drwxrwxr-x  7 vagrant vagrant 4096 Sep 29 07:17 dns</span><br><span class="line">4 drwxrwxr-x  2 vagrant vagrant 4096 Sep 29 07:17 docker</span><br><span class="line">4 drwxrwxr-x  2 vagrant vagrant 4096 Sep 29 07:17 ingress</span><br><span class="line">4 drwxrwxr-x 12 vagrant vagrant 4096 Sep 29 07:17 k8s</span><br><span class="line">4 drwxrwxr-x  5 vagrant vagrant 4096 Sep 29 07:17 services</span><br><span class="line">4 -rw-rw-r--  1 vagrant vagrant 2483 Sep 29 07:17 Vagrantfile</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ ls -ls kubeDemo/k8s/</span><br><span class="line">total 40</span><br><span class="line">4 drwxrwxr-x 6 vagrant vagrant 4096 Sep 29 07:17 addons</span><br><span class="line">4 drwxrwxr-x 3 vagrant vagrant 4096 Sep 29 07:17 docker</span><br><span class="line">4 drwxrwxr-x 3 vagrant vagrant 4096 Sep 29 07:17 harbor</span><br><span class="line">4 drwxrwxr-x 5 vagrant vagrant 4096 Sep 29 07:17 kubeflow</span><br><span class="line">4 drwxrwxr-x 4 vagrant vagrant 4096 Sep 29 07:17 load-balancing</span><br><span class="line">4 drwxrwxr-x 5 vagrant vagrant 4096 Sep 29 07:17 manual-installation</span><br><span class="line">4 drwxrwxr-x 4 vagrant vagrant 4096 Sep 29 07:17 minikube-lab</span><br><span class="line">4 drwxrwxr-x 4 vagrant vagrant 4096 Sep 29 07:17 multi-cluster</span><br><span class="line">4 drwxrwxr-x 4 vagrant vagrant 4096 Sep 29 07:17 practical-k8s</span><br><span class="line">4 -rw-rw-r-- 1 vagrant vagrant  250 Sep 29 07:17 README.md</span><br></pre></td></tr></table></figure>
+<p>接下來嘗試透過 <strong>mount</strong> 指令，把本機端的另外一個資料夾 <strong>k8s-course</strong> 給掛載到 <strong>kubeDemo/k8s</strong> ，這時候本機上面透過 <strong>ls</strong> 的指令可以順利觀察到於 <strong>kubeDemoo/k8s</strong> 中有完全跟 <strong>k8s-course</strong> 一樣的內容。<br>到這個步驟都如同預料的一樣。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo docker <span class="built_in">exec</span> <span class="literal">false</span> ls /kubeDemo</span><br><span class="line">Vagrantfile</span><br><span class="line">cert-manager</span><br><span class="line">dns</span><br><span class="line">docker</span><br><span class="line">ingress</span><br><span class="line">k8s</span><br><span class="line">services</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ sudo docker <span class="built_in">exec</span> <span class="literal">false</span> ls -l /kubeDemo/k8s</span><br><span class="line">total 0</span><br></pre></td></tr></table></figure>
+<p>下一步則是我們嘗試觀察容器中的資料，就會發現完全資料，只有看到一個完全空的 <strong>k8s</strong> 資料夾，代表外面主機上面的 <strong>mount</strong> 並沒有真實的反映於容器內。</p>
+<p>這個問題就是因為 <strong>mount propagation</strong> 並沒有一路傳遞進去，所以對於之後才新增加的 <strong>mount point</strong> 就沒有辦法被容器內看到，反之亦然。</p>
+<p>為了解決這個問題我們可以開啟 <strong>mount propagatioon: shard</strong>，將上述的環境清除後來重新測試</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~/kubeDemo$ sudo docker run -d --mount <span class="built_in">type</span>=<span class="built_in">bind</span>,src=/home/vagrant/kubeDemo/,dst=/kubeDemo,<span class="built_in">bind</span>-propagation=shared --name <span class="literal">true</span> hwchiu/netutils</span><br><span class="line">bd70f4044d468fa9794e798c64e313057cf14d4ee12d3cdac748a4206fce3249</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~/kubeDemo$ sudo docker <span class="built_in">exec</span> <span class="literal">true</span> ls /kubeDemo</span><br><span class="line">Vagrantfile</span><br><span class="line">cert-manager</span><br><span class="line">dns</span><br><span class="line">docker</span><br><span class="line">ingress</span><br><span class="line">services</span><br></pre></td></tr></table></figure>
+<p>一樣創建容器，只是這次我們採用更複雜的指令來設定 <strong>mount</strong> 相關的選項，<br><strong>type=bind,src=/home/vagrant/kubeDemo/,dst=/kubeDemo,bind-propagation=shared</strong>， 透過該指令我們可以做到跟之前一樣的對照關係，同時特別設定 <strong>mount propagation</strong> 為 <strong>shared</strong>。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ mkdir kubeDemo/k8s</span><br><span class="line">vagrant@k8s-dev:~$ sudo mount --<span class="built_in">bind</span> k8s-course/ kubeDemo/k8s/</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ sudo docker <span class="built_in">exec</span> <span class="literal">true</span> ls -l /kubeDemo/k8s</span><br><span class="line">total 40</span><br><span class="line">-rw-rw-r-- 1 1000 1000  250 Sep 29 07:17 README.md</span><br><span class="line">drwxrwxr-x 6 1000 1000 4096 Sep 29 07:17 addons</span><br><span class="line">drwxrwxr-x 3 1000 1000 4096 Sep 29 07:17 docker</span><br><span class="line">drwxrwxr-x 3 1000 1000 4096 Sep 29 07:17 harbor</span><br><span class="line">drwxrwxr-x 5 1000 1000 4096 Sep 29 07:17 kubeflow</span><br><span class="line">drwxrwxr-x 4 1000 1000 4096 Sep 29 07:17 load-balancing</span><br><span class="line">drwxrwxr-x 5 1000 1000 4096 Sep 29 07:17 manual-installation</span><br><span class="line">drwxrwxr-x 4 1000 1000 4096 Sep 29 07:17 minikube-lab</span><br><span class="line">drwxrwxr-x 4 1000 1000 4096 Sep 29 07:17 multi-cluster</span><br><span class="line">drwxrwxr-x 4 1000 1000 4096 Sep 29 07:17 practical-k8s</span><br></pre></td></tr></table></figure>
+<p>反覆上面的動作，接下來直接去容器內觀察，就會發現這時候可以看到相關的資料夾了，這樣就解決了沒辦法關看到後續新增的 <strong>mount point</strong> 的問題。</p>
+<p>前一篇講到 <strong>CSI</strong> 解決方案的範例中，都會把大量的 <strong>/var/lib/kubelet</strong> 相關的資料夾掛載到 <strong>Pod</strong> 之中使用，對於 <strong>CSI Node</strong> 來說已經牽扯到真正與容器有關的空間掛載，所以這時候就會有需要再 <strong>CSI Node</strong> 容器內處理相關問題的需求，而這些更動也需要讓外面主機可以觀察到，所以都會看到對於 <strong>mount propagation</strong> 都需要設定。</p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>作為 <strong>CSI</strong> 的最後一篇文章，差不多把 <strong>CSI</strong> 相關的資訊都討論了一遍，最後就是基於自己的需求去選擇一個需要的解決方案，並且確認該解決方案是否已經有良好相容的 <strong>CSI</strong> 實作。</p>
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ul>
+<li><a href="https://medium.com/kokster/kubernetes-mount-propagation-5306c36a4a2d" target="_blank" rel="noopener">https://medium.com/kokster/kubernetes-mount-propagation-5306c36a4a2d</a></li>
+</ul>
+
+      
+    </div>
+
+    
+      
+
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/csi-ii.html" rel="bookmark">Container Storage Interface 標準介紹</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/csi-k8s.html" rel="bookmark">Container Storage Interface 與 kubernetes</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/csi-nfs.html" rel="bookmark">Container Storage Interface(CSI) - NFS 初體驗</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/csi.html" rel="bookmark">Container Storage Interface 基本介紹</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/kubernetes-design.html" rel="bookmark">淺談 Kubernetes 設計原理</a></div>
+      
+    </li>
+  
+  </ul>
+
+
+    
+
+    
+    
+    
+
+    
+
+    
+
+    
+      <div>
+        <ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>Post author:  </strong>Hwchiu</li>
+  <li class="post-copyright-link">
+    <strong>Post link: </strong>
+    <a href="https://www.hwchiu.com/csi-iii.html" title="CSI 雜談">https://www.hwchiu.com/csi-iii.html</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="external nofollow" target="_blank">CC BY-NC-SA 4.0</a> unless stating additionally.</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+          
+            <a href="/tags/Storage/" rel="tag"># Storage</a>
+          
+            <a href="/tags/CSI/" rel="tag"># CSI</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/csi-nfs.html" rel="next" title="Container Storage Interface(CSI) - NFS 初體驗">
+                <i class="fa fa-chevron-left"></i> Container Storage Interface(CSI) - NFS 初體驗
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/k8s-device-plugin.html" rel="prev" title=" Device Plugin - Introduction">
+                 Device Plugin - Introduction <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar.jpg" alt="Hwchiu">
+            
+              <p class="site-author-name" itemprop="name">Hwchiu</p>
+              <p class="site-description motion-element" itemprop="description">kubernetes/SDN/DevOps</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">201</span>
+                    <span class="site-state-item-name">posts</span>
+                  </a>
+                </div>
+              
+
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">106</span>
+                    <span class="site-state-item-name">tags</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  <a href="https://github.com/hwchiu" target="_blank" title="Github" rel="external nofollow"><i class="fa fa-fw fa-github"></i>Github</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.linkedin.com/in/hung-wei-chiu-52561494/" target="_blank" title="Linkedin" rel="external nofollow"><i class="fa fa-fw fa-linkedin"></i>Linkedin</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="mailto:sppsorrg@gmail.com" target="_blank" title="E-Mail" rel="external nofollow"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://twitter.com/hw_chiu" target="_blank" title="Twitter" rel="external nofollow"><i class="fa fa-fw fa-twitter"></i>Twitter</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.facebook.com/hongwei.qiu" target="_blank" title="FB Page" rel="external nofollow"><i class="fa fa-fw fa-facebook"></i>FB Page</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://instagram.com/hwchiu" target="_blank" title="Instagram" rel="external nofollow"><i class="fa fa-fw fa-instagram"></i>Instagram</a>
+                  
+                </span>
+              
+            </div>
+          
+
+          
+          
+
+          
+
+    <div class="links-of-blogroll motion-element links-of-blogroll-block">
+      <div class="links-of-blogroll-title">
+        <!-- modify icon to fire by szw -->
+        <i class="fa fa-history fa-" aria-hidden="true"></i>
+        Recent Posts
+      </div>
+      <ul class="links-of-blogroll-list">
+        
+        
+          <li>
+            <a href="/ipvs-4.html" title="IPvS 學習手冊(四)" target="_blank">IPvS 學習手冊(四)</a>
+          </li>
+        
+          <li>
+            <a href="/gitops.html" title="淺談 GitOps 的概念" target="_blank">淺談 GitOps 的概念</a>
+          </li>
+        
+          <li>
+            <a href="/iptables-1.html" title="初探 IPTABLES 流動之路 - 以 Docker 為範例" target="_blank">初探 IPTABLES 流動之路 - 以 Docker 為範例</a>
+          </li>
+        
+          <li>
+            <a href="/k8s-course-2.html" title="Kubernetes 線上課程 - CI/CD" target="_blank">Kubernetes 線上課程 - CI/CD</a>
+          </li>
+        
+          <li>
+            <a href="/ipvs-3.html" title="IPvS 學習手冊(三)" target="_blank">IPvS 學習手冊(三)</a>
+          </li>
+        
+      </ul>
+    </div>
+
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                Friends
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.evanlin.com/" title="KKDAI 大大" target="_blank">KKDAI 大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://kairen.github.io/" title="凱仁大大" target="_blank">凱仁大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.pichuang.com.tw/" title="小飛機" target="_blank">小飛機</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/cloudnative.tw/" title="CNTUG" target="_blank">CNTUG</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/sdnds.tw/" title="SDNDS-TW" target="_blank">SDNDS-TW</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://medium.com/@yayajacky" title="Jack" target="_blank">Jack</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#儲存選擇"><span class="nav-number">2.</span> <span class="nav-text">儲存選擇</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Mount"><span class="nav-number">3.</span> <span class="nav-text">Mount</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">4.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#參考"><span class="nav-number">5.</span> <span class="nav-text">參考</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+
+  
+
+  
+</div>
+
+
+  
+
+
+
+  <div class="powered-by">Powered by <a class="theme-link" target="_blank" rel="external nofollow" href="https://hexo.io">Hexo</a> v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme &mdash; <a class="theme-link" target="_blank" rel="external nofollow" href="https://theme-next.org">NexT.Pisces</a> v6.3.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+	
+    
+
+    
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=6.3.0"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=6.3.0"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=6.3.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=6.3.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=6.3.0"></script>
+
+
+
+  
+
+  
+    <script id="dsq-count-scr" src="https://hwchiublog.disqus.com/count.js" async></script>
+  
+
+  
+    <script type="text/javascript">
+      var disqus_config = function () {
+        this.page.url = 'https://www.hwchiu.com/csi-iii.html';
+        this.page.identifier = 'csi-iii.html';
+        this.page.title = 'CSI 雜談';
+        };
+      function loadComments () {
+        var d = document, s = d.createElement('script');
+        s.src = 'https://hwchiublog.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', '' + +new Date());
+        (d.head || d.body).appendChild(s);
+      }
+      
+        loadComments();
+      
+    </script>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  <style>
+    .copy-btn {
+      display: inline-block;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 20px;
+      color: #333;
+      white-space: nowrap;
+      vertical-align: middle;
+      cursor: pointer;
+      background-color: #eee;
+      background-image: linear-gradient(#fcfcfc, #eee);
+      border: 1px solid #d5d5d5;
+      border-radius: 3px;
+      user-select: none;
+      outline: 0;
+    }
+
+    .highlight-wrap .copy-btn {
+      transition: opacity .3s ease-in-out;
+      opacity: 0;
+      padding: 2px 6px;
+      position: absolute;
+      right: 4px;
+      top: 8px;
+    }
+
+    .highlight-wrap:hover .copy-btn,
+    .highlight-wrap .copy-btn:focus {
+      opacity: 1
+    }
+
+    .highlight-wrap {
+      position: relative;
+    }
+  </style>
+  <script>
+    $('.highlight').each(function (i, e) {
+      var $wrap = $('<div>').addClass('highlight-wrap')
+      $(e).after($wrap)
+      $wrap.append($('<button>').addClass('copy-btn').append('Copy').on('click', function (e) {
+        var code = $(this).parent().find('.code').find('.line').map(function (i, e) {
+          return $(e).text()
+        }).toArray().join('\n')
+        var ta = document.createElement('textarea')
+        document.body.appendChild(ta)
+        ta.style.position = 'absolute'
+        ta.style.top = '0px'
+        ta.style.left = '0px'
+        ta.value = code
+        ta.select()
+        ta.focus()
+        var result = document.execCommand('copy')
+        document.body.removeChild(ta)
+        
+        $(this).blur()
+      })).on('mouseleave', function (e) {
+        var $b = $(this).find('.copy-btn')
+        setTimeout(function () {
+          $b.text('Copy')
+        }, 300)
+      }).append(e)
+    })
+  </script>
+
+
+</body>
+</html>

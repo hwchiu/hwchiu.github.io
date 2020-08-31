@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="en">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=6.3.0" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.3.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.3.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.3.0" color="#222">
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.3.0',
+    sidebar: {"position":"left","display":"always","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="在前述中我們已經學過了什麼是 kubernetes service 以及如何實現 ClusterIP/NodePort 等 service 類型. 透過對 iptables 的探討與研究. 接下來要研究的則是 Service 裡面的一個參數, 叫做 SessionAffinity, 所謂的連線親和力, 透過該參數的設定,希望能夠讓符合特定條件的連線最後都會選用到相同的後端應用程式,目前有支援的選項">
+<meta name="keywords" content="Kubernetes,Service,Linux,k8s,iptables,sessionaffinity,session">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Kubernetes] How to Implement Kubernetes Service - SessionAffinity">
+<meta property="og:url" content="https://www.hwchiu.com/kubernetes-service-iiii.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="在前述中我們已經學過了什麼是 kubernetes service 以及如何實現 ClusterIP/NodePort 等 service 類型. 透過對 iptables 的探討與研究. 接下來要研究的則是 Service 裡面的一個參數, 叫做 SessionAffinity, 所謂的連線親和力, 透過該參數的設定,希望能夠讓符合特定條件的連線最後都會選用到相同的後端應用程式,目前有支援的選項">
+<meta property="og:locale" content="en">
+<meta property="og:image" content="https://i.imgur.com/C18G0Ym.png">
+<meta property="og:image" content="https://i.imgur.com/r6Yr1eI.png">
+<meta property="og:image" content="https://i.imgur.com/9amwybH.png">
+<meta property="og:image" content="https://i.imgur.com/p9Cff8e.png">
+<meta property="og:image" content="https://i.imgur.com/bKvZgw4.png">
+<meta property="og:image" content="https://i.imgur.com/NP5xsGg.png">
+<meta property="og:updated_time" content="2020-08-31T04:57:20.117Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="[Kubernetes] How to Implement Kubernetes Service - SessionAffinity">
+<meta name="twitter:description" content="在前述中我們已經學過了什麼是 kubernetes service 以及如何實現 ClusterIP/NodePort 等 service 類型. 透過對 iptables 的探討與研究. 接下來要研究的則是 Service 裡面的一個參數, 叫做 SessionAffinity, 所謂的連線親和力, 透過該參數的設定,希望能夠讓符合特定條件的連線最後都會選用到相同的後端應用程式,目前有支援的選項">
+<meta name="twitter:image" content="https://i.imgur.com/C18G0Ym.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="Hwchiu Learning Note" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://www.hwchiu.com/kubernetes-service-iiii.html">
+
+
+
+<script type="text/javascript" id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>[Kubernetes] How to Implement Kubernetes Service - SessionAffinity | Hwchiu Learning Note</title>
+  
+<script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '',
+      xfbml      : true,
+      version    : 'v2.10'
+    });
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "//connect.facebook.net/en/sdk.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+</script>
+
+
+
+
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-54006186-1');
+</script>
+
+
+
+
+
+
+  <noscript>
+  <style type="text/css">
+    .use-motion .motion-element,
+    .use-motion .brand,
+    .use-motion .menu-item,
+    .sidebar-inner,
+    .use-motion .post-block,
+    .use-motion .pagination,
+    .use-motion .comments,
+    .use-motion .post-header,
+    .use-motion .post-body,
+    .use-motion .collection-title { opacity: initial; }
+
+    .use-motion .logo,
+    .use-motion .site-title,
+    .use-motion .site-subtitle {
+      opacity: initial;
+      top: initial;
+    }
+
+    .use-motion {
+      .logo-line-before i { left: initial; }
+      .logo-line-after i { right: initial; }
+    }
+  </style>
+</noscript>
+
+  <script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({
+          google_ad_client: "ca-pub-1100711228720990",
+          enable_page_level_ads: true
+     });
+</script>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="en">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Hwchiu Learning Note</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</h1>
+      
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="Toggle navigation bar">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+    <a href="/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-home"></i> <br>Home</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+    <a href="/about/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-user"></i> <br>About</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+    <a href="/tags/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>Tags</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+    <a href="/archives/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>Archives</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-sitemap">
+    <a href="/sitemap.xml" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-sitemap"></i> <br>Sitemap</a>
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+  
+  
+  
+    
+      
+    
+    <a href="https://github.com/hwchiu" class="github-corner" target="_blank" title="Follow me on GitHub" aria-label="Follow me on GitHub"><svg width="80" height="80" viewbox="0 0 250 250" style="fill:#222; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"/><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"/><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"/></svg>
+    
+      </a>
+    
+
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/kubernetes-service-iiii.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">[Kubernetes] How to Implement Kubernetes Service - SessionAffinity
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+
+              
+                
+              
+
+              <time title="Created: 2018-08-27 13:46:47" itemprop="dateCreated datePublished" datetime="2018-08-27T13:46:47-07:00">2018-08-27</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">Edited on</span>
+                
+                <time title="Modified: 2020-08-30 21:57:20" itemprop="dateModified" datetime="2020-08-30T21:57:20-07:00">2020-08-30</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/kubernetes-service-iiii.html#comments" itemprop="discussionUrl">
+                
+                  <span class="post-comments-count disqus-comment-count" data-disqus-identifier="kubernetes-service-iiii.html" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+              <div class="post-description">在前述中我們已經學過了什麼是 kubernetes service 以及如何實現 ClusterIP/NodePort 等 service 類型. 透過對 iptables 的探討與研究. 接下來要研究的則是 Service 裡面的一個參數, 叫做 SessionAffinity, 所謂的連線親和力, 透過該參數的設定,希望能夠讓符合特定條件的連線最後都會選用到相同的後端應用程式,目前有支援的選項是 ClinetIP, 這意味者只要連線的來源 IP 地址是相同的,最後都會被導向到相同的容器應用程式. 然而這部分到底是如何實現的, 本文會先介紹什麼叫做 Connection. 並且介紹 SessionAffinity 的使用方式以及使用後的結果. 最後一樣透過相同的思路, 藉由研究 iptables 的規則來學習到 SessionAffinity 要如何完成, 同時也可以學習到 iptables 衆多靈活的使用方式.</div>
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>本文章是屬於 <code>kubernetes</code> service 系列文之一，該系列文希望能夠與大家討論下量兩個觀念</p>
+<ol>
+<li>什麼是 <code>Kubernetes Service</code>, 為什麼我們需要它？ 它能夠幫忙解決什麼問題</li>
+<li><code>Kubernetes Service</code> 是怎麼實現的?， 讓我們用 iptables 來徹徹底底的理解他</li>
+</ol>
+<p>相關文章:<br><a href="https://www.hwchiu.com/kubernetes-service-i.html">[Kubernetes] What is Service</a><br><a href="https://www.hwchiu.com/kubernetes-service-ii.html">[Kubernetes] How To Implement Kubernetes Service - ClusterIP</a><br><a href="https://www.hwchiu.com/kubernetes-service-iii.html">[Kubernetes] How To Implement Kubernetes Service - NodePort</a></p>
+<p>本文銜接前續文章，繼續透過對 <code>iptables</code> 的分析來研究 <code>kubernetes service</code> 中 <code>SessionAffinity</code> 的實作原理。</p>
+<h1 id="What-Is-Connection"><a href="#What-Is-Connection" class="headerlink" title="What Is Connection"></a>What Is Connection</h1><p>在我們開始討論 <code>SessionAffinity</code> 之前，我們要先來討論一下，什麼叫做 <code>Connection</code>, 並且透過對 <code>Connection</code> 的瞭解，我們會更容易的理解到底 <code>SessionAffinity</code>  想要解決的問題。</p>
+<p>這邊我們使用下列的圖示來說明到底什麼是 <code>Connection</code></p>
+<p><img src="https://i.imgur.com/C18G0Ym.png" alt="Imgur"></p>
+<p>這個範例中，我們有一個 <code>kubernetes</code> 叢集，其透過 <code>kubernetes service(NodePort)</code> 的方式將內部的 <code>Nginx</code> 服務讓外界能夠存取。</p>
+<p>此時，在外部我們有兩台機器想要存取這些 <code>Nginx</code> 服務，其中第一台機器 <strong>Host1</strong> 上面有一個 <code>Client Application</code>, 透過 <code>kubernetes service</code> 的功用，其最後存取到了<code>Nginx1</code> 這個容器。<br>而第二台機器 <strong>Host2</strong> 上面則有兩個 <code>Client Application</code>, 其分別對應到的是 <code>Nginx2</code> 以及 <code>Nginx3</code> 這兩個容器。</p>
+<p>首先，本文中所有提到的 <code>Connection</code> 代表的就是如上圖所示的 <code>ClientApp</code> 到 <code>Nginx</code> 的連線，所以上述的範例總共有三個 <code>Connection</code>.</p>
+<p>這邊我們先思考一個問題，針對圖中 <code>ConnectionA</code> 來討論一下，該 <code>ConnectionA</code> 中所有的來回請求回應，都會走到 <code>Nginx1</code> 嘛?<br>這些所謂的請求回應，實際是都是網際網路世界中的封包，每個封包一旦到達 <code>Kubernetes</code> 叢集內就會遇到 <code>iptaables</code> 規則的處理。<br>在這個情況下，我們如何保證該 <code>ConnectionA</code> 裡面的所有封包都可以送達到同一個 <code>Nginx1</code> 也就是所謂的 <code>EndPoints</code>.</p>
+<p>這個問題其實已經解決了，是透過 <code>iptables</code> 解決的。<br>這個原理沒有辦法一言兩語解決，我之後若有時間會寫相關的文章介紹這邊的原理與實現。<br>這邊只要知道其方法是倚賴 <code>Linux Kernel</code> 裡面相關的技術去提供類似 <code>Cache</code> 的機制，確保相同的 <code>Connection</code> 內所有的來回封包都會執行相同的 <code>SNAT/DNAT</code>.</p>
+<p>有興趣的讀者可以使用下列關鍵字去搜尋相關文章，不然就是等我哪天有時間在來仔細介紹這邊的概念lol</p>
+<ol>
+<li>netfilter</li>
+<li>conntrack</li>
+<li>DNAT/SNAT</li>
+</ol>
+<h1 id="What-Is-SessionAffinity"><a href="#What-Is-SessionAffinity" class="headerlink" title="What Is SessionAffinity"></a>What Is SessionAffinity</h1><p>假如相同 <code>Connection</code> 內的封包都已經可以保證連接到相同的 <code>Endpoints</code> 了，那到底什麼是 <code>SessionAffinity</code>?</p>
+<p>換個角度來說，我們有沒有辦法讓建立的新 <code>Connection</code> 都連接到相同的 <code>Endpoints</code> ?</p>
+<p>這個問題就是 <code>SessionAffinity</code> 想要解決並處理的，透過一種機制，讓不同的 <code>Client Application</code> 所建立新的 <code>Connection</code> 最後都會連接到相同的 <code>EndPoints</code>.</p>
+<p>以上圖的範例來說，有沒有可能讓 <code>Connection A,B,C</code> 都連接到相同的 <code>EndPoints</code>?</p>
+<h1 id="Configuration"><a href="#Configuration" class="headerlink" title="Configuration"></a>Configuration</h1><p>首先，我們先來看一下 <code>Kubernetes</code> 裡面定義的 <code>SessionAffinity</code> 要怎麼使用<br>目前總共有兩種類型可以選擇</p>
+<ol>
+<li>None</li>
+<li>ClientIP</li>
+</ol>
+<p>第一種 <code>None</code> 其實就是什麼都不做，針對每一條新的<code>Connection</code>都不去採去任何動作，基本上就是每條<code>Connection</code>都看運氣來選擇最後選擇到哪一個 <code>Endpoints</code>.</p>
+<p>第二種 <code>ClientIP</code> 則是真的有事情要做了，就如同字面上的意思，<code>Client IP</code>.<br>目的很簡單，對於每一條新建立的 <code>Connection</code>, 若其 <code>Client IP</code> 地址相同，就導到相同的 <code>Endpoints</code> 去使用。</p>
+<p>所以回到剛剛上述的問題<br>以上圖的範例來說，有沒有可能讓 <code>Connection A,B,C</code> 都連接到相同的 <code>EndPoints</code>?<br>按照目前 <code>kubernetes</code> 的設計，上述的答案是在最簡單的網路架構下，只能夠確保 <strong>Host2</strong> 上面所建立的所有 <strong>Connection</strong> 都可以連接到相同的 <strong>Endpoints</strong>.</p>
+<p>這邊假設這些 Host 都有自己的公開 <code>IP</code> 地址，不考慮任何 <code>SNAT</code> 的效果。</p>
+<h1 id="How-It-Works"><a href="#How-It-Works" class="headerlink" title="How It Works"></a>How It Works</h1><h2 id="Setup"><a href="#Setup" class="headerlink" title="Setup"></a>Setup</h2><p>接下來，我們繼續使用<a href="https://github.com/hwchiu/kubeDemo" target="_blank" rel="noopener">kubeDemo</a>來進行相關的服務部屬以及<code>iptables</code>規則研究。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:01:37:28 [~/go/src/github.com/hwchiu/kubeDemo/services](master)vagrant</span><br><span class="line"><span class="variable">$kubectl</span> apply -f service/nginx-</span><br><span class="line">nginx-affinity.yml  nginx-cluster.yml   nginx-node.yml</span><br><span class="line">vortex-dev:01:37:28 [~/go/src/github.com/hwchiu/kubeDemo/services](master)vagrant</span><br><span class="line"><span class="variable">$kubectl</span> apply -f service/nginx-affinity.yml</span><br><span class="line">service/k8s-nginx-affinity created</span><br></pre></td></tr></table></figure>
+<p>我們用下列指令確認一下剛剛部屬的 <code>kubernetes service</code> 是否真的有設定 <code>sessionAffinity</code><br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:01:40:58 [~/go/src/github.com/hwchiu/kubeDemo/services](master)vagrant</span><br><span class="line"><span class="variable">$kubectl</span> get service k8s-nginx-affinity -o jsonpath=<span class="string">'&#123;.spec.sessionAffinity&#125;'</span></span><br><span class="line">ClientIP</span><br></pre></td></tr></table></figure></p>
+<h2 id="IPTABLES"><a href="#IPTABLES" class="headerlink" title="IPTABLES"></a>IPTABLES</h2><p>按照慣例，最簡單的觀察方式就是直接觀察 <code>iptables</code> 的規則，這邊直接透過 <code>k8s-ngins-affinity</code> 這個關鍵字來查詢所有相關的規則</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable">$sudo</span> iptables-save | grep k8s-nginx-affinity</span><br><span class="line">-A KUBE-SEP-HDMJEKA4BFKBU6OK -s 10.244.0.145/32 -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-SEP-HDMJEKA4BFKBU6OK -p tcp -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -m recent --<span class="built_in">set</span> --name KUBE-SEP-HDMJEKA4BFKBU6OK --mask 255.255.255.255 --rsource -m tcp -j DNAT --to-destination 10.244.0.145:80</span><br><span class="line">-A KUBE-SEP-Q5HAFBJX4HVXF6EM -s 10.244.0.144/32 -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-SEP-Q5HAFBJX4HVXF6EM -p tcp -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -m recent --<span class="built_in">set</span> --name KUBE-SEP-Q5HAFBJX4HVXF6EM --mask 255.255.255.255 --rsource -m tcp -j DNAT --to-destination 10.244.0.144:80</span><br><span class="line">-A KUBE-SEP-YFKOY7G33LWKGTLC -s 10.244.0.143/32 -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-SEP-YFKOY7G33LWKGTLC -p tcp -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -m recent --<span class="built_in">set</span> --name KUBE-SEP-YFKOY7G33LWKGTLC --mask 255.255.255.255 --rsource -m tcp -j DNAT --to-destination 10.244.0.143:80</span><br><span class="line">-A KUBE-SERVICES ! -s 10.244.0.0/16 -d 10.109.59.245/32 -p tcp -m comment --comment <span class="string">"default/k8s-nginx-affinity: cluster IP"</span> -m tcp --dport 80 -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-SERVICES -d 10.109.59.245/32 -p tcp -m comment --comment <span class="string">"default/k8s-nginx-affinity: cluster IP"</span> -m tcp --dport 80 -j KUBE-SVC-UBXGHWUUHMMRNNE6</span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -m recent --rcheck --seconds 10800 --reap --name KUBE-SEP-YFKOY7G33LWKGTLC --mask 255.255.255.255 --rsource -j KUBE-SEP-YFKOY7G33LWKGTLC</span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -m recent --rcheck --seconds 10800 --reap --name KUBE-SEP-Q5HAFBJX4HVXF6EM --mask 255.255.255.255 --rsource -j KUBE-SEP-Q5HAFBJX4HVXF6EM</span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -m recent --rcheck --seconds 10800 --reap --name KUBE-SEP-HDMJEKA4BFKBU6OK --mask 255.255.255.255 --rsource -j KUBE-SEP-HDMJEKA4BFKBU6OK</span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -m statistic --mode random --probability 0.33332999982 -j KUBE-SEP-YFKOY7G33LWKGTLC</span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -m statistic --mode random --probability 0.50000000000 -j KUBE-SEP-Q5HAFBJX4HVXF6EM</span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -j KUBE-SEP-HDMJEKA4BFKBU6OK</span><br></pre></td></tr></table></figure>
+<p>稍微看了一下可以發現規則數量變多了，每個 <code>Endpoints</code> 本身多出兩條的規則出來，所以此範例中因為有三個<code>Endpoints</code>，所以總共會多出六條新的規則。<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">-A KUBE-SEP-HDMJEKA4BFKBU6OK -p tcp -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -m recent --<span class="built_in">set</span> --name KUBE-SEP-HDMJEKA4BFKBU6OK --mask 255.255.255.255 --rsource -m tcp -j DNAT --to-destination 10.244.0.145:80</span><br><span class="line">-A KUBE-SEP-Q5HAFBJX4HVXF6EM -p tcp -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -m recent --<span class="built_in">set</span> --name KUBE-SEP-Q5HAFBJX4HVXF6EM --mask 255.255.255.255 --rsource -m tcp -j DNAT --to-destination 10.244.0.144:80</span><br><span class="line">-A KUBE-SEP-YFKOY7G33LWKGTLC -p tcp -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -m recent --<span class="built_in">set</span> --name KUBE-SEP-YFKOY7G33LWKGTLC --mask 255.255.255.255 --rsource -m tcp -j DNAT --to-destination 10.244.0.143:80</span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -m recent --rcheck --seconds 10800 --reap --name KUBE-SEP-YFKOY7G33LWKGTLC --mask 255.255.255.255 --rsource -j KUBE-SEP-YFKOY7G33LWKGTLC</span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -m recent --rcheck --seconds 10800 --reap --name KUBE-SEP-Q5HAFBJX4HVXF6EM --mask 255.255.255.255 --rsource -j KUBE-SEP-Q5HAFBJX4HVXF6EM</span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -m recent --rcheck --seconds 10800 --reap --name KUBE-SEP-HDMJEKA4BFKBU6OK --mask 255.255.255.255 --rsource -j KUBE-SEP-HDMJEKA4BFKBU6OK</span><br></pre></td></tr></table></figure></p>
+<p>在我們開始研究這些規則之前，我們還是要先來問自己一句話<br><strong>如果是我們自己來實作這個功能，我們會怎麼實作?</strong> </p>
+<p>假設需求就是 <code>ClientIP</code> ，相同來源<code>IP</code>地址所建立的新連線都要分配到相同的 <code>EndPoints</code> 來使用<br>直覺下，我們可以用類似 <code>Cache</code> 的概念來完成這個功能，其流程如下</p>
+<ol>
+<li>收到新的連線請求, 檢查該來源<code>IP</code>地址是否存在 <code>Cache</code> 中</li>
+<li>若存在，直接使用該 <code>Cache</code> 內關於的目標 <code>Endpoints</code> 來使用</li>
+<li>若不存在，則嘗試從 <code>EndPoints</code> 內挑選出一個目標，並且將結果記錄到 <code>Cache</code> 之中.</li>
+</ol>
+<p>所以可以將該 <code>cache</code> 分成 <code>Read/Wrtie</code> 兩個功能面向來看待，以下圖來表示</p>
+<p><img src="https://i.imgur.com/r6Yr1eI.png" alt="Imgur"></p>
+<p>上述的流程看起來滿直觀且合理的，但是這些流程在 <code>iptables</code> 的規則中到底要怎麼完成?</p>
+<h2 id="recent-modules"><a href="#recent-modules" class="headerlink" title="recent modules"></a>recent modules</h2><p>我們將前面6條新規則縮減到兩條來單獨觀察就好<strong>(因為每個EndPoints會有兩條)</strong><br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">-A KUBE-SEP-HDMJEKA4BFKBU6OK -p tcp -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -m recent --<span class="built_in">set</span> --name KUBE-SEP-HDMJEKA4BFKBU6OK --mask 255.255.255.255 --rsource -m tcp -j DNAT --to-destination 10.244.0.145:80</span><br><span class="line"></span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -m recent --rcheck --seconds 10800 --reap --name KUBE-SEP-HDMJEKA4BFKBU6OK --mask 255.255.255.255 --rsource -j KUBE-SEP-HDMJEKA4BFKBU6OK</span><br></pre></td></tr></table></figure></p>
+<p>為了加深各位的印象並且能夠順利的解讀 <code>ClusterIP</code> 的原理，需要再次複習一下這張圖片，並且確保知道下圖中各個項目的含意。<br><img src="https://i.imgur.com/9amwybH.png" alt="Imgur"></p>
+<h3 id="Save"><a href="#Save" class="headerlink" title="Save"></a>Save</h3><p>首先我們觀察第一條規則，其位於 <code>KUBE-SEP</code> 這個位置，這個其實就是真正執行 <code>DNAT</code> 的 <code>custom  chain</code>.<br>這邊做的事情與我們假想的流程完全一致, 當選出欲使用的 <code>Endoints</code> 並進行 <code>DNAT</code> 轉換之時，順便將該結果記錄到 <code>Cache</code> 內。<br><strong>若不存在，則嘗試從 <code>EndPoints</code> 內挑選出一個目標，並且將結果記錄到 <code>Cache</code> 之中.</strong></p>
+<p>我們來仔細看一下這條規則<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-A KUBE-SEP-HDMJEKA4BFKBU6OK -p tcp -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -m recent --<span class="built_in">set</span> --name KUBE-SEP-HDMJEKA4BFKBU6OK --mask 255.255.255.255 --rsource -m tcp -j DNAT --to-destination 10.244.0.145:80</span><br></pre></td></tr></table></figure></p>
+<p>裡面新增加的部份則是<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-m recent --<span class="built_in">set</span> --name KUBE-SEP-HDMJEKA4BFKBU6OK --mask 255.255.255.255 --rsource</span><br></pre></td></tr></table></figure></p>
+<p>這邊我們要介紹一個新的 <code>iptables</code> 的擴充模組 <strong>recent</strong>. 但是礙於篇幅沒有辦法詳細介紹其所有用法以及原理。<br>我們可以將 <code>recent</code> 想成他提供一個簡單的類似 <code>key/value</code> 的 <code>cache</code> 機制，同時支援 <strong>Read/Write</strong> 等操作來存取該 <code>Cache</code>.</p>
+<p>這邊就針對這參數進行一個簡單的介紹</p>
+<ol>
+<li>-m recent: 使用擴充模組 <code>recent</code></li>
+<li>–set: 這次的行為想要進行儲存的動作，將某些 <code>key/value</code> 寫進到 <code>recent cache</code> 內 </li>
+<li>–name KUBE-SEP-XXXXXXXX: 這邊對應的就是存到 <code>cache</code> 內的 <code>Value</code>.</li>
+<li>–mask 255.255.255.255: 這個搭配下一個參數使用</li>
+<li>–rsource: 這邊代表是的我要用什麼當做 <code>key</code>, 這邊使用的是 <code>souruce</code> 就是所謂的封包來源<code>IP</code>地址,既然有<code>IP</code>地址，就可以搭配前面的<code>mask</code>來調整<code>IP</code>位址的範圍，這個範例中就是<strong>/32</strong>的設定，意味<code>IP</code>要完全一樣才行。</li>
+</ol>
+<p>所以歸納一下，若今天已經選定了一個<code>Endpoints</code>要來使用，首先會先跳到屬於該 <code>Endpoints</code> 專屬於的 <code>custom chani</code> <strong>KUBE-SEP-HDMJEKA4BFKBU6OK</strong>.<br>在進行 <code>DNAT</code> 之前，會先透過 <code>recent cache</code> 的方式去紀錄下列的對映關係</p>
+<p><strong>[來源IP地址] =&gt; KUBE-SEP-HDMJEKA4BFKBU6OK</strong></p>
+<p>將上述的概念重新整理，目前的已知拼圖如下</p>
+<p><img src="https://i.imgur.com/p9Cff8e.png" alt="Imgur"></p>
+<p>另外，之前有提到過 <code>iptables</code> 的每個指令都是<code>符合特定規則</code>，執行<code>特定行為</code>.<br>所以其實 <code>recent</code> 模組內關於 <code>Set/Write</code> 相關的操作永遠都是回傳<code>符合</code>，讓上層的規則可以繼續往下執行。<br>畢竟針對 <code>Set/Write</code> 這類型操作本身就沒有要比對任何東西，只是被拿來進行其他的操作而已。</p>
+<h3 id="Read"><a href="#Read" class="headerlink" title="Read"></a>Read</h3><p>看完了第一題規則後，接下來來看一下最後一條，其實也就是第二條規則</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">"default/k8s-nginx-affinity:"</span> -m recent --rcheck --seconds 10800 --reap --name KUBE-SEP-HDMJEKA4BFKBU6OK --mask 255.255.255.255 --rsource -j KUBE-SEP-HDMJEKA4BFKBU6OK</span><br></pre></td></tr></table></figure>
+<p>這條規則其實就是 <code>Cache</code> 裡面關於 <code>Read</code> 的操作，但是這邊有一個點要注意，因為 <code>iptables</code> 的規則就是一條一條根據<code>比對條件</code>來判斷要不要執行<code>特定行為</code>.<br>所以這邊沒有辦法用程式化的方式去從 <code>Cache</code> 裡面取得對應的 <code>EndPoints</code> 名稱。</p>
+<p>我們先記住，該 <code>recent</code> 提供的方式是詢問請問該<code>Key</code>有沒有資料，有的話是不是這個<code>Value</code>。<br>在這種情況下，我們可以想像一下其運作原理。</p>
+<p>針對每一條 <code>KUBE-SVC-XXX</code> 裡面的規則，依序每個 <code>EndPoints</code> 執行下列操作</p>
+<ol>
+<li>請問<code>Cachue</code>裡面有沒有 <code>來源IP位址</code> =&gt; <code>當前EndPoints</code> 的紀錄? 有的話就直接跳到對應的 <code>Endooints</code> 的<code>custom chain</code>去執行<code>DNAT</code>.</li>
+<li>如果沒有的話，嘗試第二個 <code>Endpoints</code></li>
+<li>所有的 <code>Endpoints</code> 嘗試後都沒有結果，那就透過機率的方式選擇一個可用的 <code>Endpoints</code></li>
+</ol>
+<p>有了這些概念後，我們從參數的部分來直接看一下 <code>iptables</code> 實際上的下法</p>
+<ol>
+<li>-m:recent 使用擴充模組 <code>recent</code></li>
+<li>–rcheck: 這邊我們執行 <code>READ</code> 的指令，要檢查 <code>cache</code> 內是否有對應的 <code>key/value</code></li>
+<li>–name: <code>value</code>, 就是 <code>Endpoints</code> 對應到的 <code>custom-chain name</code></li>
+<li>–rsouce/–mask: <code>key</code>, 封包的來源 <code>IP</code></li>
+<li>–seconds: 每個 <code>cache</code> 內的記錄都會有一個過期的時間，這個時間的意思是只有上次設定該 <code>ket/value</code> 的時間距離現在<code>N</code>秒內的才算數，已這個範例來說就是 <code>10800秒</code> 內的 <code>cache</code> 記錄才算數，如果是超過 <code>10800秒</code> 前記錄的，就當失效。</li>
+<li>–reap: 這個是指每次查詢的時候，會將已經超過<code>有效時間</code> 的規則一併清除。</li>
+</ol>
+<p>把這整個流程全部重新組合後，我們用下面的這張圖來描述關於整個 <code>SessionAffinity</code> 的概念與實作<br><code>seconds</code> 相關的概念我就沒有加入到該圖片中了，因為篇幅有限，針對主要觀念去描述即可。</p>
+<p><img src="https://i.imgur.com/bKvZgw4.png" alt="Imgur"></p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>看到這邊，我們大概瞭解如何透過 <code>iptables</code> 的功能來達成 <code>SessionAffinity:ClientIP</code> 的功能，透過 <code>iptables</code> 的擴充模組 <code>recent</code> 提供類似 <code>key/value</code> 的 <code>cache</code> 機制來紀錄 <code>來源IP地址</code> 與 <code>Endpoints</code> 的關係。</p>
+<p>如果對於 <code>iptables</code> 擴充模組有興趣的讀者，之後我會撰寫一些文章介紹 <code>iptables</code> 的架構以及如何自己撰寫一個 <code>iptables</code> 的擴充模組。</p>
+<p>最後我們將本篇文章所學的概念與一直以來使用的關係圖給整合起來，當設定 <code>SessionAffinity</code> 時，我們會在<code>KUBE-SVC</code> 嘗試透過 <code>Recent/Cache</code> 的方式找到是否有使用過的 <code>Endpoints</code><br>之後再真正執行 <code>DNAT</code> 的 <code>KUBE-SEP-XXXX</code> 時會不停的更新 <code>Recent/Cache</code> 內的資料以及時間，避免該筆資料過期。</p>
+<p><img src="https://i.imgur.com/NP5xsGg.png" alt="Imgur"></p>
+
+      
+    </div>
+
+    
+      
+
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/kubernetes-service-ii.html" rel="bookmark">[Kubernetes] How to Implement Kubernetes Service - ClusterIP</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/kubernetes-service-iii.html" rel="bookmark">[Kubernetes] How to Implement Kubernetes Service - NodePort</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/introduce-cni-i.html" rel="bookmark">[Container Network Interface] Bridge Network In Docker</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/introduce-cni-ii.html" rel="bookmark">[Container Network Interface] CNI Introduction</a></div>
+      
+    </li>
+  
+    <li class="popular-posts-item">
+      
+      
+      <div class="popular-posts-title"><a href="/iptables-1.html" rel="bookmark">初探 IPTABLES 流動之路 - 以 Docker 為範例</a></div>
+      
+    </li>
+  
+  </ul>
+
+
+    
+
+    
+    
+    
+
+    
+
+    
+
+    
+      <div>
+        <ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>Post author:  </strong>Hwchiu</li>
+  <li class="post-copyright-link">
+    <strong>Post link: </strong>
+    <a href="https://www.hwchiu.com/kubernetes-service-iiii.html" title="[Kubernetes] How to Implement Kubernetes Service - SessionAffinity">https://www.hwchiu.com/kubernetes-service-iiii.html</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>Copyright Notice:  </strong>All articles in this blog are licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="external nofollow" target="_blank">CC BY-NC-SA 4.0</a> unless stating additionally.</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Linux/" rel="tag"># Linux</a>
+          
+            <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+          
+            <a href="/tags/Iptables/" rel="tag"># Iptables</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/kubernetes-service-iii.html" rel="next" title="[Kubernetes] How to Implement Kubernetes Service - NodePort">
+                <i class="fa fa-chevron-left"></i> [Kubernetes] How to Implement Kubernetes Service - NodePort
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/mgo-aggregate.html" rel="prev" title="[Golang] aggregate in mongo">
+                [Golang] aggregate in mongo <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Table of Contents
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Overview
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar.jpg" alt="Hwchiu">
+            
+              <p class="site-author-name" itemprop="name">Hwchiu</p>
+              <p class="site-description motion-element" itemprop="description">kubernetes/SDN/DevOps</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">201</span>
+                    <span class="site-state-item-name">posts</span>
+                  </a>
+                </div>
+              
+
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">106</span>
+                    <span class="site-state-item-name">tags</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  <a href="https://github.com/hwchiu" target="_blank" title="Github" rel="external nofollow"><i class="fa fa-fw fa-github"></i>Github</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.linkedin.com/in/hung-wei-chiu-52561494/" target="_blank" title="Linkedin" rel="external nofollow"><i class="fa fa-fw fa-linkedin"></i>Linkedin</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="mailto:sppsorrg@gmail.com" target="_blank" title="E-Mail" rel="external nofollow"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://twitter.com/hw_chiu" target="_blank" title="Twitter" rel="external nofollow"><i class="fa fa-fw fa-twitter"></i>Twitter</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://www.facebook.com/hongwei.qiu" target="_blank" title="FB Page" rel="external nofollow"><i class="fa fa-fw fa-facebook"></i>FB Page</a>
+                  
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://instagram.com/hwchiu" target="_blank" title="Instagram" rel="external nofollow"><i class="fa fa-fw fa-instagram"></i>Instagram</a>
+                  
+                </span>
+              
+            </div>
+          
+
+          
+          
+
+          
+
+    <div class="links-of-blogroll motion-element links-of-blogroll-block">
+      <div class="links-of-blogroll-title">
+        <!-- modify icon to fire by szw -->
+        <i class="fa fa-history fa-" aria-hidden="true"></i>
+        Recent Posts
+      </div>
+      <ul class="links-of-blogroll-list">
+        
+        
+          <li>
+            <a href="/ipvs-4.html" title="IPvS 學習手冊(四)" target="_blank">IPvS 學習手冊(四)</a>
+          </li>
+        
+          <li>
+            <a href="/gitops.html" title="淺談 GitOps 的概念" target="_blank">淺談 GitOps 的概念</a>
+          </li>
+        
+          <li>
+            <a href="/iptables-1.html" title="初探 IPTABLES 流動之路 - 以 Docker 為範例" target="_blank">初探 IPTABLES 流動之路 - 以 Docker 為範例</a>
+          </li>
+        
+          <li>
+            <a href="/k8s-course-2.html" title="Kubernetes 線上課程 - CI/CD" target="_blank">Kubernetes 線上課程 - CI/CD</a>
+          </li>
+        
+          <li>
+            <a href="/ipvs-3.html" title="IPvS 學習手冊(三)" target="_blank">IPvS 學習手冊(三)</a>
+          </li>
+        
+      </ul>
+    </div>
+
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                Friends
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.evanlin.com/" title="KKDAI 大大" target="_blank">KKDAI 大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://kairen.github.io/" title="凱仁大大" target="_blank">凱仁大大</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.pichuang.com.tw/" title="小飛機" target="_blank">小飛機</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/cloudnative.tw/" title="CNTUG" target="_blank">CNTUG</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.facebook.com/groups/sdnds.tw/" title="SDNDS-TW" target="_blank">SDNDS-TW</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://medium.com/@yayajacky" title="Jack" target="_blank">Jack</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#What-Is-Connection"><span class="nav-number">2.</span> <span class="nav-text">What Is Connection</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#What-Is-SessionAffinity"><span class="nav-number">3.</span> <span class="nav-text">What Is SessionAffinity</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Configuration"><span class="nav-number">4.</span> <span class="nav-text">Configuration</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#How-It-Works"><span class="nav-number">5.</span> <span class="nav-text">How It Works</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Setup"><span class="nav-number">5.1.</span> <span class="nav-text">Setup</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#IPTABLES"><span class="nav-number">5.2.</span> <span class="nav-text">IPTABLES</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#recent-modules"><span class="nav-number">5.3.</span> <span class="nav-text">recent modules</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Save"><span class="nav-number">5.3.1.</span> <span class="nav-text">Save</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Read"><span class="nav-number">5.3.2.</span> <span class="nav-text">Read</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">6.</span> <span class="nav-text">Summary</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+
+  
+
+  
+</div>
+
+
+  
+
+
+
+  <div class="powered-by">Powered by <a class="theme-link" target="_blank" rel="external nofollow" href="https://hexo.io">Hexo</a> v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">Theme &mdash; <a class="theme-link" target="_blank" rel="external nofollow" href="https://theme-next.org">NexT.Pisces</a> v6.3.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+	
+    
+
+    
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=6.3.0"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=6.3.0"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=6.3.0"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=6.3.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=6.3.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=6.3.0"></script>
+
+
+
+  
+
+  
+    <script id="dsq-count-scr" src="https://hwchiublog.disqus.com/count.js" async></script>
+  
+
+  
+    <script type="text/javascript">
+      var disqus_config = function () {
+        this.page.url = 'https://www.hwchiu.com/kubernetes-service-iiii.html';
+        this.page.identifier = 'kubernetes-service-iiii.html';
+        this.page.title = '[Kubernetes] How to Implement Kubernetes Service - SessionAffinity';
+        };
+      function loadComments () {
+        var d = document, s = d.createElement('script');
+        s.src = 'https://hwchiublog.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', '' + +new Date());
+        (d.head || d.body).appendChild(s);
+      }
+      
+        loadComments();
+      
+    </script>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  <style>
+    .copy-btn {
+      display: inline-block;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 20px;
+      color: #333;
+      white-space: nowrap;
+      vertical-align: middle;
+      cursor: pointer;
+      background-color: #eee;
+      background-image: linear-gradient(#fcfcfc, #eee);
+      border: 1px solid #d5d5d5;
+      border-radius: 3px;
+      user-select: none;
+      outline: 0;
+    }
+
+    .highlight-wrap .copy-btn {
+      transition: opacity .3s ease-in-out;
+      opacity: 0;
+      padding: 2px 6px;
+      position: absolute;
+      right: 4px;
+      top: 8px;
+    }
+
+    .highlight-wrap:hover .copy-btn,
+    .highlight-wrap .copy-btn:focus {
+      opacity: 1
+    }
+
+    .highlight-wrap {
+      position: relative;
+    }
+  </style>
+  <script>
+    $('.highlight').each(function (i, e) {
+      var $wrap = $('<div>').addClass('highlight-wrap')
+      $(e).after($wrap)
+      $wrap.append($('<button>').addClass('copy-btn').append('Copy').on('click', function (e) {
+        var code = $(this).parent().find('.code').find('.line').map(function (i, e) {
+          return $(e).text()
+        }).toArray().join('\n')
+        var ta = document.createElement('textarea')
+        document.body.appendChild(ta)
+        ta.style.position = 'absolute'
+        ta.style.top = '0px'
+        ta.style.left = '0px'
+        ta.value = code
+        ta.select()
+        ta.focus()
+        var result = document.execCommand('copy')
+        document.body.removeChild(ta)
+        
+        $(this).blur()
+      })).on('mouseleave', function (e) {
+        var $b = $(this).find('.copy-btn')
+        setTimeout(function () {
+          $b.text('Copy')
+        }, 300)
+      }).append(e)
+    })
+  </script>
+
+
+</body>
+</html>
