@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="ovs-vsctl add-port br eth1(netlink) kernel side:  Register a generic netlink Call function when receive command by netlink from userspace (ovs-vsctl) Use the interface name to get the net_device Regis">
+<meta name="keywords" content="SDN,OpenvSwitch,OVS,Kernel">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenvSwitch - 2">
+<meta property="og:url" content="https://www.hwchiu.com/openvswitch-source-2.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="ovs-vsctl add-port br eth1(netlink) kernel side:  Register a generic netlink Call function when receive command by netlink from userspace (ovs-vsctl) Use the interface name to get the net_device Regis">
+<meta property="og:locale" content="en">
+<meta property="og:updated_time" content="2020-08-31T01:59:56.736Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="OpenvSwitch - 2">
+<meta name="twitter:description" content="ovs-vsctl add-port br eth1(netlink) kernel side:  Register a generic netlink Call function when receive command by netlink from userspace (ovs-vsctl) Use the interface name to get the net_device Regis">
+
+<link rel="canonical" href="https://www.hwchiu.com/openvswitch-source-2.html">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>OpenvSwitch - 2 | Hwchiu Learning Note</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+    <script>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-54006186-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta custom-logo">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Hwchiu Learning Note</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <a>
+        <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+      </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+  <a href="https://github.com/hwchiu" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/openvswitch-source-2.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          OpenvSwitch - 2
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2013-12-09 10:03:00" itemprop="dateCreated datePublished" datetime="2013-12-09T10:03:00-08:00">2013-12-09</time>
+            </span>
+
+          
+            <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">Views: </span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/openvswitch-source-2.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="openvswitch-source-2.html" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>ovs-vsctl add-port br eth1<br>(netlink)</p>
+<p>kernel side:</p>
+<ul>
+<li>Register a generic netlink</li>
+<li>Call function when receive command by netlink from userspace (ovs-vsctl)</li>
+<li>Use the interface name to get the net_device</li>
+<li>Register the send and receive event handler.</li>
+</ul>
+<p><strong>Register generic netlink</strong><br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">genl_ops</span> <span class="title">dp_vport_genl_ops</span>[] = &#123;</span></span><br><span class="line">        &#123; .cmd = OVS_VPORT_CMD_NEW,</span><br><span class="line">          .flags = GENL_ADMIN_PERM, <span class="comment">/* Requires CAP_NET_ADMIN privilege. */</span></span><br><span class="line">          .policy = vport_policy,</span><br><span class="line">          .doit = ovs_vport_cmd_new</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123; .cmd = OVS_VPORT_CMD_DEL,</span><br><span class="line">          .flags = GENL_ADMIN_PERM, <span class="comment">/* Requires CAP_NET_ADMIN privilege. */</span></span><br><span class="line">          .policy = vport_policy,</span><br><span class="line">          .doit = ovs_vport_cmd_del</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123; .cmd = OVS_VPORT_CMD_GET,</span><br><span class="line">          .flags = <span class="number">0</span>,               <span class="comment">/* OK for unprivileged users. */</span></span><br><span class="line">          .policy = vport_policy,</span><br><span class="line">          .doit = ovs_vport_cmd_get,</span><br><span class="line">          .dumpit = ovs_vport_cmd_dump</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123; .cmd = OVS_VPORT_CMD_SET,</span><br><span class="line">          .flags = GENL_ADMIN_PERM, <span class="comment">/* Requires CAP_NET_ADMIN privilege. */</span></span><br><span class="line">          .policy = vport_policy,</span><br><span class="line">          .doit = ovs_vport_cmd_set,</span><br><span class="line">        &#125;,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure></p>
+<ul>
+<li>從netlink收到 <strong>OVS_VPORT_CMD_NEW</strong>的cmd時，就會執行 <strong>ovs_vport_cmd_new</strong></li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">int</span> <span class="title">ovs_vport_cmd_new</span><span class="params">(struct sk_buff *skb, struct genl_info *info)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">nlattr</span> **<span class="title">a</span> = <span class="title">info</span>-&gt;<span class="title">attrs</span>;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">ovs_header</span> *<span class="title">ovs_header</span> = <span class="title">info</span>-&gt;<span class="title">userhdr</span>;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">vport_parms</span> <span class="title">parms</span>;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">sk_buff</span> *<span class="title">reply</span>;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">vport</span> *<span class="title">vport</span>;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">datapath</span> *<span class="title">dp</span>;</span></span><br><span class="line">        u32 port_no;</span><br><span class="line">        <span class="keyword">int</span> err;</span><br><span class="line"></span><br><span class="line">        err = -EINVAL;</span><br><span class="line">        <span class="keyword">if</span> (!a[OVS_VPORT_ATTR_NAME] || !a[OVS_VPORT_ATTR_TYPE] ||</span><br><span class="line">            !a[OVS_VPORT_ATTR_UPCALL_PID])</span><br><span class="line">                <span class="keyword">goto</span> <span class="built_in">exit</span>;</span><br><span class="line"></span><br><span class="line">        ovs_lock();</span><br><span class="line">        dp = get_dp(sock_net(skb-&gt;sk), ovs_header-&gt;dp_ifindex);</span><br><span class="line">        err = -ENODEV;</span><br><span class="line">        <span class="keyword">if</span> (!dp)</span><br><span class="line">                <span class="keyword">goto</span> exit_unlock;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (a[OVS_VPORT_ATTR_PORT_NO]) &#123;</span><br><span class="line">                port_no = nla_get_u32(a[OVS_VPORT_ATTR_PORT_NO]);</span><br><span class="line"></span><br><span class="line">                err = -EFBIG;</span><br><span class="line">                <span class="keyword">if</span> (port_no &gt;= DP_MAX_PORTS)</span><br><span class="line">                        <span class="keyword">goto</span> exit_unlock;</span><br><span class="line"></span><br><span class="line">                vport = ovs_vport_ovsl(dp, port_no);</span><br><span class="line">                err = -EBUSY;</span><br><span class="line">                <span class="keyword">if</span> (vport)</span><br><span class="line">                        <span class="keyword">goto</span> exit_unlock;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="keyword">for</span> (port_no = <span class="number">1</span>; ; port_no++) &#123;</span><br><span class="line">                        <span class="keyword">if</span> (port_no &gt;= DP_MAX_PORTS) &#123;</span><br><span class="line">                                err = -EFBIG;</span><br><span class="line">                                <span class="keyword">goto</span> exit_unlock;</span><br><span class="line">                        &#125;</span><br><span class="line">                        vport = ovs_vport_ovsl(dp, port_no);</span><br><span class="line">                        <span class="keyword">if</span> (!vport)</span><br><span class="line">                                <span class="keyword">break</span>;</span><br><span class="line">                &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        parms.name = nla_data(a[OVS_VPORT_ATTR_NAME]);</span><br><span class="line">        parms.type = nla_get_u32(a[OVS_VPORT_ATTR_TYPE]);</span><br><span class="line">        parms.options = a[OVS_VPORT_ATTR_OPTIONS];</span><br><span class="line">        parms.dp = dp;</span><br><span class="line">        parms.port_no = port_no;</span><br><span class="line">        parms.upcall_portid = nla_get_u32(a[OVS_VPORT_ATTR_UPCALL_PID]);</span><br><span class="line"></span><br><span class="line">        vport = new_vport(&amp;parms);</span><br><span class="line">        err = PTR_ERR(vport);</span><br><span class="line">        <span class="keyword">if</span> (IS_ERR(vport))</span><br><span class="line">                <span class="keyword">goto</span> exit_unlock;</span><br><span class="line"></span><br><span class="line">        err = <span class="number">0</span>;</span><br><span class="line">        <span class="keyword">if</span> (a[OVS_VPORT_ATTR_STATS])</span><br><span class="line">                ovs_vport_set_stats(vport, nla_data(a[OVS_VPORT_ATTR_STATS]));</span><br><span class="line"></span><br><span class="line">        reply = ovs_vport_cmd_build_info(vport, info-&gt;snd_portid, info-&gt;snd_seq,</span><br><span class="line">                                         OVS_VPORT_CMD_NEW);</span><br><span class="line">        <span class="keyword">if</span> (IS_ERR(reply)) &#123;</span><br><span class="line">                err = PTR_ERR(reply);</span><br><span class="line">                ovs_dp_detach_port(vport);</span><br><span class="line">                <span class="keyword">goto</span> exit_unlock;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        ovs_notify(reply, info, &amp;ovs_dp_vport_multicast_group);</span><br><span class="line"></span><br><span class="line">exit_unlock:</span><br><span class="line">        ovs_unlock();</span><br><span class="line"><span class="built_in">exit</span>:</span><br><span class="line">        <span class="keyword">return</span> err;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>這邊會呼叫 <strong>new_vport</strong></li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* Called with ovs_mutex. */</span></span><br><span class="line"><span class="function"><span class="keyword">static</span> struct vport *<span class="title">new_vport</span><span class="params">(<span class="keyword">const</span> struct vport_parms *parms)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">vport</span> *<span class="title">vport</span>;</span></span><br><span class="line"></span><br><span class="line">        vport = ovs_vport_add(parms);</span><br><span class="line">        <span class="keyword">if</span> (!IS_ERR(vport)) &#123;</span><br><span class="line">                <span class="class"><span class="keyword">struct</span> <span class="title">datapath</span> *<span class="title">dp</span> = <span class="title">parms</span>-&gt;<span class="title">dp</span>;</span></span><br><span class="line">                <span class="class"><span class="keyword">struct</span> <span class="title">hlist_head</span> *<span class="title">head</span> = <span class="title">vport_hash_bucket</span>(<span class="title">dp</span>, <span class="title">vport</span>-&gt;<span class="title">port_no</span>);</span></span><br><span class="line"></span><br><span class="line">                hlist_add_head_rcu(&amp;vport-&gt;dp_hash_node, head);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> vport;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>這邊會呼叫 <strong>ovs_vport_add</strong></li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function">struct vport *<span class="title">ovs_vport_add</span><span class="params">(<span class="keyword">const</span> struct vport_parms *parms)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">vport</span> *<span class="title">vport</span>;</span></span><br><span class="line">        <span class="keyword">int</span> err = <span class="number">0</span>;</span><br><span class="line">        <span class="keyword">int</span> i;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; ARRAY_SIZE(vport_ops_list); i++) &#123;</span><br><span class="line">                <span class="keyword">if</span> (vport_ops_list[i]-&gt;type == parms-&gt;type) &#123;</span><br><span class="line">                        <span class="class"><span class="keyword">struct</span> <span class="title">hlist_head</span> *<span class="title">bucket</span>;</span></span><br><span class="line"></span><br><span class="line">                        vport = vport_ops_list[i]-&gt;create(parms);</span><br><span class="line">                        <span class="keyword">if</span> (IS_ERR(vport)) &#123;</span><br><span class="line">                                err = PTR_ERR(vport);</span><br><span class="line">                                <span class="keyword">goto</span> out;</span><br><span class="line">                        &#125;</span><br><span class="line"></span><br><span class="line">                        bucket = hash_bucket(ovs_dp_get_net(vport-&gt;dp),</span><br><span class="line">                                             vport-&gt;ops-&gt;get_name(vport));</span><br><span class="line">                        hlist_add_head_rcu(&amp;vport-&gt;hash_node, bucket);</span><br><span class="line">                        <span class="keyword">return</span> vport;</span><br><span class="line">                &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        err = -EAFNOSUPPORT;</span><br><span class="line"></span><br><span class="line">out:</span><br><span class="line">        <span class="keyword">return</span> ERR_PTR(err);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>這邊會執行 <strong>vport_ops_list[i]-&gt;create(parms)</strong></li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* List of statically compiled vport implementations.  Don't forget to also</span></span><br><span class="line"><span class="comment"> * add yours to the list at the bottom of vport.h. */</span></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">vport_ops</span> *<span class="title">vport_ops_list</span>[] = &#123;</span></span><br><span class="line">        &amp;ovs_netdev_vport_ops,</span><br><span class="line">        &amp;ovs_internal_vport_ops,</span><br><span class="line"><span class="meta">#<span class="meta-keyword">if</span> IS_ENABLED(CONFIG_NET_IPGRE_DEMUX)</span></span><br><span class="line">        &amp;ovs_gre_vport_ops,</span><br><span class="line">        &amp;ovs_gre64_vport_ops,</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">        &amp;ovs_vxlan_vport_ops,</span><br><span class="line">        &amp;ovs_lisp_vport_ops,</span><br><span class="line">&#125;;</span><br><span class="line">``` </span><br><span class="line"></span><br><span class="line">- 假設是個netdev的port,就會執行 **ovs_netdev_vport_ops**裡面的create</span><br><span class="line"></span><br><span class="line">``` c</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">vport_ops</span> <span class="title">ovs_netdev_vport_ops</span> = &#123;</span></span><br><span class="line">        .type           = OVS_VPORT_TYPE_NETDEV,</span><br><span class="line">        .create         = netdev_create,</span><br><span class="line">        .destroy        = netdev_destroy,</span><br><span class="line">        .get_name       = ovs_netdev_get_name,</span><br><span class="line">        .send           = netdev_send,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>這時候就會執行 <strong>netdev_create</strong></li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">static</span> struct vport *<span class="title">netdev_create</span><span class="params">(<span class="keyword">const</span> struct vport_parms *parms)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">vport</span> *<span class="title">vport</span>;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">netdev_vport</span> *<span class="title">netdev_vport</span>;</span></span><br><span class="line">        <span class="keyword">int</span> err;</span><br><span class="line"></span><br><span class="line">        vport = ovs_vport_alloc(<span class="keyword">sizeof</span>(struct netdev_vport),</span><br><span class="line">                                &amp;ovs_netdev_vport_ops, parms);</span><br><span class="line">        <span class="keyword">if</span> (IS_ERR(vport)) &#123;</span><br><span class="line">                err = PTR_ERR(vport);</span><br><span class="line">                <span class="keyword">goto</span> error;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        netdev_vport = netdev_vport_priv(vport);</span><br><span class="line"></span><br><span class="line">        netdev_vport-&gt;dev = dev_get_by_name(ovs_dp_get_net(vport-&gt;dp), parms-&gt;name);</span><br><span class="line">        <span class="keyword">if</span> (!netdev_vport-&gt;dev) &#123;</span><br><span class="line">                err = -ENODEV;</span><br><span class="line">                <span class="keyword">goto</span> error_free_vport;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (netdev_vport-&gt;dev-&gt;flags &amp; IFF_LOOPBACK ||</span><br><span class="line">            netdev_vport-&gt;dev-&gt;type != ARPHRD_ETHER ||</span><br><span class="line">            ovs_is_internal_dev(netdev_vport-&gt;dev)) &#123;</span><br><span class="line">                err = -EINVAL;</span><br><span class="line">                <span class="keyword">goto</span> error_put;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        rtnl_lock();</span><br><span class="line">        err = netdev_master_upper_dev_link(netdev_vport-&gt;dev,</span><br><span class="line">                                           get_dpdev(vport-&gt;dp));</span><br><span class="line">        <span class="keyword">if</span> (err)</span><br><span class="line">                <span class="keyword">goto</span> error_unlock;</span><br><span class="line"></span><br><span class="line">        err = netdev_rx_handler_register(netdev_vport-&gt;dev, netdev_frame_hook,</span><br><span class="line">                                         vport);</span><br><span class="line">        <span class="keyword">if</span> (err)</span><br><span class="line">                <span class="keyword">goto</span> error_master_upper_dev_unlink;</span><br><span class="line"></span><br><span class="line">        dev_set_promiscuity(netdev_vport-&gt;dev, <span class="number">1</span>);</span><br><span class="line">        netdev_vport-&gt;dev-&gt;priv_flags |= IFF_OVS_DATAPATH;</span><br><span class="line">        rtnl_unlock();</span><br><span class="line"></span><br><span class="line">        netdev_init();</span><br><span class="line">        <span class="keyword">return</span> vport;</span><br><span class="line"></span><br><span class="line">error_master_upper_dev_unlink:</span><br><span class="line">        netdev_upper_dev_unlink(netdev_vport-&gt;dev, get_dpdev(vport-&gt;dp));</span><br><span class="line">error_unlock:</span><br><span class="line">        rtnl_unlock();</span><br><span class="line">error_put:</span><br><span class="line">        dev_put(netdev_vport-&gt;dev);</span><br><span class="line">error_free_vport:</span><br><span class="line">        ovs_vport_free(vport);</span><br><span class="line">error:</span><br><span class="line">        <span class="keyword">return</span> ERR_PTR(err);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>這邊會調用 <strong> dev_get_by_name </strong> 用該name取得對應的device.</li>
+<li>調用 <strong> netdev_rx_handler_register </strong> 註冊 rx handler.</li>
+<li></li>
+</ul>
+<p>userspace side:</p>
+
+    </div>
+
+    
+    
+    
+      
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/openvswitch-hmap.html" rel="bookmark">OpenvSwitch - hmap</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/openvswitch-source-code3.html" rel="bookmark">OpenvSwitch source code(3)</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/openvswitch-3.html" rel="bookmark">OpenvSwitch source code(2)</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/openvswitch-2.html" rel="bookmark">Openvswitch source code(1)</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/2014-08-21-rest-api-services-in-floodlight-topology.html" rel="bookmark">REST API services in Floodlight (Topology)</a></div>
+    </li>
+  </ul>
+
+        
+
+  <div class="followme">
+    <p>Welcome to my other publishing channels</p>
+
+    <div class="social-list">
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+        </div>
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+        </div>
+    </div>
+  </div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/SourceCode/" rel="tag"># SourceCode</a>
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/SDN/" rel="tag"># SDN</a>
+              <a href="/tags/OpenvSwitch/" rel="tag"># OpenvSwitch</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/openvswitch-2.html" rel="prev" title="Openvswitch source code(1)">
+      <i class="fa fa-chevron-left"></i> Openvswitch source code(1)
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/openvswitch-3.html" rel="next" title="OpenvSwitch source code(2)">
+      OpenvSwitch source code(2) <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  <div class="comments">
+    <div id="disqus_thread">
+      <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+    </div>
+  </div>
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">201</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">106</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https://github.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https://twitter.com/hw_chiu" rel="noopener" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/hongwei.qiu" title="FB Page → https://www.facebook.com/hongwei.qiu" rel="noopener" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" rel="noopener" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https://instagram.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Friends
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://www.evanlin.com/" title="http://www.evanlin.com/" rel="noopener" target="_blank">KKDAI 大大</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://kairen.github.io/" title="https://kairen.github.io/" rel="noopener" target="_blank">凱仁大大</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.pichuang.com.tw/" title="https://blog.pichuang.com.tw/" rel="noopener" target="_blank">小飛機</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.facebook.com/groups/cloudnative.tw/" title="https://www.facebook.com/groups/cloudnative.tw/" rel="noopener" target="_blank">CNTUG</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.facebook.com/groups/sdnds.tw/" title="https://www.facebook.com/groups/sdnds.tw/" rel="noopener" target="_blank">SDNDS-TW</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://medium.com/@yayajacky" title="https://medium.com/@yayajacky" rel="noopener" target="_blank">Jack</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+  <div class="addthis_inline_share_toolbox">
+    <script src="//s7.addthis.com/js/300/addthis_widget.js#pubid=ra-5f4ca66cef0894e1" async="async"></script>
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+<script>
+  function loadCount() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://hwchiu.disqus.com/count.js';
+    s.id = 'dsq-count-scr';
+    (d.head || d.body).appendChild(s);
+  }
+  // defer loading until the whole page loading is completed
+  window.addEventListener('load', loadCount, false);
+</script>
+<script>
+  var disqus_config = function() {
+    this.page.url = "https://www.hwchiu.com/openvswitch-source-2.html";
+    this.page.identifier = "openvswitch-source-2.html";
+    this.page.title = "OpenvSwitch - 2";
+    this.language = 'en';
+    };
+  NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
+    if (window.DISQUS) {
+      DISQUS.reset({
+        reload: true,
+        config: disqus_config
+      });
+    } else {
+      var d = document, s = d.createElement('script');
+      s.src = 'https://hwchiu.disqus.com/embed.js';
+      s.setAttribute('data-timestamp', '' + +new Date());
+      (d.head || d.body).appendChild(s);
+    }
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="這篇文章要跟大家分享在 OpenvSwitch 裡面內建的 Bonding 模式，相對於傳統 Linux Kernel 自帶的六種模式，OpenvSwitch 只有提供三種模式。這三種模式的用途以及分配的方式都完全不同，完全取決於使用者本身的環境需求，來判斷自行的環境需要採用哪種模式，有單純的 Active-backup 模式，也有 Active-Active 的模式。再 Active-Activ">
+<meta name="keywords" content="OpenvSwitch,OVS,Bonding,slb.tcp.balacne,LACP">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Understanding the OpenvSwitch Bonding">
+<meta property="og:url" content="https://www.hwchiu.com/openvswitch-bonding.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="這篇文章要跟大家分享在 OpenvSwitch 裡面內建的 Bonding 模式，相對於傳統 Linux Kernel 自帶的六種模式，OpenvSwitch 只有提供三種模式。這三種模式的用途以及分配的方式都完全不同，完全取決於使用者本身的環境需求，來判斷自行的環境需要採用哪種模式，有單純的 Active-backup 模式，也有 Active-Active 的模式。再 Active-Activ">
+<meta property="og:locale" content="en">
+<meta property="og:image" content="http://i.imgur.com/RbsM1rF.png">
+<meta property="og:image" content="http://i.imgur.com/nDNFI3L.png">
+<meta property="og:image" content="http://i.imgur.com/Fm3Coea.png">
+<meta property="og:image" content="http://i.imgur.com/Scvj1Hp.png">
+<meta property="og:updated_time" content="2020-08-31T01:59:56.735Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Understanding the OpenvSwitch Bonding">
+<meta name="twitter:description" content="這篇文章要跟大家分享在 OpenvSwitch 裡面內建的 Bonding 模式，相對於傳統 Linux Kernel 自帶的六種模式，OpenvSwitch 只有提供三種模式。這三種模式的用途以及分配的方式都完全不同，完全取決於使用者本身的環境需求，來判斷自行的環境需要採用哪種模式，有單純的 Active-backup 模式，也有 Active-Active 的模式。再 Active-Activ">
+<meta name="twitter:image" content="http://i.imgur.com/RbsM1rF.png">
+
+<link rel="canonical" href="https://www.hwchiu.com/openvswitch-bonding.html">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>Understanding the OpenvSwitch Bonding | Hwchiu Learning Note</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+    <script>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-54006186-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta custom-logo">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Hwchiu Learning Note</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <a>
+        <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+      </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+  <a href="https://github.com/hwchiu" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/openvswitch-bonding.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Understanding the OpenvSwitch Bonding
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2015-10-03 13:32:00" itemprop="dateCreated datePublished" datetime="2015-10-03T13:32:00-07:00">2015-10-03</time>
+            </span>
+
+          
+            <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">Views: </span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/openvswitch-bonding.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="openvswitch-bonding.html" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">這篇文章要跟大家分享在 OpenvSwitch 裡面內建的 Bonding 模式，相對於傳統 Linux Kernel 自帶的六種模式，OpenvSwitch 只有提供三種模式。這三種模式的用途以及分配的方式都完全不同，完全取決於使用者本身的環境需求，來判斷自行的環境需要採用哪種模式，有單純的 Active-backup 模式，也有 Active-Active 的模式。再 Active-Active 的模式中要如何去分配封包，可以針對 Layer2 也可以針對 Layer3/4 的環境來使用，這部份就是依賴管理員去思考的。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>Openvswitch 目前 (2.3.1) 總共支援 3種bonding mode，分別是</p>
+<ul>
+<li>Active-backup</li>
+<li>balance-slb</li>
+<li>balance-tcp</li>
+</ul>
+<h2 id="Active-backup"><a href="#Active-backup" class="headerlink" title="Active-backup"></a>Active-backup</h2><p>這種 mode 的用途主要在於穩定，平常只會使用 bonding 中的其中一條 link 進行傳輸，當該 link down 時，會馬上切換到其他 link 繼續傳輸。本質上沒有辦法提升 throughput。</p>
+<h2 id="Balance-slb"><a href="#Balance-slb" class="headerlink" title="Balance-slb"></a>Balance-slb</h2><p>這種 mode 的 hash 方式是根據封包的 source MAC + vlan tag來處理，可以參考此篇<a href="http://openvswitch.org/pipermail/dev/2011-July/010028.html" target="_blank" rel="noopener">文章</a>有更詳細的說明</p>
+<h2 id="Balance-tcp"><a href="#Balance-tcp" class="headerlink" title="Balance-tcp"></a>Balance-tcp</h2><p>這種 mode 的 hash 是根據封包的 L2/L3/L4 header 來處理的，所以每條 connection 可能會走不同的 link 出去，但是相同 connection 則會一直固定以避免發生 out of order 之類的事情。 </p>
+<p>註: 如果使用 linux 本身的 round-robin bonding 則可以讓一條 connction 走不同的 link，兩條 1G 的link大概可以衝到 1.5G左右</p>
+<p>對於 Balance-slb 以及 Balance-tcp 來說，這邊還能夠再增加是否要開啟 LACP (802.3ad) 的設定。<br>當開啟 LACP 後，會使用 balance-slb 或是 balance-tcp 的 hash method 當作其分配封包的方式。<br>唯一要注意的是 balance-tcp 一定要搭配 LACP 才可以使用。</p>
+<h2 id="Commands"><a href="#Commands" class="headerlink" title="Commands"></a>Commands</h2><h3 id="創造-bonding"><a href="#創造-bonding" class="headerlink" title="創造 bonding"></a>創造 bonding</h3><ul>
+<li>ovs-vsctl add-br my_test</li>
+<li>ovs-vsctl add-bond my_test bond0 eth0 eth1 eth2 </li>
+</ul>
+<p>此指令會在 my_test 此 bridge 上面創造一個 bonding interface <em>bond0</em>，此 bonding interface 會將 eth0, eth1, eth2 給綁起來</p>
+<h3 id="改變-bonding-mode"><a href="#改變-bonding-mode" class="headerlink" title="改變 bonding mode"></a>改變 bonding mode</h3><p>預設的 bonding mode 是 active-back，可以再創造的時候設定或是之後再改變</p>
+<ul>
+<li>ovs-vsctl add-bond my_test bond0 eth0 eth1 eth2 bond_mode=balance-slb</li>
+<li>ovs-vsctl set port my_test bond_mode=balance-slb</li>
+</ul>
+<h3 id="看-bonding-相關資訊"><a href="#看-bonding-相關資訊" class="headerlink" title="看 bonding 相關資訊"></a>看 bonding 相關資訊</h3><ul>
+<li>ovs-appctl bond/show bond0</li>
+<li>ovs-appctl bond/list bond0</li>
+<li>ovs-appctl bond/hash bond0 (可以看 hash 對應的 slave interface)</li>
+<li>ovs-appctl bond/migrate (能夠將某 hash 從某slave 搬移到別的slave)</li>
+</ul>
+<h2 id="Testing"><a href="#Testing" class="headerlink" title="Testing"></a>Testing</h2><h3 id="測試配備如下"><a href="#測試配備如下" class="headerlink" title="測試配備如下"></a>測試配備如下</h3><ul>
+<li>HP ProCurve Switch 2824 (J4903A)<ul>
+<li>針對 LACP 的實驗，必須要在這邊開啟 LACP</li>
+</ul>
+</li>
+<li>Linux PC *1</li>
+<li>Windows PC *2</li>
+</ul>
+<h3 id="測試拓樸一"><a href="#測試拓樸一" class="headerlink" title="測試拓樸一"></a>測試拓樸一</h3><p><img class="left" src="http://i.imgur.com/RbsM1rF.png"></p>
+<ul>
+<li>linux PC 上面安裝 OpenvSwitch，並且與 HP Switch 以兩個 1G 的 port 進行 bonding。</li>
+<li>兩台 Windows PC 都連接在 HP Switch</li>
+<li>Linux PC 與 Windows PC 以 iperf 作為產生流量的工具</li>
+<li>TX 測試<ul>
+<li>linux PC 跑 iperf client (-P4) 分別打到兩台 windows PC<ul>
+<li>windows PC 分別跑 iperf server</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>RX 測試<ul>
+<li>linux PC 跑 iperf server <ul>
+<li>windows PC 分別跑 iperf client，分別用 iperf -P4 去連接 linux PC</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>實驗數據 (TX、RX是分開跑)<br><img src="http://i.imgur.com/nDNFI3L.png" alt><ul>
+<li>數據分析方式請看最後面</li>
+</ul>
+</li>
+<li>分析<ul>
+<li>Active-backup 就只有用一條link傳輸，沒有辦法達到 speed up 的效果</li>
+<li>Balance-slb without lacp 因為我們的 source mac 都是 linuxPC 本身，所以也只會用一條 link 來傳輸，本身沒有任何幫助</li>
+<li>Balance-slb with lacp 因為有打開 LACP 的功能，所以從 switch 回來的封包會分兩個 link 去送，所以 RX 可以看到有明顯的上升，大概1.9G左右</li>
+<li>Balance-tcp with lacp 因為是根據 L2/L3/L4 來進行 hash，所以同一個 Host 發出的不同 connection 可以分散在不同 link上，所以 TX 的速度也有明顯上升</li>
+</ul>
+</li>
+</ul>
+<h3 id="測試拓樸二"><a href="#測試拓樸二" class="headerlink" title="測試拓樸二"></a>測試拓樸二</h3><p><img class="left" src="http://i.imgur.com/Fm3Coea.png"></p>
+<ul>
+<li>linux PC 上面安裝 OpenvSwitch，並且與 HP Switch 以兩個 1G 的 port 進行 bonding。</li>
+<li>linux PC 上面設定兩個獨立的 network namespace，並且把此兩個 NS 的給掛到 OpenvSwitch 上面</li>
+<li>兩台 Windows PC 都連接在 HP Switch</li>
+<li>Linux PC 上的 NS 與 Windows PC 以 iperf 作為產生流量的工具</li>
+<li>TX 測試<ul>
+<li>NS 分別跑 iperf client (-P4)<ul>
+<li>windows PC 分別跑 iperf server</li>
+<li>一個 NS 對應一個 Windows PC</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>RX 測試<ul>
+<li>windows PC 分別跑 iperf client (-P4)<ul>
+<li>NS 分別跑 iperf server</li>
+<li>一個 NS 對應一個 Windows PC  </li>
+</ul>
+</li>
+</ul>
+</li>
+<li>實驗數據 (TX、RX是分開跑)<ul>
+<li>數據分析方式請看最後面<br><img src="http://i.imgur.com/Scvj1Hp.png" alt></li>
+</ul>
+</li>
+<li>分析<ul>
+<li>Balance-slb without lacp 因為我們的 source mac 是兩台不同的 NS ，所以有機會兩台 NS 的 MAC會被 hash 到不同的 link，所以 TX 的速度也有明顯上升</li>
+<li>Balance-slb with lacp TX 方面理由如上， RX是因為 LACP 而加速</li>
+<li>Balance-tcp with lacp 理由如同實驗一</li>
+</ul>
+</li>
+</ul>
+<h2 id="個人心得"><a href="#個人心得" class="headerlink" title="個人心得"></a>個人心得</h2><ul>
+<li>只有一台 host 本身的話，其實跑 OVS 的bonding沒有太大效果，除非你外面有支援 LACP的switch 可以用，不然就直接用 linux 原先的 XOR 之類的hash就好</li>
+<li>若是在多 VM 的環境下，這時候有 balance-slb 與 balance-tcp 可以考慮(假設想要 speed up)，這兩個主要考慮的點在於<br>使用 balance-slb 的話，會讓同一個 VM 的所有流量都走同一個 interface 出去，所以若當前其他 VM 都閒置的情況下，該 VM 還是只能用到一條 link 的資源。<br>若採用 balance-tcp 的話，則會依照 connction 來分，所以不論何種情況都能夠盡量使用每條 link 的資源</li>
+</ul>
+<h2 id="其他"><a href="#其他" class="headerlink" title="其他"></a>其他</h2><ul>
+<li>流量的觀察方式是在 linux PC 上面透過 /proc/net/dev 週期性觀察兩張 slave interface 的 TX/RX counter計算得知，週期性為一秒。</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+      
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ovs-dpdk-docker.html" rel="bookmark">OVS + DPDK + Docker 共同玩耍</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/2014-09-19-mininet-with-different-network-subnet-v2.html" rel="bookmark">Mininet with different network subnet (v2)</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/2014-08-23-mininet-and-network-subnet.html" rel="bookmark">Mininet with different network subnet</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/2014-08-21-rest-api-services-in-floodlight-topology.html" rel="bookmark">REST API services in Floodlight (Topology)</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/2014-08-20-rest-api-services-in-floodlight.html" rel="bookmark">REST API services in Floodlight (Device)</a></div>
+    </li>
+  </ul>
+
+        
+
+  <div class="followme">
+    <p>Welcome to my other publishing channels</p>
+
+    <div class="social-list">
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+        </div>
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+        </div>
+    </div>
+  </div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/SDN/" rel="tag"># SDN</a>
+              <a href="/tags/Openflow/" rel="tag"># Openflow</a>
+              <a href="/tags/OpenvSwitch/" rel="tag"># OpenvSwitch</a>
+              <a href="/tags/Bonding/" rel="tag"># Bonding</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/bluze-5x.html" rel="prev" title="Bluez 5.x ">
+      <i class="fa fa-chevron-left"></i> Bluez 5.x 
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/netfilter-nfqueue.html" rel="next" title="NFQUEUE drop UDP packets">
+      NFQUEUE drop UDP packets <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  <div class="comments">
+    <div id="disqus_thread">
+      <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+    </div>
+  </div>
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Active-backup"><span class="nav-number">1.1.</span> <span class="nav-text">Active-backup</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Balance-slb"><span class="nav-number">1.2.</span> <span class="nav-text">Balance-slb</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Balance-tcp"><span class="nav-number">1.3.</span> <span class="nav-text">Balance-tcp</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Commands"><span class="nav-number">1.4.</span> <span class="nav-text">Commands</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#創造-bonding"><span class="nav-number">1.4.1.</span> <span class="nav-text">創造 bonding</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#改變-bonding-mode"><span class="nav-number">1.4.2.</span> <span class="nav-text">改變 bonding mode</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#看-bonding-相關資訊"><span class="nav-number">1.4.3.</span> <span class="nav-text">看 bonding 相關資訊</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Testing"><span class="nav-number">1.5.</span> <span class="nav-text">Testing</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#測試配備如下"><span class="nav-number">1.5.1.</span> <span class="nav-text">測試配備如下</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#測試拓樸一"><span class="nav-number">1.5.2.</span> <span class="nav-text">測試拓樸一</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#測試拓樸二"><span class="nav-number">1.5.3.</span> <span class="nav-text">測試拓樸二</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#個人心得"><span class="nav-number">1.6.</span> <span class="nav-text">個人心得</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#其他"><span class="nav-number">1.7.</span> <span class="nav-text">其他</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">201</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">106</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https://github.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https://twitter.com/hw_chiu" rel="noopener" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/hongwei.qiu" title="FB Page → https://www.facebook.com/hongwei.qiu" rel="noopener" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" rel="noopener" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https://instagram.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Friends
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://www.evanlin.com/" title="http://www.evanlin.com/" rel="noopener" target="_blank">KKDAI 大大</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://kairen.github.io/" title="https://kairen.github.io/" rel="noopener" target="_blank">凱仁大大</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.pichuang.com.tw/" title="https://blog.pichuang.com.tw/" rel="noopener" target="_blank">小飛機</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.facebook.com/groups/cloudnative.tw/" title="https://www.facebook.com/groups/cloudnative.tw/" rel="noopener" target="_blank">CNTUG</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.facebook.com/groups/sdnds.tw/" title="https://www.facebook.com/groups/sdnds.tw/" rel="noopener" target="_blank">SDNDS-TW</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://medium.com/@yayajacky" title="https://medium.com/@yayajacky" rel="noopener" target="_blank">Jack</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+  <div class="addthis_inline_share_toolbox">
+    <script src="//s7.addthis.com/js/300/addthis_widget.js#pubid=ra-5f4ca66cef0894e1" async="async"></script>
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+<script>
+  function loadCount() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://hwchiu.disqus.com/count.js';
+    s.id = 'dsq-count-scr';
+    (d.head || d.body).appendChild(s);
+  }
+  // defer loading until the whole page loading is completed
+  window.addEventListener('load', loadCount, false);
+</script>
+<script>
+  var disqus_config = function() {
+    this.page.url = "https://www.hwchiu.com/openvswitch-bonding.html";
+    this.page.identifier = "openvswitch-bonding.html";
+    this.page.title = "Understanding the OpenvSwitch Bonding";
+    this.language = 'en';
+    };
+  NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
+    if (window.DISQUS) {
+      DISQUS.reset({
+        reload: true,
+        config: disqus_config
+      });
+    } else {
+      var d = document, s = d.createElement('script');
+      s.src = 'https://hwchiu.disqus.com/embed.js';
+      s.setAttribute('data-timestamp', '' + +new Date());
+      (d.head || d.body).appendChild(s);
+    }
+  });
+</script>
+
+</body>
+</html>

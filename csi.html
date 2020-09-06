@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="本文開始又是嶄新的一篇，開始探討也是非常重要的儲存資源，儲存方面也有相關的標準再發展，其目的與 CRI 以及 CNI 一致，都是希望透過標準化接口能夠使得第三方的解決方案開發更加活絡且流暢，本文會開始來介紹儲存方面的基本概念以及為什麼需要 Container Storage Interface">
+<meta name="keywords" content="Kubernetes, CSI, storage">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Container Storage Interface 基本介紹">
+<meta property="og:url" content="https://www.hwchiu.com/csi.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文開始又是嶄新的一篇，開始探討也是非常重要的儲存資源，儲存方面也有相關的標準再發展，其目的與 CRI 以及 CNI 一致，都是希望透過標準化接口能夠使得第三方的解決方案開發更加活絡且流暢，本文會開始來介紹儲存方面的基本概念以及為什麼需要 Container Storage Interface">
+<meta property="og:locale" content="en">
+<meta property="og:updated_time" content="2020-08-31T01:59:56.720Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Container Storage Interface 基本介紹">
+<meta name="twitter:description" content="本文開始又是嶄新的一篇，開始探討也是非常重要的儲存資源，儲存方面也有相關的標準再發展，其目的與 CRI 以及 CNI 一致，都是希望透過標準化接口能夠使得第三方的解決方案開發更加活絡且流暢，本文會開始來介紹儲存方面的基本概念以及為什麼需要 Container Storage Interface">
+
+<link rel="canonical" href="https://www.hwchiu.com/csi.html">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>Container Storage Interface 基本介紹 | Hwchiu Learning Note</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+    <script>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-54006186-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta custom-logo">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Hwchiu Learning Note</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <a>
+        <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+      </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+  <a href="https://github.com/hwchiu" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/csi.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Container Storage Interface 基本介紹
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2019-10-03 06:47:37" itemprop="dateCreated datePublished" datetime="2019-10-03T06:47:37-07:00">2019-10-03</time>
+            </span>
+
+          
+            <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">Views: </span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/csi.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="csi.html" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文開始又是嶄新的一篇，開始探討也是非常重要的儲存資源，儲存方面也有相關的標準再發展，其目的與 CRI 以及 CNI 一致，都是希望透過標準化接口能夠使得第三方的解決方案開發更加活絡且流暢，本文會開始來介紹儲存方面的基本概念以及為什麼需要 Container Storage Interface</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>講完了 <strong>Container Rnntime Interface(CRI)</strong> 以及 <strong>Container Network Interface(CNI)</strong> 兩大資源後，我們將來探討最後的一塊拼圖，所謂的 <strong>Container Storage Interface(CSI)</strong>。</p>
+<p>儲存這個領域於系統應用中也是百百情境百百解，與網路一樣都需要根據不同的需求導入不同的解決方案。<br>此外儲存這領域到底與 <strong>kubernetes</strong> 彼此之間的責任歸屬到底該怎麼分配，我覺得也是一個很重要的議題，因為最近實在看到太多為了 <strong>kubernetes</strong> 而 <strong>kubernetes</strong> 的推法，完全沒有考慮到轉移的成本與難題，就希望 <strong>kuberntes</strong> 能夠接手一切事物，因此接下來的文章機會著重於 <strong>Storage</strong> 這一塊的介紹。</p>
+<h2 id="Before-Kubernetes"><a href="#Before-Kubernetes" class="headerlink" title="Before Kubernetes"></a>Before Kubernetes</h2><p>各位其實可以回想一下過往所有的經驗中，遇過儲存什麼樣的問題以及議題?</p>
+<ol>
+<li>光檔案系統本身就是一個戰局，BTRFS, Ext4, ZFS, CephFS, GLusterFS，各自的特色與優劣該如何選擇</li>
+<li>快照的支援，以及快照後容量是否加倍？</li>
+<li>LLVM/RAID/RAID2.0 等相關議題的討論，能夠容錯多少硬碟，能夠多快修復?</li>
+<li>RWO 讀寫的限制，可否同時多重讀寫或是只能單一處理?</li>
+<li>介面的選擇，是更底層的 Block Device 還是上層已經包裝可以使用的檔案系統路徑?</li>
+<li>異地備援? 本地備援? </li>
+<li>儲存服務本身有沒有HA的機制，有沒有SLA的保障?</li>
+<li>…等</li>
+</ol>
+<p>過往方面就有洋洋灑灑的議題要處理，很多情況甚至都是尋找獨立的儲存廠商進來與現存系統整合，提供一個儲存解決方案，將這些問題都責任歸屬來處理，讓儲存伺服器本身來負責這些議題，而自己的服務則專注於處理獨特的商業邏輯。</p>
+<p>如果過往操作與維運上有這些經驗與概念，今天要將服務全面導向 Kubernetes，也一定要有一樣的概念來處理，因為 kubernetes 本身沒有任何進階的儲存功能，上面提到的概念與技術全部都沒有，一切都是要仰賴額外的儲存設備與技術來提供這些功能，所以不要抱持太大的夢想 kubernetes 能夠提供一步到位解決所有事情。</p>
+<h2 id="Kubernetes"><a href="#Kubernetes" class="headerlink" title="Kubernetes"></a>Kubernetes</h2><p><strong>kubernetes</strong> 針對儲存部分，使用者可以使用的方式有很多種，雖然看似多種，其實背後的邏輯脈絡是一致的。</p>
+<ol>
+<li>宣告／請求 儲存空間</li>
+<li><strong>Pod</strong> 去請求使用以創立的儲存空間來使用</li>
+<li><strong>Container</strong> 裡面描述如何使用 <strong>Pod</strong> 請求來的儲存空間</li>
+</ol>
+<p>最簡單的使用方法就是將上述所有邏輯全部都描述在同一個 <strong>Pod</strong> 的資源中，統一管理統一維護，但是這種方法一旦該儲存空間是需要跨 <strong>Pod</strong> 使用時就會帶來維護不見。</p>
+<p>所以可以透過 <strong>PersistemVolume</strong> 以及 <strong>PersistemVolumeClaim</strong> 等不同層級的儲存空間概念來維護，作為整個 kubernetes cluster 內部資源的話對於共用，管理方面也都有相當好的控管性。</p>
+<p>然而上述的資源調度有時候又太過於靜態，缺乏彈性，因此後來又衍生出 <strong>StorageClass</strong> 這種動態請求的資源，對於使用者來說可以減少更多設定，整體使用起來會更加順手。</p>
+<p>關於上述三種資源的彼此關係，概念，可以參考這篇文章 <a href="https://www.hwchiu.com/kubernetes-storage-i.html">kubernetes storage</a></p>
+<p>除了這三個類別資源外，其實還有兩個常用的資源也與儲存息息相關，<strong>ConfigMap</strong> 以及 <strong>Secret</strong>， 這兩個資源設定的介面與上述提到的些許不同，但是最後都會以檔案或其他的形式出現於 <strong>Container</strong> 供應用程式使用。<br>只要能夠讓 <strong>Container</strong> 有辦法存取到外部的存取空間，這過程都會牽扯到 <strong>Container</strong> 的創造，甚至是 <strong>Linux Mount Namespace</strong> 的涉入與處理。</p>
+<p>對於大部分的使用者來說， <strong>Storage</strong> 的介面(上述概念)用起來都不會有太多的問題，選定好自己要使用的儲存後端，參考文件如何設定，接下來到 <strong>Pod</strong> 層級時使用就相對簡單，不會有太多設定上的困擾。 那到底 <strong>Container Storage Interface</strong> 於整個過程中是扮演什麼角色? 這個問題就是接下來的幾篇文章會探討的，並且說明為什麼要引入 <strong>CSI</strong> 以及其可以帶來什麼樣的幫助。</p>
+<h2 id="Why-Container-Storage-Interface"><a href="#Why-Container-Storage-Interface" class="headerlink" title="Why Container Storage Interface"></a>Why Container Storage Interface</h2><p>如同前述探討 <strong>CRI</strong> 以及 <strong>CNI</strong> 時都有討論過為什麼要使用 <strong>Interface</strong> 的理由，藉由將模組與主程式抽離，讓各自的專案都有自己的開發週期，彼此不會互相被影響而導致開發或使用受阻。</p>
+<p>這一篇官方部落格的文章 <a href="https://kubernetes.io/blog/2019/01/15/container-storage-interface-ga/" target="_blank" rel="noopener">Container Storage Interface (CSI) for Kubernetes GA</a> 有特別描述到為什麼需要 <strong>Container Storage Interface</strong>。</p>
+<blockquote>
+<p>Although prior to CSI Kubernetes provided a powerful volume plugin system, it was challenging to add support for new volume plugins to Kubernetes: volume plugins were “in-tree” meaning their code was part of the core Kubernetes code and shipped with the core Kubernetes binaries—vendors wanting to add support for their storage system to Kubernetes (or even fix a bug in an existing volume plugin) were forced to align with the Kubernetes release process. In addition, third-party storage code caused reliability and security issues in core Kubernetes binaries and the code was often difficult (and in some cases impossible) for Kubernetes<br>maintainers to test and maintain.</p>
+</blockquote>
+<p>長期以來所有儲存的解決方案的整合端都是直接實作於 <strong>Kubernetes</strong> 的程式碼內，也是所謂的 <strong>in-tree</strong> 所描述的概念，這導致對於這些儲存應用服務的提供者很難及時的增加修復任何問題，因為全部的功能都跟 <strong>kubernetes</strong> 本身綁再一起，若 <strong>kubernetes</strong> 本身沒有更新，則使用者也都享受不到修復或是新功能。<br>更重要的是這些儲存相關程式碼本身的安全性程度以及穩定性都會變成額外的隱憂，是否會對 <strong>kubernetes</strong> 本身帶來各種負面的都是不能掌握的，同時這些程式碼的維護對於 <strong>kubernetes</strong> 維護者來說也是不好維護及掌握的。</p>
+<blockquote>
+<p>CSI was developed as a standard for exposing arbitrary block and file storage storage systems to containerized workloads on Container Orchestration Systems (COs) like Kubernetes. With the adoption of the Container Storage Interface, the Kubernetes volume layer becomes truly extensible. Using CSI, third-party storage providers can write and deploy plugins exposing new storage systems in Kubernetes without ever having to touch the core Kubernetes code. This gives Kubernetes users more options for storage and<br>makes the system more secure and reliable.</p>
+</blockquote>
+<p>為了解決這個問題於是提出了 <strong>Container Storage Interface</strong> 的概念，希望能夠將儲存方面的程式碼都搬出去 <strong>kubernetes</strong> 本身，如同 <strong>CRI/CNI</strong> 一樣，能夠讓 <strong>kubernetes</strong> 專心維護與介面供通的整合，而其餘的儲存解決方案提供商專注於 <strong>CSI</strong> 介面的開發，最後就可以透過參數等方式來間接使用與整合。</p>
+<p>那說了這麼多，今天 <strong>CSI</strong> 全面引進後，對於使用者到底會有什麼差異? 有什麼部分需要修改以符合新的架構?</p>
+<p>我們先來看一下沒有使用 <strong>CSI</strong> 的架構，會怎麼使用 <strong>Network File System (NFS)</strong>。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">nfs-in-a-pod</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">app</span></span><br><span class="line">      <span class="attr">image:</span> <span class="string">alpine</span></span><br><span class="line">      <span class="attr">volumeMounts:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">nfs-volume</span></span><br><span class="line">          <span class="attr">mountPath:</span> <span class="string">/var/nfs</span> <span class="comment"># Please change the destination you like the share to be mounted too</span></span><br><span class="line">      <span class="attr">command:</span> <span class="string">["/bin/sh"]</span></span><br><span class="line">      <span class="attr">args:</span> <span class="string">["-c",</span> <span class="string">"sleep 500000"</span><span class="string">]</span></span><br><span class="line">  <span class="attr">volumes:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">nfs-volume</span></span><br><span class="line">      <span class="attr">nfs:</span></span><br><span class="line">        <span class="attr">server:</span> <span class="string">nfs.example.com</span> <span class="comment"># Please change this to your NFS server</span></span><br><span class="line">        <span class="attr">path:</span> <span class="string">/share1</span> <span class="comment"># Please change this to the relevant share</span></span><br></pre></td></tr></table></figure>
+<p>從上述的 <strong>yaml</strong> 中可以看到直接描述使用 <strong>NFS</strong> 的結構，並且因為 <strong>NFS</strong> 需要的參數有兩個，因此也需要於 <strong>yaml</strong> 去描述這兩個參數。</p>
+<p>這個用法非常的綁死，實際上這些 <strong>yaml</strong> 的解讀都是依賴 <strong>kubernetes</strong> 本身去處理，所以其本身關於 <strong>volume</strong> 的資料結構中就包含了 <strong>NFS</strong> 的欄位，以及相關的參數，這種情況對於 <strong>NFS</strong> 來說有任何修改增減，都必須要修改 <strong>kubernetes</strong> 原始碼，也是所謂的 <strong>in-tree</strong> 架構造成的困境。</p>
+<p>如果改善成 <strong>CSI</strong> 之後，整個應用會變成怎麼樣？</p>
+<pre><code class="yaml=">apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: data-nfsplugin
+  labels:
+    name: data-nfsplugin
+spec:
+  accessModes:
+  - ReadWriteMany
+  capacity:
+    storage: 100Gi
+  csi:
+    driver: csi-nfsplugin
+    volumeHandle: data-id
+    volumeAttributes: 
+      server: 127.0.0.1
+      share: /export
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-nfsplugin
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi
+  selector:
+    matchExpressions:
+    - key: name
+      operator: In
+      values: [&quot;data-nfsplugin&quot;]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx 
+spec:
+  containers:
+  - image: maersk/nginx
+    imagePullPolicy: Always
+    name: nginx
+    ports:
+    - containerPort: 80
+      protocol: TCP
+    volumeMounts:
+      - mountPath: /var/www
+        name: data-nfsplugin 
+  volumes:
+  - name: data-nfsplugin
+    persistentVolumeClaim:
+      claimName: data-nfsplugin 
+</code></pre>
+<p>可以看到這個範例中，不再使用 <strong>NFS</strong> 的關鍵字，而是採用了 <strong>CSI</strong> 這個關鍵字，並且於其中描述了幾個資訊</p>
+<ol>
+<li>driver:<br>類似 <strong>CNI</strong> 設定檔案中的 <strong>type</strong>，描述要用哪個對應的 driver 來處理這個儲存需求</li>
+<li>volumeHandle:<br>一組重複使用的 ID，之後會再介紹</li>
+<li>volumeAttributes: <ul>
+<li>server: 127.0.0.1</li>
+<li>share: /export<br>客製化的參數，根據不同的 Driver 傳入不同的參數。</li>
+</ul>
+</li>
+</ol>
+<p>根據目前<a href="https://kubernetes.io/docs/concepts/storage/volumes/#csi" target="_blank" rel="noopener">官方文件</a> 裡面的描述，現在 <strong>CSI</strong> 使用的參數如戲ㄚ</p>
+<ul>
+<li>driver</li>
+<li>volumeHandle</li>
+<li>readOnly</li>
+<li>fsType</li>
+<li>volumeAttributes</li>
+<li>controllerPublishSecretRef</li>
+<li>nodeStageSecretRef</li>
+<li>nodePublishSecretRef</li>
+</ul>
+<p>這邊的參數與 <strong>CSI</strong> 的標準以及運作流程有關，因此等到介紹 <strong>CSI</strong> 標準後會再來重新看這些參數。</p>
+<p>套用 <strong>CSI</strong> 的架構後，最大的差異使用就是之後所有的儲存連接都要使用 <strong>CSI</strong> 這個選項來描述，而非以前直接去描述目標的儲存解決方案。</p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>本文討論了 Kubernetes 與儲存的一些基本關係，並且帶出了 <strong>Container Storage Interface</strong> 與 <strong>Kubernetes</strong> 的使用方式。</p>
+<p>接下來會開始探討 <strong>CSI</strong> 相關的架構，並且以一些已經實現的 <strong>CSI</strong> 解決方案來討論該怎麼使用。</p>
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ul>
+<li><a href="https://kubernetes.io/blog/2019/01/15/container-storage-interface-ga/" target="_blank" rel="noopener">https://kubernetes.io/blog/2019/01/15/container-storage-interface-ga/</a></li>
+<li><a href="https://github.com/kubernetes-csi/drivers/blob/master/pkg/nfs/examples/kubernetes/nginx.yaml" target="_blank" rel="noopener">https://github.com/kubernetes-csi/drivers/blob/master/pkg/nfs/examples/kubernetes/nginx.yaml</a></li>
+<li><a href="https://docs.docker.com/ee/ucp/kubernetes/storage/use-nfs-volumes/" target="_blank" rel="noopener">https://docs.docker.com/ee/ucp/kubernetes/storage/use-nfs-volumes/</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+      
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/csi-iii.html" rel="bookmark">CSI 雜談</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/csi-nfs.html" rel="bookmark">Container Storage Interface(CSI) - NFS 初體驗</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/csi-k8s.html" rel="bookmark">Container Storage Interface 與 kubernetes</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/csi-ii.html" rel="bookmark">Container Storage Interface 標準介紹</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/kubernetes-design.html" rel="bookmark">淺談 Kubernetes 設計原理</a></div>
+    </li>
+  </ul>
+
+        
+
+  <div class="followme">
+    <p>Welcome to my other publishing channels</p>
+
+    <div class="social-list">
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+        </div>
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+        </div>
+    </div>
+  </div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/Storage/" rel="tag"># Storage</a>
+              <a href="/tags/CSI/" rel="tag"># CSI</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/cni-experience.html" rel="prev" title="CNI 閒談">
+      <i class="fa fa-chevron-left"></i> CNI 閒談
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/csi-ii.html" rel="next" title="Container Storage Interface 標準介紹">
+      Container Storage Interface 標準介紹 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  <div class="comments">
+    <div id="disqus_thread">
+      <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+    </div>
+  </div>
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Before-Kubernetes"><span class="nav-number">1.1.</span> <span class="nav-text">Before Kubernetes</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Kubernetes"><span class="nav-number">1.2.</span> <span class="nav-text">Kubernetes</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Why-Container-Storage-Interface"><span class="nav-number">1.3.</span> <span class="nav-text">Why Container Storage Interface</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">2.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#參考"><span class="nav-number">3.</span> <span class="nav-text">參考</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">201</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">106</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https://github.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https://twitter.com/hw_chiu" rel="noopener" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/hongwei.qiu" title="FB Page → https://www.facebook.com/hongwei.qiu" rel="noopener" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" rel="noopener" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https://instagram.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Friends
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://www.evanlin.com/" title="http://www.evanlin.com/" rel="noopener" target="_blank">KKDAI 大大</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://kairen.github.io/" title="https://kairen.github.io/" rel="noopener" target="_blank">凱仁大大</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.pichuang.com.tw/" title="https://blog.pichuang.com.tw/" rel="noopener" target="_blank">小飛機</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.facebook.com/groups/cloudnative.tw/" title="https://www.facebook.com/groups/cloudnative.tw/" rel="noopener" target="_blank">CNTUG</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.facebook.com/groups/sdnds.tw/" title="https://www.facebook.com/groups/sdnds.tw/" rel="noopener" target="_blank">SDNDS-TW</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://medium.com/@yayajacky" title="https://medium.com/@yayajacky" rel="noopener" target="_blank">Jack</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+  <div class="addthis_inline_share_toolbox">
+    <script src="//s7.addthis.com/js/300/addthis_widget.js#pubid=ra-5f4ca66cef0894e1" async="async"></script>
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+<script>
+  function loadCount() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://hwchiu.disqus.com/count.js';
+    s.id = 'dsq-count-scr';
+    (d.head || d.body).appendChild(s);
+  }
+  // defer loading until the whole page loading is completed
+  window.addEventListener('load', loadCount, false);
+</script>
+<script>
+  var disqus_config = function() {
+    this.page.url = "https://www.hwchiu.com/csi.html";
+    this.page.identifier = "csi.html";
+    this.page.title = "Container Storage Interface 基本介紹";
+    this.language = 'en';
+    };
+  NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
+    if (window.DISQUS) {
+      DISQUS.reset({
+        reload: true,
+        config: disqus_config
+      });
+    } else {
+      var d = document, s = d.createElement('script');
+      s.src = 'https://hwchiu.disqus.com/embed.js';
+      s.setAttribute('data-timestamp', '' + +new Date());
+      (d.head || d.body).appendChild(s);
+    }
+  });
+</script>
+
+</body>
+</html>

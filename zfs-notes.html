@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="之前機器因為ZFS空間滿了，因為平常有再作snapshot的緣故，導致東西都刪除不了因為刪除的時候都會有一些metadata的寫入，導致整個zfs動彈不得，這時候就花了很多時間再研就怎麼處理這邊稍微記錄一下ZFS相關得操作。ZPOOL的來源可以是device也可以是files,這邊就用兩個檔案當作來源。">
+<meta name="keywords" content="FreeBSD, ZFS">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ZFS 筆記">
+<meta property="og:url" content="https://www.hwchiu.com/zfs-notes.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="之前機器因為ZFS空間滿了，因為平常有再作snapshot的緣故，導致東西都刪除不了因為刪除的時候都會有一些metadata的寫入，導致整個zfs動彈不得，這時候就花了很多時間再研就怎麼處理這邊稍微記錄一下ZFS相關得操作。ZPOOL的來源可以是device也可以是files,這邊就用兩個檔案當作來源。">
+<meta property="og:locale" content="en">
+<meta property="og:updated_time" content="2020-08-31T01:59:56.741Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="ZFS 筆記">
+<meta name="twitter:description" content="之前機器因為ZFS空間滿了，因為平常有再作snapshot的緣故，導致東西都刪除不了因為刪除的時候都會有一些metadata的寫入，導致整個zfs動彈不得，這時候就花了很多時間再研就怎麼處理這邊稍微記錄一下ZFS相關得操作。ZPOOL的來源可以是device也可以是files,這邊就用兩個檔案當作來源。">
+
+<link rel="canonical" href="https://www.hwchiu.com/zfs-notes.html">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>ZFS 筆記 | Hwchiu Learning Note</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+    <script>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-54006186-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta custom-logo">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Hwchiu Learning Note</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <a>
+        <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+      </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+  <a href="https://github.com/hwchiu" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/zfs-notes.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          ZFS 筆記
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2013-10-12 17:53:00" itemprop="dateCreated datePublished" datetime="2013-10-12T17:53:00-07:00">2013-10-12</time>
+            </span>
+
+          
+            <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">Views: </span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/zfs-notes.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zfs-notes.html" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>之前機器因為ZFS空間滿了，因為平常有再作snapshot的緣故，導致東西都刪除不了<br>因為刪除的時候都會有一些metadata的寫入，導致整個zfs動彈不得，這時候就花了很多時間再研就怎麼處理<br>這邊稍微記錄一下ZFS相關得操作。<br>ZPOOL的來源可以是device也可以是files,這邊就用兩個檔案當作來源。</p>
+<a id="more"></a>
+<h2 id="Files"><a href="#Files" class="headerlink" title="Files"></a>Files</h2><ul>
+<li><code>sudo dd if=/dev/zero of=/zfs1 bs=1M count=256</code></li>
+<li><code>sudo dd if=/dev/zero of=/zfs2 bs=1M count=256</code></li>
+</ul>
+<h2 id="Zpool"><a href="#Zpool" class="headerlink" title="Zpool"></a>Zpool</h2><ul>
+<li>create a mirror pool<ul>
+<li><code>zpool create ftphome mirror /zfs1 /zfs2</code>    </li>
+</ul>
+</li>
+<li>destroy a pool<ul>
+<li><code>zpool destroy ftphome</code></li>
+</ul>
+</li>
+<li>check zpool status<ul>
+<li><code>zpool status &lt;pool&gt;</code></li>
+</ul>
+</li>
+<li>export pool ( 把某些pool export出去，暫時不使用)<ul>
+<li><code>zpool export ftphome</code></li>
+</ul>
+</li>
+<li>import pool ( 把被export 的pool 重新import回來)<ul>
+<li><code>zpool import -d /  ftphome</code>  (用-d指定你檔案的位置，預設會去吃/dev/)<ul>
+<li>以我的範例來說，當import回來後，名稱會變成 <code>//zfs1</code>, <code>//zfs2</code>，多了一個/，原因不明中。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>attach ( 只能對mirror使用)<ul>
+<li><code>zpool attach ftphome /xxx</code></li>
+</ul>
+</li>
+<li>detach ( 只能對mirror使用)<ul>
+<li><code>zpool detach ftphome /zfs1</code></li>
+</ul>
+</li>
+</ul>
+<p>還有<code>offline</code>,<code>online</code>,<code>remove</code>…，剩下的就要用的時候去man zpool,還滿詳細說明的。  </p>
+<h2 id="ZFS-database"><a href="#ZFS-database" class="headerlink" title="ZFS database"></a>ZFS database</h2><ul>
+<li>set attributes <code>zfs set key=value &lt;filesystem|volume|snapshot&gt;</code><ul>
+<li><code>zfs get compression ftphome</code></li>
+<li><code>zfs set mountpoint=/home/ftp ftphome</code></li>
+</ul>
+</li>
+<li>get attributes <code>zfs get key &lt;filesystem|volume|snapshot&gt;</code><ul>
+<li><code>zfs get compression ftphome</code></li>
+</ul>
+</li>
+<li>snapshot<ul>
+<li><code>zfs snapshot ftphome@today</code><ul>
+<li><code>zfs list -t snapshot</code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="其他"><a href="#其他" class="headerlink" title="其他"></a>其他</h2><ul>
+<li>假如你的ZFS有使用snapshot同時空間又滿的話，這時候會發現所有檔案都會刪除失敗，都會得到空間不足的訊息,這邊稍微模擬一下該情況，並且想辦法解決此問題。</li>
+</ul>
+<h3 id="模擬情況"><a href="#模擬情況" class="headerlink" title="模擬情況"></a>模擬情況</h3><p><strong>snatshot 該zfs</strong></p>
+<ul>
+<li><code>zfs snapshot ftphome@today</code></li>
+<li><code>zfs list -t snapshot</code>   看一下是否有成功</li>
+</ul>
+<p><strong>塞爆該空間</strong></p>
+<ul>
+<li><code>zfs list</code> 看一下還剩下多少空間</li>
+<li><code>dd if=/dev/random of=/home/ftp/file bs=1M count=256</code></li>
+<li><code>cd /home/ftp</code></li>
+<li><code>rm file</code>  =&gt; 應該會得到 <code>No space left on device</code>空間不足的訊息。</li>
+</ul>
+<h3 id="解決問題"><a href="#解決問題" class="headerlink" title="解決問題"></a>解決問題</h3><p>ZFS 變大容易(多塞個硬碟即可)，變小困難(幾乎無法)，因此當ZFS的硬碟滿的時候，有兩種做法</p>
+<ol>
+<li>再加入兩個新的硬碟，然後合併到目前的zpool,可是這樣就會變成有兩份mirror。 </li>
+<li>準備兩個更大的硬碟，把原本的zpool內的data全都複製過去。<br>這邊使用第二種做法</li>
+</ol>
+<p><strong>先幫本來的pool加入一個檔案，增加本來的空間，如此一來才可以做更多操作</strong></p>
+<ul>
+<li><code>dd if=/dev/zero of=/zfs5 bs=1M count=128</code></li>
+<li><code>dd if=/dev/zero of=/zfs6 bs=1M count=128</code></li>
+<li><code>zpool add ftphome mirror /zfs5 /zfs6</code></li>
+<li><code>zfs list</code><br> (此時可以看到本來的空間變大了)</li>
+</ul>
+<p><strong>創造一個更大的zpool來取代</strong></p>
+<ul>
+<li><code>dd if=/dev/zero of=/zfs3 bs=1M count=512</code></li>
+<li><code>dd if=/dev/zero of=/zfs4 bs=1M count=512</code></li>
+<li><code>zpool create ftphome3 mirror /zfs3 /zfs4</code></li>
+<li><code>zfs set compression=gzip-9 ftphome2</code></li>
+</ul>
+<p><strong>把資料複製過去</strong></p>
+<ul>
+<li><code>zfs snapshot ftphome@send</code></li>
+<li><code>zfs send ftphome@send | zfs receive -F ftphome2</code></li>
+<li><code>zfs list</code> 看一下大小是否相同</li>
+</ul>
+<p><strong>mount新的，舊的砍掉</strong></p>
+<ul>
+<li><code>zfs umount ftphome</code></li>
+<li><code>zfs set mountpoint=/home/ftp/ ftphome2</code></li>
+<li><code>zpool destroy ftphome</code></li>
+</ul>
+<p>做到這邊，就算完成了，成功的把本來的資料複製過去。<br>如果想要改變zpool的名稱，可以用<code>export</code>跟<code>import</code>來改名稱。</p>
+
+    </div>
+
+    
+    
+    
+      
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/mpd5-on-freebsd-100.html" rel="bookmark">mpd5 on FreeBSD 10.0</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/pure-ftpd.html" rel="bookmark">Install the FTP server on FreeBSD</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/install-freebsd-92r.html" rel="bookmark">Extend freebsd-ufs system</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/xwindow-on-freebsd-91r.html" rel="bookmark">X Window  & X WM on FreeBSD 9.1R</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/install-news-slave-server-on-freebsd-91r.html" rel="bookmark">Install News server on FreeBSD 9.1R</a></div>
+    </li>
+  </ul>
+
+        
+
+  <div class="followme">
+    <p>Welcome to my other publishing channels</p>
+
+    <div class="social-list">
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+        </div>
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+        </div>
+    </div>
+  </div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/System/" rel="tag"># System</a>
+              <a href="/tags/FreeBSD/" rel="tag"># FreeBSD</a>
+              <a href="/tags/ZFS/" rel="tag"># ZFS</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/pure-ftpd.html" rel="prev" title="Install the FTP server on FreeBSD">
+      <i class="fa fa-chevron-left"></i> Install the FTP server on FreeBSD
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/floodlights-dijkstra.html" rel="next" title="Floodlight Dijkstra">
+      Floodlight Dijkstra <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  <div class="comments">
+    <div id="disqus_thread">
+      <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+    </div>
+  </div>
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Files"><span class="nav-number">1.</span> <span class="nav-text">Files</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Zpool"><span class="nav-number">2.</span> <span class="nav-text">Zpool</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ZFS-database"><span class="nav-number">3.</span> <span class="nav-text">ZFS database</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#其他"><span class="nav-number">4.</span> <span class="nav-text">其他</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#模擬情況"><span class="nav-number">4.1.</span> <span class="nav-text">模擬情況</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#解決問題"><span class="nav-number">4.2.</span> <span class="nav-text">解決問題</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">201</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">106</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https://github.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https://twitter.com/hw_chiu" rel="noopener" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/hongwei.qiu" title="FB Page → https://www.facebook.com/hongwei.qiu" rel="noopener" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" rel="noopener" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https://instagram.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Friends
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://www.evanlin.com/" title="http://www.evanlin.com/" rel="noopener" target="_blank">KKDAI 大大</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://kairen.github.io/" title="https://kairen.github.io/" rel="noopener" target="_blank">凱仁大大</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.pichuang.com.tw/" title="https://blog.pichuang.com.tw/" rel="noopener" target="_blank">小飛機</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.facebook.com/groups/cloudnative.tw/" title="https://www.facebook.com/groups/cloudnative.tw/" rel="noopener" target="_blank">CNTUG</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.facebook.com/groups/sdnds.tw/" title="https://www.facebook.com/groups/sdnds.tw/" rel="noopener" target="_blank">SDNDS-TW</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://medium.com/@yayajacky" title="https://medium.com/@yayajacky" rel="noopener" target="_blank">Jack</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+  <div class="addthis_inline_share_toolbox">
+    <script src="//s7.addthis.com/js/300/addthis_widget.js#pubid=ra-5f4ca66cef0894e1" async="async"></script>
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+<script>
+  function loadCount() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://hwchiu.disqus.com/count.js';
+    s.id = 'dsq-count-scr';
+    (d.head || d.body).appendChild(s);
+  }
+  // defer loading until the whole page loading is completed
+  window.addEventListener('load', loadCount, false);
+</script>
+<script>
+  var disqus_config = function() {
+    this.page.url = "https://www.hwchiu.com/zfs-notes.html";
+    this.page.identifier = "zfs-notes.html";
+    this.page.title = "ZFS 筆記";
+    this.language = 'en';
+    };
+  NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
+    if (window.DISQUS) {
+      DISQUS.reset({
+        reload: true,
+        config: disqus_config
+      });
+    } else {
+      var d = document, s = d.createElement('script');
+      s.src = 'https://hwchiu.disqus.com/embed.js';
+      s.setAttribute('data-timestamp', '' + +new Date());
+      (d.head || d.body).appendChild(s);
+    }
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="其實網路上關於 NAT Loopback 的文章到處都有，從原理，到如何在Linux實作等網路上各種資源都有，那這篇文章跟網路上的教學又有什麼不同？我唯一能夠貢獻的是 NAT Loopback 關於 Linux Kernel 的問題，在某些情況下，NATLoop Back 會因為 Linux Kernel Network Stack 的關係導致無法運作。當初我遇到這個問題時也是百思不得其解，於 g">
+<meta name="keywords" content="Network,Linux,Ubuntu">
+<meta property="og:type" content="article">
+<meta property="og:title" content="NAT Lookback Introduction">
+<meta property="og:url" content="https://www.hwchiu.com/nat-loopback.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="其實網路上關於 NAT Loopback 的文章到處都有，從原理，到如何在Linux實作等網路上各種資源都有，那這篇文章跟網路上的教學又有什麼不同？我唯一能夠貢獻的是 NAT Loopback 關於 Linux Kernel 的問題，在某些情況下，NATLoop Back 會因為 Linux Kernel Network Stack 的關係導致無法運作。當初我遇到這個問題時也是百思不得其解，於 g">
+<meta property="og:locale" content="en">
+<meta property="og:image" content="http://i.imgur.com/wpKSalS.jpg">
+<meta property="og:image" content="http://i.imgur.com/YVIB4Uz.jpg">
+<meta property="og:image" content="http://i.imgur.com/Di1smh6.jpg">
+<meta property="og:image" content="http://i.imgur.com/u42Xgob.jpg">
+<meta property="og:image" content="http://i.imgur.com/vKFAZp9.jpg">
+<meta property="og:image" content="http://i.imgur.com/1BOxrGE.jpg">
+<meta property="og:image" content="http://i.imgur.com/u42Xgob.jpg">
+<meta property="og:updated_time" content="2020-08-31T01:59:56.733Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="NAT Lookback Introduction">
+<meta name="twitter:description" content="其實網路上關於 NAT Loopback 的文章到處都有，從原理，到如何在Linux實作等網路上各種資源都有，那這篇文章跟網路上的教學又有什麼不同？我唯一能夠貢獻的是 NAT Loopback 關於 Linux Kernel 的問題，在某些情況下，NATLoop Back 會因為 Linux Kernel Network Stack 的關係導致無法運作。當初我遇到這個問題時也是百思不得其解，於 g">
+<meta name="twitter:image" content="http://i.imgur.com/wpKSalS.jpg">
+
+<link rel="canonical" href="https://www.hwchiu.com/nat-loopback.html">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>NAT Lookback Introduction | Hwchiu Learning Note</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+    <script>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-54006186-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta custom-logo">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Hwchiu Learning Note</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <a>
+        <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+      </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+  <a href="https://github.com/hwchiu" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/nat-loopback.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          NAT Lookback Introduction
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2017-08-17 06:46:14" itemprop="dateCreated datePublished" datetime="2017-08-17T06:46:14-07:00">2017-08-17</time>
+            </span>
+
+          
+            <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">Views: </span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/nat-loopback.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="nat-loopback.html" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>其實網路上關於 NAT Loopback 的文章到處都有，從原理，到如何在<code>Linux</code>實作等網路上各種資源都有，那這篇文章跟網路上的教學又有什麼不同？<br>我唯一能夠貢獻的是 NAT Loopback 關於 <code>Linux Kernel</code> 的問題，在某些情況下，<code>NATLoop Back</code> 會因為 <code>Linux Kernel Network Stack</code> 的關係導致無法運作。當初我遇到這個問題時也是百思不得其解，於 google 世界到處尋找，都沒有看到任何線索。<br>最後只好自己深入 <strong>kernel</strong> 內找尋原因，從 <strong>Linux Kernel Network Stack</strong> 開始翻找。<br>經過一些時間的研究與証實後，也終於確認了某個原因，然後將這個問題的關鍵字轉換後，也有找到一個沒有上到 <strong>upstream</strong> 的 <strong>kernel patch</strong> 針對此問題處理。</p>
+<a id="more"></a>
+<p>在真正踏入核心問題以前，還是要來說明一下什麼是 NAT Loopback，對於這個概念有基本的認知與瞭解後，再來實際看看 <strong>kernel</strong> 上面出現了什麼問題，以及那個 <strong>patch</strong> 是如何解決這個問題</p>
+<h3 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h3><p>首先，假設有一個以下的網路環境，我們在 <strong>Router</strong> 後面設置了兩台 機器，一台是 <strong>Web Server</strong>，另外一台則是一般的 PC。<br>由於該 PC 跟該 <strong>Web Server</strong> 都屬於同一個網域且都在 <strong>Router</strong>  底下，因此兩台機器之間若要透過 <strong>IP addresss</strong> 來傳輸基本上沒有太多問題。</p>
+<p><img src="http://i.imgur.com/wpKSalS.jpg" alt></p>
+<p>但是外網的機器想要存取該 <strong>Web Server</strong> 的話，由於 <strong>Web Server</strong> 本身的 <strong>IP address</strong> 屬於 <strong><a href="https://en.wikipedia.org/wiki/Private_network" target="_blank" rel="noopener">Private Network</a></strong>，譬如<strong>192.168.0.0/16</strong>這個範圍內。<br>因此外網的機器本身並沒有辦法直接存取到該 <strong>Web Server</strong>，但是若我們能夠將封包送到前面的 <strong>Router</strong>，再透過某種方式告訴 <strong>Router</strong> 說這個封包不是給你的，請幫我往下轉發給底下的 <strong>Web Server</strong>，則封包就可以很順利的到達 <strong>Web Server</strong> 去，一切的連線就順利完成。</p>
+<p>上述行為裡面最重要的部分就是如何讓 <strong>Router</strong> 知道什麼樣的封包要送給底下的 <strong>Web Server</strong>，一般來說都會採用 DNAT (Destination NAT)的做法。Router 本身指定一個 <strong>Port Number</strong>，當看到封包是這個 Port 的時候，就會將封包轉送到底下的 <strong>Web Server</strong>，並且將封包內容修改讓 <strong>Web Server</strong> 能夠處理該封包。</p>
+<p>舉例來說，假設我們在 <strong>Router</strong> 上面放一條 DNAT 的規則<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">1.2.3.4:8001 ---&gt; 192.168.1.5:80</span><br></pre></td></tr></table></figure></p>
+<p>對於 <strong>Router</strong> 來說，當看到封包的 <strong>ip:port</strong> 是 <strong>1.2.3.4:8001</strong>，則會將封包標頭改成 <strong>192.168.1.5:80</strong>，然後依照本機端內的 <strong>route rules</strong> 將其轉發到底下的 <strong>Web Server</strong> 去。</p>
+<p>所以假設今天外網的機器(9.8.7.6)發送了一個封包，其流向是<br><code>9.8.7.6:1234 ---&gt; 1.2.3.4:8001</code><br>當 <strong>Router</strong> 收到此封包後，就會將其轉換成<br><code>9.8.7.6:1234 ---&gt; 192.168.1.5:80</code></p>
+<p>當 <strong>Web Server</strong> 收到此封包後，會有一個回應的封包，此封包的流向是<br><code>192.168.1.5:80 --&gt; 9.8.7.6:1234</code><br>當此封包到達 <strong>Router</strong> 後， <strong>Router</strong> 會先查詢看看這個封包是不是經過上述規則轉換的，若是的話就將封包內容重新轉成（進來的封包轉換其 Destination, 回去的封包轉換其 Source)<br><code>1.2.3.4:8001 --&gt; 9.8.7.6:1234</code></p>
+<p>這樣外網的機器 (9.8.7.6) 就可以很順利跟內網內的 <strong>Web Server</strong> 溝通了。</p>
+<p>上述的這個行為有些會稱 <strong>Port Forwarding</strong>，有些會稱 <strong>Virtual Server</strong>，不論怎麼稱呼，其背後的意義都相同。</p>
+<p>然而在真實的環境中，我們通常不會去死記這些 <strong>IP address</strong>，我們會使用 DNS 的服務來幫這些 <strong>IP address</strong> 設定一組好記的名稱，舉例來說可以設定 <strong>webserver.com</strong> 指向 <strong>1.2.3.4</strong>。<br>在這種情況下，外面機器想要存取該 <strong>webserver</strong> 的流程就會是</p>
+<ol>
+<li>外網機器(9.8.7.6)想要存取 <strong>webserver.com</strong>，因此向 <strong>DNS server</strong> 詢問其對應的 <strong>IP address</strong></li>
+<li><strong>DNS server</strong> 回應 <strong>webserver.com</strong> 就是 <strong>1.2.3.4</strong>，因此外網機器接下來會發送封包到 <strong>1.2.3.4</strong></li>
+<li>封包到達 <strong>1.2.3.4</strong> 後，根據 DNAT 的規則轉送到底下真正的 <strong>web server</strong>。</li>
+<li>底下的 <strong>web server</strong> 回送封包，透過 <strong>1.2.3.4</strong> 送回到外網機器(9.8.7.6)</li>
+</ol>
+<p>其流程可以用下列兩張圖來說明<br><img src="http://i.imgur.com/YVIB4Uz.jpg" alt><br><img src="http://i.imgur.com/Di1smh6.jpg" alt></p>
+<h3 id="NAT-Loopback"><a href="#NAT-Loopback" class="headerlink" title="NAT Loopback"></a>NAT Loopback</h3><p>假設我們都已經瞭解上述的概念後，接下來我們將該外網電腦()的角色給放到同樣區網內(192.168.1.6)來看，基本上 <code>NAT  Loopback</code> 代表的涵意就是讓內網的機器能夠遵循原本的流程去存取內網的機器。</p>
+<p>在這種情況下，若內網的機器想要依循上述的流程運行</p>
+<ol>
+<li>首先內網機器 (192.168.1.6) 透過 DNS 的服務，得到 <strong>webserver.com</strong> 指向 <strong>1.2.3.4</strong></li>
+<li>接下來將封包送往到 <strong>1.2.3.4</strong>，遇到 <strong>DNAT</strong> 後將封包轉換<br>所以假設今天內部機器(192.168.1.6)發送了一個封包，其流向是<br><code>192.168.1.6:1234 ---&gt; 1.2.3.4:8001</code><br>當 <strong>Router</strong> 收到此封包後，就會將其轉換成<br><code>192.168.1.6:1234 ---&gt; 192.168.1.5:80</code></li>
+<li>當 <strong>web server</strong> 收到封包後就會回應一個封包，該封包透過 <strong>Router</strong> 就會依循上述的模式回到內網的機器(192.168.1.6)。</li>
+</ol>
+<p>上述的流程看起來是順利也沒有問題的，但是有時候實體網路環境中，可能這些機器(PC,Server)是接在同一台 switch 底下，譬如下列這種情況，<br>或是 <strong>Router</strong> 內含 Hardware L2 switch。<br><img src="http://i.imgur.com/u42Xgob.jpg" alt></p>
+<p>在這種環境下，上述的流程會變成下列情況，並且產生一個問題</p>
+<ol>
+<li>DNS 的部分沒有問題，可以正常運作</li>
+<li>內網的機器封包可以順利到達 <strong>web server</strong></li>
+<li>當 <strong>web server</strong> 收到請求並且將封包送回去時<br>這時候的封包標頭檔可能是<br><code>192.168.1.5:80 ---&gt; 192.168.1.6:1234</code><br>4.當封包到達<strong>switch</strong>時，就會發現這是個同網段的封包，所以就直接幫他回傳給內網機器 <strong>192.168.1.6</strong>了<br>5.當內網機器收到這個封包時，就會感受到一臉困惑。<br>一開始送出去的封包是<br><code>192.168.1.6:1234---&gt; 1.2.3.4:8001</code><br>所以期望收回到的封包應該是<br><code>1.2.3.4:8001 ---&gt; 192.168.1.6:1234</code><br>所以當他看到不符合期望的封包標頭時，就會將其丟棄<br><code>192.168.1.5:80 ---&gt; 192.168.1.6:1234</code></li>
+</ol>
+<p>整個流程如下圖所示<br><img src="http://i.imgur.com/vKFAZp9.jpg" alt></p>
+<p>這邊最大的問題就是 <strong>web server</strong> 送回去的封包必須要先給 <strong>Router</strong> 將其根據 <strong>DNAT</strong> 的規則給重新反轉一次。<br>但是在此環境下，因為中間有一台 <strong>switch</strong> 存在，所以封包就沒有送回到 <strong>router</strong> 那邊去處理而是直接送回去給內網機器了。</p>
+<p>若要能夠處理上述的情況，我們就必須要想辦法將封包也送回到 <strong>router</strong> 端去處理，為了達到這個目的我們可以在 <strong>router</strong> 也採用 SNAT (Source NAT)<br>規則大概如下，只要是從某個 <strong>interface</strong> 近來的，就將此封包標頭內的 <strong>Source IP Address</strong> 變成 <strong>192.168.1.1</strong>。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">in_interface = xxxx, source ip = 192.168.1.1:xxxx</span><br></pre></td></tr></table></figure></p>
+<p>至於實際上要採用 <strong>Masquerade</strong> 或是 <strong>SNAT</strong> 來決定怎麼轉換 <strong>Source IP</strong> 都可以。</p>
+<p>因此，目前的設定中，<strong>Router</strong>同時會進行 <strong>SNAT</strong> 以及 <strong>DNAT</strong>，因此假設內網機器(<strong>192.168.1.6</strong>)要對 <strong>1.2.3.4:80</strong>進行存取。<br>接下來以下圖來解釋每個步驟中封包的變化。<br><img src="http://i.imgur.com/1BOxrGE.jpg" alt><br>藍色區域<br>1,2: <code>192.168.1.6:1234 -&gt; 1.2.3.4:8001</code><br>接下來封包會進入 <strong>router</strong>，執行 <strong>SNAT/DNAT</strong><br>3,4: <code>192.168.1.1:5678 -&gt; 192.168.1.5:80</code></p>
+<p>當封包到達 <strong>web server</strong>後，接下來 <strong>web server</strong> 會回傳一個封包回去<br>1,2: <code>192.168.1.5:80 --&gt; 192.168.1.1:5678</code><br>當封包到達 switch 時，查了一下目的地是 <code>192.168.1.1</code>,因此就會幾該封包送回到 <strong>router</strong> 去處理。<br>當封包到達 <strong>router</strong> 時，會根據之前的記錄瞭解該封包有使用過 <strong>SNAT</strong> 以及 <strong>DNAT</strong>，因此會將封包標頭給重新修改<br>3,4: <code>1.2.3.4:8001 --&gt; 192.168.1.6:1234</code></p>
+<p>當內網機器(<strong>192.168.1.6</strong>)收到此封包後因為與預期的相同，所以就可以正確地建立起連線並且開始傳輸。</p>
+<p>到這邊我們已經完成了最基本的 <strong>NAT Loopback</strong>，基本上大部分的情況都可以依照這種思路來完成。<br>當然若是你網路中間有遇到一些 Hardware 會幫你偷偷做事情的，那你的封包可能就會被影響導致整個傳輸都出問題，這邊要特別小心。</p>
+<h3 id="Linux-Kernel-trobule-shooting"><a href="#Linux-Kernel-trobule-shooting" class="headerlink" title="Linux Kernel trobule shooting"></a>Linux Kernel trobule shooting</h3><p>前面講了這麼多話之後，我們來看看實際操作上可能會遇到的問題。<br>以下列這張圖為範例 <img src="http://i.imgur.com/u42Xgob.jpg" alt></p>
+<p>為了簡化問題，我們假設 <strong>router</strong> 含有八個實體連接埠，其中第一個連接埠跟底下的<strong>switch</strong>有連結。</p>
+<p>假設這一台 <strong>Router</strong> 我們系統中有透過 <strong>Linux bridge</strong> 創建了一個 <strong>bridge br0</strong>，然後我們幫八個連接埠都接到該 <strong>br0</strong>底下，其中第一個連接埠對應到系統上的 interface 是 <strong>eth0</strong><br>所以這時候大概可以看到如下面的架構<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">br0:</span><br><span class="line">    eth0</span><br><span class="line">    eth1</span><br><span class="line">    ...</span><br><span class="line">    eth8</span><br></pre></td></tr></table></figure></p>
+<p>在這種情況下，剛剛上述 <strong>NAT Loopback</strong> 的封包會遇到一問題。<br>當內網機器的封包送到  <strong>router</strong>時，會先透過 <strong>eth0</strong>進入到系統後到達 <strong>br0</strong>，接下來進行 <strong>SNAT</strong> 以及 <strong>DNAT</strong> 的處理。<br>然後最後封包又要從 <strong>br0</strong> 往 <strong>eth0</strong> 出去，一切的料想都是如此美好。<br>然而實際上就會發現封包不見了!!<br>根據 <strong>Linux kernel 3.6 source code</strong>，當系統底下的 <strong>bridge</strong> 再轉發封包的時候，會呼叫到 <strong>br_forward</strong> 去處理。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* called with rcu_read_lock */</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">br_forward</span><span class="params">(<span class="keyword">const</span> struct net_bridge_port *to, struct sk_buff *skb, struct sk_buff *skb0)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">if</span> (should_deliver(to, skb)) &#123;</span><br><span class="line">		<span class="keyword">if</span> (skb0)</span><br><span class="line">			deliver_clone(to, skb, __br_forward);</span><br><span class="line">		<span class="keyword">else</span></span><br><span class="line">			__br_forward(to, skb);</span><br><span class="line">		<span class="keyword">return</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!skb0)</span><br><span class="line">		kfree_skb(skb);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* Don't forward packets to originating port or forwarding diasabled */</span></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">inline</span> <span class="keyword">int</span> <span class="title">should_deliver</span><span class="params">(<span class="keyword">const</span> struct net_bridge_port *p,</span></span></span><br><span class="line"><span class="function"><span class="params">				 <span class="keyword">const</span> struct sk_buff *skb)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">return</span> (((p-&gt;flags &amp; BR_HAIRPIN_MODE) || skb-&gt;dev != p-&gt;dev) &amp;&amp;</span><br><span class="line">		p-&gt;state == BR_STATE_FORWARDING);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上面程式碼有一個最重要的地方<br><strong>skb-&gt;dev != p-&gt;dev</strong>，如果當前封包進入的 <strong>bridge port</strong> 跟出去的 <strong>bridge port</strong> 是一樣的話，那就不會轉發，導致這個封包被丟棄了…</p>
+<p>可是在當前的網路拓墣中你就是要這個封包去轉發，所以可以觀察到上述程式碼還有一個關鍵點<br><strong>(p-&gt;flags &amp; BR_HAIRPIN_MODE)</strong>，<br>根據這篇 <a href="https://lwn.net/Articles/347344/" target="_blank" rel="noopener">patch</a>, 只要針對 interface 去啟用 <strong>hairpin_mode</strong> 就可以讓封包順利從同個點進出來回了。<br>但是事情依然沒有這樣簡單，這樣完畢後封包的 <strong>IP</strong> 的確都有正確的修改了，但是在 <strong>MAC Address</strong> 的部分有點問題，<strong>Source MAC</strong>沒有如預期的被修改，所以這邊又要依賴另外一個工具 <strong>ebtables</strong> 來進行 MAC 的修改，再者種情況下，封包就可以順利通過了。<br>因此我們的 <strong>Router</strong> 就有三種設定<br>1.打開 <strong>hairpin mode</strong><br>2.執行 <strong>iptables</strong> 的 SNAT/DNAT(改 IP)<br>3.透過 <strong>ebtables</strong> 的 SNAT (改 MAC)</p>
+<p>後來發現網路上也有其他人遇到一樣的問題，該使用者因為沒有辦法針對 <strong>user-space</strong> 去進行修改，所以只能從 <strong>kernel</strong> 內進行一些小部分的修改，希望可以處理這個問題<br>這邊可以參考這個 <a href="http://marc.info/?l=linux-netdev&amp;m=136627779125382&amp;w=2" target="_blank" rel="noopener">patch</a><br>在這個 patch 中，該程式碼會先針對有進行 <strong>DNAT</strong> 的封包進行標記，然後在 <strong>bridge forward</strong> 的過程中，將該封包的 <strong>Source MAC</strong> 進行修改，最後再讓該封包通過往下轉發。</p>
+<h3 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h3><p>其實上述的問題一些家用 <strong>router</strong> 不會遇到的一個原因是 <strong>kernel</strong> 太舊了，就如同該  <a href="http://marc.info/?l=linux-netdev&amp;m=136627779125382&amp;w=2" target="_blank" rel="noopener">patch</a> 所說, 於 <strong>2.6.35</strong> 後的系統就會有這樣的問題存在，有些家用 <strong>router</strong> 的 kernel 還在 2.6.x 然後沒有追上新的，因此剛好逃過此問題。</p>
+
+    </div>
+
+    
+    
+    
+      
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/introduce-cni-iii.html" rel="bookmark">[Container Network Interface] Implement Your CNI In Golang</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/introduce-cni-ii.html" rel="bookmark">[Container Network Interface] CNI Introduction</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/introduce-cni-i.html" rel="bookmark">[Container Network Interface] Bridge Network In Docker</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ovs-dpdk-docker.html" rel="bookmark">OVS + DPDK + Docker 共同玩耍</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ipvs-4.html" rel="bookmark">IPvS 學習手冊(四)</a></div>
+    </li>
+  </ul>
+
+        
+
+  <div class="followme">
+    <p>Welcome to my other publishing channels</p>
+
+    <div class="social-list">
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+        </div>
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+        </div>
+    </div>
+  </div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/Ubuntu/" rel="tag"># Ubuntu</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/anki-tutorial.html" rel="prev" title="Anki 使用感想 (tutorial)">
+      <i class="fa fa-chevron-left"></i> Anki 使用感想 (tutorial)
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/paper-maglve.html" rel="next" title="[論文導讀] Maglev: A Fast and Reliable Software Network Load Balancer">
+      [論文導讀] Maglev: A Fast and Reliable Software Network Load Balancer <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  <div class="comments">
+    <div id="disqus_thread">
+      <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+    </div>
+  </div>
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#Introduction"><span class="nav-number">1.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#NAT-Loopback"><span class="nav-number">2.</span> <span class="nav-text">NAT Loopback</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Linux-Kernel-trobule-shooting"><span class="nav-number">3.</span> <span class="nav-text">Linux Kernel trobule shooting</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Summary"><span class="nav-number">4.</span> <span class="nav-text">Summary</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">201</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">106</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https://github.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https://twitter.com/hw_chiu" rel="noopener" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/hongwei.qiu" title="FB Page → https://www.facebook.com/hongwei.qiu" rel="noopener" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" rel="noopener" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https://instagram.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Friends
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://www.evanlin.com/" title="http://www.evanlin.com/" rel="noopener" target="_blank">KKDAI 大大</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://kairen.github.io/" title="https://kairen.github.io/" rel="noopener" target="_blank">凱仁大大</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.pichuang.com.tw/" title="https://blog.pichuang.com.tw/" rel="noopener" target="_blank">小飛機</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.facebook.com/groups/cloudnative.tw/" title="https://www.facebook.com/groups/cloudnative.tw/" rel="noopener" target="_blank">CNTUG</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.facebook.com/groups/sdnds.tw/" title="https://www.facebook.com/groups/sdnds.tw/" rel="noopener" target="_blank">SDNDS-TW</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://medium.com/@yayajacky" title="https://medium.com/@yayajacky" rel="noopener" target="_blank">Jack</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+  <div class="addthis_inline_share_toolbox">
+    <script src="//s7.addthis.com/js/300/addthis_widget.js#pubid=ra-5f4ca66cef0894e1" async="async"></script>
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+<script>
+  function loadCount() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://hwchiu.disqus.com/count.js';
+    s.id = 'dsq-count-scr';
+    (d.head || d.body).appendChild(s);
+  }
+  // defer loading until the whole page loading is completed
+  window.addEventListener('load', loadCount, false);
+</script>
+<script>
+  var disqus_config = function() {
+    this.page.url = "https://www.hwchiu.com/nat-loopback.html";
+    this.page.identifier = "nat-loopback.html";
+    this.page.title = "NAT Lookback Introduction";
+    this.language = 'en';
+    };
+  NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
+    if (window.DISQUS) {
+      DISQUS.reset({
+        reload: true,
+        config: disqus_config
+      });
+    } else {
+      var d = document, s = d.createElement('script');
+      s.src = 'https://hwchiu.disqus.com/embed.js';
+      s.setAttribute('data-timestamp', '' + +new Date());
+      (d.head || d.body).appendChild(s);
+    }
+  });
+</script>
+
+</body>
+</html>

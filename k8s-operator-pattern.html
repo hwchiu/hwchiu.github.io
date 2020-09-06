@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Operator 從 2018 年開始串紅，愈來愈多的服務都宣稱支援 Operator 的運作模式，所以本篇文章就來探討到底什麼是 Operator 以及使用這種運作模式可以帶來什麼樣的好處及壞處。">
+<meta name="keywords" content="Kubernetes,Network,Linux,Ubuntu">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kubernetes - Operator Pattern 介紹">
+<meta property="og:url" content="https://www.hwchiu.com/k8s-operator-pattern.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="Operator 從 2018 年開始串紅，愈來愈多的服務都宣稱支援 Operator 的運作模式，所以本篇文章就來探討到底什麼是 Operator 以及使用這種運作模式可以帶來什麼樣的好處及壞處。">
+<meta property="og:locale" content="en">
+<meta property="og:image" content="https://i.imgur.com/yMiauuR.png">
+<meta property="og:updated_time" content="2020-08-31T01:59:56.727Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Kubernetes - Operator Pattern 介紹">
+<meta name="twitter:description" content="Operator 從 2018 年開始串紅，愈來愈多的服務都宣稱支援 Operator 的運作模式，所以本篇文章就來探討到底什麼是 Operator 以及使用這種運作模式可以帶來什麼樣的好處及壞處。">
+<meta name="twitter:image" content="https://i.imgur.com/yMiauuR.png">
+
+<link rel="canonical" href="https://www.hwchiu.com/k8s-operator-pattern.html">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>Kubernetes - Operator Pattern 介紹 | Hwchiu Learning Note</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+    <script>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-54006186-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta custom-logo">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Hwchiu Learning Note</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <a>
+        <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+      </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+  <a href="https://github.com/hwchiu" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/k8s-operator-pattern.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Kubernetes - Operator Pattern 介紹
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2019-10-11 17:39:34" itemprop="dateCreated datePublished" datetime="2019-10-11T17:39:34-07:00">2019-10-11</time>
+            </span>
+
+          
+            <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">Views: </span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/k8s-operator-pattern.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="k8s-operator-pattern.html" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">Operator 從 2018 年開始串紅，愈來愈多的服務都宣稱支援 Operator 的運作模式，所以本篇文章就來探討到底什麼是 Operator 以及使用這種運作模式可以帶來什麼樣的好處及壞處。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>探討完 <strong>Device Plugin</strong> 後，我們算是討論了四個 <strong>Kubernetes</strong> 用來銜接第三方解決方案<br>的方法，其中三個標準與一個專屬於 <strong>kubernetes</strong> 的介面，接下來的文章會探討一些比較小但是也算是擴充 <strong>kubernetes</strong> 功能方法的一些概念。</p>
+<p>本文要介紹的則是 <strong>Operator Pattern</strong> ，我個人是覺得從 2018 開始， <strong>operator</strong> 這個詞開始各種被討論，然後愈來愈多的軟體開始支援所謂的 <strong>operator</strong> 形式的安裝方式，不久之後又開始出現了 <strong>operator framework</strong>。所以本文就要來好好的討論一下到底什麼是 <strong>Operator</strong></p>
+<h1 id="介紹"><a href="#介紹" class="headerlink" title="介紹"></a>介紹</h1><p>對我來說，我認為 <strong>Operator</strong> 就只是一個 <strong>Pattern</strong>，一個有著類似概念的應用程式設計方式。<br>這點我跟 <a href="https://kubernetes.io/docs/concepts/extend-kubernetes/operator/" target="_blank" rel="noopener">Operator pattern</a> 官方文件的想法是一致的，我完全不覺得 <strong>Operator</strong> 有什麼特別之處，早在這個詞廣為流傳之前，會透過 <strong>kubernetes client library</strong> 撰寫相關應用程式直接溝通處理的人，大致上做的事情跟後來的 <strong>operator</strong> 幾乎一樣。</p>
+<p>我們來看看官方怎麼說</p>
+<blockquote>
+<p>Operators are software extensions to Kubernetes that make use of custom resources to manage applications and their components. Operators follow Kubernetes principles, notably the control loop.</p>
+</blockquote>
+<p>這邊的說明講到了兩個概念，分別是 <strong>custom resources</strong> 以及 <strong>control loop</strong>，對於採用這兩個概念完成的解決方案，就可以稱為 <strong>Operator Pattern</strong>。</p>
+<p>等等會再仔細介紹這兩個概念分別是什麼，以及怎麼組合一起運作。</p>
+<h2 id="動機"><a href="#動機" class="headerlink" title="動機"></a>動機</h2><p><strong>Operator</strong> 的名稱的由來，根據官網的<a href="https://kubernetes.io/docs/concepts/extend-kubernetes/operator/" target="_blank" rel="noopener">動機介紹</a>，我的解讀是希望能夠模擬系統管理員，或是所謂的操作員在管理大量服務時的各種操作，特別是這些操作本身會有特定的邏輯牽扯，同時這些操作本身也有依賴性。<br>根據上述的說法，有時候就會有一些腳本或是相關的工具來幫忙自動化的完成這些工作，但是這些腳本或是工具都是基於外部對 <strong>kubernetes</strong> 的操作來處理。</p>
+<p>今天 <strong>Operator</strong> 希望達到的方式是可以透過內部直接於 <strong>kuberentes</strong> 來溝通<br>，並且透過程式化的方式將這些相關邏輯用程式撰寫來完成。</p>
+<h2 id="組成"><a href="#組成" class="headerlink" title="組成"></a>組成</h2><p>接下來就來探討所謂的 <strong>custom resources</strong> 以及 <strong>control loop</strong> 這兩個概念。</p>
+<h3 id="CRD"><a href="#CRD" class="headerlink" title="CRD"></a>CRD</h3><p><strong>custom resourecs</strong> 顧名思義就是客製化資源，目前於 <strong>kubernetes</strong> 中已經定義了大量的內建資源，譬如 <strong>Deployment</strong>, <strong>Pod</strong>, <strong>NetworkPolicy</strong>, <strong>StorageClass</strong> 這些都是內建的資源。<br>而 <strong>Custom Resources</strong> 則是所謂的 <strong>Custom Resources Definition(CRD)</strong> 框架下的產物，任何使用者都可以透過 <strong>CRD</strong> 的格式向 <strong>kubernetes</strong> 動態的創造一個全新資源，甚至可以使用 <strong>kubectl get</strong> 的方式來取得這些資源的資訊。</p>
+<p><a href="https://kubernetes.io/docs/tasks/access-kubernetes-api/custom-resources/custom-resource-definitions/#create-a-customresourcedefinition" target="_blank" rel="noopener">官方文件 - Extend the Kubernetes API with CustomResourceDefinitions</a> 介紹了一個範例</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apiextensions.k8s.io/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">CustomResourceDefinition</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="comment"># name must match the spec fields below, and be in the form: &lt;plural&gt;.&lt;group&gt;</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">crontabs.stable.example.com</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="comment"># group name to use for REST API: /apis/&lt;group&gt;/&lt;version&gt;</span></span><br><span class="line">  <span class="attr">group:</span> <span class="string">stable.example.com</span></span><br><span class="line">  <span class="comment"># list of versions supported by this CustomResourceDefinition</span></span><br><span class="line">  <span class="attr">versions:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">v1</span></span><br><span class="line">      <span class="comment"># Each version can be enabled/disabled by Served flag.</span></span><br><span class="line">      <span class="attr">served:</span> <span class="literal">true</span></span><br><span class="line">      <span class="comment"># One and only one version must be marked as the storage version.</span></span><br><span class="line">      <span class="attr">storage:</span> <span class="literal">true</span></span><br><span class="line">      <span class="attr">schema:</span></span><br><span class="line">        <span class="attr">openAPIV3Schema:</span></span><br><span class="line">          <span class="attr">type:</span> <span class="string">object</span></span><br><span class="line">          <span class="attr">properties:</span></span><br><span class="line">            <span class="attr">spec:</span></span><br><span class="line">              <span class="attr">type:</span> <span class="string">object</span></span><br><span class="line">              <span class="attr">properties:</span></span><br><span class="line">                <span class="attr">cronSpec:</span></span><br><span class="line">                  <span class="attr">type:</span> <span class="string">string</span></span><br><span class="line">                <span class="attr">image:</span></span><br><span class="line">                  <span class="attr">type:</span> <span class="string">string</span></span><br><span class="line">                <span class="attr">replicas:</span></span><br><span class="line">                  <span class="attr">type:</span> <span class="string">integer</span></span><br><span class="line">  <span class="comment"># either Namespaced or Cluster</span></span><br><span class="line">  <span class="attr">scope:</span> <span class="string">Namespaced</span></span><br><span class="line">  <span class="attr">names:</span></span><br><span class="line">    <span class="comment"># plural name to be used in the URL: /apis/&lt;group&gt;/&lt;version&gt;/&lt;plural&gt;</span></span><br><span class="line">    <span class="attr">plural:</span> <span class="string">crontabs</span></span><br><span class="line">    <span class="comment"># singular name to be used as an alias on the CLI and for display</span></span><br><span class="line">    <span class="attr">singular:</span> <span class="string">crontab</span></span><br><span class="line">    <span class="comment"># kind is normally the CamelCased singular type. Your resource manifests use this.</span></span><br><span class="line">    <span class="attr">kind:</span> <span class="string">CronTab</span></span><br><span class="line">    <span class="comment"># shortNames allow shorter string to match your resource on the CLI</span></span><br><span class="line">    <span class="attr">shortNames:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">ct</span></span><br></pre></td></tr></table></figure>
+<p>一旦將上述的檔案加入到 <strong>kubernetes</strong> 中，接下來就可以使用裡面描述的 <strong>names</strong> 底下的各種名稱來取得。<br>譬如<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl get ct</span><br><span class="line">$ kubectl get crontab</span><br></pre></td></tr></table></figure></p>
+<p>同時也可以直接創造一個對應的資源<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: &quot;stable.example.com/v1&quot;</span><br><span class="line">kind: CronTab</span><br><span class="line">metadata:</span><br><span class="line">  name: my-new-cron-object</span><br><span class="line">spec:</span><br><span class="line">  cronSpec: &quot;* * * * */5&quot;</span><br><span class="line">  image: my-awesome-cron-image</span><br></pre></td></tr></table></figure></p>
+<p>透過 <strong>CRD</strong> 的方式，我們可以對我們的應用程式，服務跟需求創建一個符合的資源，並且搭配需要的設定檔。</p>
+<h3 id="Control-Loop"><a href="#Control-Loop" class="headerlink" title="Control Loop"></a>Control Loop</h3><p>這個概念其實源自於 <a href="https://kubernetes.io/docs/concepts/#kubernetes-control-plane" target="_blank" rel="noopener">Kubernetes Control Plane</a>，<br>對於 <strong>kubernetes</strong> 來說，<strong>master</strong> 以及各節點的 <strong>kubelet</strong>都扮演者 <strong>control plane</strong> 的角色，幫忙維護各式各樣的資源需求，其中的運作邏輯則是會運行一個無窮的迴圈，不停地監控所有叢集上的資源變化，譬如 <strong>Pod</strong> 的 Create,Delete,Terminated，接者根據使用者的需求來決定下一個步驟該怎麼做。</p>
+<p>而這些運作過程中，都可以直接去監聽各種 kubernetes 資源的變化，除了這些內建的資源之外，連我們透過 <strong>CRD</strong> 動態創立的資源也可以使用一樣的方式</p>
+<p>有了上述兩個概念之後，我們可以簡單歸納一下 <strong>Operator Pattern</strong> 通常會做的事情。</p>
+<ol>
+<li>根據需求創建需要的 <strong>CRD</strong>，可以更加方便的去管理目標應用的設定</li>
+<li>撰寫一個應用程式，該應用程式會不停地去聽取 <strong>Kubernetes</strong> 相關資源的變化，譬如上述 <strong>CRD</strong> 被創建後，就會根據該資源再去創造所有需要的資源，譬如 <strong>Pod</strong>, <strong>Service</strong>，將所有之前需要人為涉入的邏輯都用程式化的方式來重複執行。</li>
+</ol>
+<h2 id="Build-Operator"><a href="#Build-Operator" class="headerlink" title="Build Operator"></a>Build Operator</h2><p>接下來可以來看一下，如果想要撰寫一個 <strong>operator</strong>，可以怎麼完成<br>畢竟上述提到的都只是相關的該念，實際上要撰寫的話可以怎麼完成</p>
+<p>根據<a href="https://kubernetes.io/docs/concepts/extend-kubernetes/operator/" target="_blank" rel="noopener">官方文件</a>的推薦，目前有四種以上的方法可以完成</p>
+<ol>
+<li>using KUDO (Kubernetes Universal Declarative Operator)</li>
+<li>using kubebuilder</li>
+<li>using Metacontroller along with WebHooks that you implement yourself</li>
+<li>using the Operator Framework</li>
+</ol>
+<p>就我自己的經驗來說，最基本的方式就是直接使用 <a href="https://github.com/kubernetes/client-go" target="_blank" rel="noopener">client-go</a> 這個官方的 <strong>golang library</strong> 直接撰寫一個可以跟 <strong>kubernetes</strong> 溝通的應用程式，並且自己滿足相關的資源監聽，相關的 Control Loop。</p>
+<p>而上述提到的四個方式就是將這個步驟再次包裝，期望提供更簡單的方式讓使用者可以開發出一個基於 <strong>Operator Pattern</strong> 的應用程式。<br>但是事情沒有絕對完美，框架的問題就在於是否夠靈活彈性與客製化，是否能夠符合所有的應用情境，不能的話是不是還是要退回到最原始自己與 <strong>kubernete</strong> 溝通?</p>
+<p>所以我認為挑選 <strong>Operator Framework</strong> 前要先釐清自己的使用情境跟需求，接下來去挑選各個工具的時候才能夠判斷是否該工具適合自己的情境。</p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>最後用一張架構圖來解釋 <strong>Operator Pattern</strong> 的運作概念<br><img src="https://i.imgur.com/yMiauuR.png" alt><br>該圖節錄自<a href="https://medium.com/@cloudark/why-to-write-kubernetes-operators-9b1e32a24814" target="_blank" rel="noopener">Comparing Kubernetes Operator Pattern with alternatives</a></p>
+<p>該圖片分成左右兩部分，其功能是等價值的。<br>左邊部分則是最原始的操作過程，右邊則是採用 <strong>Operator Pattern</strong> 後的過程。<br>先來看看左邊的架構流程，其將部署分成兩個部分</p>
+<ol>
+<li>準備好所有相關的檔案與設定，接者使用 Helm 或是任何工具安裝相關的資源，譬如 Deployment, StatefulSet 等</li>
+<li>接下來安裝完畢後，就要進入到後續的維護操作，這時候可能會有額外的自動化程式來處理 Deployment/SttatefulSet 相關的變化，並且根據這些變化進行不同的設定</li>
+</ol>
+<p>而右邊的部分非常簡單，就是先行安裝該應用程式相關的 <strong>Controller</strong>，如果這時候沒有額外的特別設定，則上述安裝的 <strong>Controller</strong> 本身會開始跟 <strong>kubernetes</strong> 溝通並且開始創造如 Deployment, StatefulSet 相關的資源，並且自行監控所有的變化來處理。</p>
+<p>等於說將所有之前人為觀察操作的步驟都程式化於該 <strong>Controller</strong> 之中。帶來的好處不言而喻，但是其實我認為也帶了不少壞處</p>
+<ol>
+<li>除錯困難，一旦所有的運作邏輯都被綁到程式內，對於叢集的管理人員來說更像是一個神秘的黑盒子，遇到問題其實幾乎不能處理，也不能客製化。一但有任何更動就是需要重新建置編譯並且產生 <strong>Image</strong> 最後部署。 這一連串的流程導致除錯麻煩以及變得非常依賴該專案上游的維護以及專案本身的穩定性</li>
+</ol>
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ul>
+<li><a href="https://kubernetes.io/docs/concepts/extend-kubernetes/operator/" target="_blank" rel="noopener">https://kubernetes.io/docs/concepts/extend-kubernetes/operator/</a></li>
+<li><a href="https://coreos.com/blog/introducing-operators.html" target="_blank" rel="noopener">https://coreos.com/blog/introducing-operators.html</a></li>
+<li><a href="https://cloud.google.com/blog/products/containers-kubernetes/best-practices-for-building-kubernetes-operators-and-stateful-apps" target="_blank" rel="noopener">https://cloud.google.com/blog/products/containers-kubernetes/best-practices-for-building-kubernetes-operators-and-stateful-apps</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+      
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/k8s-course-2.html" rel="bookmark">Kubernetes 線上課程 - CI/CD</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/gitops.html" rel="bookmark">淺談 GitOps 的概念</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/kubernetes-static-pod.html" rel="bookmark">[Kubernetes] Static Pod 介紹</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/k8s-course.html" rel="bookmark">Kubernetes 線上課程</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/k8s-security.html" rel="bookmark">Kubernetes Container Security 探討</a></div>
+    </li>
+  </ul>
+
+        
+
+  <div class="followme">
+    <p>Welcome to my other publishing channels</p>
+
+    <div class="social-list">
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+        </div>
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+        </div>
+    </div>
+  </div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/Operator/" rel="tag"># Operator</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/k8s-device-plugin-sriov.html" rel="prev" title="Kubernetes - Device Plugin - SRIOV">
+      <i class="fa fa-chevron-left"></i> Kubernetes - Device Plugin - SRIOV
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/k8s-service-catalog.html" rel="next" title="Service Catalog">
+      Service Catalog <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  <div class="comments">
+    <div id="disqus_thread">
+      <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+    </div>
+  </div>
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#介紹"><span class="nav-number">2.</span> <span class="nav-text">介紹</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#動機"><span class="nav-number">2.1.</span> <span class="nav-text">動機</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#組成"><span class="nav-number">2.2.</span> <span class="nav-text">組成</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#CRD"><span class="nav-number">2.2.1.</span> <span class="nav-text">CRD</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Control-Loop"><span class="nav-number">2.2.2.</span> <span class="nav-text">Control Loop</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Build-Operator"><span class="nav-number">2.3.</span> <span class="nav-text">Build Operator</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">3.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#參考"><span class="nav-number">4.</span> <span class="nav-text">參考</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">201</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">106</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https://github.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https://twitter.com/hw_chiu" rel="noopener" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/hongwei.qiu" title="FB Page → https://www.facebook.com/hongwei.qiu" rel="noopener" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" rel="noopener" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https://instagram.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title"><i class="fa fa-link fa-fw"></i>
+      Friends
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://www.evanlin.com/" title="http://www.evanlin.com/" rel="noopener" target="_blank">KKDAI 大大</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://kairen.github.io/" title="https://kairen.github.io/" rel="noopener" target="_blank">凱仁大大</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.pichuang.com.tw/" title="https://blog.pichuang.com.tw/" rel="noopener" target="_blank">小飛機</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.facebook.com/groups/cloudnative.tw/" title="https://www.facebook.com/groups/cloudnative.tw/" rel="noopener" target="_blank">CNTUG</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.facebook.com/groups/sdnds.tw/" title="https://www.facebook.com/groups/sdnds.tw/" rel="noopener" target="_blank">SDNDS-TW</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://medium.com/@yayajacky" title="https://medium.com/@yayajacky" rel="noopener" target="_blank">Jack</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+  <div class="addthis_inline_share_toolbox">
+    <script src="//s7.addthis.com/js/300/addthis_widget.js#pubid=ra-5f4ca66cef0894e1" async="async"></script>
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+<script>
+  function loadCount() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://hwchiu.disqus.com/count.js';
+    s.id = 'dsq-count-scr';
+    (d.head || d.body).appendChild(s);
+  }
+  // defer loading until the whole page loading is completed
+  window.addEventListener('load', loadCount, false);
+</script>
+<script>
+  var disqus_config = function() {
+    this.page.url = "https://www.hwchiu.com/k8s-operator-pattern.html";
+    this.page.identifier = "k8s-operator-pattern.html";
+    this.page.title = "Kubernetes - Operator Pattern 介紹";
+    this.language = 'en';
+    };
+  NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
+    if (window.DISQUS) {
+      DISQUS.reset({
+        reload: true,
+        config: disqus_config
+      });
+    } else {
+      var d = document, s = d.createElement('script');
+      s.src = 'https://hwchiu.disqus.com/embed.js';
+      s.setAttribute('data-timestamp', '' + +new Date());
+      (d.head || d.body).appendChild(s);
+    }
+  });
+</script>
+
+</body>
+</html>
