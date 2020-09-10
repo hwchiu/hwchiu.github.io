@@ -29,7 +29,7 @@
 <meta property="og:description" content="本文翻譯自 Container-Solutions 的文章，探討 GitOps 實際操作上可能帶來的痛點與複雜度，最後作者帶出自己認為好的架構及設計以及推薦不同的思路來處理">
 <meta property="og:locale" content="en">
 <meta property="og:image" content="https://i.imgur.com/LF7SaTV.png">
-<meta property="og:updated_time" content="2020-09-10T05:59:15.961Z">
+<meta property="og:updated_time" content="2020-09-10T06:00:41.065Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="GitOps 帶來的痛點與反思">
 <meta name="twitter:description" content="本文翻譯自 Container-Solutions 的文章，探討 GitOps 實際操作上可能帶來的痛點與複雜度，最後作者帶出自己認為好的架構及設計以及推薦不同的思路來處理">
@@ -248,22 +248,22 @@
 <p>以下內容節錄自 <a href="https://blog.container-solutions.com/gitops-the-bad-and-the-ugly" target="_blank" rel="noopener">GitOps: The Bad and the Ugly</a> 並加上作者個人心得，有興趣瞭解<br>全文的人歡迎到上述網站去瞭解更多</p>
 <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>本篇文章非常有趣，作者本身是一個 GitOps 的擁護者，也有撰寫過相關的文章<a href="https://blog.container-solutions.com/11-reasons-for-adopting-gitops" target="_blank" rel="noopener">11-reasons-for-adopting-gitops</a> 來談論講為什麼要導入 GitOps,以及導入 GitOps 後能夠帶來的好處。</p>
 <p>但是最近一些專案的經驗，讓作者開始感覺到一些 GitOps 所帶來的極限與痛點，加上最近與 <a href="https://humanitec.com/" target="_blank" rel="noopener">Humanitec</a> 這套並非基於 GitOps 的解決方案的開發人員交談後，作者決定撰寫本篇文章來探討自己於實戰經驗中所感受到的 GitOps 缺陷與極限，並於最後分享一些不同的思路及可能的解決方法</p>
-<h1 id="痛點"><a href="#痛點" class="headerlink" title="痛點"></a>痛點</h1><h3 id="適合使用於程式化的更新"><a href="#適合使用於程式化的更新" class="headerlink" title="適合使用於程式化的更新"></a>適合使用於程式化的更新</h3><p>如果今天 CI 流水線本身結束後，會需要將測試的結果送入到測試的叢集中去更新，那就意味者我們要透過修改 Git Repo 的內容來觸發 GitOps 的更新，因此需要在 CI 流水線的最後面對 Git Repo 進行修改。</p>
+<h1 id="痛點"><a href="#痛點" class="headerlink" title="痛點"></a>痛點</h1><h2 id="適合使用於程式化的更新"><a href="#適合使用於程式化的更新" class="headerlink" title="適合使用於程式化的更新"></a>適合使用於程式化的更新</h2><p>如果今天 CI 流水線本身結束後，會需要將測試的結果送入到測試的叢集中去更新，那就意味者我們要透過修改 Git Repo 的內容來觸發 GitOps 的更新，因此需要在 CI 流水線的最後面對 Git Repo 進行修改。</p>
 <p>然而 Git 這個工具的設計本身就不是很適合太自自動化的操作，特別是遇到衝突時，需要有人為的解讀來修復。所以當有多個 CI 流水線同時運作時，就會有機會導致有部分的 CI 流水線會遇到 Git 衝突導致沒有辦法順利完成作業。</p>
 <blockquote>
 <p>這部分的衝突通常只是 Git 的紀錄更新，必須要一次又一次的 Pull 來抓到最新版才可以Push. 現實中很難真的發生會有單一檔案的衝突</p>
 </blockquote>
 <p>為了解決這個問題，作者於他們的工作環境中又設計了其他的系統來不停重試這些環節，這過程花費大量的時間。</p>
-<h3 id="Git-Repo-增長帶來的問題"><a href="#Git-Repo-增長帶來的問題" class="headerlink" title="Git Repo 增長帶來的問題"></a>Git Repo 增長帶來的問題</h3><p>GitOps 強調一切都放在 Git Repo 上，因此隨者系統專案的增加， Git Repo 也會愈開愈多。而每一個 Repo 都需要進行相關設定，譬如權限，整合等</p>
+<h2 id="Git-Repo-增長帶來的問題"><a href="#Git-Repo-增長帶來的問題" class="headerlink" title="Git Repo 增長帶來的問題"></a>Git Repo 增長帶來的問題</h2><p>GitOps 強調一切都放在 Git Repo 上，因此隨者系統專案的增加， Git Repo 也會愈開愈多。而每一個 Repo 都需要進行相關設定，譬如權限，整合等</p>
 <p>作者的親身經歷是他們有 30% 以上的時間來設定相關的 Git Repo。<br>作者認為減少 Git Repo 的數量可以減少這種痛苦，譬如每一個環境就用一個 Git Repo, 裡面放置該環境會用到的全部應用程式，但是這種架構下帶來的反而是一個 Repo 本身的權責太大，擁有的東西過多，然後搭配(1)的問題，就會產生更多衝突</p>
-<h3 id="缺乏視覺化"><a href="#缺乏視覺化" class="headerlink" title="缺乏視覺化"></a>缺乏視覺化</h3><p>GitOps 強調一切都是 Git，所有的差異變化都可以透過 Git History 來追蹤，這也代表這些文字內容可以幫忙管理人員回答諸多部署的相關問題</p>
+<h2 id="缺乏視覺化"><a href="#缺乏視覺化" class="headerlink" title="缺乏視覺化"></a>缺乏視覺化</h2><p>GitOps 強調一切都是 Git，所有的差異變化都可以透過 Git History 來追蹤，這也代表這些文字內容可以幫忙管理人員回答諸多部署的相關問題</p>
 <p>然而作者的經驗是當環境愈來愈複雜時，有更多問題是沒有辦法依賴 GitOps 的特性來回答的，譬如說「某個應用程式被部署的頻率」。</p>
 <p>作者認為 Git 內容的改動不太容易對應到特定應用程式的更動，舉例來說某些改動可能一次會觸發多個應用程式重新部署，而有些改動卻可能只有部分設定檔案改動，而沒有任何應用程式重新部署。</p>
-<h3 id="Secret-的管理問題依然沒有解決"><a href="#Secret-的管理問題依然沒有解決" class="headerlink" title="Secret 的管理問題依然沒有解決"></a>Secret 的管理問題依然沒有解決</h3><p>滿多的複雜應用環境都會遇到 Secret 的管理問題，特別是當 CI/CD 的流水線放置於系統外部服務時，這些機密資訊到底該如何保存?<br>舉例來說，凡舉資料庫的密碼或是私有鑰匙等需高度保存的東西都需要有一個很好的解決方案來保護。作者認為透過 Hashicorp 的 Vault 來進行集中化管理是一個比較合理的解法。</p>
+<h2 id="Secret-的管理問題依然沒有解決"><a href="#Secret-的管理問題依然沒有解決" class="headerlink" title="Secret 的管理問題依然沒有解決"></a>Secret 的管理問題依然沒有解決</h2><p>滿多的複雜應用環境都會遇到 Secret 的管理問題，特別是當 CI/CD 的流水線放置於系統外部服務時，這些機密資訊到底該如何保存?<br>舉例來說，凡舉資料庫的密碼或是私有鑰匙等需高度保存的東西都需要有一個很好的解決方案來保護。作者認為透過 Hashicorp 的 Vault 來進行集中化管理是一個比較合理的解法。</p>
 <p>雖然 GitOps 本身沒有強調自己對於安全性管理有更好的效益與優勢，但是就實務經驗上來看，並沒有讓事情變得簡單。 畢竟 Git Repo 本身不是一個適合存放各種機密資訊的地方，就算透過加解密的方式只存放加密後的結果，這些過往的資訊還是會被 Git History 給永久保存。<br>此外當 Git Repo 的數量擴大變多時，這些加密後的機密資訊也就會散落愈多地方，會導致管理與追蹤這些機密資訊要花費更大的功夫來處理</p>
-<h3 id="缺少檔案資源的驗證性"><a href="#缺少檔案資源的驗證性" class="headerlink" title="缺少檔案資源的驗證性"></a>缺少檔案資源的驗證性</h3><p>作者認為 GitOps 的架構下, Git Repo 作為一個 Kubernetes 與 CI/CD 流水線中間的介面，沒有一個很好的方式去驗證所有修改過的資源是否有效與合法。<br>此架構下，則是開發者要確保自己的 Helm/Yaml 是否有格式問題，不然相關的修改被合併到 Git Repo 的話就會造成部署錯誤</p>
+<h2 id="缺少檔案資源的驗證性"><a href="#缺少檔案資源的驗證性" class="headerlink" title="缺少檔案資源的驗證性"></a>缺少檔案資源的驗證性</h2><p>作者認為 GitOps 的架構下, Git Repo 作為一個 Kubernetes 與 CI/CD 流水線中間的介面，沒有一個很好的方式去驗證所有修改過的資源是否有效與合法。<br>此架構下，則是開發者要確保自己的 Helm/Yaml 是否有格式問題，不然相關的修改被合併到 Git Repo 的話就會造成部署錯誤</p>
 <p>我認為這個問題倒是不大，因為不管透過哪種部署思維都會有這樣的問題，反而是 CI/CD 的過程中能不能驗證 Yaml 的正確與否，如果可以提早驗證，並且阻止沒通過測試的程式碼被合併，那這些問題應該都不會發生</p>
-<h2 id="不同於-GitOps-的解決方案"><a href="#不同於-GitOps-的解決方案" class="headerlink" title="不同於 GitOps 的解決方案"></a>不同於 GitOps 的解決方案</h2><p>上述的問題只是作者遇到的實戰問題，並非代表 GitOps 就毫無用處。 GitOps 依然帶來了很多好的優點，作者強調大家只需要心中知道你可能會遇到這些問題，然後遇到的時候可以想想要怎麼解決這些問題。</p>
+<h1 id="不同於-GitOps-的解決方案"><a href="#不同於-GitOps-的解決方案" class="headerlink" title="不同於 GitOps 的解決方案"></a>不同於 GitOps 的解決方案</h1><p>上述的問題只是作者遇到的實戰問題，並非代表 GitOps 就毫無用處。 GitOps 依然帶來了很多好的優點，作者強調大家只需要心中知道你可能會遇到這些問題，然後遇到的時候可以想想要怎麼解決這些問題。</p>
 <p>作者開始思考，什麼樣的解決方案可以保留 GitOps 的優點同事又可以增進上述的缺點，其心目中有一些基本要有的特性</p>
 <ol>
 <li>有能力記錄叢集環境上的一切變化</li>
@@ -419,7 +419,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#痛點"><span class="nav-number">2.</span> <span class="nav-text">痛點</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#適合使用於程式化的更新"><span class="nav-number">2.0.1.</span> <span class="nav-text">適合使用於程式化的更新</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Git-Repo-增長帶來的問題"><span class="nav-number">2.0.2.</span> <span class="nav-text">Git Repo 增長帶來的問題</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#缺乏視覺化"><span class="nav-number">2.0.3.</span> <span class="nav-text">缺乏視覺化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Secret-的管理問題依然沒有解決"><span class="nav-number">2.0.4.</span> <span class="nav-text">Secret 的管理問題依然沒有解決</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#缺少檔案資源的驗證性"><span class="nav-number">2.0.5.</span> <span class="nav-text">缺少檔案資源的驗證性</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#不同於-GitOps-的解決方案"><span class="nav-number">2.1.</span> <span class="nav-text">不同於 GitOps 的解決方案</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#參考來源"><span class="nav-number">3.</span> <span class="nav-text">參考來源</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#痛點"><span class="nav-number">2.</span> <span class="nav-text">痛點</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#適合使用於程式化的更新"><span class="nav-number">2.1.</span> <span class="nav-text">適合使用於程式化的更新</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Git-Repo-增長帶來的問題"><span class="nav-number">2.2.</span> <span class="nav-text">Git Repo 增長帶來的問題</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#缺乏視覺化"><span class="nav-number">2.3.</span> <span class="nav-text">缺乏視覺化</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Secret-的管理問題依然沒有解決"><span class="nav-number">2.4.</span> <span class="nav-text">Secret 的管理問題依然沒有解決</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#缺少檔案資源的驗證性"><span class="nav-number">2.5.</span> <span class="nav-text">缺少檔案資源的驗證性</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#不同於-GitOps-的解決方案"><span class="nav-number">3.</span> <span class="nav-text">不同於 GitOps 的解決方案</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#參考來源"><span class="nav-number">4.</span> <span class="nav-text">參考來源</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
