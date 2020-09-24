@@ -180,6 +180,85 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ceph-async-connection.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/ceph-async-connection.html" class="post-title-link" itemprop="url">Ceph Network - AsyncConnection</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2017-05-31 06:50:49" itemprop="dateCreated datePublished" datetime="2017-05-31T06:50:49-07:00">2017-05-31</time>
+            </span>
+
+          
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/ceph-async-connection.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="ceph-async-connection.html" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>AsyncConnection 此物件代表整個 connection，裡面提供了收送(Write/Read)兩個主要介面供應用層(OSD/MON等)使用外，裡面也處理了整個 <strong>Ceph Node</strong>收送封包的邏輯處理，這部分比較像是一個 <strong>finite state machine(FSM)</strong>，當前狀態是什麼時候，收到的封包是什麼，就切換到什麼狀態來處理。<br>每個 AsyncConnection 會像底層的 <strong>Event Engine</strong>註冊一個 <strong>call back function</strong>，當該 <strong>connection</strong> 接收到封包後，就會觸發該 <strong>function</strong>，而此 <strong>function</strong>就是 <strong>Process</strong>，所以接下來會從此 function 當作下手點，主要研究雙方連線建立的過程，特別是從 <strong>Service side</strong> 去觀察 <strong>Accept</strong> 封包後的流程。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/ceph-async-connection.html#more" rel="contents">
+                Read more &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
     <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/docker-hexo-ii.html">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -932,86 +1011,6 @@
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/DRBD-v9-0-Network-Work-Flow.html">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/uploads/avatar.jpg">
-      <meta itemprop="name" content="Hwchiu">
-      <meta itemprop="description" content="kubernetes/SDN/DevOps">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Hwchiu Learning Note">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/DRBD-v9-0-Network-Work-Flow.html" class="post-title-link" itemprop="url">DRBD v9.0 Network Work Flow(i)</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">Posted on</span>
-
-              <time title="Created: 2017-05-11 11:44:12" itemprop="dateCreated datePublished" datetime="2017-05-11T11:44:12-07:00">2017-05-11</time>
-            </span>
-
-          
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus: </span>
-    
-    <a title="disqus" href="/DRBD-v9-0-Network-Work-Flow.html#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="DRBD-v9-0-Network-Work-Flow.html" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="Architecture"><a href="#Architecture" class="headerlink" title="Architecture"></a>Architecture</h1><p>整個 DRBD 分成 kernel space 跟 user space。<br>主要的功能都在 kernal space，在 9.0 版本中包含了兩個 kernel module(商業版還在多一個RDMA)，其中 <strong>drbd_transport_tcp.ko</strong>專心負責 TCP 連線的部分，剩下的功能都在 <strong>drbd.ko</strong> 中實現。<br>而 user space 則是負責提供用戶一個方便的操作，如<code>drbdadm</code>這方面的工具，當用戶執行如 <strong>drbdadm up r0</strong> 這些指令後，最後會透過 <strong>drbdsetup</strong> 將必要的資訊透過 <strong>netlink</strong>的方式送往 kernel space，而先前的 kernel module 則會在 insert 時就註冊許多 netlink event，每種type都有對應的 handler來處理。<br>如下圖呈現</p>
-<p><img src="http://i.imgur.com/SNMiWYj.jpg" alt="img"><br>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/DRBD-v9-0-Network-Work-Flow.html#more" rel="contents">
-                Read more &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
   <nav class="pagination">
@@ -1083,7 +1082,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">205</span>
+          <span class="site-state-item-count">206</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
