@@ -20,20 +20,22 @@
     var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="之前機器因為ZFS空間滿了，因為平常有再作snapshot的緣故，導致東西都刪除不了因為刪除的時候都會有一些metadata的寫入，導致整個zfs動彈不得，這時候就花了很多時間再研就怎麼處理這邊稍微記錄一下ZFS相關得操作。ZPOOL的來源可以是device也可以是files,這邊就用兩個檔案當作來源。">
-<meta name="keywords" content="FreeBSD, ZFS">
+  <meta name="description" content="本篇用來分享2020疫情肆虐下的遠端工作心得">
+<meta name="keywords" content="WFH, Work from home, 遠端工作, 矽谷">
 <meta property="og:type" content="article">
-<meta property="og:title" content="ZFS 筆記">
-<meta property="og:url" content="https://www.hwchiu.com/zfs-notes.html">
+<meta property="og:title" content="2020 疫情下的矽谷 - 遠端工作的探討">
+<meta property="og:url" content="https://www.hwchiu.com/covid-wfh.html">
 <meta property="og:site_name" content="Hwchiu Learning Note">
-<meta property="og:description" content="之前機器因為ZFS空間滿了，因為平常有再作snapshot的緣故，導致東西都刪除不了因為刪除的時候都會有一些metadata的寫入，導致整個zfs動彈不得，這時候就花了很多時間再研就怎麼處理這邊稍微記錄一下ZFS相關得操作。ZPOOL的來源可以是device也可以是files,這邊就用兩個檔案當作來源。">
+<meta property="og:description" content="本篇用來分享2020疫情肆虐下的遠端工作心得">
 <meta property="og:locale" content="en">
-<meta property="og:updated_time" content="2020-08-31T01:59:56.741Z">
+<meta property="og:image" content="https://i.imgur.com/6up8mq8.png">
+<meta property="og:updated_time" content="2020-09-25T16:01:31.958Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="ZFS 筆記">
-<meta name="twitter:description" content="之前機器因為ZFS空間滿了，因為平常有再作snapshot的緣故，導致東西都刪除不了因為刪除的時候都會有一些metadata的寫入，導致整個zfs動彈不得，這時候就花了很多時間再研就怎麼處理這邊稍微記錄一下ZFS相關得操作。ZPOOL的來源可以是device也可以是files,這邊就用兩個檔案當作來源。">
+<meta name="twitter:title" content="2020 疫情下的矽谷 - 遠端工作的探討">
+<meta name="twitter:description" content="本篇用來分享2020疫情肆虐下的遠端工作心得">
+<meta name="twitter:image" content="https://i.imgur.com/6up8mq8.png">
 
-<link rel="canonical" href="https://www.hwchiu.com/zfs-notes.html">
+<link rel="canonical" href="https://www.hwchiu.com/covid-wfh.html">
 
 
 <script id="page-configurations">
@@ -46,7 +48,7 @@
   };
 </script>
 
-  <title>ZFS 筆記 | Hwchiu Learning Note</title>
+  <title>2020 疫情下的矽谷 - 遠端工作的探討 | Hwchiu Learning Note</title>
   
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
     <script>
@@ -183,7 +185,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/zfs-notes.html">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/covid-wfh.html">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/uploads/avatar.jpg">
@@ -196,7 +198,7 @@
     </span>
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
-          ZFS 筆記
+          2020 疫情下的矽谷 - 遠端工作的探討
         </h1>
 
         <div class="post-meta">
@@ -206,7 +208,7 @@
               </span>
               <span class="post-meta-item-text">Posted on</span>
 
-              <time title="Created: 2013-10-12 17:53:00" itemprop="dateCreated datePublished" datetime="2013-10-12T17:53:00-07:00">2013-10-12</time>
+              <time title="Created: 2020-09-25 08:56:55" itemprop="dateCreated datePublished" datetime="2020-09-25T08:56:55-07:00">2020-09-25</time>
             </span>
 
           
@@ -225,12 +227,13 @@
       </span>
       <span class="post-meta-item-text">Disqus: </span>
     
-    <a title="disqus" href="/zfs-notes.html#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="zfs-notes.html" itemprop="commentCount"></span>
+    <a title="disqus" href="/covid-wfh.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="covid-wfh.html" itemprop="commentCount"></span>
     </a>
   </span>
   
   
+            <div class="post-description">本篇用來分享2020疫情肆虐下的遠端工作心得</div>
 
         </div>
       </header>
@@ -241,111 +244,49 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p>之前機器因為ZFS空間滿了，因為平常有再作snapshot的緣故，導致東西都刪除不了<br>因為刪除的時候都會有一些metadata的寫入，導致整個zfs動彈不得，這時候就花了很多時間再研就怎麼處理<br>這邊稍微記錄一下ZFS相關得操作。<br>ZPOOL的來源可以是device也可以是files,這邊就用兩個檔案當作來源。</p>
-<a id="more"></a>
-<h2 id="Files"><a href="#Files" class="headerlink" title="Files"></a>Files</h2><ul>
-<li><code>sudo dd if=/dev/zero of=/zfs1 bs=1M count=256</code></li>
-<li><code>sudo dd if=/dev/zero of=/zfs2 bs=1M count=256</code></li>
-</ul>
-<h2 id="Zpool"><a href="#Zpool" class="headerlink" title="Zpool"></a>Zpool</h2><ul>
-<li>create a mirror pool<ul>
-<li><code>zpool create ftphome mirror /zfs1 /zfs2</code>    </li>
-</ul>
-</li>
-<li>destroy a pool<ul>
-<li><code>zpool destroy ftphome</code></li>
-</ul>
-</li>
-<li>check zpool status<ul>
-<li><code>zpool status &lt;pool&gt;</code></li>
-</ul>
-</li>
-<li>export pool ( 把某些pool export出去，暫時不使用)<ul>
-<li><code>zpool export ftphome</code></li>
-</ul>
-</li>
-<li>import pool ( 把被export 的pool 重新import回來)<ul>
-<li><code>zpool import -d /  ftphome</code>  (用-d指定你檔案的位置，預設會去吃/dev/)<ul>
-<li>以我的範例來說，當import回來後，名稱會變成 <code>//zfs1</code>, <code>//zfs2</code>，多了一個/，原因不明中。</li>
-</ul>
-</li>
-</ul>
-</li>
-<li>attach ( 只能對mirror使用)<ul>
-<li><code>zpool attach ftphome /xxx</code></li>
-</ul>
-</li>
-<li>detach ( 只能對mirror使用)<ul>
-<li><code>zpool detach ftphome /zfs1</code></li>
-</ul>
-</li>
-</ul>
-<p>還有<code>offline</code>,<code>online</code>,<code>remove</code>…，剩下的就要用的時候去man zpool,還滿詳細說明的。  </p>
-<h2 id="ZFS-database"><a href="#ZFS-database" class="headerlink" title="ZFS database"></a>ZFS database</h2><ul>
-<li>set attributes <code>zfs set key=value &lt;filesystem|volume|snapshot&gt;</code><ul>
-<li><code>zfs get compression ftphome</code></li>
-<li><code>zfs set mountpoint=/home/ftp ftphome</code></li>
-</ul>
-</li>
-<li>get attributes <code>zfs get key &lt;filesystem|volume|snapshot&gt;</code><ul>
-<li><code>zfs get compression ftphome</code></li>
-</ul>
-</li>
-<li>snapshot<ul>
-<li><code>zfs snapshot ftphome@today</code><ul>
-<li><code>zfs list -t snapshot</code></li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-<h2 id="其他"><a href="#其他" class="headerlink" title="其他"></a>其他</h2><ul>
-<li>假如你的ZFS有使用snapshot同時空間又滿的話，這時候會發現所有檔案都會刪除失敗，都會得到空間不足的訊息,這邊稍微模擬一下該情況，並且想辦法解決此問題。</li>
-</ul>
-<h3 id="模擬情況"><a href="#模擬情況" class="headerlink" title="模擬情況"></a>模擬情況</h3><p><strong>snatshot 該zfs</strong></p>
-<ul>
-<li><code>zfs snapshot ftphome@today</code></li>
-<li><code>zfs list -t snapshot</code>   看一下是否有成功</li>
-</ul>
-<p><strong>塞爆該空間</strong></p>
-<ul>
-<li><code>zfs list</code> 看一下還剩下多少空間</li>
-<li><code>dd if=/dev/random of=/home/ftp/file bs=1M count=256</code></li>
-<li><code>cd /home/ftp</code></li>
-<li><code>rm file</code>  =&gt; 應該會得到 <code>No space left on device</code>空間不足的訊息。</li>
-</ul>
-<h3 id="解決問題"><a href="#解決問題" class="headerlink" title="解決問題"></a>解決問題</h3><p>ZFS 變大容易(多塞個硬碟即可)，變小困難(幾乎無法)，因此當ZFS的硬碟滿的時候，有兩種做法</p>
+        <p>2020 年是個多事之秋的一年， COVID-19 於全球肆虐，根據 <a href="https://www.worldometers.info/coronavirus/" target="_blank" rel="noopener">worldometer</a> 的統計，到 2020/09/25 已經造成全球三千兩百萬人感染，將近一百萬人死亡。其造成的經濟影響更是空球絕後，美國股市一波三折，一年多次熔斷已經是歷史紀錄。企業則是面臨各種收入減少的困境，申請破產與力拼轉型的新聞則是沒有停止過。</p>
+<p>今天就來跟大家分享一下，這六個多月以來遠端工作 (Work From Home, WFH) 的一些想法與心得</p>
+<h1 id="個人經驗"><a href="#個人經驗" class="headerlink" title="個人經驗"></a>個人經驗</h1><p>個人目前對於遠端工作是秉持利大於弊的心得，接下來從不同點來探討利弊</p>
+<h2 id="交通"><a href="#交通" class="headerlink" title="交通"></a>交通</h2><p>矽谷灣區最著名的一個特色就是塞車，上班塞車，下班塞車，永遠都在塞車，所以過往很多人都會採取彈性上班的方式來避免車流，或是採取大眾運輸工具的方式來通勤。</p>
+<p>以我個人為例，過往每天上班的通勤時間大概平均兩個小時，主要分成開車與大眾運輸</p>
 <ol>
-<li>再加入兩個新的硬碟，然後合併到目前的zpool,可是這樣就會變成有兩份mirror。 </li>
-<li>準備兩個更大的硬碟，把原本的zpool內的data全都複製過去。<br>這邊使用第二種做法</li>
+<li>大眾運輸: 腳踏車配上火車通勤，由於火車時刻表固定，所以上下班時間比較沒有彈性</li>
+<li>開車: 開車的話大概可以將時間縮短到單趟 40 分鐘左右，但是整個高速公路都是一片紅，其實開起來很悶</li>
 </ol>
-<p><strong>先幫本來的pool加入一個檔案，增加本來的空間，如此一來才可以做更多操作</strong></p>
-<ul>
-<li><code>dd if=/dev/zero of=/zfs5 bs=1M count=128</code></li>
-<li><code>dd if=/dev/zero of=/zfs6 bs=1M count=128</code></li>
-<li><code>zpool add ftphome mirror /zfs5 /zfs6</code></li>
-<li><code>zfs list</code><br> (此時可以看到本來的空間變大了)</li>
+<p>遠端工作後，每天可以省下大約兩個小時的時間，這部分可以拿來上班工作，也可以拿來處理私人事情，時間上更加彈性</p>
+<h2 id="工作"><a href="#工作" class="headerlink" title="工作"></a>工作</h2><p>遠端在家工作後，最大的幾個變化就是</p>
+<ol>
+<li><p>工作自律<br>基本上一整天就是在電腦前面，所以沒有開會的時候，其實都是自己去控制自己的工作節奏，這部分好壞的意見都有聽過，大家也會彼此分享如何讓自己工作更加專心，而不會被家裡的舒適環境給影響。</p>
+</li>
+<li><p>會議全面遠端化且數量上升<br>過往一些小事情要討論時，可能就直接現場約一約，到小會議室直接討論。然而目前則是因為遠端會議，所以全部都要事先預約時間來確保對方目前在電腦前。有時候一個小事情卻要花更多的時間來定案，我個人認為效率是不如過往的。<br>此外之前也出現如 Zoom Fatigue 這樣的說法，過多的會議內容導致大家開會疲倦，分心</p>
+</li>
+</ol>
+<p>就我個人的心得來看，自己能夠維持好工作的節奏，該完成的工作事項能完成就好，此外被打擾中斷工作的機會也更少了，整體而言利大於弊，</p>
+<h2 id="互動"><a href="#互動" class="headerlink" title="互動"></a>互動</h2><p>員工之間的會面都是透過線上會議，缺少實體見面的互動，這部分也是見仁見智。有些人不喜歡交流，覺得<br>「上班當同事，下班不認識」是其工作原則，那應該會滿喜歡這種模式的。但是也有人喜歡實體交流，每天吃個一起吃個午餐，聊聊一些工作以外的事情，分享彼此的事情也都是一種生活。</p>
+<p>這部分我就沒有太大意見，有好有壞，偶而還是會透過 slack 與同事聊聊幹話，分享最近的生活，只是少了聲音的互動。</p>
+<h2 id="福利"><a href="#福利" class="headerlink" title="福利"></a>福利</h2><p>遠端工作以後，公司內本來的福利近乎全滅，什麼咖啡，零食，飲料，冰箱內各種飲品，甚至免費午餐等都不再擁有，一切都要依賴自己處理。</p>
+<p>對於一個自住的邊緣人來說，變成每天都要煩惱該怎麼處理今天的飲食，「每餐叫外送，荷包先消瘦」是一個顧慮點，自己煮飯又是一個額外的挑戰，買菜/備料/烹飪/善後四個步驟往往也花費不少時間在處理，如果將這個時間與通勤時間組合起來，未必可以省下時間。</p>
+<p>我個人平常就習慣煮飯，已經練就如何快速料理與一次準備多日便當，所以這個情況比較不會有太大問題。<br>倒是我有聽過朋友因為沒有公司零食的迫害，遠端工作期間被迫減肥，也算是一個附加好處</p>
+<p>一個美好的夢想就是辦公室可以縮編，「公司省租金，員工可加薪」</p>
+<h1 id="美國現況"><a href="#美國現況" class="headerlink" title="美國現況"></a>美國現況</h1><p>疫情以來，各大公司陸陸續續宣布相關的遠端工作政策，而規範的工作日期也隨者疫情的擴散而延後，下面就整理目前我知道部分公司的工作內容，此外政策不一定適用於所有員工，必要性的情況下，部分員工還是要定期前往辦公室。</p>
+<p>Apple: 員工可以遠端工作直到 2021 初期<br>Google: 員工至少可以遠端工作到 2021/07<br>Facebook: 員工至少可以遠端工作到 2021/07<br>Twitter: 員工可以選擇永遠遠端工作<br>Fuhitsu: 員工可以選擇永遠遠端工作<br>Microsfot: 可以遠端工作直到 2021/02<br>Amazon: 員工至少可以遠端工作到 2021/07<br>Netflix: 員工遠端工作直到全面接受疫苗</p>
+<p>此外，也有人對於遠端工作提出了一些負面說詞，譬如 Netflix 董事長則認為遠端工作沒有帶來正面效果，反而使得討論工作更加困難。</p>
+<p>這部分真的就是沒有定案，完全見仁見智，而 Google 最近的<a href="https://twitter.com/lifeatgoogle/status/1308529123984203778/photo/1" target="_blank" rel="noopener">調查</a>則顯示只有 10% 不到的員工想要回到過往天天進辦公室的日子，</p>
+<p>以下節錄自 Google 官方推特<br><img src="https://i.imgur.com/6up8mq8.png" alt></p>
+<p>除了公司本身政策的變動外，居住地遷移最近也是活動頻繁，譬如 Oklahoma 洲則有 <a href="https://tulsaremote.com/" target="_blank" rel="noopener">Tulsa Remote</a> 計畫，向所有遠端工作者提供一萬美元的獎勵，只要你願意搬來這邊即可。 根據報導指出，舊金山的兩房公寓每個月可能略低於四千美金，而 Tusla 則不到一千美金，再租金花費方面可以說是節省不少開銷。</p>
+<h1 id="心得"><a href="#心得" class="headerlink" title="心得"></a>心得</h1><p>就我過去五年的台灣工作經驗，我認為台灣公司要跟進遠端工作政策實屬不易，幾個原因如下</p>
+<ol>
+<li>勞基法規定下，公司都要提出員工上下班出勤時間的紀錄，這部分會用來評估是否有加班超時<br>對於遠端工作者來說，要如何打卡來滿足這些紀錄是一個行政上的問題，而不是技術上的問題<br>更多時候是公司行政團隊願不願意嘗試探討可能性，並嘗試看看</li>
+<li>沒人監督，老闆放不下<br>這種情況下，我認為信任是最基本的基礎，老闆信任員工可以遠端工作依然保持良好效率，員工也真的能夠滿足一定的效率來證明制度可行。過往就有聽過台灣發生過老闆接受遠端工作，結果員工私下兼差來賺錢，最後兩邊信任破壞，一切回歸辦公室制度。</li>
+</ol>
+<h1 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h1><ul>
+<li><a href="https://www.cnbc.com/2019/01/10/vermont-will-pay-you-10000-to-move-there-and-work-remotely---.html" target="_blank" rel="noopener">https://www.cnbc.com/2019/01/10/vermont-will-pay-you-10000-to-move-there-and-work-remotely---.html</a></li>
+<li><a href="https://www.wsj.com/articles/facebook-to-shift-permanently-toward-more-remote-work-after-coronavirus-11590081300" target="_blank" rel="noopener">https://www.wsj.com/articles/facebook-to-shift-permanently-toward-more-remote-work-after-coronavirus-11590081300</a></li>
+<li><a href="https://www.wsj.com/articles/google-to-keep-employees-home-until-summer-2021-amid-coronavirus-pandemic-11595854201" target="_blank" rel="noopener">https://www.wsj.com/articles/google-to-keep-employees-home-until-summer-2021-amid-coronavirus-pandemic-11595854201</a></li>
+<li><a href="https://www.cnn.com/2020/07/27/tech/google-work-from-home-extension/index.html" target="_blank" rel="noopener">https://www.cnn.com/2020/07/27/tech/google-work-from-home-extension/index.html</a></li>
+<li><a href="https://www.bbc.com/news/business-53303364" target="_blank" rel="noopener">https://www.bbc.com/news/business-53303364</a></li>
+<li><a href="https://www.cnbc.com/2020/09/23/google-ceo-sundar-pichai-considering-hybrid-work-from-home-models.html" target="_blank" rel="noopener">https://www.cnbc.com/2020/09/23/google-ceo-sundar-pichai-considering-hybrid-work-from-home-models.html</a></li>
 </ul>
-<p><strong>創造一個更大的zpool來取代</strong></p>
-<ul>
-<li><code>dd if=/dev/zero of=/zfs3 bs=1M count=512</code></li>
-<li><code>dd if=/dev/zero of=/zfs4 bs=1M count=512</code></li>
-<li><code>zpool create ftphome3 mirror /zfs3 /zfs4</code></li>
-<li><code>zfs set compression=gzip-9 ftphome2</code></li>
-</ul>
-<p><strong>把資料複製過去</strong></p>
-<ul>
-<li><code>zfs snapshot ftphome@send</code></li>
-<li><code>zfs send ftphome@send | zfs receive -F ftphome2</code></li>
-<li><code>zfs list</code> 看一下大小是否相同</li>
-</ul>
-<p><strong>mount新的，舊的砍掉</strong></p>
-<ul>
-<li><code>zfs umount ftphome</code></li>
-<li><code>zfs set mountpoint=/home/ftp/ ftphome2</code></li>
-<li><code>zpool destroy ftphome</code></li>
-</ul>
-<p>做到這邊，就算完成了，成功的把本來的資料複製過去。<br>如果想要改變zpool的名稱，可以用<code>export</code>跟<code>import</code>來改名稱。</p>
 
     </div>
 
@@ -353,24 +294,6 @@
     
     
       
-  <div class="popular-posts-header">Related Posts</div>
-  <ul class="popular-posts">
-    <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/mpd5-on-freebsd-100.html" rel="bookmark">mpd5 on FreeBSD 10.0</a></div>
-    </li>
-    <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/pure-ftpd.html" rel="bookmark">Install the FTP server on FreeBSD</a></div>
-    </li>
-    <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/install-freebsd-92r.html" rel="bookmark">Extend freebsd-ufs system</a></div>
-    </li>
-    <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/xwindow-on-freebsd-91r.html" rel="bookmark">X Window  & X WM on FreeBSD 9.1R</a></div>
-    </li>
-    <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/install-news-slave-server-on-freebsd-91r.html" rel="bookmark">Install News server on FreeBSD 9.1R</a></div>
-    </li>
-  </ul>
 
         
 
@@ -404,9 +327,7 @@
 
       <footer class="post-footer">
           <div class="post-tags">
-              <a href="/tags/System/" rel="tag"># System</a>
-              <a href="/tags/FreeBSD/" rel="tag"># FreeBSD</a>
-              <a href="/tags/ZFS/" rel="tag"># ZFS</a>
+              <a href="/tags/life/" rel="tag"># life</a>
           </div>
 
         
@@ -415,13 +336,10 @@
         
     <div class="post-nav">
       <div class="post-nav-item">
-    <a href="/pure-ftpd.html" rel="prev" title="Install the FTP server on FreeBSD">
-      <i class="fa fa-chevron-left"></i> Install the FTP server on FreeBSD
+    <a href="/gitops-book-ch2.html" rel="prev" title="[書本導讀]-什麼是GitOps">
+      <i class="fa fa-chevron-left"></i> [書本導讀]-什麼是GitOps
     </a></div>
-      <div class="post-nav-item">
-    <a href="/floodlights-dijkstra.html" rel="next" title="Floodlight Dijkstra">
-      Floodlight Dijkstra <i class="fa fa-chevron-right"></i>
-    </a></div>
+      <div class="post-nav-item"></div>
     </div>
       </footer>
     
@@ -487,7 +405,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Files"><span class="nav-number">1.</span> <span class="nav-text">Files</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Zpool"><span class="nav-number">2.</span> <span class="nav-text">Zpool</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ZFS-database"><span class="nav-number">3.</span> <span class="nav-text">ZFS database</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#其他"><span class="nav-number">4.</span> <span class="nav-text">其他</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#模擬情況"><span class="nav-number">4.1.</span> <span class="nav-text">模擬情況</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#解決問題"><span class="nav-number">4.2.</span> <span class="nav-text">解決問題</span></a></li></ol></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#個人經驗"><span class="nav-number">1.</span> <span class="nav-text">個人經驗</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#交通"><span class="nav-number">1.1.</span> <span class="nav-text">交通</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#工作"><span class="nav-number">1.2.</span> <span class="nav-text">工作</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#互動"><span class="nav-number">1.3.</span> <span class="nav-text">互動</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#福利"><span class="nav-number">1.4.</span> <span class="nav-text">福利</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#美國現況"><span class="nav-number">2.</span> <span class="nav-text">美國現況</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#心得"><span class="nav-number">3.</span> <span class="nav-text">心得</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Reference"><span class="nav-number">4.</span> <span class="nav-text">Reference</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -672,9 +590,9 @@
 </script>
 <script>
   var disqus_config = function() {
-    this.page.url = "https://www.hwchiu.com/zfs-notes.html";
-    this.page.identifier = "zfs-notes.html";
-    this.page.title = "ZFS 筆記";
+    this.page.url = "https://www.hwchiu.com/covid-wfh.html";
+    this.page.identifier = "covid-wfh.html";
+    this.page.title = "2020 疫情下的矽谷 - 遠端工作的探討";
     this.language = 'en';
     };
   NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
