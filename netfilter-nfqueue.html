@@ -30,7 +30,7 @@
 <meta property="og:locale" content="en">
 <meta property="og:image" content="https://lh3.googleusercontent.com/-zE8ZORw-gM4/Vu7F8Cu-WSI/AAAAAAAAFKk/zVj-3sFOErg8Jrnn0XHOewe5-m5QjmGggCCo/s806-Ic42/without_nfqueue.png">
 <meta property="og:image" content="https://lh3.googleusercontent.com/-timTg7c3jfU/Vu7GBU6s6vI/AAAAAAAAFKo/amgicDdly0EjTI8faCi8D3jg1HSk2vNWwCCo/s1106-Ic42/with_nfqueu.png">
-<meta property="og:updated_time" content="2020-08-31T01:59:56.734Z">
+<meta property="og:updated_time" content="2020-10-16T16:00:26.550Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="NFQUEUE drop UDP packets">
 <meta name="twitter:description" content="Introduction此篇文章用來記錄最近遇到的一個問題，在一個執行 NFQUEUE 的系統上，當一個尚未被 conntrack 紀錄的連續 UDP 封包經過系統且都經過 NFQUEUE 處理後，第二個 UDP 封包都會遺失的問題。 NFQUEUE 一種 Queue，由 netfilter (ipables) 所提供的一種 target，能夠將封包內容藉由 netlink/nmap 送到 use">
@@ -291,7 +291,14 @@
 <li>此問題發生的根本在於 conntrack 的衝突，當 conntrack 的結果已經被 kernel 紀錄的情況下，有第二個封包嘗試將 conntrack 再次存到 kernel 中，此封包就會被丟棄<br>  code:  <a href="https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/tree/net/netfilter/nf_conntrack_core.c?h=linux-3.6.y#n511" target="_blank" rel="noopener">ref</a></li>
 <li>看過 linux 4.4 的程式碼，在 netlink 接收也沒有針對收到的封包去重新處理 conntrack 的問題，我想是 UDP 掉封包是合理的，而 TCP 會自己重傳，所以上層的應用程式不會有感覺。</li>
 </ul>
-
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>組合包<br><a href="https://hiskio.com/packages/D7RZGWrNK" target="_blank" rel="noopener">https://hiskio.com/packages/D7RZGWrNK</a></p>
+<p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
+<p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
     </div>
 
     
@@ -434,7 +441,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Introduction"><span class="nav-number">1.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#NFQUEUE"><span class="nav-number">2.</span> <span class="nav-text">NFQUEUE</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#系統資訊"><span class="nav-number">3.</span> <span class="nav-text">系統資訊</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Problem"><span class="nav-number">4.</span> <span class="nav-text">Problem</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#問題觀察"><span class="nav-number">5.</span> <span class="nav-text">問題觀察</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#若沒有運行-NFQUEUE，為什麼封包正常"><span class="nav-number">6.</span> <span class="nav-text">#若沒有運行 NFQUEUE，為什麼封包正常</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#若運行-NFQUEUE，為什麼封包會丟棄"><span class="nav-number">7.</span> <span class="nav-text">#若運行 NFQUEUE，為什麼封包會丟棄</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#結論"><span class="nav-number">8.</span> <span class="nav-text">#結論</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Introduction"><span class="nav-number">1.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#NFQUEUE"><span class="nav-number">2.</span> <span class="nav-text">NFQUEUE</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#系統資訊"><span class="nav-number">3.</span> <span class="nav-text">系統資訊</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Problem"><span class="nav-number">4.</span> <span class="nav-text">Problem</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#問題觀察"><span class="nav-number">5.</span> <span class="nav-text">問題觀察</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#若沒有運行-NFQUEUE，為什麼封包正常"><span class="nav-number">6.</span> <span class="nav-text">#若沒有運行 NFQUEUE，為什麼封包正常</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#若運行-NFQUEUE，為什麼封包會丟棄"><span class="nav-number">7.</span> <span class="nav-text">#若運行 NFQUEUE，為什麼封包會丟棄</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#結論"><span class="nav-number">8.</span> <span class="nav-text">#結論</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number"></span> <span class="nav-text">個人資訊</span></a></div>
       </div>
       <!--/noindex-->
 
@@ -450,7 +457,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">212</span>
+          <span class="site-state-item-count">211</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>

@@ -35,7 +35,7 @@
 <meta property="og:image" content="http://i.imgur.com/vKFAZp9.jpg">
 <meta property="og:image" content="http://i.imgur.com/1BOxrGE.jpg">
 <meta property="og:image" content="http://i.imgur.com/u42Xgob.jpg">
-<meta property="og:updated_time" content="2020-08-31T01:59:56.733Z">
+<meta property="og:updated_time" content="2020-10-16T16:00:55.945Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="NAT Lookback Introduction">
 <meta name="twitter:description" content="其實網路上關於 NAT Loopback 的文章到處都有，從原理，到如何在Linux實作等網路上各種資源都有，那這篇文章跟網路上的教學又有什麼不同？我唯一能夠貢獻的是 NAT Loopback 關於 Linux Kernel 的問題，在某些情況下，NATLoop Back 會因為 Linux Kernel Network Stack 的關係導致無法運作。當初我遇到這個問題時也是百思不得其解，於 g">
@@ -302,7 +302,14 @@
 <p>可是在當前的網路拓墣中你就是要這個封包去轉發，所以可以觀察到上述程式碼還有一個關鍵點<br><strong>(p-&gt;flags &amp; BR_HAIRPIN_MODE)</strong>，<br>根據這篇 <a href="https://lwn.net/Articles/347344/" target="_blank" rel="noopener">patch</a>, 只要針對 interface 去啟用 <strong>hairpin_mode</strong> 就可以讓封包順利從同個點進出來回了。<br>但是事情依然沒有這樣簡單，這樣完畢後封包的 <strong>IP</strong> 的確都有正確的修改了，但是在 <strong>MAC Address</strong> 的部分有點問題，<strong>Source MAC</strong>沒有如預期的被修改，所以這邊又要依賴另外一個工具 <strong>ebtables</strong> 來進行 MAC 的修改，再者種情況下，封包就可以順利通過了。<br>因此我們的 <strong>Router</strong> 就有三種設定<br>1.打開 <strong>hairpin mode</strong><br>2.執行 <strong>iptables</strong> 的 SNAT/DNAT(改 IP)<br>3.透過 <strong>ebtables</strong> 的 SNAT (改 MAC)</p>
 <p>後來發現網路上也有其他人遇到一樣的問題，該使用者因為沒有辦法針對 <strong>user-space</strong> 去進行修改，所以只能從 <strong>kernel</strong> 內進行一些小部分的修改，希望可以處理這個問題<br>這邊可以參考這個 <a href="http://marc.info/?l=linux-netdev&amp;m=136627779125382&amp;w=2" target="_blank" rel="noopener">patch</a><br>在這個 patch 中，該程式碼會先針對有進行 <strong>DNAT</strong> 的封包進行標記，然後在 <strong>bridge forward</strong> 的過程中，將該封包的 <strong>Source MAC</strong> 進行修改，最後再讓該封包通過往下轉發。</p>
 <h3 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h3><p>其實上述的問題一些家用 <strong>router</strong> 不會遇到的一個原因是 <strong>kernel</strong> 太舊了，就如同該  <a href="http://marc.info/?l=linux-netdev&amp;m=136627779125382&amp;w=2" target="_blank" rel="noopener">patch</a> 所說, 於 <strong>2.6.35</strong> 後的系統就會有這樣的問題存在，有些家用 <strong>router</strong> 的 kernel 還在 2.6.x 然後沒有追上新的，因此剛好逃過此問題。</p>
-
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>組合包<br><a href="https://hiskio.com/packages/D7RZGWrNK" target="_blank" rel="noopener">https://hiskio.com/packages/D7RZGWrNK</a></p>
+<p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
+<p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
     </div>
 
     
@@ -443,7 +450,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#Introduction"><span class="nav-number">1.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#NAT-Loopback"><span class="nav-number">2.</span> <span class="nav-text">NAT Loopback</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Linux-Kernel-trobule-shooting"><span class="nav-number">3.</span> <span class="nav-text">Linux Kernel trobule shooting</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Summary"><span class="nav-number">4.</span> <span class="nav-text">Summary</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#Introduction"><span class="nav-number">1.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#NAT-Loopback"><span class="nav-number">2.</span> <span class="nav-text">NAT Loopback</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Linux-Kernel-trobule-shooting"><span class="nav-number">3.</span> <span class="nav-text">Linux Kernel trobule shooting</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Summary"><span class="nav-number">4.</span> <span class="nav-text">Summary</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number"></span> <span class="nav-text">個人資訊</span></a></div>
       </div>
       <!--/noindex-->
 
@@ -459,7 +466,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">212</span>
+          <span class="site-state-item-count">211</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>

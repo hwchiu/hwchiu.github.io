@@ -30,7 +30,7 @@
 <meta property="og:locale" content="en">
 <meta property="og:image" content="https://i.imgur.com/BFqDVwY.png">
 <meta property="og:image" content="https://i.imgur.com/9KA6I1W.png">
-<meta property="og:updated_time" content="2020-08-31T04:56:11.669Z">
+<meta property="og:updated_time" content="2020-10-16T16:00:47.850Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="[netfilter] Introduction to iptables">
 <meta name="twitter:description" content="透過瞭解 iptables 規則的四大組成 Table/Chian/Match/Target 來學習 iptables 的規則含義，同時透過圖表的方式來釐清封包在 Linux Kernel 傳輸過程中受到 iptables 規則的處理順序。最後會將 iptables 以及 ebtables 兩者的流程圖整合在一起，構建出一個更全面的封包轉送流程圖，於此流程圖中可以觀察到封包在 Routing/Br">
@@ -266,7 +266,7 @@
 <p>這邊再次做個快速的複習</p>
 <ul>
 <li>Table: 相同用途的 <code>rules</code> 會放在相同的 <code>Table</code> 中，常見的有用來當防火牆的 <code>filter</code>，或是修改封包內容的 <code>nat</code>.</li>
-<li>Chain: 封包比對的時間點，不同時間點下能夠進行不同的動作。這意味每個<code>Chain</code> 下能夠搭配的 <code>Table</code> 是有限制的。 </li>
+<li>Chain: 封包比對的時間點，不同時間點下能夠進行不同的動作。這意味每個<code>Chain</code> 下能夠搭配的 <code>Table</code> 是有限制的。</li>
 <li>Match: 每個規則都要描述當前規則希望匹配的封包內容，除了基本的比對欄位外，還可以用各式各樣擴充模組來匹配不同的封包內容。</li>
 <li>Target: 當封包比對成功後，要執行什麼樣的動作，不同於 <code>Match</code> 可比對多個內容，每個規則都只能採用一個 <code>Target</code> 來採取動作。</li>
 </ul>
@@ -287,7 +287,7 @@
 <ol start="6">
 <li><code>security</code>: 這個 <code>table</code> 更少出現，必須伴隨者 <code>SELinux</code> 的使用來提供更多安全相關的功能，主要牽扯到 <strong>Mandatory Access Control (MAC)</strong> 規則以及 <strong>Discretionary Access Control (DAC)</strong> 這兩者的管理，有興趣的可以看看最初的 <a href="https://lwn.net/Articles/267140/" target="_blank" rel="noopener">commit</a>。</li>
 </ol>
-<p>上述裡面，基本上 <code>raw/mangle/security</code> 這三個 <code>table</code> 比較少使用，所以後續會比較著重在 <code>filter/nat</code> 這兩個 <code>table</code> 為主。 </p>
+<p>上述裡面，基本上 <code>raw/mangle/security</code> 這三個 <code>table</code> 比較少使用，所以後續會比較著重在 <code>filter/nat</code> 這兩個 <code>table</code> 為主。</p>
 <h3 id="Chain"><a href="#Chain" class="headerlink" title="Chain"></a>Chain</h3><p><code>Chain</code> 的話，再 <code>ibtables</code> 中總共有五條 <code>chain</code>.</p>
 <ul>
 <li><code>PREROUTING</code>: 這個 <code>Chian</code> 就是其名稱的解讀，<code>Pre-Routing</code>, 再封包進入到 <code>Linux Kernel</code> 後，但是還沒有碰到 <code>Routing Decision</code> 前可以進行的階段。</li>
@@ -297,7 +297,7 @@
 <ul>
 <li><code>INPUT</code>: 如果該封包根據 <code>Routing Decision</code> 後封包是要進入到本機系統，譬如系統上的應用程式，譬如 <code>www server</code>。 則<code>INPUT</code>就是查詢完畢到封包被應用程式接收的中間階段。</li>
 </ul>
-<p>如果今天機器上架設了一個 <code>nginx server</code>, 並且聽再 <code>0.0.0.0:80</code>. 則任何送到該機器網卡上面且連接埠是<code>80</code> 的封包最後都會經過 <code>INPUT chain</code> 來處理。 所以也可以在這邊透過其他的選項丟棄掉不想要連接到 <code>nginx server</code> 的封包。 </p>
+<p>如果今天機器上架設了一個 <code>nginx server</code>, 並且聽再 <code>0.0.0.0:80</code>. 則任何送到該機器網卡上面且連接埠是<code>80</code> 的封包最後都會經過 <code>INPUT chain</code> 來處理。 所以也可以在這邊透過其他的選項丟棄掉不想要連接到 <code>nginx server</code> 的封包。</p>
 <ul>
 <li><code>FORWARD</code>: 如果該封包根據 <code>Routing Decision</code> 後封包是要幫忙轉發。則<code>FORWARD</code>就是查詢完畢到封包要從網卡送出去的中間階段。</li>
 </ul>
@@ -317,7 +317,7 @@
 <p>這邊繼續使用家裡架設的 <code>server/nas</code> 當作範例，因為<code>IP</code>地址不夠的問題，所以內部這些<code>server/nas</code>要出去的封包其<code>來源IP</code>地址必須要修改成對外<code>Router</code>的<code>IP</code>地址。<br>而這個行為我們稱為所謂的 <code>Source Network Address Translation (SNAT)</code>，而這個操作都是在 <code>POSTROUTING</code> 這邊去執行的。</p>
 <h3 id="Match"><a href="#Match" class="headerlink" title="Match"></a>Match</h3><p>在比對的規則來說， <code>iptables</code> 專至於 <code>Layer3</code> 相關的處理，譬如 <code>IP</code> 的來源/目的地址，以及當前封包使用的<code>Layer4</code>協定，譬如<br>tcp, udp, udplite, icmp, esp, ah, sctp。</p>
 <p>此外，除了常見的封包內容外，也可以透過<code>-m</code>這個方式去使用擴充模組來達到更靈活的比對功能。<br>譬如常見的 <code>-m tcp --dport=1234</code> 這個額外的 <code>tcp</code> 模組能夠檢查 <code>TCP</code> 封包裡面的欄位。<br>因為原生的 iptables 只有檢查到所謂的 <code>protocol</code> 協議而已，並沒有再細部的去解析封包內容，因此若需要細緻到該協議的內容，都需要依賴擴充模組來完成。</p>
-<h3 id="Target"><a href="#Target" class="headerlink" title="Target"></a>Target</h3><p>就如同前面所描述的，預設的 <code>Target</code> 其實都會跟對應的 <code>Table</code> 有關，譬如 <code>ACCEPT/DROP</code> 就會在 <code>filter</code> 這些<code>Table</code>. </p>
+<h3 id="Target"><a href="#Target" class="headerlink" title="Target"></a>Target</h3><p>就如同前面所描述的，預設的 <code>Target</code> 其實都會跟對應的 <code>Table</code> 有關，譬如 <code>ACCEPT/DROP</code> 就會在 <code>filter</code> 這些<code>Table</code>.</p>
 <p>再 <code>iptagles</code> 裡面有四個預設的 <code>Target</code></p>
 <ol>
 <li>ACCEPT: 該封包判定通過，直接離開這個 Chain.</li>
@@ -370,7 +370,14 @@
 <li><a href="https://linux.die.net/man/8/ebtables" target="_blank" rel="noopener">ebtables man page</a></li>
 <li><a href="http://ebtables.netfilter.org/br_fw_ia/br_fw_ia.html" target="_blank" rel="noopener">ebtables/iptables interaction on a Linux-based bridge</a></li>
 </ul>
-
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>組合包<br><a href="https://hiskio.com/packages/D7RZGWrNK" target="_blank" rel="noopener">https://hiskio.com/packages/D7RZGWrNK</a></p>
+<p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
+<p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
     </div>
 
     
@@ -512,7 +519,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Introduction"><span class="nav-number">2.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#iptables"><span class="nav-number">3.</span> <span class="nav-text">iptables</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Table"><span class="nav-number">3.1.</span> <span class="nav-text">Table</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Chain"><span class="nav-number">3.2.</span> <span class="nav-text">Chain</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Match"><span class="nav-number">3.3.</span> <span class="nav-text">Match</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Target"><span class="nav-number">3.4.</span> <span class="nav-text">Target</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Summary"><span class="nav-number">3.5.</span> <span class="nav-text">Summary</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Summary-With-Ebtables"><span class="nav-number">4.</span> <span class="nav-text">Summary With Ebtables.</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Layer3"><span class="nav-number">4.1.</span> <span class="nav-text">Layer3</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Layer2"><span class="nav-number">4.2.</span> <span class="nav-text">Layer2</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Application"><span class="nav-number">4.3.</span> <span class="nav-text">Application</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Reference"><span class="nav-number">5.</span> <span class="nav-text">Reference</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Introduction"><span class="nav-number">2.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#iptables"><span class="nav-number">3.</span> <span class="nav-text">iptables</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Table"><span class="nav-number">3.1.</span> <span class="nav-text">Table</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Chain"><span class="nav-number">3.2.</span> <span class="nav-text">Chain</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Match"><span class="nav-number">3.3.</span> <span class="nav-text">Match</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Target"><span class="nav-number">3.4.</span> <span class="nav-text">Target</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Summary"><span class="nav-number">3.5.</span> <span class="nav-text">Summary</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Summary-With-Ebtables"><span class="nav-number">4.</span> <span class="nav-text">Summary With Ebtables.</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Layer3"><span class="nav-number">4.1.</span> <span class="nav-text">Layer3</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Layer2"><span class="nav-number">4.2.</span> <span class="nav-text">Layer2</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Application"><span class="nav-number">4.3.</span> <span class="nav-text">Application</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Reference"><span class="nav-number">5.</span> <span class="nav-text">Reference</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number"></span> <span class="nav-text">個人資訊</span></a></div>
       </div>
       <!--/noindex-->
 
@@ -528,7 +535,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">212</span>
+          <span class="site-state-item-count">211</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>

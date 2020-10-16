@@ -32,7 +32,7 @@
 <meta property="og:image" content="https://i.imgur.com/GymG1h1.png">
 <meta property="og:image" content="https://i.imgur.com/M9aIyuT.png">
 <meta property="og:image" content="https://i.imgur.com/M9aIyuT.png">
-<meta property="og:updated_time" content="2020-08-31T04:42:08.256Z">
+<meta property="og:updated_time" content="2020-10-16T16:07:16.536Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="IPvS 學習手冊(四)">
 <meta name="twitter:description" content="本文作為 IPVS 系列文第四篇，主要是跟大家介紹 IPVS 於 Linux Kernel 內的架構設計，透過理解其設計更可以幫助我們去瞭解 IPVS 與 IPTABLES 的差異，面對諸如此類的探討文章更能夠有足夠的背景去思考與學習">
@@ -287,7 +287,7 @@
 <p>這邊針對整個架構做一個總結</p>
 <ol>
 <li>UserSpace 的工具會透過事先定義好的介面與 Kernel 溝通，而定義該介面的則是 <strong>ip_vs.ko</strong> 這個 Kernel Module</li>
-<li><strong>ip_vs.ko</strong> 做非常多事情，包含了<br> a. 定義封包處理的 function，並且透過 netfilter 框架註冊這些 function. 未來封包在 kernel 內遊走的時候就會被這些 function 處理<br> b. 根據參數設立相關的資料結構，包含有哪些 backend server, 採用哪套 scheduling 演算法<br> c. 根據需求動態載入對應 scheduling 的 kernel module. </li>
+<li><strong>ip_vs.ko</strong> 做非常多事情，包含了<br> a. 定義封包處理的 function，並且透過 netfilter 框架註冊這些 function. 未來封包在 kernel 內遊走的時候就會被這些 function 處理<br> b. 根據參數設立相關的資料結構，包含有哪些 backend server, 採用哪套 scheduling 演算法<br> c. 根據需求動態載入對應 scheduling 的 kernel module.</li>
 </ol>
 <p>接下來我們就會從原始碼的部分稍微看一下 <strong>ip_vs.ko</strong> 這些事情實際上是怎麼實作的</p>
 <h1 id="Source-Code"><a href="#Source-Code" class="headerlink" title="Source Code"></a>Source Code</h1><p>原始碼的部分，基於 Linux Kernel 4.15 為基準去閱讀, 可以從 <strong><a href="https://github.com/torvalds/linux/tree/v4.15/net/netfilter/ipvs" target="_blank" rel="noopener">Github</a></strong> 或是 <strong><a href="https://elixir.bootlin.com/linux/v4.15/source" target="_blank" rel="noopener">LXR</a></strong> 來進行線上閱讀</p>
@@ -330,11 +330,14 @@
 <h1 id="結論"><a href="#結論" class="headerlink" title="結論"></a>結論</h1><p>拖了很久的第四篇 <strong>IPVS</strong> 文章終於寫完，這中間也經歷了一次的線上 Meetup 來濃縮四篇文章的介紹，該次 Meetup 也有<a href="https://www.youtube.com/watch?v=6ZaUIRZ-SO8&amp;t=14s" target="_blank" rel="noopener">線上錄影</a>, 有興趣的也可以觀看</p>
 <div class="video-container"><iframe src="//www.youtube.com/embed/6ZaUIRZ-SO8" frameborder="0" allowfullscreen></iframe></div>
 <p>藉由這四篇文章的學習，讓我對於 IPVS 的概念有更深的理解，同時也更能說出 IPVS 與 IPTABLES 的異同之處，對於相關文章也能夠有更深的背景去探討與思考。</p>
-<h1 id="課程分享"><a href="#課程分享" class="headerlink" title="課程分享"></a>課程分享</h1><p>最後，我目前於 Hiskio 上面有開設一門 Kubernetes 入門篇的課程，裡面會探討運算/網路/儲存三個最重要的平台資源，此外對於 CRI/CNI/CSI 也都有簡單的介紹，主要會基於 <strong>Kubernetes</strong> 本身的設計原理及各資源的用法與情境去介紹。<br>如果本身已經很熟練的使用 Kubernetes 於環境中就不太適合這門課程，主要是給想要踏入到 Kubernetes 世界中的朋友，有興趣的幫忙捧場或推廣</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
 <p>組合包<br><a href="https://hiskio.com/packages/D7RZGWrNK" target="_blank" rel="noopener">https://hiskio.com/packages/D7RZGWrNK</a></p>
 <p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
 <p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
-
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
     </div>
 
     
@@ -476,7 +479,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#環境"><span class="nav-number">2.</span> <span class="nav-text">環境</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Architecture"><span class="nav-number">3.</span> <span class="nav-text">Architecture</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#User-Space"><span class="nav-number">3.1.</span> <span class="nav-text">User Space</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Kernel-Space"><span class="nav-number">3.2.</span> <span class="nav-text">Kernel Space</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Source-Code"><span class="nav-number">4.</span> <span class="nav-text">Source Code</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#載入-Scheduling-Kernel-Module"><span class="nav-number">4.1.</span> <span class="nav-text">載入 Scheduling Kernel Module</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#註冊-Netfilter-Function"><span class="nav-number">4.2.</span> <span class="nav-text">註冊 Netfilter Function</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#IPTABLES-比較"><span class="nav-number">5.</span> <span class="nav-text">IPTABLES 比較</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#IPVS-與-IPTABLES-的取代問題"><span class="nav-number">5.1.</span> <span class="nav-text">IPVS 與 IPTABLES 的取代問題</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#IPVS-除錯不易"><span class="nav-number">5.2.</span> <span class="nav-text">IPVS 除錯不易</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#結論"><span class="nav-number">6.</span> <span class="nav-text">結論</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#課程分享"><span class="nav-number">7.</span> <span class="nav-text">課程分享</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#環境"><span class="nav-number">2.</span> <span class="nav-text">環境</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Architecture"><span class="nav-number">3.</span> <span class="nav-text">Architecture</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#User-Space"><span class="nav-number">3.1.</span> <span class="nav-text">User Space</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Kernel-Space"><span class="nav-number">3.2.</span> <span class="nav-text">Kernel Space</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Source-Code"><span class="nav-number">4.</span> <span class="nav-text">Source Code</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#載入-Scheduling-Kernel-Module"><span class="nav-number">4.1.</span> <span class="nav-text">載入 Scheduling Kernel Module</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#註冊-Netfilter-Function"><span class="nav-number">4.2.</span> <span class="nav-text">註冊 Netfilter Function</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#IPTABLES-比較"><span class="nav-number">5.</span> <span class="nav-text">IPTABLES 比較</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#IPVS-與-IPTABLES-的取代問題"><span class="nav-number">5.1.</span> <span class="nav-text">IPVS 與 IPTABLES 的取代問題</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#IPVS-除錯不易"><span class="nav-number">5.2.</span> <span class="nav-text">IPVS 除錯不易</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#結論"><span class="nav-number">6.</span> <span class="nav-text">結論</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">7.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -492,7 +495,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">212</span>
+          <span class="site-state-item-count">211</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>

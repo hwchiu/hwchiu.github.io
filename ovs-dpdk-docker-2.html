@@ -29,7 +29,7 @@
 <meta property="og:description" content="本文延續前篇文章關於 Docker/OpenvSwitch/DPDK 整合遇到的連線問題，此文章會專注於這個連線問題，從問題發生的原因到如何解決，以及該問題為什麼會在上述的組合中發生都進行一些研究與分析，雖然最後還沒有找到真正造成封包損壞的原因，但是至少也把問題範圍給縮小到 OpenvSwitch/DPDK 上.">
 <meta property="og:locale" content="en">
 <meta property="og:image" content="https://i.imgur.com/d15wsP9.jpg">
-<meta property="og:updated_time" content="2020-08-31T01:59:56.736Z">
+<meta property="og:updated_time" content="2020-10-16T15:56:47.722Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="OVS + DPDK + Docker 共同玩耍(二)">
 <meta name="twitter:description" content="本文延續前篇文章關於 Docker/OpenvSwitch/DPDK 整合遇到的連線問題，此文章會專注於這個連線問題，從問題發生的原因到如何解決，以及該問題為什麼會在上述的組合中發生都進行一些研究與分析，雖然最後還沒有找到真正造成封包損壞的原因，但是至少也把問題範圍給縮小到 OpenvSwitch/DPDK 上.">
@@ -261,7 +261,7 @@
 </ol>
 <p>該團隊最後送了一條 <strong>Patch</strong> 到 <strong>Linux Kernel</strong> 去修正這個問題，修正的方法則是 <strong>veth</strong> 那邊不要去對 <strong>Checksum</strong> 的設定有任何更動</p>
 <p>詳細的 <strong>patch</strong> 內容如下。</p>
-<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">diff — git a/drivers/net/veth.c b/drivers/net/veth.c</span><br><span class="line">index <span class="number">0</span>ef4a5a..ba21d07 <span class="number">100644</span></span><br><span class="line"> — — a/drivers/net/veth.c</span><br><span class="line">+++ b/drivers/net/veth.c</span><br><span class="line">@@ <span class="number">-117</span>,<span class="number">12</span> +<span class="number">117</span>,<span class="number">6</span> @@ <span class="function"><span class="keyword">static</span> <span class="keyword">netdev_tx_t</span> <span class="title">veth_xmit</span><span class="params">(struct sk_buff *skb, struct net_device *dev)</span></span></span><br><span class="line"><span class="function"> <span class="title">kfree_skb</span><span class="params">(skb)</span></span>;</span><br><span class="line"> <span class="keyword">goto</span> drop;</span><br><span class="line"> &#125;</span><br><span class="line">- <span class="comment">/* don’t change ip_summed == CHECKSUM_PARTIAL, as that</span></span><br><span class="line"><span class="comment">- * will cause bad checksum on forwarded packets</span></span><br><span class="line"><span class="comment">- */</span></span><br><span class="line">- <span class="keyword">if</span> (skb-&gt;ip_summed == CHECKSUM_NONE &amp;&amp;</span><br><span class="line">- rcv-&gt;features &amp; NETIF_F_RXCSUM)</span><br><span class="line">- skb-&gt;ip_summed = CHECKSUM_UNNECESSARY;</span><br><span class="line"> </span><br><span class="line"> <span class="keyword">if</span> (likely(dev_forward_skb(rcv, skb) == NET_RX_SUCCESS)) &#123;</span><br><span class="line"> <span class="class"><span class="keyword">struct</span> <span class="title">pcpu_vstats</span> *<span class="title">stats</span> = <span class="title">this_cpu_ptr</span>(<span class="title">dev</span>-&gt;<span class="title">vstats</span>);</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">diff — git a/drivers/net/veth.c b/drivers/net/veth.c</span><br><span class="line">index <span class="number">0</span>ef4a5a..ba21d07 <span class="number">100644</span></span><br><span class="line"> — — a/drivers/net/veth.c</span><br><span class="line">+++ b/drivers/net/veth.c</span><br><span class="line">@@ <span class="number">-117</span>,<span class="number">12</span> +<span class="number">117</span>,<span class="number">6</span> @@ <span class="function"><span class="keyword">static</span> <span class="keyword">netdev_tx_t</span> <span class="title">veth_xmit</span><span class="params">(struct sk_buff *skb, struct net_device *dev)</span></span></span><br><span class="line"><span class="function"> <span class="title">kfree_skb</span><span class="params">(skb)</span></span>;</span><br><span class="line"> <span class="keyword">goto</span> drop;</span><br><span class="line"> &#125;</span><br><span class="line">- <span class="comment">/* don’t change ip_summed == CHECKSUM_PARTIAL, as that</span></span><br><span class="line"><span class="comment">- * will cause bad checksum on forwarded packets</span></span><br><span class="line"><span class="comment">- */</span></span><br><span class="line">- <span class="keyword">if</span> (skb-&gt;ip_summed == CHECKSUM_NONE &amp;&amp;</span><br><span class="line">- rcv-&gt;features &amp; NETIF_F_RXCSUM)</span><br><span class="line">- skb-&gt;ip_summed = CHECKSUM_UNNECESSARY;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">if</span> (likely(dev_forward_skb(rcv, skb) == NET_RX_SUCCESS)) &#123;</span><br><span class="line"> <span class="class"><span class="keyword">struct</span> <span class="title">pcpu_vstats</span> *<span class="title">stats</span> = <span class="title">this_cpu_ptr</span>(<span class="title">dev</span>-&gt;<span class="title">vstats</span>);</span></span><br></pre></td></tr></table></figure>
 <h1 id="Study"><a href="#Study" class="headerlink" title="Study"></a>Study</h1><p>再探討完畢 <strong>veth</strong> 的問題後，要如何與我之前的問題給整合？<br>首先, 根據上述文章的說明，該 <strong>Patch</strong> 只有 <strong>backport</strong> 回到 <strong>Linux 3.14</strong>, 而我的測試環境是 <strong>Linux Kernel 3.10</strong>，所以這意味者我的系統上並沒有上述的 <strong>Patch</strong>, 因此 <strong>veth</strong> 是有問題的。</p>
 <p>確認 <strong>veth</strong> 有問題後，接下來就要確認為什麼 <strong>TCP</strong> 封包本身會有損毀，因為若沒有損毀的話，其實 <strong>veth</strong> 這邊的邏輯是不會造成封包有任何問題的。</p>
 <p>根據我的測試結果，Linux Bridge/OVS Kernl Datapath/OVS Userspace Datapath 三種 <code>software switch</code> 中只有 <strong>OVS Userspace</strong> 會造成問題，因此我猜測是 <strong>OVS Userspace</strong> 會造成 <strong>TCP</strong> 封包的 <strong>CheckSum</strong> 出錯。</p>
@@ -279,7 +279,14 @@
 <li><strong>OVS</strong> 的問題使得 TCP 封包出現錯誤</li>
 </ol>
 <p>基本上到這邊已經大致上找出問題點了，最後一步驟就是翻進 <strong>OVS</strong> 的程式碼內，找出對應的錯誤，若沒有時間找出來，就發一個 issue 到官方去詢問好了。</p>
-
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>組合包<br><a href="https://hiskio.com/packages/D7RZGWrNK" target="_blank" rel="noopener">https://hiskio.com/packages/D7RZGWrNK</a></p>
+<p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
+<p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
     </div>
 
     
@@ -422,7 +429,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Problems"><span class="nav-number">2.</span> <span class="nav-text">Problems</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Study"><span class="nav-number">3.</span> <span class="nav-text">Study</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Problems"><span class="nav-number">2.</span> <span class="nav-text">Problems</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Study"><span class="nav-number">3.</span> <span class="nav-text">Study</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">4.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -438,7 +445,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">212</span>
+          <span class="site-state-item-count">211</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>

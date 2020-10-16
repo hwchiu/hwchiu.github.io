@@ -29,7 +29,7 @@
 <meta property="og:description" content="本文作為 IPVS 系列文第一篇，主要跟大家粗略的介紹 IPVS 的概念以及相關用法，接下來會再仔細的探討一些更深層的概念，譬如實作細節以及一些使用技巧，最後再看看 Kubernetess 是如何與之互動的">
 <meta property="og:locale" content="en">
 <meta property="og:image" content="https://i.imgur.com/na7lY3q.png">
-<meta property="og:updated_time" content="2020-08-31T01:59:56.725Z">
+<meta property="og:updated_time" content="2020-10-16T16:07:34.399Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="IPvS 學習手冊(一)">
 <meta name="twitter:description" content="本文作為 IPVS 系列文第一篇，主要跟大家粗略的介紹 IPVS 的概念以及相關用法，接下來會再仔細的探討一些更深層的概念，譬如實作細節以及一些使用技巧，最後再看看 Kubernetess 是如何與之互動的">
@@ -304,10 +304,14 @@
 <p>這時候再次觀察比例，會發現 <strong>B</strong> 明顯比 <strong>A</strong> 還要更多</p>
 <h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>本文透過一個非常簡單也非常簡略的方式去介紹 <strong>IPVS</strong> 的用途以及用法，實際上背後還有很多原理需要理解，包含 <strong>Director</strong> 如何跟 <strong>Real Server</strong> 溝通，不同的 <strong>Load Balancing</strong>演算法, 底層如何實現以及要如何跟 <strong>Kubernetes</strong> 整合。</p>
 <p>接下來的文章會嘗試一一解答上述的問題</p>
-<h1 id="課程分享"><a href="#課程分享" class="headerlink" title="課程分享"></a>課程分享</h1><p>最後，我目前於 Hiskio 上面有開設一門 Kubernetes 入門篇的課程，裡面會探討運算/網路/儲存三個最重要的平台資源，此外對於 CRI/CNI/CSI 也都有簡單的介紹，主要會基於 <strong>Kubernetes</strong> 本身的設計原理及各資源的用法與情境去介紹。<br>如果本身已經很熟練的使用 Kubernetes 於環境中就不太適合這門課程，主要是給想要踏入到 Kubernetes 世界中的朋友，有興趣的幫忙捧場或推廣</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
 <p>組合包<br><a href="https://hiskio.com/packages/D7RZGWrNK" target="_blank" rel="noopener">https://hiskio.com/packages/D7RZGWrNK</a></p>
 <p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
 <p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<p><script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script></p>
 <h2 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h2><ul>
 <li><a href="http://www.linuxvirtualserver.org/Joseph.Mack/linuxexpo99/linuxexpo2.html" target="_blank" rel="noopener">http://www.linuxvirtualserver.org/Joseph.Mack/linuxexpo99/linuxexpo2.html</a></li>
 </ul>
@@ -452,7 +456,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Introduction"><span class="nav-number">2.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Architecture"><span class="nav-number">3.</span> <span class="nav-text">Architecture</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Usage"><span class="nav-number">4.</span> <span class="nav-text">Usage</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#創建-Virtual-Service"><span class="nav-number">4.1.</span> <span class="nav-text">創建 Virtual Service</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Experiment"><span class="nav-number">5.</span> <span class="nav-text">Experiment</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">6.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#課程分享"><span class="nav-number">7.</span> <span class="nav-text">課程分享</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Reference"><span class="nav-number">7.1.</span> <span class="nav-text">Reference</span></a></li></ol></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Introduction"><span class="nav-number">2.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Architecture"><span class="nav-number">3.</span> <span class="nav-text">Architecture</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Usage"><span class="nav-number">4.</span> <span class="nav-text">Usage</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#創建-Virtual-Service"><span class="nav-number">4.1.</span> <span class="nav-text">創建 Virtual Service</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Experiment"><span class="nav-number">5.</span> <span class="nav-text">Experiment</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">6.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">7.</span> <span class="nav-text">個人資訊</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Reference"><span class="nav-number">7.1.</span> <span class="nav-text">Reference</span></a></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -468,7 +472,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">212</span>
+          <span class="site-state-item-count">211</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>

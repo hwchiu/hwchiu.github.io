@@ -32,7 +32,7 @@
 <meta property="og:image" content="http://i.imgur.com/nDNFI3L.png">
 <meta property="og:image" content="http://i.imgur.com/Fm3Coea.png">
 <meta property="og:image" content="http://i.imgur.com/Scvj1Hp.png">
-<meta property="og:updated_time" content="2020-08-31T01:59:56.735Z">
+<meta property="og:updated_time" content="2020-10-16T15:59:10.546Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Understanding the OpenvSwitch Bonding">
 <meta name="twitter:description" content="這篇文章要跟大家分享在 OpenvSwitch 裡面內建的 Bonding 模式，相對於傳統 Linux Kernel 自帶的六種模式，OpenvSwitch 只有提供三種模式。這三種模式的用途以及分配的方式都完全不同，完全取決於使用者本身的環境需求，來判斷自行的環境需要採用哪種模式，有單純的 Active-backup 模式，也有 Active-Active 的模式。再 Active-Activ">
@@ -255,12 +255,12 @@
 </ul>
 <h2 id="Active-backup"><a href="#Active-backup" class="headerlink" title="Active-backup"></a>Active-backup</h2><p>這種 mode 的用途主要在於穩定，平常只會使用 bonding 中的其中一條 link 進行傳輸，當該 link down 時，會馬上切換到其他 link 繼續傳輸。本質上沒有辦法提升 throughput。</p>
 <h2 id="Balance-slb"><a href="#Balance-slb" class="headerlink" title="Balance-slb"></a>Balance-slb</h2><p>這種 mode 的 hash 方式是根據封包的 source MAC + vlan tag來處理，可以參考此篇<a href="http://openvswitch.org/pipermail/dev/2011-July/010028.html" target="_blank" rel="noopener">文章</a>有更詳細的說明</p>
-<h2 id="Balance-tcp"><a href="#Balance-tcp" class="headerlink" title="Balance-tcp"></a>Balance-tcp</h2><p>這種 mode 的 hash 是根據封包的 L2/L3/L4 header 來處理的，所以每條 connection 可能會走不同的 link 出去，但是相同 connection 則會一直固定以避免發生 out of order 之類的事情。 </p>
+<h2 id="Balance-tcp"><a href="#Balance-tcp" class="headerlink" title="Balance-tcp"></a>Balance-tcp</h2><p>這種 mode 的 hash 是根據封包的 L2/L3/L4 header 來處理的，所以每條 connection 可能會走不同的 link 出去，但是相同 connection 則會一直固定以避免發生 out of order 之類的事情。</p>
 <p>註: 如果使用 linux 本身的 round-robin bonding 則可以讓一條 connction 走不同的 link，兩條 1G 的link大概可以衝到 1.5G左右</p>
 <p>對於 Balance-slb 以及 Balance-tcp 來說，這邊還能夠再增加是否要開啟 LACP (802.3ad) 的設定。<br>當開啟 LACP 後，會使用 balance-slb 或是 balance-tcp 的 hash method 當作其分配封包的方式。<br>唯一要注意的是 balance-tcp 一定要搭配 LACP 才可以使用。</p>
 <h2 id="Commands"><a href="#Commands" class="headerlink" title="Commands"></a>Commands</h2><h3 id="創造-bonding"><a href="#創造-bonding" class="headerlink" title="創造 bonding"></a>創造 bonding</h3><ul>
 <li>ovs-vsctl add-br my_test</li>
-<li>ovs-vsctl add-bond my_test bond0 eth0 eth1 eth2 </li>
+<li>ovs-vsctl add-bond my_test bond0 eth0 eth1 eth2</li>
 </ul>
 <p>此指令會在 my_test 此 bridge 上面創造一個 bonding interface <em>bond0</em>，此 bonding interface 會將 eth0, eth1, eth2 給綁起來</p>
 <h3 id="改變-bonding-mode"><a href="#改變-bonding-mode" class="headerlink" title="改變 bonding mode"></a>改變 bonding mode</h3><p>預設的 bonding mode 是 active-back，可以再創造的時候設定或是之後再改變</p>
@@ -295,7 +295,7 @@
 </ul>
 </li>
 <li>RX 測試<ul>
-<li>linux PC 跑 iperf server <ul>
+<li>linux PC 跑 iperf server<ul>
 <li>windows PC 分別跑 iperf client，分別用 iperf -P4 去連接 linux PC</li>
 </ul>
 </li>
@@ -330,7 +330,7 @@
 <li>RX 測試<ul>
 <li>windows PC 分別跑 iperf client (-P4)<ul>
 <li>NS 分別跑 iperf server</li>
-<li>一個 NS 對應一個 Windows PC  </li>
+<li>一個 NS 對應一個 Windows PC</li>
 </ul>
 </li>
 </ul>
@@ -353,7 +353,14 @@
 <h2 id="其他"><a href="#其他" class="headerlink" title="其他"></a>其他</h2><ul>
 <li>流量的觀察方式是在 linux PC 上面透過 /proc/net/dev 週期性觀察兩張 slave interface 的 TX/RX counter計算得知，週期性為一秒。</li>
 </ul>
-
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>組合包<br><a href="https://hiskio.com/packages/D7RZGWrNK" target="_blank" rel="noopener">https://hiskio.com/packages/D7RZGWrNK</a></p>
+<p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
+<p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
     </div>
 
     
@@ -496,7 +503,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Active-backup"><span class="nav-number">1.1.</span> <span class="nav-text">Active-backup</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Balance-slb"><span class="nav-number">1.2.</span> <span class="nav-text">Balance-slb</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Balance-tcp"><span class="nav-number">1.3.</span> <span class="nav-text">Balance-tcp</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Commands"><span class="nav-number">1.4.</span> <span class="nav-text">Commands</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#創造-bonding"><span class="nav-number">1.4.1.</span> <span class="nav-text">創造 bonding</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#改變-bonding-mode"><span class="nav-number">1.4.2.</span> <span class="nav-text">改變 bonding mode</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#看-bonding-相關資訊"><span class="nav-number">1.4.3.</span> <span class="nav-text">看 bonding 相關資訊</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Testing"><span class="nav-number">1.5.</span> <span class="nav-text">Testing</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#測試配備如下"><span class="nav-number">1.5.1.</span> <span class="nav-text">測試配備如下</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#測試拓樸一"><span class="nav-number">1.5.2.</span> <span class="nav-text">測試拓樸一</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#測試拓樸二"><span class="nav-number">1.5.3.</span> <span class="nav-text">測試拓樸二</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#個人心得"><span class="nav-number">1.6.</span> <span class="nav-text">個人心得</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#其他"><span class="nav-number">1.7.</span> <span class="nav-text">其他</span></a></li></ol></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Active-backup"><span class="nav-number">1.1.</span> <span class="nav-text">Active-backup</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Balance-slb"><span class="nav-number">1.2.</span> <span class="nav-text">Balance-slb</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Balance-tcp"><span class="nav-number">1.3.</span> <span class="nav-text">Balance-tcp</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Commands"><span class="nav-number">1.4.</span> <span class="nav-text">Commands</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#創造-bonding"><span class="nav-number">1.4.1.</span> <span class="nav-text">創造 bonding</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#改變-bonding-mode"><span class="nav-number">1.4.2.</span> <span class="nav-text">改變 bonding mode</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#看-bonding-相關資訊"><span class="nav-number">1.4.3.</span> <span class="nav-text">看 bonding 相關資訊</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Testing"><span class="nav-number">1.5.</span> <span class="nav-text">Testing</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#測試配備如下"><span class="nav-number">1.5.1.</span> <span class="nav-text">測試配備如下</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#測試拓樸一"><span class="nav-number">1.5.2.</span> <span class="nav-text">測試拓樸一</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#測試拓樸二"><span class="nav-number">1.5.3.</span> <span class="nav-text">測試拓樸二</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#個人心得"><span class="nav-number">1.6.</span> <span class="nav-text">個人心得</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#其他"><span class="nav-number">1.7.</span> <span class="nav-text">其他</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">2.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -512,7 +519,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">212</span>
+          <span class="site-state-item-count">211</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>

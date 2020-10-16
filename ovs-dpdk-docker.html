@@ -35,7 +35,7 @@
 <meta property="og:image" content="https://i.imgur.com/Ue15uf7.png">
 <meta property="og:image" content="https://i.imgur.com/fYe9AT9.png">
 <meta property="og:image" content="https://i.imgur.com/72or38f.png">
-<meta property="og:updated_time" content="2020-08-31T01:59:56.736Z">
+<meta property="og:updated_time" content="2020-10-16T15:56:44.984Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="OVS + DPDK + Docker 共同玩耍">
 <meta name="twitter:description" content="本文介紹了一種將 Contaienr 創建於 OpenvSwitch 與 DPDK 整合的網路拓墣下所遇到的連線問題。開頭先闡述了拓墣架構以及相關的軟體版本，接者介紹是如何搭建起整個測試環境，並且在測試環境中遇到了網路連線的問題，眾多的測試組合中，卻只有一種組合能夠正常的在 Container 間建立起能夠傳輸的 TCP 連線。最後透過 AB 測試的方法歸納出一些會造成問題出現的環境。">
@@ -289,7 +289,14 @@
 <li><a href="https://github.com/openvswitch/ovs/commit/8a9562d21a40c765a8ae6775a070cb279cb2147a#diff-c43dadca1fdb46e2bf2e3f928a8529fbR77" target="_blank" rel="noopener">First release of netdev-dpdk</a></li>
 <li><a href="https://stackoverflow.com/questions/45167203/connection-issue-between-docker-container-and-other-machine" target="_blank" rel="noopener">connection-issue-between-docker-container-and-other-machine</a></li>
 </ul>
-
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>組合包<br><a href="https://hiskio.com/packages/D7RZGWrNK" target="_blank" rel="noopener">https://hiskio.com/packages/D7RZGWrNK</a></p>
+<p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
+<p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
     </div>
 
     
@@ -434,7 +441,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Topology"><span class="nav-number">2.</span> <span class="nav-text">Topology</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Scripts"><span class="nav-number">3.</span> <span class="nav-text">Scripts</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Topology"><span class="nav-number">2.</span> <span class="nav-text">Topology</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Scripts"><span class="nav-number">3.</span> <span class="nav-text">Scripts</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">4.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -450,7 +457,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">212</span>
+          <span class="site-state-item-count">211</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>

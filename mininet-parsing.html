@@ -34,7 +34,7 @@
 <meta property="og:image" content="https://lh4.googleusercontent.com/scsBAIEpo5-gO1k9tVPNTPHr-d7Q-Q3dgEm_nqhodYk=w804-h419-no">
 <meta property="og:image" content="https://lh6.googleusercontent.com/-oMP0TN5dms4/U_NZpcJaNuI/AAAAAAAABoI/O_zxCNeI27Y/w804-h419-no/Figure5.png">
 <meta property="og:image" content="https://lh5.googleusercontent.com/xn1vz7MvkXaGuCw3Dd_DYiHJ1nSZ992W_cZ6i-s7rmE=w804-h419-no">
-<meta property="og:updated_time" content="2020-08-31T01:59:56.732Z">
+<meta property="og:updated_time" content="2020-10-16T16:01:06.526Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Mininet 運作原理">
 <meta name="twitter:description" content="Introduction 此篇文章的目標是用來釐清mininet是如何emulate網路中的host、switch以及link 主要以圖解、指令與mininet實際中的程式碼來描述所有的行為 Mininet version: 2.1.0p1 Mininet目前是採用network namespaces來達到network isolation的功能，可以參考這邊的說明 底下會描述要如何在系統中仿真出">
@@ -290,7 +290,7 @@
 <p>在switch創立後，會透過<strong>start</strong>此function來進行相關初始化的動作，以OVSSwitch為例，就會執行一系列我們所熟悉的<strong>ovs-*</strong>指令，如下。<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">start</span><span class="params">( self, controllers )</span>:</span></span><br><span class="line">    <span class="string">"Start up a new OVS OpenFlow switch using ovs-vsctl"</span></span><br><span class="line">    <span class="keyword">if</span> self.inNamespace:</span><br><span class="line">        <span class="keyword">raise</span> Exception(</span><br><span class="line">            <span class="string">'OVS kernel switch does not work in a namespace'</span> )</span><br><span class="line">    <span class="comment"># We should probably call config instead, but this</span></span><br><span class="line">    <span class="comment"># requires some rethinking...</span></span><br><span class="line">    self.cmd( <span class="string">'ifconfig lo up'</span> )</span><br><span class="line">    <span class="comment"># Annoyingly, --if-exists option seems not to work</span></span><br><span class="line">    self.cmd( <span class="string">'ovs-vsctl del-br'</span>, self )</span><br><span class="line">    self.cmd( <span class="string">'ovs-vsctl add-br'</span>, self )</span><br><span class="line">    <span class="keyword">if</span> self.datapath == <span class="string">'user'</span>:</span><br><span class="line">        self.cmd( <span class="string">'ovs-vsctl set bridge'</span>, self,<span class="string">'datapath_type=netdev'</span> )</span><br><span class="line">    int( self.dpid, <span class="number">16</span> ) <span class="comment"># DPID must be a hex string</span></span><br><span class="line">    self.cmd( <span class="string">'ovs-vsctl -- set Bridge'</span>, self,</span><br><span class="line">              <span class="string">'other_config:datapath-id='</span> + self.dpid )</span><br><span class="line">    self.cmd( <span class="string">'ovs-vsctl set-fail-mode'</span>, self, self.failMode )</span><br><span class="line">    <span class="keyword">for</span> intf <span class="keyword">in</span> self.intfList():</span><br><span class="line">        <span class="keyword">if</span> <span class="keyword">not</span> intf.IP():</span><br><span class="line">            self.attach( intf )</span><br><span class="line">    <span class="comment"># Add controllers</span></span><br><span class="line">    clist = <span class="string">' '</span>.join( [ <span class="string">'tcp:%s:%d'</span> % ( c.IP(), c.port )</span><br><span class="line">                        <span class="keyword">for</span> c <span class="keyword">in</span> controllers ] )</span><br><span class="line">    <span class="keyword">if</span> self.listenPort:</span><br><span class="line">        clist += <span class="string">' ptcp:%s'</span> % self.listenPort</span><br><span class="line">    self.cmd( <span class="string">'ovs-vsctl set-controller'</span>, self, clist )</span><br><span class="line">    <span class="comment"># Reconnect quickly to controllers (1s vs. 15s max_backoff)</span></span><br><span class="line">    <span class="keyword">for</span> uuid <span class="keyword">in</span> self.controllerUUIDs():</span><br><span class="line">        <span class="keyword">if</span> uuid.count( <span class="string">'-'</span> ) != <span class="number">4</span>:</span><br><span class="line">            <span class="comment"># Doesn't look like a UUID</span></span><br><span class="line">            <span class="keyword">continue</span></span><br><span class="line">        uuid = uuid.strip()</span><br><span class="line">        self.cmd( <span class="string">'ovs-vsctl set Controller'</span>, uuid,</span><br><span class="line">                  <span class="string">'max_backoff=1000'</span> )</span><br></pre></td></tr></table></figure></p>
 <p>在此程式中會去進行</p>
 <ol>
-<li>設定bridge </li>
+<li>設定bridge</li>
 <li>設定datapath_type</li>
 <li>設定fail-mode</li>
 <li>設定controller</li>
@@ -316,7 +316,14 @@
 </ul>
 <p>這三個指令最後都會呼叫到<strong>sendCmd</strong>來處理，此函式會利用先前執行<code>mnexec</code>得到的<strong>stdin</strong>,<strong>stout</strong>來與底下的host交換訊息。</p>
 <p>以上就是一個<code>mininet</code>如何創造一個拓樸的簡單流程，有滿多細節都省略掉的，只挑重要的指令來看，來瞭解是如何透過系統指令來完成這些拓樸的。</p>
-
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>組合包<br><a href="https://hiskio.com/packages/D7RZGWrNK" target="_blank" rel="noopener">https://hiskio.com/packages/D7RZGWrNK</a></p>
+<p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
+<p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
     </div>
 
     
@@ -459,7 +466,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Introduction"><span class="nav-number">1.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Steps"><span class="nav-number">2.</span> <span class="nav-text">Steps</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#mnexec"><span class="nav-number">2.1.</span> <span class="nav-text">mnexec</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#最後"><span class="nav-number">3.</span> <span class="nav-text">最後</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Introduction"><span class="nav-number">1.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Steps"><span class="nav-number">2.</span> <span class="nav-text">Steps</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#mnexec"><span class="nav-number">2.1.</span> <span class="nav-text">mnexec</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#最後"><span class="nav-number">3.</span> <span class="nav-text">最後</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number"></span> <span class="nav-text">個人資訊</span></a></div>
       </div>
       <!--/noindex-->
 
@@ -475,7 +482,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">212</span>
+          <span class="site-state-item-count">211</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>

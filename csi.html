@@ -28,7 +28,7 @@
 <meta property="og:site_name" content="Hwchiu Learning Note">
 <meta property="og:description" content="本文開始又是嶄新的一篇，開始探討也是非常重要的儲存資源，儲存方面也有相關的標準再發展，其目的與 CRI 以及 CNI 一致，都是希望透過標準化接口能夠使得第三方的解決方案開發更加活絡且流暢，本文會開始來介紹儲存方面的基本概念以及為什麼需要 Container Storage Interface">
 <meta property="og:locale" content="en">
-<meta property="og:updated_time" content="2020-09-12T18:56:55.532Z">
+<meta property="og:updated_time" content="2020-10-16T16:09:44.179Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Container Storage Interface 基本介紹">
 <meta name="twitter:description" content="本文開始又是嶄新的一篇，開始探討也是非常重要的儲存資源，儲存方面也有相關的標準再發展，其目的與 CRI 以及 CNI 一致，都是希望透過標準化接口能夠使得第三方的解決方案開發更加活絡且流暢，本文會開始來介紹儲存方面的基本概念以及為什麼需要 Container Storage Interface">
@@ -251,7 +251,7 @@
 <li>LLVM/RAID/RAID2.0 等相關議題的討論，能夠容錯多少硬碟，能夠多快修復?</li>
 <li>RWO 讀寫的限制，可否同時多重讀寫或是只能單一處理?</li>
 <li>介面的選擇，是更底層的 Block Device 還是上層已經包裝可以使用的檔案系統路徑?</li>
-<li>異地備援? 本地備援? </li>
+<li>異地備援? 本地備援?</li>
 <li>儲存服務本身有沒有HA的機制，有沒有SLA的保障?</li>
 <li>…等</li>
 </ol>
@@ -284,66 +284,12 @@
 <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">nfs-in-a-pod</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">app</span></span><br><span class="line">      <span class="attr">image:</span> <span class="string">alpine</span></span><br><span class="line">      <span class="attr">volumeMounts:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">nfs-volume</span></span><br><span class="line">          <span class="attr">mountPath:</span> <span class="string">/var/nfs</span> <span class="comment"># Please change the destination you like the share to be mounted too</span></span><br><span class="line">      <span class="attr">command:</span> <span class="string">["/bin/sh"]</span></span><br><span class="line">      <span class="attr">args:</span> <span class="string">["-c",</span> <span class="string">"sleep 500000"</span><span class="string">]</span></span><br><span class="line">  <span class="attr">volumes:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">nfs-volume</span></span><br><span class="line">      <span class="attr">nfs:</span></span><br><span class="line">        <span class="attr">server:</span> <span class="string">nfs.example.com</span> <span class="comment"># Please change this to your NFS server</span></span><br><span class="line">        <span class="attr">path:</span> <span class="string">/share1</span> <span class="comment"># Please change this to the relevant share</span></span><br></pre></td></tr></table></figure>
 <p>從上述的 <strong>yaml</strong> 中可以看到直接描述使用 <strong>NFS</strong> 的結構，並且因為 <strong>NFS</strong> 需要的參數有兩個，因此也需要於 <strong>yaml</strong> 去描述這兩個參數。</p>
 <p>這個用法非常的綁死，實際上這些 <strong>yaml</strong> 的解讀都是依賴 <strong>kubernetes</strong> 本身去處理，所以其本身關於 <strong>volume</strong> 的資料結構中就包含了 <strong>NFS</strong> 的欄位，以及相關的參數，這種情況對於 <strong>NFS</strong> 來說有任何修改增減，都必須要修改 <strong>kubernetes</strong> 原始碼，也是所謂的 <strong>in-tree</strong> 架構造成的困境。</p>
-<p>如果改善成 <strong>CSI</strong> 之後，整個應用會變成怎麼樣？</p>
-<pre><code class="yaml=">apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: data-nfsplugin
-  labels:
-    name: data-nfsplugin
-spec:
-  accessModes:
-  - ReadWriteMany
-  capacity:
-    storage: 100Gi
-  csi:
-    driver: csi-nfsplugin
-    volumeHandle: data-id
-    volumeAttributes: 
-      server: 127.0.0.1
-      share: /export
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: data-nfsplugin
-spec:
-  accessModes:
-  - ReadWriteMany
-  resources:
-    requests:
-      storage: 100Gi
-  selector:
-    matchExpressions:
-    - key: name
-      operator: In
-      values: [&quot;data-nfsplugin&quot;]
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: nginx 
-spec:
-  containers:
-  - image: maersk/nginx
-    imagePullPolicy: Always
-    name: nginx
-    ports:
-    - containerPort: 80
-      protocol: TCP
-    volumeMounts:
-      - mountPath: /var/www
-        name: data-nfsplugin 
-  volumes:
-  - name: data-nfsplugin
-    persistentVolumeClaim:
-      claimName: data-nfsplugin 
-</code></pre>
+<p>如果改善成 <strong>CSI</strong> 之後，整個應用會變成怎麼樣？<br><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">PersistentVolume</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">data-nfsplugin</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">data-nfsplugin</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">accessModes:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">ReadWriteMany</span></span><br><span class="line">  <span class="attr">capacity:</span></span><br><span class="line">    <span class="attr">storage:</span> <span class="string">100Gi</span></span><br><span class="line">  <span class="attr">csi:</span></span><br><span class="line">    <span class="attr">driver:</span> <span class="string">csi-nfsplugin</span></span><br><span class="line">    <span class="attr">volumeHandle:</span> <span class="string">data-id</span></span><br><span class="line">    <span class="attr">volumeAttributes:</span></span><br><span class="line">      <span class="attr">server:</span> <span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span></span><br><span class="line">      <span class="attr">share:</span> <span class="string">/export</span></span><br><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">PersistentVolumeClaim</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">data-nfsplugin</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">accessModes:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">ReadWriteMany</span></span><br><span class="line">  <span class="attr">resources:</span></span><br><span class="line">    <span class="attr">requests:</span></span><br><span class="line">      <span class="attr">storage:</span> <span class="string">100Gi</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchExpressions:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">name</span></span><br><span class="line">      <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">      <span class="attr">values:</span> <span class="string">["data-nfsplugin"]</span></span><br><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">nginx</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">image:</span> <span class="string">maersk/nginx</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">Always</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">nginx</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">containerPort:</span> <span class="number">80</span></span><br><span class="line">      <span class="attr">protocol:</span> <span class="string">TCP</span></span><br><span class="line">    <span class="attr">volumeMounts:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">mountPath:</span> <span class="string">/var/www</span></span><br><span class="line">        <span class="attr">name:</span> <span class="string">data-nfsplugin</span></span><br><span class="line">  <span class="attr">volumes:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">data-nfsplugin</span></span><br><span class="line">    <span class="attr">persistentVolumeClaim:</span></span><br><span class="line">      <span class="attr">claimName:</span> <span class="string">data-nfsplugin</span></span><br></pre></td></tr></table></figure></p>
 <p>可以看到這個範例中，不再使用 <strong>NFS</strong> 的關鍵字，而是採用了 <strong>CSI</strong> 這個關鍵字，並且於其中描述了幾個資訊</p>
 <ol>
 <li>driver:<br>類似 <strong>CNI</strong> 設定檔案中的 <strong>type</strong>，描述要用哪個對應的 driver 來處理這個儲存需求</li>
 <li>volumeHandle:<br>一組重複使用的 ID，之後會再介紹</li>
-<li>volumeAttributes: <ul>
+<li>volumeAttributes:<ul>
 <li>server: 127.0.0.1</li>
 <li>share: /export<br>客製化的參數，根據不同的 Driver 傳入不同的參數。</li>
 </ul>
@@ -369,7 +315,14 @@ spec:
 <li><a href="https://github.com/kubernetes-csi/drivers/blob/master/pkg/nfs/examples/kubernetes/nginx.yaml" target="_blank" rel="noopener">https://github.com/kubernetes-csi/drivers/blob/master/pkg/nfs/examples/kubernetes/nginx.yaml</a></li>
 <li><a href="https://docs.docker.com/ee/ucp/kubernetes/storage/use-nfs-volumes/" target="_blank" rel="noopener">https://docs.docker.com/ee/ucp/kubernetes/storage/use-nfs-volumes/</a></li>
 </ul>
-
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>組合包<br><a href="https://hiskio.com/packages/D7RZGWrNK" target="_blank" rel="noopener">https://hiskio.com/packages/D7RZGWrNK</a></p>
+<p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
+<p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
     </div>
 
     
@@ -511,7 +464,7 @@ spec:
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Before-Kubernetes"><span class="nav-number">1.1.</span> <span class="nav-text">Before Kubernetes</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Kubernetes"><span class="nav-number">1.2.</span> <span class="nav-text">Kubernetes</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Why-Container-Storage-Interface"><span class="nav-number">1.3.</span> <span class="nav-text">Why Container Storage Interface</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">2.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#參考"><span class="nav-number">3.</span> <span class="nav-text">參考</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Before-Kubernetes"><span class="nav-number">1.1.</span> <span class="nav-text">Before Kubernetes</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Kubernetes"><span class="nav-number">1.2.</span> <span class="nav-text">Kubernetes</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Why-Container-Storage-Interface"><span class="nav-number">1.3.</span> <span class="nav-text">Why Container Storage Interface</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">2.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#參考"><span class="nav-number">3.</span> <span class="nav-text">參考</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">4.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -527,7 +480,7 @@ spec:
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">212</span>
+          <span class="site-state-item-count">211</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>

@@ -28,7 +28,7 @@
 <meta property="og:site_name" content="Hwchiu Learning Note">
 <meta property="og:description" content="本篇文章是節錄自網路上一篇關於 CNI 於10G網路下的效能分析，主要是讀後心得分享">
 <meta property="og:locale" content="en">
-<meta property="og:updated_time" content="2020-09-18T07:21:28.599Z">
+<meta property="og:updated_time" content="2020-10-16T16:11:09.712Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="[文章導讀] - 基於10G網路的 Kubernetes CNI 效能比較">
 <meta name="twitter:description" content="本篇文章是節錄自網路上一篇關於 CNI 於10G網路下的效能分析，主要是讀後心得分享">
@@ -316,7 +316,7 @@
 </table>
 <p>以上數字都是 Mbit/s</p>
 <h2 id="結論"><a href="#結論" class="headerlink" title="結論"></a>結論</h2><p>上述的結論可以看到 <code>Auto MTU</code> 的效能都非常差，原因並不是 <code>Auto MTU</code> 沒有效，而是因為這些 CNI 目前根本沒有支持 <code>Auto MTU</code> 的做法，而 <code>Calico</code> 直到 3.7 版本才正式支持 <code>Auto MTU</code> 這個功能，而且根據作者的測試其功能良好。</p>
-<p>作者認為對於這種需要設定 Jumbo frames 的環境下，如果沒有 <code>Auto MTU</code> 的話，管理員則需要手動去設定這些 MTU，所以非常希望每個 CNI 能夠去實作 <code>Auto MTU</code> 的功能來自動偵測並且設定，減少管理員需要人工介入的需求。 </p>
+<p>作者認為對於這種需要設定 Jumbo frames 的環境下，如果沒有 <code>Auto MTU</code> 的話，管理員則需要手動去設定這些 MTU，所以非常希望每個 CNI 能夠去實作 <code>Auto MTU</code> 的功能來自動偵測並且設定，減少管理員需要人工介入的需求。</p>
 <p>至於其他的 CNI 為什麼沒有測試，因為他們都有實作 Auto-MTU 的功能</p>
 <ol>
 <li>Antrea</li>
@@ -327,7 +327,7 @@
 <p>其中 <code>Kube-router</code> 這邊作者標示為 None, 估計可能是根本不能設定 MTU</p>
 <h1 id="使用-Raw-Data-來進行-CNI-的評測"><a href="#使用-Raw-Data-來進行-CNI-的評測" class="headerlink" title="使用 Raw Data 來進行 CNI 的評測"></a>使用 Raw Data 來進行 CNI 的評測</h1><p>這章節主要會用來比較這些再正確 MTU 設定下不同 CNI 之間的效能比較</p>
 <h2 id="資源效能評比"><a href="#資源效能評比" class="headerlink" title="資源效能評比"></a>資源效能評比</h2><p>一開始作者先比較基於閒置狀況下，不同 CNI 所消耗的資源狀況，包含了 CPU 以及 Memory。</p>
-<p>原文中是用 CPU(%) 以及 Memory (MB) 來畫圖，我則是將這些數字用幾個等級來區分，<code>數字愈低代表使用量愈低</code> </p>
+<p>原文中是用 CPU(%) 以及 Memory (MB) 來畫圖，我則是將這些數字用幾個等級來區分，<code>數字愈低代表使用量愈低</code></p>
 <table>
 <thead>
 <tr>
@@ -452,7 +452,7 @@
 <li>Cilium 大概介於 9.5Gb/s</li>
 <li>剩下的都 CNI 效能跟裸機都不會差太多</li>
 </ol>
-<p>接下來觀察一下這個實驗中，不同 CNI 的資源消耗量，原文中是用 CPU(%) 以及 Memory (MB) 來畫圖，我則是將這些數字用幾個等級來區分，<code>數字愈低代表使用量愈低</code> </p>
+<p>接下來觀察一下這個實驗中，不同 CNI 的資源消耗量，原文中是用 CPU(%) 以及 Memory (MB) 來畫圖，我則是將這些數字用幾個等級來區分，<code>數字愈低代表使用量愈低</code></p>
 <table>
 <thead>
 <tr>
@@ -565,7 +565,7 @@
 <li>Kube-OVN 也很不好，大概只有 6Gb/s</li>
 <li>剩下的都 CNI 效能跟裸機都不會差太多</li>
 </ol>
-<p>接下來觀察一下這個實驗中，不同 CNI 的資源消耗量，原文中是用 CPU(%) 以及 Memory (MB) 來畫圖，我則是將這些數字用幾個等級來區分，<code>數字愈低代表使用量愈低</code> </p>
+<p>接下來觀察一下這個實驗中，不同 CNI 的資源消耗量，原文中是用 CPU(%) 以及 Memory (MB) 來畫圖，我則是將這些數字用幾個等級來區分，<code>數字愈低代表使用量愈低</code></p>
 <table>
 <thead>
 <tr>
@@ -679,7 +679,7 @@
 <li>Kube-OVN 還行，大概 95%</li>
 <li>剩下的都 CNI 效能都差不多， 97% +-1%。</li>
 </ol>
-<p>接下來觀察一下這個實驗中，不同 CNI 的資源消耗量，原文中是用 CPU(%) 以及 Memory (MB) 來畫圖，我則是將這些數字用幾個等級來區分，<code>數字愈低代表使用量愈低</code> </p>
+<p>接下來觀察一下這個實驗中，不同 CNI 的資源消耗量，原文中是用 CPU(%) 以及 Memory (MB) 來畫圖，我則是將這些數字用幾個等級來區分，<code>數字愈低代表使用量愈低</code></p>
 <table>
 <thead>
 <tr>
@@ -790,7 +790,7 @@
 <li>Calico 以及 WeaveNet 的效能也都降到 95% 以下，不到 9.5Gb/s</li>
 <li>剩下的都 CNI 效能都差不多 (Canal/Cilium/Flannel)</li>
 </ol>
-<p>接下來觀察一下這個實驗中，不同 CNI 的資源消耗量，原文中是用 CPU(%) 以及 Memory (MB) 來畫圖，我則是將這些數字用幾個等級來區分，<code>數字愈低代表使用量愈低</code> </p>
+<p>接下來觀察一下這個實驗中，不同 CNI 的資源消耗量，原文中是用 CPU(%) 以及 Memory (MB) 來畫圖，我則是將這些數字用幾個等級來區分，<code>數字愈低代表使用量愈低</code></p>
 <table>
 <thead>
 <tr>
@@ -848,7 +848,7 @@
 <li>Antrea/WeaveNet/Kube-router 三者消耗的層級差不多</li>
 <li>Calico/Canal/Flannel 三者差不多</li>
 </ol>
-<p>Kube-OVN/Cilium &gt; WeaveNet/Antrea/Kube-Router &gt; Calico/Canal/Flannel </p>
+<p>Kube-OVN/Cilium &gt; WeaveNet/Antrea/Kube-Router &gt; Calico/Canal/Flannel</p>
 <h2 id="Network-Policies"><a href="#Network-Policies" class="headerlink" title="Network Policies"></a>Network Policies</h2><p>這邊沒有任何的數據測試，除了 Flannel 外，剩下的 CNI 都有實現 Ingress/Egress(往內/往外) 的 Network Policies，很棒!</p>
 <h1 id="CNI-加密"><a href="#CNI-加密" class="headerlink" title="CNI 加密"></a>CNI 加密</h1><p>測試的 CNI 解決方案中，只有四套有支援資料加密的部分，分別是</p>
 <ol>
@@ -895,7 +895,7 @@
 <li>使用 wireguard 的效能完全輾壓 IPSec 技術的其他 CNI</li>
 <li>三個都使用 IPSec 的 CNI，其中 WeaveNet 效能是其中最差的，而 Cilium 則是效能最好的</li>
 </ol>
-<h2 id="資源效能評比-TCP-UDP"><a href="#資源效能評比-TCP-UDP" class="headerlink" title="資源效能評比 TCP/UDP"></a>資源效能評比 TCP/UDP</h2><h3 id="TCP-3"><a href="#TCP-3" class="headerlink" title="TCP"></a>TCP</h3><p>接下來觀察一下這個實驗中，不同 CNI 的資源消耗量，原文中是用 CPU(%) 以及 Memory (MB) 來畫圖，我則是將這些數字用幾個等級來區分，<code>數字愈低代表使用量愈低</code> </p>
+<h2 id="資源效能評比-TCP-UDP"><a href="#資源效能評比-TCP-UDP" class="headerlink" title="資源效能評比 TCP/UDP"></a>資源效能評比 TCP/UDP</h2><h3 id="TCP-3"><a href="#TCP-3" class="headerlink" title="TCP"></a>TCP</h3><p>接下來觀察一下這個實驗中，不同 CNI 的資源消耗量，原文中是用 CPU(%) 以及 Memory (MB) 來畫圖，我則是將這些數字用幾個等級來區分，<code>數字愈低代表使用量愈低</code></p>
 <table>
 <thead>
 <tr>
@@ -932,7 +932,7 @@
 <li>Calico 使用的資源最多</li>
 <li>剩下三者差不多</li>
 </ol>
-<h3 id="UDP-3"><a href="#UDP-3" class="headerlink" title="UDP"></a>UDP</h3><p>接下來觀察一下這個實驗中，不同 CNI 的資源消耗量，原文中是用 CPU(%) 以及 Memory (MB) 來畫圖，我則是將這些數字用幾個等級來區分，<code>數字愈低代表使用量愈低</code> </p>
+<h3 id="UDP-3"><a href="#UDP-3" class="headerlink" title="UDP"></a>UDP</h3><p>接下來觀察一下這個實驗中，不同 CNI 的資源消耗量，原文中是用 CPU(%) 以及 Memory (MB) 來畫圖，我則是將這些數字用幾個等級來區分，<code>數字愈低代表使用量愈低</code></p>
 <table>
 <thead>
 <tr>
@@ -1266,7 +1266,14 @@
 <h1 id="參考來源"><a href="#參考來源" class="headerlink" title="參考來源"></a>參考來源</h1><ul>
 <li><a href="https://itnext.io/benchmark-results-of-kubernetes-network-plugins-cni-over-10gbit-s-network-updated-august-2020-6e1b757b9e49" target="_blank" rel="noopener">https://itnext.io/benchmark-results-of-kubernetes-network-plugins-cni-over-10gbit-s-network-updated-august-2020-6e1b757b9e49</a></li>
 </ul>
-
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>組合包<br><a href="https://hiskio.com/packages/D7RZGWrNK" target="_blank" rel="noopener">https://hiskio.com/packages/D7RZGWrNK</a></p>
+<p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
+<p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
     </div>
 
     
@@ -1407,7 +1414,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#環境"><span class="nav-number">1.1.</span> <span class="nav-text">環境</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#MTU-的影響"><span class="nav-number">2.</span> <span class="nav-text">MTU 的影響</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#TCP"><span class="nav-number">2.1.</span> <span class="nav-text">TCP</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#UDP"><span class="nav-number">2.2.</span> <span class="nav-text">UDP</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#結論"><span class="nav-number">2.3.</span> <span class="nav-text">結論</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#使用-Raw-Data-來進行-CNI-的評測"><span class="nav-number">3.</span> <span class="nav-text">使用 Raw Data 來進行 CNI 的評測</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#資源效能評比"><span class="nav-number">3.1.</span> <span class="nav-text">資源效能評比</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Pod-to-Pod"><span class="nav-number">3.2.</span> <span class="nav-text">Pod to Pod</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#TCP-1"><span class="nav-number">3.2.1.</span> <span class="nav-text">TCP</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#UDP-1"><span class="nav-number">3.2.2.</span> <span class="nav-text">UDP</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Pod-to-Service"><span class="nav-number">3.3.</span> <span class="nav-text">Pod to Service</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#TCP-2"><span class="nav-number">3.3.1.</span> <span class="nav-text">TCP</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#UDP-2"><span class="nav-number">3.3.2.</span> <span class="nav-text">UDP</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Network-Policies"><span class="nav-number">3.4.</span> <span class="nav-text">Network Policies</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#CNI-加密"><span class="nav-number">4.</span> <span class="nav-text">CNI 加密</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#效能部分"><span class="nav-number">4.1.</span> <span class="nav-text">效能部分</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Pod-to-Pod-TCP-UDP"><span class="nav-number">4.2.</span> <span class="nav-text">Pod to Pod TCP/UDP</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#資源效能評比-TCP-UDP"><span class="nav-number">4.3.</span> <span class="nav-text">資源效能評比 TCP/UDP</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#TCP-3"><span class="nav-number">4.3.1.</span> <span class="nav-text">TCP</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#UDP-3"><span class="nav-number">4.3.2.</span> <span class="nav-text">UDP</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Pod-to-Service-TCP-UDP"><span class="nav-number">4.4.</span> <span class="nav-text">Pod to Service TCP/UDP</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#總結"><span class="nav-number">5.</span> <span class="nav-text">總結</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#MTU-加密效果"><span class="nav-number">5.1.</span> <span class="nav-text">MTU/加密效果</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#流量評比"><span class="nav-number">5.2.</span> <span class="nav-text">流量評比</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#資源消耗評比"><span class="nav-number">5.3.</span> <span class="nav-text">資源消耗評比</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人心得"><span class="nav-number">6.</span> <span class="nav-text">個人心得</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#參考來源"><span class="nav-number">7.</span> <span class="nav-text">參考來源</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#環境"><span class="nav-number">1.1.</span> <span class="nav-text">環境</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#MTU-的影響"><span class="nav-number">2.</span> <span class="nav-text">MTU 的影響</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#TCP"><span class="nav-number">2.1.</span> <span class="nav-text">TCP</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#UDP"><span class="nav-number">2.2.</span> <span class="nav-text">UDP</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#結論"><span class="nav-number">2.3.</span> <span class="nav-text">結論</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#使用-Raw-Data-來進行-CNI-的評測"><span class="nav-number">3.</span> <span class="nav-text">使用 Raw Data 來進行 CNI 的評測</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#資源效能評比"><span class="nav-number">3.1.</span> <span class="nav-text">資源效能評比</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Pod-to-Pod"><span class="nav-number">3.2.</span> <span class="nav-text">Pod to Pod</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#TCP-1"><span class="nav-number">3.2.1.</span> <span class="nav-text">TCP</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#UDP-1"><span class="nav-number">3.2.2.</span> <span class="nav-text">UDP</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Pod-to-Service"><span class="nav-number">3.3.</span> <span class="nav-text">Pod to Service</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#TCP-2"><span class="nav-number">3.3.1.</span> <span class="nav-text">TCP</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#UDP-2"><span class="nav-number">3.3.2.</span> <span class="nav-text">UDP</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Network-Policies"><span class="nav-number">3.4.</span> <span class="nav-text">Network Policies</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#CNI-加密"><span class="nav-number">4.</span> <span class="nav-text">CNI 加密</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#效能部分"><span class="nav-number">4.1.</span> <span class="nav-text">效能部分</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Pod-to-Pod-TCP-UDP"><span class="nav-number">4.2.</span> <span class="nav-text">Pod to Pod TCP/UDP</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#資源效能評比-TCP-UDP"><span class="nav-number">4.3.</span> <span class="nav-text">資源效能評比 TCP/UDP</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#TCP-3"><span class="nav-number">4.3.1.</span> <span class="nav-text">TCP</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#UDP-3"><span class="nav-number">4.3.2.</span> <span class="nav-text">UDP</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Pod-to-Service-TCP-UDP"><span class="nav-number">4.4.</span> <span class="nav-text">Pod to Service TCP/UDP</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#總結"><span class="nav-number">5.</span> <span class="nav-text">總結</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#MTU-加密效果"><span class="nav-number">5.1.</span> <span class="nav-text">MTU/加密效果</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#流量評比"><span class="nav-number">5.2.</span> <span class="nav-text">流量評比</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#資源消耗評比"><span class="nav-number">5.3.</span> <span class="nav-text">資源消耗評比</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人心得"><span class="nav-number">6.</span> <span class="nav-text">個人心得</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#參考來源"><span class="nav-number">7.</span> <span class="nav-text">參考來源</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">8.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -1423,7 +1430,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">212</span>
+          <span class="site-state-item-count">211</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>

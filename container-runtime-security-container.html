@@ -35,7 +35,7 @@
 <meta property="og:image" content="https://i.imgur.com/PpzEOae.png">
 <meta property="og:image" content="https://i.imgur.com/19k2www.png">
 <meta property="og:image" content="https://i.imgur.com/xF11rVU.png">
-<meta property="og:updated_time" content="2020-09-12T18:56:01.644Z">
+<meta property="og:updated_time" content="2020-10-16T16:10:45.875Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Container Runtime - Security Container">
 <meta name="twitter:description" content="有鑒於 CRI 的標準架構，各式各樣的針對不同目標的專案都能夠整合到 Kubernetes 中，而本文要介紹的兩個專案分別是 gVisor 以及 kata-container, 這兩個專案都是基於安全性考量而開發的 OCI Runtine，與其相同地位的就是最知名的 OCI Runtime, runc。 本文會介紹這兩個專案的概念以及目標，並且討論其實作架構來比較這兩種不同的方式是如何達到安全的效">
@@ -316,10 +316,10 @@
 </a> 看到更多關於其設計的架構</p>
 <p>首先先看一下簡單的使用架構，左邊是基於完全 <code>docker + runc</code> 的場景，此架構已經在 <a href="https://ithelp.ithome.com.tw/articles/10216215" target="_blank" rel="noopener">Container &amp; Open Container Initiative</a> 中跟大家介紹過，而最下面的 <code>runc</code> 就是所謂的 <code>OCI Runtime</code>，因此 <code>kata container</code> 中的 <code>OCI Runtime</code> <code>kata-runtime</code> 就可以無縫的替換掉 <code>runc</code>。<br>對使用者來說可以繼續使用習慣的  <code>docker run/exec/attach</code> 等指令而不會發現底層其實已經完全不同了。</p>
 <p><img src="https://i.imgur.com/dII0wFL.png" alt><br>圖片節錄自<a href="https://github.com/kata-containers/documentation/blob/master/design/architecture.md" target="_blank" rel="noopener">Kata Containers Architecture
-</a> </p>
+</a></p>
 <p><code>kata-container</code> 的作法完全不同於 <code>gVisor</code>, 其就如同過往的 <code>Virtual Machine</code> 一樣，真正的去創造一個 <code>VM</code> 來隔離所謂的 <code>Host Kernel</code> 以及 <code>Guest Kernel</code>. 接者會在這個 <code>VM</code> 上面去運行使用者所請求的 <code>Container</code>，藉此達到一個外表看似 <code>Container</code> 實際上是一個運行在 <code>VM</code> 上的 <code>Container.</code></p>
 <p>相關的架構可以參考下圖<br><img src="https://i.imgur.com/PpzEOae.png" alt><br>圖片節錄自<a href="https://katacontainers.io/" target="_blank" rel="noopener">About Kata Containers
-</a> </p>
+</a></p>
 <p>在此架構下，我們可以想像到如果今天有任何 <code>container CLI</code> 想要直接操控該 <code>Container</code>的話，問題就在於從 <code>OCI Runtime</code> 送出的指令要如何操控到該 <code>VM</code> 裡面的 <code>Container</code>. 於是你可以看到架構中有所謂的 <code>Proxy</code> 以及 <code>Agent</code><br>這兩個角色就是負責幫忙進行指令交換的，讓整個運作環境操作起來跟熟悉的 <code>Container</code> 一致，也符合最上面的專案介紹 <strong>seamlessly plug into the containers ecosystem.</strong></p>
 <h2 id="Network"><a href="#Network" class="headerlink" title="Network"></a>Network</h2><p>當基本的 <code>Container</code> 運行起來後，接下來就要思考網路的問題，目前有兩套網路解決方案·分別是 <code>Docker</code> 提出的 <code>Container Network Management (CNM)</code> 以及 <code>kubernetes</code> 開發後提出的 <code>Container Network Interface (CNI)</code>。</p>
 <p>更多的細節會到之後 <code>CNI</code> 的章節再來仔細探討這些，這邊先用一個簡單的流程說明到底 <code>Kata Container</code> 遇到什麼問題以及怎麼解決。</p>
@@ -331,9 +331,9 @@
 <li>這邊實際上是透過 <a href="https://virt.kernelnewbies.org/MacVTap" target="_blank" rel="noopener">MACVTAP</a> 這個方式來串接, 有興趣的可以自行閱讀</li>
 </ol>
 <p><img src="https://i.imgur.com/19k2www.png" alt><br>圖片節錄自<a href="https://github.com/kata-containers/documentation/blob/master/design/architecture.md" target="_blank" rel="noopener">Kata Containers Architecture
-</a> </p>
+</a></p>
 <p><img src="https://i.imgur.com/xF11rVU.png" alt><br>圖片節錄自<a href="https://github.com/kata-containers/documentation/blob/master/design/architecture.md" target="_blank" rel="noopener">Kata Containers Architecture
-</a> </p>
+</a></p>
 <h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>本章節跟大家分享並討論了一下基於安全性考量所發展的 <code>OCI Runtime</code> 專案,可以清楚地看到 <code>gVisor</code> 與 <code>kata container</code> 採取了兩種截然不同的方式來發展。<br>這兩個解決方案都相容於 <code>OCI Runtime</code>，所以只要上層的服務也支援 <code>OCI Runtime</code>，那就可以很輕鬆的轉移測試，譬如 <code>containerd</code> 或是 <code>cri-o</code>。</p>
 <p>由於最後底層都是 <code>Container</code>, 所以使用者部屬的任何服務理論上都不需要修改，可以繼續使用各式各樣的 <code>Container Image</code> 以及相關的工具來處理。</p>
 <p>下一篇就是 <code>CRI</code> 系列文章的最後一篇，到時候將跟大家如何將 <code>Kubernetes CRI</code> 與 <code>Virtual Machine</code> 給串接起來，這種情況下已經不需要 <code>Container Image</code> 了，而是要採用真正的 <code>VM Image</code> 並且透過 <code>Kubernetes</code> 來管理這些支援 <code>CRI</code> 操作但是實際上是完全跟 <code>Container</code> 無關的 <code>Virtual Machine</code> 解決方案。</p>
@@ -345,7 +345,14 @@
 <li><a href="https://github.com/moby/moby/blob/master/profiles/seccomp/default.json" target="_blank" rel="noopener">https://github.com/moby/moby/blob/master/profiles/seccomp/default.json</a></li>
 <li><a href="https://katacontainers.io/" target="_blank" rel="noopener">https://katacontainers.io/</a></li>
 </ul>
-
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>組合包<br><a href="https://hiskio.com/packages/D7RZGWrNK" target="_blank" rel="noopener">https://hiskio.com/packages/D7RZGWrNK</a></p>
+<p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
+<p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
     </div>
 
     
@@ -487,7 +494,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#介紹"><span class="nav-number">2.</span> <span class="nav-text">介紹</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#原先解決方案"><span class="nav-number">3.</span> <span class="nav-text">原先解決方案</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Machine-Based"><span class="nav-number">3.1.</span> <span class="nav-text">Machine-Based</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Rule-Based"><span class="nav-number">3.2.</span> <span class="nav-text">Rule-Based</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#gVisor"><span class="nav-number">4.</span> <span class="nav-text">gVisor</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Kata-Container"><span class="nav-number">5.</span> <span class="nav-text">Kata Container</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Network"><span class="nav-number">5.1.</span> <span class="nav-text">Network</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">6.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#參考"><span class="nav-number">7.</span> <span class="nav-text">參考</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#介紹"><span class="nav-number">2.</span> <span class="nav-text">介紹</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#原先解決方案"><span class="nav-number">3.</span> <span class="nav-text">原先解決方案</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Machine-Based"><span class="nav-number">3.1.</span> <span class="nav-text">Machine-Based</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Rule-Based"><span class="nav-number">3.2.</span> <span class="nav-text">Rule-Based</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#gVisor"><span class="nav-number">4.</span> <span class="nav-text">gVisor</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Kata-Container"><span class="nav-number">5.</span> <span class="nav-text">Kata Container</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Network"><span class="nav-number">5.1.</span> <span class="nav-text">Network</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">6.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#參考"><span class="nav-number">7.</span> <span class="nav-text">參考</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">8.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -503,7 +510,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">212</span>
+          <span class="site-state-item-count">211</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>

@@ -28,7 +28,7 @@
 <meta property="og:site_name" content="Hwchiu Learning Note">
 <meta property="og:description" content="本文分享如何透過一些常見的方法或是別人撰寫好的工具來提供一個方便的管理工具，讓操作者可以更方便的再多個 AWS 帳號中進行切換">
 <meta property="og:locale" content="en">
-<meta property="og:updated_time" content="2020-08-31T01:59:56.713Z">
+<meta property="og:updated_time" content="2020-10-16T16:12:09.952Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Management AWS Profiles">
 <meta name="twitter:description" content="本文分享如何透過一些常見的方法或是別人撰寫好的工具來提供一個方便的管理工具，讓操作者可以更方便的再多個 AWS 帳號中進行切換">
@@ -245,7 +245,7 @@
         <h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>如果有想要透過 Command Line Interface 來管理 AWS 帳號的人，應該都會有參考這篇官方的<a href="https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html" target="_blank" rel="noopener">Configuring the AWS CLI</a> 來設定相關的工具與環境。</p>
 <p>這邊簡單做個快速的概括，想要在 Shell 上面操作 AWS 帳戶的話，要執行下列的動作</p>
 <ol>
-<li>下載並且安裝 awscli (可以透過 pip 安裝) </li>
+<li>下載並且安裝 awscli (可以透過 pip 安裝)</li>
 <li>設定 AWS Profile</li>
 </ol>
 <p>對於一般使用 <code>AWS</code> 通常到這一個步驟就差不多完成了，能夠將帳戶給設定完成並且使用 <code>aws</code> 相關的指令來存取公有雲上的資源。</p>
@@ -262,20 +262,27 @@
 </ol>
 <h1 id="Solution"><a href="#Solution" class="headerlink" title="Solution"></a>Solution</h1><p>以(1)為範例的話，我們可以透過所有的指令都要補上 <code>--profile</code> 來使用，但是這種方式使用上會變成你所有指令都要確保有加上該參數，實務上我個人是沒有很喜歡，覺得管理上比較麻煩。<br>譬如<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">aws iam list-roles --profile Account1</span><br><span class="line">aws iam list-roles --profile Account2</span><br><span class="line">aws iam list-roles --profile Account3</span><br></pre></td></tr></table></figure></p>
 <p>如果今天有一些客製化的腳本，變成腳本中所有的指令都要注意有使用到這個參數，對於一個多人維護的腳本來說，我覺得被忽略的可能性非常高</p>
-<p>以(2)為範例的話，就是每次使用前要確保當前的環境變數是什麼，這種情況下每個指令的使用就可以盡量簡單，讓呼叫者自己去確保該指令的面對對象<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">export</span> AWS_PROFILE=account1</span><br><span class="line">aws iam list-roles </span><br><span class="line">AWS_PROFILE=account2 aws iam list-roles</span><br></pre></td></tr></table></figure></p>
+<p>以(2)為範例的話，就是每次使用前要確保當前的環境變數是什麼，這種情況下每個指令的使用就可以盡量簡單，讓呼叫者自己去確保該指令的面對對象<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">export</span> AWS_PROFILE=account1</span><br><span class="line">aws iam list-roles</span><br><span class="line">AWS_PROFILE=account2 aws iam list-roles</span><br></pre></td></tr></table></figure></p>
 <p>套入環境變數的方法滿多種的，上述的方式都可以將該環境變數傳遞到 <code>aws</code> 的指令列中</p>
 <p>但是使用這個方法的困難處就在於預設的情況下，你有時候會不知道自己到底當前是什麼樣的 <code>Profile</code>, 這時候就可以搭配 <code>shell prompt</code> 去客製化顯示當前的 <code>AWS_PROFILE</code> 是什麼。</p>
 <p>為了解決這個問題，其實可以修改自己習慣使用的 <code>shell</code> 設定檔，搭配一些自行撰寫的 <code>shell function</code> 來動態調整當前的 <code>AWS_PROFILE</code> 環境變數，並且將當前的數值顯示在 <code>shell</code> 的提示命令列上。</p>
 <p>就在我完成該功能沒多久後，就發現其實 <code>oh-myzsh</code> 內建的 <code>plugin</code> 有一個幾乎完全一樣的實現功能，這意味其實我根本不需要自己寫，直接啟動該 <code>plugin</code> 即可</p>
 <h1 id="oh-my-zsh-aws"><a href="#oh-my-zsh-aws" class="headerlink" title="oh-my-zsh aws"></a>oh-my-zsh aws</h1><h2 id="Usage-1"><a href="#Usage-1" class="headerlink" title="Usage"></a>Usage</h2><p>打開該 aws 套件後，使用上大概會是如下<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&lt;aws:Account1&gt;╭─hwchiu@hwchius-MBP ~</span><br><span class="line">╰─$</span><br></pre></td></tr></table></figure></p>
-<p>使用指令 <code>asp</code> 搭配 <code>tab</code> 可以列出目前所有設定過的 <code>aws profile</code><br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&lt;aws:LFCORD&gt;╭─hwchiu@hwchius-MBP ~</span><br><span class="line">╰─$ asp                                                          </span><br><span class="line">Account1 Account2 Account3 Account4</span><br></pre></td></tr></table></figure></p>
-<p>同時該 <code>aws plugin</code> 也會幫忙設定安裝 <code>aws aws_zsh_completer</code>, 意味你可以透過 <code>tab</code> 的方式來更方便的使用 <code>aws cli</code> </p>
+<p>使用指令 <code>asp</code> 搭配 <code>tab</code> 可以列出目前所有設定過的 <code>aws profile</code><br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&lt;aws:LFCORD&gt;╭─hwchiu@hwchius-MBP ~</span><br><span class="line">╰─$ asp</span><br><span class="line">Account1 Account2 Account3 Account4</span><br></pre></td></tr></table></figure></p>
+<p>同時該 <code>aws plugin</code> 也會幫忙設定安裝 <code>aws aws_zsh_completer</code>, 意味你可以透過 <code>tab</code> 的方式來更方便的使用 <code>aws cli</code></p>
 <h2 id="Configuration"><a href="#Configuration" class="headerlink" title="Configuration"></a>Configuration</h2><p>基本上參考 <code>on-my-zsh</code> 的設定方式，先到 <code>$HONE/.zshrc</code> 中將 <code>plugin</code> 的選項加入 <code>aws</code> 即可，譬如<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line"><span class="comment"># Which plugins would you like to load?</span></span><br><span class="line"><span class="comment"># Standard plugins can be found in ~/.oh-my-zsh/plugins/*</span></span><br><span class="line"><span class="comment"># Custom plugins may be added to ~/.oh-my-zsh/custom/plugins/</span></span><br><span class="line"><span class="comment"># Example format: plugins=(rails git textmate ruby lighthouse)</span></span><br><span class="line"><span class="comment"># Add wisely, as too many plugins slow down shell startup.</span></span><br><span class="line">plugins=(git aws)</span><br><span class="line"></span><br><span class="line"><span class="built_in">source</span> <span class="variable">$ZSH</span>/oh-my-zsh.sh</span><br><span class="line">...</span><br></pre></td></tr></table></figure></p>
 <p>這邊有一個要注意的是，預設的 <code>aws plugin</code> 使用的是 <code>RPROMPT</code> 而非 <code>PROMPT</code>, 這意味他的顯示會是在畫面最右邊，而非左邊。<br>此外也要注意妳選用的 <code>theme</code> 會不會幫你把 <code>PROMPT</code> 給蓋掉，導致功能失效。<br>譬如我選擇的主題是 <code>bira</code>，所以 <code>PROMPT</code> 以及 <code>RPROMPT</code> 都會被覆蓋掉導致 <code>aws plugin</code> 不會成功。</p>
 <p>因此我最後還是自己修改 <code>$HOME/.zsrhc</code> 來處理<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line"><span class="comment"># alias zshconfig="mate ~/.zshrc"</span></span><br><span class="line"><span class="comment"># alias ohmyzsh="mate ~/.oh-my-zsh"</span></span><br><span class="line">PROMPT=<span class="string">'$(aws_prompt_info)'</span><span class="string">"<span class="variable">$PROMPT</span>"</span></span><br></pre></td></tr></table></figure></p>
 <p>詳細的更多實作可以直接參閱 <a href="https://github.com/robbyrussell/oh-my-zsh/tree/master/plugins/aws" target="_blank" rel="noopener">$HOME/.on-my-zsh/plugin/aws</a> 裡面的介紹</p>
 <p>藉由這個套件的幫助，我平常就會使用 <code>asp</code> 來切換不同的 <code>AWS Account</code>, 同時透過 <code>shell PROMPT</code> 來知道當前使用的 <code>PROFILE</code>，避免在不同的 <code>Account</code> 執行錯誤的動作</p>
-
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>組合包<br><a href="https://hiskio.com/packages/D7RZGWrNK" target="_blank" rel="noopener">https://hiskio.com/packages/D7RZGWrNK</a></p>
+<p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
+<p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
     </div>
 
     
@@ -397,7 +404,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Introduction"><span class="nav-number">2.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Usage"><span class="nav-number">3.</span> <span class="nav-text">Usage</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Solution"><span class="nav-number">4.</span> <span class="nav-text">Solution</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#oh-my-zsh-aws"><span class="nav-number">5.</span> <span class="nav-text">oh-my-zsh aws</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Usage-1"><span class="nav-number">5.1.</span> <span class="nav-text">Usage</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Configuration"><span class="nav-number">5.2.</span> <span class="nav-text">Configuration</span></a></li></ol></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Introduction"><span class="nav-number">2.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Usage"><span class="nav-number">3.</span> <span class="nav-text">Usage</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Solution"><span class="nav-number">4.</span> <span class="nav-text">Solution</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#oh-my-zsh-aws"><span class="nav-number">5.</span> <span class="nav-text">oh-my-zsh aws</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Usage-1"><span class="nav-number">5.1.</span> <span class="nav-text">Usage</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Configuration"><span class="nav-number">5.2.</span> <span class="nav-text">Configuration</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">6.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -413,7 +420,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">212</span>
+          <span class="site-state-item-count">211</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>

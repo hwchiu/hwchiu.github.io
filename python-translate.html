@@ -28,7 +28,7 @@
 <meta property="og:site_name" content="Hwchiu Learning Note">
 <meta property="og:description" content="Python中有個很強大的字串轉換工具 maketrans 跟 translate str.translate(table[, deletechars]); Parameters table -- You can use the maketrans() helper function in the string module to create a translation table.  dele">
 <meta property="og:locale" content="en">
-<meta property="og:updated_time" content="2020-08-31T01:59:56.738Z">
+<meta property="og:updated_time" content="2020-10-16T15:56:17.311Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Python-translate">
 <meta name="twitter:description" content="Python中有個很強大的字串轉換工具 maketrans 跟 translate str.translate(table[, deletechars]); Parameters table -- You can use the maketrans() helper function in the string module to create a translation table.  dele">
@@ -257,22 +257,19 @@ outtab -- This is the string having corresponding mapping character.
 </code></pre><p>intab跟outtab兩者的長度必須要一樣，會把intab中每一個字元與outtab中相同位置的字元做mapping。</p>
 <p>舉例來說</p>
 <a id="more"></a>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">	intab = <span class="string">"aeiou"</span></span><br><span class="line">	outtab = <span class="string">"12345"</span></span><br><span class="line">	trantab = maketrans(intab, outtab)</span><br><span class="line">```	</span><br><span class="line">	</span><br><span class="line"></span><br><span class="line">就會產生一個mapping,把aeiou分別轉換成<span class="number">12345</span>。</span><br><span class="line">``` python</span><br><span class="line">	input=<span class="string">"abcdefgh"</span></span><br><span class="line">	input = input.translate(trantab)</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">intab = <span class="string">"aeiou"</span></span><br><span class="line">outtab = <span class="string">"12345"</span></span><br><span class="line">trantab = maketrans(intab, outtab)</span><br></pre></td></tr></table></figure>
+<p>就會產生一個mapping,把aeiou分別轉換成12345。<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">input=<span class="string">"abcdefgh"</span></span><br><span class="line">input = input.translate(trantab)</span><br></pre></td></tr></table></figure></p>
 <p>input就會變成 “1bcd2fgh”</p>
 <p>那如果改成<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">input=<span class="string">"abcdefgh"</span></span><br><span class="line">input = input.translate(trantab,<span class="string">"fgh"</span>)</span><br></pre></td></tr></table></figure></p>
 <p>input就會變成 “1bcd2”</p>
 <p>再來個簡單範例，希望能夠把所有的小寫轉成大寫，並把非英文字母外的所有字元都給刪除掉。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> string</span><br></pre></td></tr></table></figure>
 <p>#取得所有英文大小寫的集合<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">lower = <span class="string">''</span>.join(map(chr,range(<span class="number">97</span>,<span class="number">123</span>)))</span><br><span class="line">upper = lower.upper()</span><br></pre></td></tr></table></figure></p>
-<p>#創立一個對照表，可以把所有小寫轉成大寫<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">	ltu = string.maketrans(lower,upper)</span><br><span class="line">```	</span><br><span class="line"><span class="comment">#接下來要利用捕集的方式取得非英文字母以外的所有字元，因此就用所有字元-英文字母</span></span><br><span class="line"><span class="comment">#創立一個代表所有字元的字元表</span></span><br><span class="line">``` python</span><br><span class="line">	allchars = string.maketrans(<span class="string">''</span>,<span class="string">''</span>)</span><br></pre></td></tr></table></figure></p>
-<p>#利用translate的方式，取得所有非英文字母的集合</p>
-<pre><code class="python">delete = allchars.translate(allchars,lower+upper)
-</code></pre>
-<p>#定義一個對應的function,傳入的字串利用ltu跟delete，就能夠把所有非英文字母都刪除，並且小寫轉大寫了。</p>
-<pre><code class="python"><span class="function"><span class="keyword">def</span> <span class="title">makefilter</span><span class="params">(input)</span>:</span>
-    <span class="keyword">print</span> input.translate(ltu,delete)
-</code></pre>
-<p>makefilter(“asd@<em>(#)@</em>!)#1231321”)<br>ASD<br>makefilter(“cxczzcjklk21l3j@!#@!#111”)<br>CXCZZCJKLKLJ</p>
+<p>#創立一個對照表，可以把所有小寫轉成大寫<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ltu = string.maketrans(lower,upper)</span><br></pre></td></tr></table></figure></p>
+<p>#接下來要利用捕集的方式取得非英文字母以外的所有字元，因此就用所有字元-英文字母</p>
+<p>#創立一個代表所有字元的字元表<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">allchars = string.maketrans(<span class="string">''</span>,<span class="string">''</span>)</span><br></pre></td></tr></table></figure></p>
+<p>#利用translate的方式，取得所有非英文字母的集合<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">delete = allchars.translate(allchars,lower+upper)</span><br></pre></td></tr></table></figure></p>
+<p>#定義一個對應的function,傳入的字串利用ltu跟delete，就能夠把所有非英文字母都刪除，並且小寫轉大寫了。<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">makefilter</span><span class="params">(input)</span>:</span></span><br><span class="line">    <span class="keyword">print</span> input.translate(ltu,delete)</span><br></pre></td></tr></table></figure></p>
 
     </div>
 
@@ -427,7 +424,7 @@ outtab -- This is the string having corresponding mapping character.
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">212</span>
+          <span class="site-state-item-count">211</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>

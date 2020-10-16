@@ -30,7 +30,7 @@
 <meta property="og:locale" content="en">
 <meta property="og:image" content="https://i.imgur.com/0N9YUm4.png">
 <meta property="og:image" content="https://i.imgur.com/usK4VUg.png">
-<meta property="og:updated_time" content="2020-10-14T16:21:28.852Z">
+<meta property="og:updated_time" content="2020-10-16T16:04:22.246Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="你到底知不知道什麼是 Kubernetes?">
 <meta name="twitter:description" content="Kubernetes 的蓬勃發展以及其人氣帶來廣泛地使用，然而就現實中，其實出現了不少關於 kubernetes 不太正確的想像與理解，愈來愈多的人因應 kubernetes 的發展就將 kubernetes 視為一個完美的解藥，能夠解決所有營運部署的所有困難與需求。最後發現現實與理想沒有辦法妥協時就會露出失望與無奈的表情。其實問題就出在一開始沒有理解到底 kubernetes 能夠帶來什麼樣的優">
@@ -302,7 +302,7 @@
 <p>上述每個領域都有各自的廠商/軟體在從事這方面的研究，這些領域要互相整合來提供一個更為強大的網路架構才是真正有價值的部分。</p>
 <p>所以只要仔細想一下， <code>Kuberentes</code> 本身本來就不可能一口氣支援上述的所有的功能，甚至每個都處理的完美無缺點。 這對於整個 <code>Kubernetes</code> 平台來說是一個多麽大的負擔，可以說是一個不切實際的理想。</p>
 <p>就跟儲存一樣，請放下 <code>Kubernetes</code> 是萬能的想法，不是套上 <code>Kuberentes</code> 什麼網路問題都解決了，請不要給 <code>Kubernetes</code> 過多錯誤的期待與期盼</p>
-<h2 id="Kubernetes-1"><a href="#Kubernetes-1" class="headerlink" title="Kubernetes"></a>Kubernetes</h2><p>對於 <code>Kubernetes</code> 來說，我個人的認知下， <code>Kubernetes</code> 在網路的部分比<code>儲存</code> 的地方做了更多的支援，除了標準介面之外，也有部分是 <code>Kuberentes</code> 自行實現的功能。 </p>
+<h2 id="Kubernetes-1"><a href="#Kubernetes-1" class="headerlink" title="Kubernetes"></a>Kubernetes</h2><p>對於 <code>Kubernetes</code> 來說，我個人的認知下， <code>Kubernetes</code> 在網路的部分比<code>儲存</code> 的地方做了更多的支援，除了標準介面之外，也有部分是 <code>Kuberentes</code> 自行實現的功能。</p>
 <p>如同 <code>CSI(Container Storage Interface)</code> 這個針對 <code>儲存</code> 所定義的標準介面，在網路部分也有與之對應的 <code>CNI(Container Network Interface)</code>.  <code>kubernetes</code> 透過 <code>CNI</code> 這個介面來與後方的 <code>網路解決方案</code> 溝通，而該解決方案(我底下就統稱 <code>CNI</code>比較方便) 就我自己的開發經驗與體悟，我認為 <code>CNI</code> 最基本的要求就是在<code>在對應的階段為對應的容器提供網路能力</code>，就這樣非常簡單。</p>
 <p>但是什麼叫做 <code>提供網路能力</code>, 這個部分我認為沒有定義，畢竟誰說網路一定是走 <code>IPv4</code> ? 誰說網路一定要至少到 <code>Layer3 IP</code> 難道不能 <code>point ot point</code> 互連嗎?<br>主要是因為這部分的功能特性對於大部分的使用者都沒有需求，而目前最常見也是 <code>IPv4 + TCP/UDP</code> 的傳輸方式，因此才會看到大部分的 <code>CNI</code> 都在講這些。</p>
 <p>這邊使用實際需求來探討一下 <code>CNI</code> 所做的事情，假設我們希望所有容器彼此之間可以透過 <code>IPv4</code> 來互相存取彼此，不論是同節點或是跨節點的容器們都要可以滿足這個需求。<br>在這個要求下，最常見的步驟如下</p>
@@ -313,9 +313,9 @@
 </ol>
 <p>上面三個步驟，實際上做法百百種</p>
 <ol>
-<li>如何取得 <code>IPv4</code>？ 如果要取得不重複的 <code>IP</code> 該怎麼做，需要有集中式的管理？ 還是分散式各自管理? </li>
+<li>如何取得 <code>IPv4</code>？ 如果要取得不重複的 <code>IP</code> 該怎麼做，需要有集中式的管理？ 還是分散式各自管理?</li>
 <li>如何讓<code>容器</code>與<code>外部節點</code>有聯繫的通道? 要走 <code>veth</code>？ <code>host-device</code> ? <code>直接掛載網卡進去</code> ?</li>
-<li>如何設定路由條件? 動態路由協議還是靜態路由協議? 要透過集中式資訊傳遞 <code>gateway</code> 嗎? </li>
+<li>如何設定路由條件? 動態路由協議還是靜態路由協議? 要透過集中式資訊傳遞 <code>gateway</code> 嗎?</li>
 </ol>
 <p>容器間到底怎麼傳輸的，需不需要封裝，透過什麼網卡，要不要透過 NAT 處理? 這一切都是 <code>CNI</code> 介面背後的實現，對於 <code>kubernetes</code> 來說其實根本沒有想要，也沒有能力去處理這些。<br>所以不要再幻想 <code>kubernetes</code> 能夠為你建立各式各樣的網路環境了</p>
 <p>除了上述的容器間封包傳遞外，還有其他的網路議題</p>
@@ -359,7 +359,7 @@
 <li>Kata Container</li>
 </ol>
 <p>對於 <code>kubernetes</code> 來說，其實本身並不在意到底底下的容器化技術實際上是怎麼實現的，你要用 <code>Docker</code>, <code>rkt</code>, <code>CRI-O</code> 都無所謂，甚至背後是一個偽裝成 <code>Container</code> 的 <code>Virtaul Machine</code> <a href="https://github.com/Mirantis/virtlet" target="_blank" rel="noopener">virtlet</a> 都可以。</p>
-<h2 id="Container"><a href="#Container" class="headerlink" title="Container"></a>Container</h2><p>就我個人的觀察來說，最多人在這個議題最大的誤解就是 <code>容器</code> 是萬能的 </p>
+<h2 id="Container"><a href="#Container" class="headerlink" title="Container"></a>Container</h2><p>就我個人的觀察來說，最多人在這個議題最大的誤解就是 <code>容器</code> 是萬能的</p>
 <p>很多人看到的容器化可帶來的優勢後，一股腦地就要所有東西都容器化，完全沒有去思考到底<code>為什麼自己本身的服務需要容器化，容器化可以帶來什麼優點</code>.<br>舉個例來說，我想要透過 <code>SRIOV</code> 等相關硬體設定分配給我的應用程式使用時候， <code>Virtual Machine</code> 方面的發展與支援就遠比 <code>Container</code> 來的好多. 當然 <code>RDMA</code> 我個人也是抱持者 <code>Virtual Machine</code> 支援更好的情況來看待。</p>
 <p>很多人踩中了第一點認為 <code>容器</code> 是萬能之後，就會開始進行<code>要命的第二步驟</code>，就是將原先的應用程式<code>容器化</code>. 太多太多的人都認為只要寫一個 <code>Dockerfile</code> 將原先的應用程式們全部包裝起來放在一起就是一個很好的<code>容器</code> 來使用了。</p>
 <p>這就是常常會看到有一些的 <code>Dockerfile</code> 內同時跑了一堆<code>Daemon(守護行程)</code> 的容器，然後彼此之間相互依賴，對於外部的 <code>Signal</code> 以及 <code>生命週期確認目標</code> 都沒有辦法搞得清楚</p>
@@ -389,7 +389,10 @@
 <p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
 <p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
 <p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
-<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
+
 <h1 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h1><ul>
 <li><a href="https://github.com/kubernetes/community/blob/master/contributors/design-proposals/storage/container-storage-interface.md" target="_blank" rel="noopener">https://github.com/kubernetes/community/blob/master/contributors/design-proposals/storage/container-storage-interface.md</a></li>
 <li><a href="https://github.com/containernetworking/cni" target="_blank" rel="noopener">https://github.com/containernetworking/cni</a></li>
@@ -552,7 +555,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">212</span>
+          <span class="site-state-item-count">211</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>

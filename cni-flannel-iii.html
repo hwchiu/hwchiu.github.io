@@ -33,7 +33,7 @@
 <meta property="og:image" content="https://i.imgur.com/jhHkgVH.png">
 <meta property="og:image" content="https://i.imgur.com/npK0WX6.png">
 <meta property="og:image" content="https://i.imgur.com/dqfVlGK.png">
-<meta property="og:updated_time" content="2020-09-12T18:56:33.498Z">
+<meta property="og:updated_time" content="2020-10-16T16:11:17.524Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="CNI - Flannel - VXLAN 封包運作篇">
 <meta name="twitter:description" content="本篇文章作為 CNI - Flannel 的最後一篇探討，藉由研究 VXLAN 的運作原理來研究到底 flannel 是如何透過 vxlan 來讓不同節點上並且擁有私有 IP 的 Pod 可以互相溝通溝通的。">
@@ -279,7 +279,7 @@
 <p>舉一個範例，如果今天系統中已經運行了大量的服務，這時候希望導入 <strong>kubernetes</strong> 作為部署工具，但是基於現實考量，譬如測試，容器化等因素，並不是所有的服務都可以一次就直上 <strong>kubernetes</strong>。 同時本來的系統架構中，會有類似防火牆等安全機制，會根據 <strong>來源IP/目的IP</strong> 進行一些檢查與過濾，這種情況下，使用者可能就會希望 <strong>kubernetes</strong> 內的 <strong>pod</strong> 可以跟本來環境中的網路使用相同網段的 <strong>IP</strong> 甚至是使用 <strong>dhcp</strong> 等方式來獲取 <strong>IP</strong>。</p>
 <p>但是對於部分的使用者來說，其實不太需要在乎這一塊議題，主要是在意的點只有 <strong>能不能方便存取</strong>, <strong>kubernetes service</strong> 能不能滿足需求，你裡面的 <strong>Pod</strong> 到底是什麼 <strong>IP</strong> 很多時候根本不重要。</p>
 <p>如果是公有雲的解決方案，有些也會希望能夠同網段，這樣可以跟公有雲其他的資源進行整合，不論是 <strong>IP</strong>的發放，<strong>防火牆</strong>的設定等都希望能夠只用公有雲一套規則滿足全部。</p>
-<p>這部分我之前有一篇文章在介紹 <a href="https://www.hwchiu.com/aks-cni-i.html">Azure - AKS</a>是怎麼實現其 <strong>CNI</strong> 來達到上述需求的。有興趣的讀者可以再額外閱讀。 </p>
+<p>這部分我之前有一篇文章在介紹 <a href="https://www.hwchiu.com/aks-cni-i.html">Azure - AKS</a>是怎麼實現其 <strong>CNI</strong> 來達到上述需求的。有興趣的讀者可以再額外閱讀。</p>
 <h2 id="Overlay-Network"><a href="#Overlay-Network" class="headerlink" title="Overlay Network"></a>Overlay Network</h2><p>網路串連的方法百百種，每種方法都有其價值以及使用場景，這次要來討論的則是 <strong>VXLAN</strong>，這個 <strong>flannel</strong> 預設的網路實現方式。</p>
 <p>以下圖為一個基本範例，根據前篇文章我們知道每個節點都會分配到不同網段，這個案例中分別是<br><img src="https://i.imgur.com/jhHkgVH.png" alt></p>
 <ol>
@@ -366,7 +366,14 @@
 <li><a href="https://www.slideshare.net/Ciscodatacenter/vxlan-introduction" target="_blank" rel="noopener">https://www.slideshare.net/Ciscodatacenter/vxlan-introduction</a></li>
 <li><a href="https://support.huawei.com/enterprise/en/doc/EDOC1100004365/f95c6e68/vxlan-packet-format" target="_blank" rel="noopener">https://support.huawei.com/enterprise/en/doc/EDOC1100004365/f95c6e68/vxlan-packet-format</a></li>
 </ul>
-
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>組合包<br><a href="https://hiskio.com/packages/D7RZGWrNK" target="_blank" rel="noopener">https://hiskio.com/packages/D7RZGWrNK</a></p>
+<p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
+<p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
     </div>
 
     
@@ -509,7 +516,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#環境建置"><span class="nav-number">2.</span> <span class="nav-text">環境建置</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Why-Network"><span class="nav-number">3.</span> <span class="nav-text">Why Network</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Before-CNI"><span class="nav-number">4.</span> <span class="nav-text">Before CNI</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#IP-分配"><span class="nav-number">4.1.</span> <span class="nav-text">IP 分配</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Overlay-Network"><span class="nav-number">4.2.</span> <span class="nav-text">Overlay Network</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Overlay-Network-1"><span class="nav-number">4.2.1.</span> <span class="nav-text">Overlay Network</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#流程"><span class="nav-number">4.2.2.</span> <span class="nav-text">流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#實作"><span class="nav-number">4.2.3.</span> <span class="nav-text">實作</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">5.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#參考"><span class="nav-number">6.</span> <span class="nav-text">參考</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#環境建置"><span class="nav-number">2.</span> <span class="nav-text">環境建置</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Why-Network"><span class="nav-number">3.</span> <span class="nav-text">Why Network</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Before-CNI"><span class="nav-number">4.</span> <span class="nav-text">Before CNI</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#IP-分配"><span class="nav-number">4.1.</span> <span class="nav-text">IP 分配</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Overlay-Network"><span class="nav-number">4.2.</span> <span class="nav-text">Overlay Network</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Overlay-Network-1"><span class="nav-number">4.2.1.</span> <span class="nav-text">Overlay Network</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#流程"><span class="nav-number">4.2.2.</span> <span class="nav-text">流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#實作"><span class="nav-number">4.2.3.</span> <span class="nav-text">實作</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">5.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#參考"><span class="nav-number">6.</span> <span class="nav-text">參考</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">7.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -525,7 +532,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">212</span>
+          <span class="site-state-item-count">211</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>

@@ -29,7 +29,7 @@
 <meta property="og:description" content="Seucirty 一直以來都無法忽視的問題，平常不理他可能相安無事，一旦出事情必定人仰馬翻。然而對於 kubernetes 這樣的容器管理平台來說，安全這個概念涵蓋的範圍很大，從底層架構的部署，到 kubernetes 平台的搭建，容器本身的創建以及應用程式的撰寫，每個環節都有安全的問題需要考量。本章節會針對容器相關的一些權限部分進行探討，並且從 kubernetes pod 的格式中去學習有什麼">
 <meta property="og:locale" content="en">
 <meta property="og:image" content="https://i.imgur.com/5POoibQ.png">
-<meta property="og:updated_time" content="2020-09-12T18:47:33.054Z">
+<meta property="og:updated_time" content="2020-10-16T16:06:10.552Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Kubernetes Container Security 探討">
 <meta name="twitter:description" content="Seucirty 一直以來都無法忽視的問題，平常不理他可能相安無事，一旦出事情必定人仰馬翻。然而對於 kubernetes 這樣的容器管理平台來說，安全這個概念涵蓋的範圍很大，從底層架構的部署，到 kubernetes 平台的搭建，容器本身的創建以及應用程式的撰寫，每個環節都有安全的問題需要考量。本章節會針對容器相關的一些權限部分進行探討，並且從 kubernetes pod 的格式中去學習有什麼">
@@ -254,7 +254,7 @@
 <li>Cluster</li>
 <li>Cloud/Co-located servers</li>
 </ol>
-<p>這四個分別屬於不同的層級，且彼此一層包一層，對於<strong>安全</strong>的議題來說，這中間能夠涉入的點實在太多。<br>譬如是程式碼本身是否就有漏洞，本身不夠安全？ </p>
+<p>這四個分別屬於不同的層級，且彼此一層包一層，對於<strong>安全</strong>的議題來說，這中間能夠涉入的點實在太多。<br>譬如是程式碼本身是否就有漏洞，本身不夠安全？</p>
 <p>還是說是運行 Container 的方式或是設定不夠安全，譬如之前提過的 <strong>RunC</strong> 安全性漏洞。</p>
 <p>往上到 Cluster 這層級，有沒有可能 cluster 本身有安全性漏洞可以讓被該 cluster 被任意操作？</p>
 <p>最底下就是最直接架構的部分，不論是 Cloud Provider 的提供或是自行架設一群伺服器來提供底層服務，這些伺服器本身有沒有安全性的問題</p>
@@ -307,7 +307,7 @@
 <p>AppArmor is a Linux kernel security module that supplements the standard Linux user and group based permissions to confine programs to a limited set of resources. AppArmor can be configured for any application to reduce its potential attack surface and provide greater in-depth defense. It is configured through profiles tuned to whitelist the access needed by a specific program or container, such as Linux capabilities, network access, file permissions, etc. Each profile can be run in either enforcing mode, which blocks access to disallowed resources, or complain mode, which only reports violations.</p>
 </blockquote>
 <p>基本上是個非常厭煩的功能，以 <strong>profile</strong> 為基本單位去限制相關應用程式能夠存取的所有東西，譬如 <strong>capabilities</strong>, <strong>network</strong>, <strong>file permissions</strong>。</p>
-<p>譬如以下範例<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;tunables/global&gt;</span></span></span><br><span class="line">/bin/ping flags=(complain) &#123;</span><br><span class="line">  #include &lt;abstractions/base&gt;</span><br><span class="line">  #include &lt;abstractions/consoles&gt;</span><br><span class="line">  #include &lt;abstractions/nameservice&gt;</span><br><span class="line"></span><br><span class="line">  capability net_raw,</span><br><span class="line">  capability setuid,</span><br><span class="line">  network inet raw,</span><br><span class="line">  </span><br><span class="line">  /bin/ping mixr,</span><br><span class="line">  /etc/modules.conf r,</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>譬如以下範例<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;tunables/global&gt;</span></span></span><br><span class="line">/bin/ping flags=(complain) &#123;</span><br><span class="line">  #include &lt;abstractions/base&gt;</span><br><span class="line">  #include &lt;abstractions/consoles&gt;</span><br><span class="line">  #include &lt;abstractions/nameservice&gt;</span><br><span class="line"></span><br><span class="line">  capability net_raw,</span><br><span class="line">  capability setuid,</span><br><span class="line">  network inet raw,</span><br><span class="line"></span><br><span class="line">  /bin/ping mixr,</span><br><span class="line">  /etc/modules.conf r,</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
 <p>上述這個範例是針對 <strong>/bin/ping</strong> 這個應用程式去設定的，就如同上述提到的，需要有 <strong>CAP_NET_RAW</strong> 的能力，一旦只要 <strong>ping</strong> 本身被修改過使用到超過標注的，就會被 <strong>apparmor</strong> 給阻止而不能使用。</p>
 <p>其使用上非常麻煩，但是可以限制非常多不必要的功能。</p>
 <h3 id="Privileged"><a href="#Privileged" class="headerlink" title="Privileged"></a>Privileged</h3><p>只要打開此功能，上述探討的一些特性都會一起被打開來創造一個非常有力的應用程式，包含可以讀取所有的裝置，有滿滿的 <strong>capabilities</strong>，請斟酌小心使用，不要對來路不明的應用程式使用這個權限。</p>
@@ -319,7 +319,14 @@
 <li><a href="https://kubernetes.io/docs/tutorials/clusters/apparmor/" target="_blank" rel="noopener">https://kubernetes.io/docs/tutorials/clusters/apparmor/</a></li>
 <li><a href="https://help.ubuntu.com/lts/serverguide/apparmor.html" target="_blank" rel="noopener">https://help.ubuntu.com/lts/serverguide/apparmor.html</a></li>
 </ul>
-
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>組合包<br><a href="https://hiskio.com/packages/D7RZGWrNK" target="_blank" rel="noopener">https://hiskio.com/packages/D7RZGWrNK</a></p>
+<p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
+<p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
     </div>
 
     
@@ -461,7 +468,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Container-Security"><span class="nav-number">1.1.</span> <span class="nav-text">Container Security</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Container-Permission"><span class="nav-number">1.2.</span> <span class="nav-text">Container Permission</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Host-namespaces"><span class="nav-number">1.2.1.</span> <span class="nav-text">Host namespaces</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Volumes-and-file-systems"><span class="nav-number">1.2.2.</span> <span class="nav-text">Volumes and file systems</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Users-and-groups"><span class="nav-number">1.2.3.</span> <span class="nav-text">Users and groups</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Capabilities"><span class="nav-number">1.2.4.</span> <span class="nav-text">Capabilities</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#AppArmor"><span class="nav-number">1.2.5.</span> <span class="nav-text">AppArmor</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Privileged"><span class="nav-number">1.2.6.</span> <span class="nav-text">Privileged</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">2.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#參考"><span class="nav-number">3.</span> <span class="nav-text">參考</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Container-Security"><span class="nav-number">1.1.</span> <span class="nav-text">Container Security</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Container-Permission"><span class="nav-number">1.2.</span> <span class="nav-text">Container Permission</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Host-namespaces"><span class="nav-number">1.2.1.</span> <span class="nav-text">Host namespaces</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Volumes-and-file-systems"><span class="nav-number">1.2.2.</span> <span class="nav-text">Volumes and file systems</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Users-and-groups"><span class="nav-number">1.2.3.</span> <span class="nav-text">Users and groups</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Capabilities"><span class="nav-number">1.2.4.</span> <span class="nav-text">Capabilities</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#AppArmor"><span class="nav-number">1.2.5.</span> <span class="nav-text">AppArmor</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Privileged"><span class="nav-number">1.2.6.</span> <span class="nav-text">Privileged</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">2.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#參考"><span class="nav-number">3.</span> <span class="nav-text">參考</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">4.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -477,7 +484,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">212</span>
+          <span class="site-state-item-count">211</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>

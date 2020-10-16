@@ -30,7 +30,7 @@
 <meta property="og:locale" content="en">
 <meta property="og:image" content="https://i.imgur.com/WlcgN7L.png">
 <meta property="og:image" content="https://i.imgur.com/q1SSG2l.png">
-<meta property="og:updated_time" content="2020-08-31T04:56:45.868Z">
+<meta property="og:updated_time" content="2020-10-16T16:00:51.718Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="[netfilter] Introduction to ebtables">
 <meta name="twitter:description" content="本文是 iptables/ebtables 系列分享文的第一篇，會先著重於 iptables/ebtables 本身的架構，更準確的是 netfilter 的架構介紹，從 User-Space 到 Kernel-Space 的組成元件，並且簡單敘述一下整體的運作流程。最後開始介紹 ebtables 這個存在但是較少人知道的工具，不同於 iptables, ebtables 更專注於基於 MAC 地">
@@ -245,7 +245,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <h2 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h2><p>再之前的 <code>kubernetes server</code> 系列文中有稍微介紹過 <code>iptables</code> 的一些用法，以及如何透過 <code>iptables</code> 來完成 <code>kubernetes service</code>. 若有任何不熟悉的概念可以重新閱讀一次該系列文章.  </p>
+        <h2 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h2><p>再之前的 <code>kubernetes server</code> 系列文中有稍微介紹過 <code>iptables</code> 的一些用法，以及如何透過 <code>iptables</code> 來完成 <code>kubernetes service</code>. 若有任何不熟悉的概念可以重新閱讀一次該系列文章.</p>
 <ul>
 <li><a href="https://www.hwchiu.com/kubernetes-service-ii.html">[Kubernetes] How To Implement Kubernetes Service - ClusterIP</a></li>
 </ul>
@@ -339,7 +339,7 @@
 <p>這邊因為 <code>iptables</code> 長期的習慣所以在命名方面也就遷就於此</p>
 <h3 id="Match-1"><a href="#Match-1" class="headerlink" title="Match"></a>Match</h3><p>在比對的規則來說， <code>ebtalbes</code> 專至於 <code>Layer2</code> 相關的處理，譬如 <code>unitcast/multicast/broadcast</code>，甚至是 <code>vlan/stp</code> 等<br>封包都可以處理。</p>
 <p>此外，除了常見的封包內容外，也可以透過<code>-m</code>這個方式去使用擴充模組來達到更靈活的比對功能。</p>
-<h3 id="Target-1"><a href="#Target-1" class="headerlink" title="Target"></a>Target</h3><p>就如同前面所描述的，預設的 <code>Target</code> 其實都會跟對應的 <code>Table</code> 有關，譬如 <code>ACCEPT/DROP</code> 就會在 <code>filter/brouting</code> 這些<code>Table</code>. </p>
+<h3 id="Target-1"><a href="#Target-1" class="headerlink" title="Target"></a>Target</h3><p>就如同前面所描述的，預設的 <code>Target</code> 其實都會跟對應的 <code>Table</code> 有關，譬如 <code>ACCEPT/DROP</code> 就會在 <code>filter/brouting</code> 這些<code>Table</code>.</p>
 <p>雖然都叫做 <code>ACCEPT/DROP</code>, 其兩者的意思在 <code>filter/brouting</code> 的用途卻是不一樣的，有興趣的人可以直接參考 <code>man page</code> 來學習更多的用法與概念。</p>
 <p>除此之外，也有許多的擴充模組提供更多強大的功能，譬如可以透過 <code>arp</code> 等相關的 <code>Target</code>, 針對 <code>ARP</code> 相關的封包直接讓系統幫你回應對應的 <code>ARP Reply</code>。</p>
 <h3 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h3><p>看到這邊，我們用一張圖片，將上述的概念重新整合一次，將 <code>Table/Chain</code> 與 <code>ebtables</code> 進行整合。</p>
@@ -360,7 +360,14 @@
 <li><a href="https://linux.die.net/man/8/ebtables" target="_blank" rel="noopener">ebtables man page</a></li>
 <li><a href="http://ebtables.netfilter.org/br_fw_ia/br_fw_ia.html" target="_blank" rel="noopener">ebtables/iptables interaction on a Linux-based bridge</a></li>
 </ul>
-
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>組合包<br><a href="https://hiskio.com/packages/D7RZGWrNK" target="_blank" rel="noopener">https://hiskio.com/packages/D7RZGWrNK</a></p>
+<p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
+<p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
     </div>
 
     
@@ -502,7 +509,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Introduction"><span class="nav-number">2.</span> <span class="nav-text">Introduction</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#User-Space"><span class="nav-number">2.1.</span> <span class="nav-text">User Space</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Kernel-Space"><span class="nav-number">2.2.</span> <span class="nav-text">Kernel Space</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Network-Interface-Card"><span class="nav-number">2.3.</span> <span class="nav-text">Network Interface Card</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Workflow"><span class="nav-number">2.4.</span> <span class="nav-text">Workflow</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#iptables-ebtables"><span class="nav-number">3.</span> <span class="nav-text">iptables/ebtables</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Component"><span class="nav-number">3.1.</span> <span class="nav-text">Component</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Table"><span class="nav-number">3.2.</span> <span class="nav-text">Table</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Chain"><span class="nav-number">3.3.</span> <span class="nav-text">Chain</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Match"><span class="nav-number">3.4.</span> <span class="nav-text">Match</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Target"><span class="nav-number">3.5.</span> <span class="nav-text">Target</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ebtables"><span class="nav-number">4.</span> <span class="nav-text">ebtables</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Table-1"><span class="nav-number">4.1.</span> <span class="nav-text">Table</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Chain-1"><span class="nav-number">4.2.</span> <span class="nav-text">Chain</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Match-1"><span class="nav-number">4.3.</span> <span class="nav-text">Match</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Target-1"><span class="nav-number">4.4.</span> <span class="nav-text">Target</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Summary"><span class="nav-number">4.5.</span> <span class="nav-text">Summary</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Reference"><span class="nav-number">5.</span> <span class="nav-text">Reference</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Introduction"><span class="nav-number">2.</span> <span class="nav-text">Introduction</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#User-Space"><span class="nav-number">2.1.</span> <span class="nav-text">User Space</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Kernel-Space"><span class="nav-number">2.2.</span> <span class="nav-text">Kernel Space</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Network-Interface-Card"><span class="nav-number">2.3.</span> <span class="nav-text">Network Interface Card</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Workflow"><span class="nav-number">2.4.</span> <span class="nav-text">Workflow</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#iptables-ebtables"><span class="nav-number">3.</span> <span class="nav-text">iptables/ebtables</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Component"><span class="nav-number">3.1.</span> <span class="nav-text">Component</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Table"><span class="nav-number">3.2.</span> <span class="nav-text">Table</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Chain"><span class="nav-number">3.3.</span> <span class="nav-text">Chain</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Match"><span class="nav-number">3.4.</span> <span class="nav-text">Match</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Target"><span class="nav-number">3.5.</span> <span class="nav-text">Target</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ebtables"><span class="nav-number">4.</span> <span class="nav-text">ebtables</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Table-1"><span class="nav-number">4.1.</span> <span class="nav-text">Table</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Chain-1"><span class="nav-number">4.2.</span> <span class="nav-text">Chain</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Match-1"><span class="nav-number">4.3.</span> <span class="nav-text">Match</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Target-1"><span class="nav-number">4.4.</span> <span class="nav-text">Target</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Summary"><span class="nav-number">4.5.</span> <span class="nav-text">Summary</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Reference"><span class="nav-number">5.</span> <span class="nav-text">Reference</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number"></span> <span class="nav-text">個人資訊</span></a></div>
       </div>
       <!--/noindex-->
 
@@ -518,7 +525,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">212</span>
+          <span class="site-state-item-count">211</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
