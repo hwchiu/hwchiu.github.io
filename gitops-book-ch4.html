@@ -28,7 +28,7 @@
 <meta property="og:site_name" content="Hwchiu Learning Note">
 <meta property="og:description" content="本文為電子書本[GitOps: What You Need to Know Now](https://info.container-solutions.com/gitops-what-you-need-to-know-now) 的心得第四篇。已獲得作者授權同意">
 <meta property="og:locale" content="en">
-<meta property="og:updated_time" content="2020-10-16T15:50:55.699Z">
+<meta property="og:updated_time" content="2020-10-21T16:25:18.827Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="[書本導讀]-GitOps工具的選擇">
 <meta name="twitter:description" content="本文為電子書本[GitOps: What You Need to Know Now](https://info.container-solutions.com/gitops-what-you-need-to-know-now) 的心得第四篇。已獲得作者授權同意">
@@ -258,8 +258,8 @@
 <li>對一個已經存在的資源進行更新時，如果本次的修改有包含一些資源的刪除，那要將遠方系統上這些相對應的資源也一併刪除是一個實作上的挑戰</li>
 <li>通常來說，將修改內容套用到系統上通常會需要一系列的腳本幫忙輔助，而這些腳本彼此運行的順序尤其重要，一但順序錯誤可能整個邏輯就大亂，最後部署的結果也會不如預期。</li>
 </ol>
-<h2 id="‘Pull’-GitOps-Tools"><a href="#‘Pull’-GitOps-Tools" class="headerlink" title="‘Pull’ GitOps Tools"></a>‘Pull’ GitOps Tools</h2><p>‘Pull’ GitOps 工具(技術上來說可以說是基於代理人架構)完全採用不同的方式，這些工具會先於目標環境中部署一個代理人服務，而該代理人服務則會等待各種狀態變動的請求，並且根據這些請求來修正系統上的狀態。<br>如果是設定檔管理工具的話， Pupper 則是一個基於 Pull 機制的管理工具，所有的更動都要環境中的代理人幫忙管理</p>
-<p>使用這種模式的好處就是這些代理人因為本身就處在這些目標環境中，所以可以被視為是一個可信任的代理人。以 Pupper 來說，其代理人可以基於 <code>privileged</code> 這種比較有權限的使用者去運行。</p>
+<h2 id="‘Pull’-GitOps-Tools"><a href="#‘Pull’-GitOps-Tools" class="headerlink" title="‘Pull’ GitOps Tools"></a>‘Pull’ GitOps Tools</h2><p>‘Pull’ GitOps 工具(技術上來說可以說是基於代理人架構)完全採用不同的方式，這些工具會先於目標環境中部署一個代理人服務，而該代理人服務則會等待各種狀態變動的請求，並且根據這些請求來修正系統上的狀態。<br>如果是設定檔管理工具的話， Puppet 則是一個基於 Pull 機制的管理工具，所有的更動都要環境中的代理人幫忙管理</p>
+<p>使用這種模式的好處就是這些代理人因為本身就處在這些目標環境中，所以可以被視為是一個可信任的代理人。以 Puppet 來說，其代理人可以基於 <code>privileged</code> 這種比較有權限的使用者去運行。</p>
 <p>另外，對於 Kubernetes 來說，內部的 Operator 概念就是完全符合這種模式，透過授權的代理人能夠存取 Kubernetes API 來獲得當前系統上資源的狀態，甚至對其修改。</p>
 <p>相關的工具譬如 <a href="https://blog.container-solutions.com/fluxcd-argocd-or-jenkins-x-which-is-the-right-gitops-tool-for-you" target="_blank" rel="noopener">Flux/ArgoCD</a> 就會於 Kubernetes 內運行一個代理人，透過適當的設定後，這些代理人就會專注於特定的 Git Repo，當有任何更動時就會把差異內容套用到 Kubernetes 內，甚至有必要的話還可以把系統上的更動寫回到 Git Repo 內確保狀態一致。</p>
 <p>其他工具譬如 <a href="https://cloud.google.com/tekton" target="_blank" rel="noopener">Tekton</a> 則是一套基於 Kubernetes 內的 CI/CD 工具，能夠輕鬆地做到上述 GitHub Action 或 GitLab CI/CD 與kubectl結合的各種事項。</p>
