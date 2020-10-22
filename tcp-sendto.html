@@ -21,14 +21,14 @@
   </script>
 
   <meta name="description" content="OS:Linux 以前在寫Socket Programming的時候，對於TCP跟UDP在使用上會有一些區別TCP要先建立連線，接者透過該連線把資料送出去，而UDP因為沒有連線，每次送出資料時都要指定對方的位置寫TCP的時候，我習慣使用write跟send兩個function 來傳送資料寫UDP的時候，我習慣使用sendto來傳送資料 123456ssize_tsend(int s, const">
-<meta name="keywords" content="C,System,Network">
+<meta name="keywords" content="System,C,Network">
 <meta property="og:type" content="article">
 <meta property="og:title" content="TCP使用sendto">
 <meta property="og:url" content="https://www.hwchiu.com/tcp-sendto.html">
 <meta property="og:site_name" content="Hwchiu Learning Note">
 <meta property="og:description" content="OS:Linux 以前在寫Socket Programming的時候，對於TCP跟UDP在使用上會有一些區別TCP要先建立連線，接者透過該連線把資料送出去，而UDP因為沒有連線，每次送出資料時都要指定對方的位置寫TCP的時候，我習慣使用write跟send兩個function 來傳送資料寫UDP的時候，我習慣使用sendto來傳送資料 123456ssize_tsend(int s, const">
 <meta property="og:locale" content="en">
-<meta property="og:updated_time" content="2020-10-16T15:55:00.581Z">
+<meta property="og:updated_time" content="2020-10-22T00:58:20.456Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="TCP使用sendto">
 <meta name="twitter:description" content="OS:Linux 以前在寫Socket Programming的時候，對於TCP跟UDP在使用上會有一些區別TCP要先建立連線，接者透過該連線把資料送出去，而UDP因為沒有連線，每次送出資料時都要指定對方的位置寫TCP的時候，我習慣使用write跟send兩個function 來傳送資料寫UDP的時候，我習慣使用sendto來傳送資料 123456ssize_tsend(int s, const">
@@ -262,7 +262,8 @@ msg.msg_namelen = addr_len;
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span>(msg-&gt;msg_name) &#123;</span><br><span class="line">       <span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_in</span> *<span class="title">usin</span> = (<span class="title">struct</span> <span class="title">sockaddr_in</span> *)<span class="title">msg</span>-&gt;<span class="title">msg_name</span>;</span></span><br><span class="line">       <span class="keyword">if</span> (msg-&gt;msg_namelen &lt; <span class="keyword">sizeof</span>(*usin))</span><br><span class="line">           <span class="keyword">return</span> -EINVAL;</span><br><span class="line">       <span class="keyword">if</span> (usin-&gt;sin_family != AF_INET) &#123;</span><br><span class="line">           <span class="keyword">if</span> (usin-&gt;sin_family != AF_UNSPEC)</span><br><span class="line">               <span class="keyword">return</span> -EAFNOSUPPORT;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">	daddr = usin-&gt;sin_addr.s_addr;</span><br><span class="line">	dport = usin-&gt;sin_port;</span><br><span class="line">	<span class="keyword">if</span> (dport == <span class="number">0</span>)</span><br><span class="line">	    <span class="keyword">return</span> -EINVAL;</span><br><span class="line">   &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">	<span class="keyword">if</span> (sk-&gt;sk_state != TCP_ESTABLISHED)</span><br><span class="line">	    <span class="keyword">return</span> -EDESTADDRREQ;</span><br><span class="line">	daddr = inet-&gt;inet_daddr;</span><br><span class="line">	dport = inet-&gt;inet_dport;</span><br><span class="line">	<span class="comment">/* Open fast path for connected socket.</span></span><br><span class="line"><span class="comment">	   Route will not be used, if at least one option is set.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	connected = <span class="number">1</span>;</span><br><span class="line">   &#125;</span><br></pre></td></tr></table></figure>
 <p>此外，recv以及recvfrom也是一樣的組合，與sent和sendto的關係差不多</p>
 <h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
-<p>組合包<br><a href="https://hiskio.com/packages/D7RZGWrNK" target="_blank" rel="noopener">https://hiskio.com/packages/D7RZGWrNK</a></p>
+<p>組合包<br><a href="https://hiskio.com/packages/mLwKb3zrx" target="_blank" rel="noopener">https://hiskio.com/packages/mLwKb3zrx</a></p>
+<p>疑難雜症除錯篇<br><a href="https://hiskio.com/courses/440/about?promo_code=VEQ4XNG" target="_blank" rel="noopener">https://hiskio.com/courses/440/about?promo_code=VEQ4XNG</a></p>
 <p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
 <p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
 <p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
@@ -281,9 +282,6 @@ msg.msg_namelen = addr_len;
       <div class="popular-posts-title"><a href="/2013-04-01-1741.html" rel="bookmark">Linux-Kernel-PacketCapture</a></div>
     </li>
     <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/c-pipe.html" rel="bookmark">Linux下 pipe介紹</a></div>
-    </li>
-    <li class="popular-posts-item">
       <div class="popular-posts-title"><a href="/paper-redesign-data-center.html" rel="bookmark">[論文導讀] Re-architecting datacenter networks and stacks for low latency and high performance</a></div>
     </li>
     <li class="popular-posts-item">
@@ -291,6 +289,9 @@ msg.msg_namelen = addr_len;
     </li>
     <li class="popular-posts-item">
       <div class="popular-posts-title"><a href="/DRBD-v9-0-Network-Work-Flow-ii.html" rel="bookmark">DRBD v9.0 Network Work Flow(ii)</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/DRBD-v9-0-Network-Work-Flow.html" rel="bookmark">DRBD v9.0 Network Work Flow(i)</a></div>
     </li>
   </ul>
 
@@ -326,8 +327,8 @@ msg.msg_namelen = addr_len;
 
       <footer class="post-footer">
           <div class="post-tags">
-              <a href="/tags/C/" rel="tag"># C</a>
               <a href="/tags/System/" rel="tag"># System</a>
+              <a href="/tags/C/" rel="tag"># C</a>
               <a href="/tags/Network/" rel="tag"># Network</a>
           </div>
 
@@ -432,7 +433,7 @@ msg.msg_namelen = addr_len;
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">111</span>
+        <span class="site-state-item-count">110</span>
         <span class="site-state-item-name">tags</span></a>
       </div>
   </nav>
