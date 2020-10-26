@@ -180,6 +180,164 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/kubernetes-dns-iii.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/kubernetes-dns-iii.html" class="post-title-link" itemprop="url">[Kubernetes] DNS Setting with Dockerd(原始碼分析上)</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2018-08-12 16:02:59" itemprop="dateCreated datePublished" datetime="2018-08-12T16:02:59-07:00">2018-08-12</time>
+            </span>
+
+          
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/kubernetes-dns-iii.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="kubernetes-dns-iii.html" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>在前篇文章有跟大家分享過實際部屬上遇到的 DNS 問題，並且透過實驗佐證去觀察結果, 本篇文章則是透過另外一種觀點來觀察結果,透過閱讀原始碼的方式來觀察到底 kubernetes 再創建相關的 Pod 時會如何去處理 DNS 相關的設定，由於整個過程牽扯到 kubernetes 以及 CRI(Container Runtime Interface)的操作，而我們預設使用的則是 Docker 作為底層容器的操作. 由於篇幅過長，所以本文會著重於 kubernetes 原始碼的部分，而 Docker 相關的部分則會餘下篇文章來研究.</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/kubernetes-dns-iii.html">
+                Read more &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/kubernetes-dns-ii.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/kubernetes-dns-ii.html" class="post-title-link" itemprop="url">[Kubernetes] DNS Setting When DnsPolicy Is Default</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2018-08-12 04:31:52" itemprop="dateCreated datePublished" datetime="2018-08-12T04:31:52-07:00">2018-08-12</time>
+            </span>
+
+          
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/kubernetes-dns-ii.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="kubernetes-dns-ii.html" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>本文跟大家分享一個在實際部屬上遇到的問題，在不同的環境下，採用 dnsPolicy:Default 設定的 Kubernetes Pod 裡面所設定的 DNS Server 卻是完全不同的. 根據實際研究與觀察後，發現這個數字並不是單單的依靠 kubernetes 去處理，實際上也跟 Docker 本身如何去設定容器的 dns 也有關係，這部分就包含了宿主機的 /etc/resolv.conf 以及宿主機上 Docker 運行時的參數. 本文會先介紹這個問題，並且分享解決問題的思路以致於最後可以得到這個結論。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/kubernetes-dns-ii.html">
+                Read more &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
     <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/costco-chicken.html">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -814,171 +972,6 @@
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/slides-k8s-private-registry.html">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/uploads/avatar.jpg">
-      <meta itemprop="name" content="Hwchiu">
-      <meta itemprop="description" content="kubernetes/SDN/DevOps">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Hwchiu Learning Note">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/slides-k8s-private-registry.html" class="post-title-link" itemprop="url">Slides - Kubernetes with private docker registry</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">Posted on</span>
-
-              <time title="Created: 2018-05-30 16:56:00" itemprop="dateCreated datePublished" datetime="2018-05-30T16:56:00-07:00">2018-05-30</time>
-            </span>
-
-          
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus: </span>
-    
-    <a title="disqus" href="/slides-k8s-private-registry.html#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="slides-k8s-private-registry.html" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h3 id="Information"><a href="#Information" class="headerlink" title="Information"></a>Information</h3><ul>
-<li>Time: 2018/05/26</li>
-<li>Meetup: <a href="https://cntug.kktix.cc/events/sdn-cntug-5" target="_blank" rel="noopener">Cloud Native Taiwan User Group #5</a></li>
-</ul>
-<h3 id="Abstraction"><a href="#Abstraction" class="headerlink" title="Abstraction"></a>Abstraction</h3><p>This slides introduce a basic concept of how docker pulls images from docker hub and private registry first and then assumes a simple scenario which do the CI/CD for applications in the kubernetes cluster.</p>
-<p>In that scenario, you will use a kubernetes pod to build your application into a docker image and push that to the private registry and then pull that image to run as another kubernetes Pod in kubernetes cluster.</p>
-<p>The slides shows every problems you will meet, including how do you deploy your private registry, the network connectivity between the k8s Node/k8s Pod and private registry and a trusted SSL certificate.</p>
-<p>In the last section, the author provides a simple solution for that scenario and use a simple graph to explain how to works.</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/slides-k8s-private-registry.html#more" rel="contents">
-                Read more &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/introduce-cni-ii.html">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/uploads/avatar.jpg">
-      <meta itemprop="name" content="Hwchiu">
-      <meta itemprop="description" content="kubernetes/SDN/DevOps">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Hwchiu Learning Note">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/introduce-cni-ii.html" class="post-title-link" itemprop="url">[Container Network Interface] CNI Introduction</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">Posted on</span>
-
-              <time title="Created: 2018-04-08 05:16:01" itemprop="dateCreated datePublished" datetime="2018-04-08T05:16:01-07:00">2018-04-08</time>
-            </span>
-
-          
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus: </span>
-    
-    <a title="disqus" href="/introduce-cni-ii.html#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="introduce-cni-ii.html" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>Container Network Interface (CNI) as a Network Interface between the network soluition and the container mechanism. Without the CNI, the network solution developer should implement his/her plugin for every container environment and it must be a disaster. Fortunately, with the help of the CNI, the developer can only focus on one interface and it should work for every container mechanism. In this post, we will see why we need the CNI, what is CNI and how kubernetes use the CNI to provide the network connectiviy for the computing unit,  so called Pod.</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/introduce-cni-ii.html">
-                Read more &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
   <nav class="pagination">
@@ -1050,7 +1043,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">212</span>
+          <span class="site-state-item-count">214</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>

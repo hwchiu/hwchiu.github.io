@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="ITHOME-2020 系列文章">
+<meta name="keywords" content="Kubernetes,DevOps,Linux,K8s">
+<meta property="og:type" content="article">
+<meta property="og:title" content="鐵人賽系列文章-Day 3 - Helm 介紹">
+<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-3.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="ITHOME-2020 系列文章">
+<meta property="og:locale" content="en">
+<meta property="og:image" content="https://i.imgur.com/60lEp4A.jpg">
+<meta property="og:updated_time" content="2020-10-26T02:40:37.492Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="鐵人賽系列文章-Day 3 - Helm 介紹">
+<meta name="twitter:description" content="ITHOME-2020 系列文章">
+<meta name="twitter:image" content="https://i.imgur.com/60lEp4A.jpg">
+
+<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-3.html">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>鐵人賽系列文章-Day 3 - Helm 介紹 | Hwchiu Learning Note</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+    <script>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-54006186-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta custom-logo">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Hwchiu Learning Note</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <a>
+        <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+      </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+  <a href="https://github.com/hwchiu" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-3.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          鐵人賽系列文章-Day 3 - Helm 介紹
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2020-10-25 19:34:12" itemprop="dateCreated datePublished" datetime="2020-10-25T19:34:12-07:00">2020-10-25</time>
+            </span>
+
+          
+            <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">Views: </span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/ithome-20202-cicd-3.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="ithome-20202-cicd-3.html" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">ITHOME-2020 系列文章</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>上篇文章探討了關於 Kubernetes 內應用程式的包裝方式，提到了一些相關的議題，包含了如何散佈安裝檔案，同時支援不同版本的選擇，以及客製化的選項。</p>
+<p>因此本篇我們將來介紹 Helm3 這個工具，同時也會介紹 Helm 是如何實現上述所提過的各種議題</p>
+<h2 id="Helm"><a href="#Helm" class="headerlink" title="Helm"></a>Helm</h2><p>根據官方敘述, Helm 是一個管理 Kubernetes 應用程式的套件，透過 Helm Charts 這套系統，可以幫助開發者打包，安裝，升級相關的 Kubernetes 應用程式。</p>
+<p>此外， Helm Charts 本身也被設計得很容易去創造，版本控制，分享以及發佈，所以透過 Helm Charts 就可以避免到處 Copy-and-Paste 各式各樣的 Yaml。</p>
+<p>Helm 本身也是一個開源專案，而且也是 <a href="https://cncf.io/" target="_blank" rel="noopener">CNCF</a> 內的畢業專案，目前是由  <a href="https://github.com/helm/community" target="_blank" rel="noopener">Helm 社群</a> 進行維護</p>
+<blockquote>
+<p>Helm helps you manage Kubernetes applications — Helm Charts help you define, install, and upgrade even the most complex Kubernetes application.<br>Charts are easy to create, version, share, and publish — so start using Helm and stop the copy-and-paste.<br>Helm is a graduated project in the <a href="https://cncf.io/" target="_blank" rel="noopener">CNCF</a> and is maintained by the <a href="https://github.com/helm/community" target="_blank" rel="noopener">Helm community</a>.</p>
+</blockquote>
+<p>Helm 的架構概念非常簡單，就是將整包 Kubernetes 的所有資源物件再疊加一層抽象層，這個抽象層是給 Helm 工具使用的，Helm 的工具會有自己的方式去解讀這個抽象層，最後產生出最後的 Kubernetes 資源物件然後安裝到 Kubernetes 裡面</p>
+<h2 id="Purpose"><a href="#Purpose" class="headerlink" title="Purpose"></a>Purpose</h2><p>Helm 將所有 Kubernetes 的應用程式都統稱為 <code>Charts</code>.</p>
+<p>Helm 的工具會將這些 Charts 打包成 <strong>tgz</strong> 的檔案，接下來可以可以透過 Helm Charts Server 的方式將這個 <strong>tgz</strong> 的檔案給散佈出去，讓其</p>
+<p>他使用者可以方便地取得這些已經打包好的應用程式(Charts)。</p>
+<p>此外， Helm 的工具也可以直接針對這些 Charts 所描述的應用程式去安裝到/解除於 Kubernetes 叢集中</p>
+<p>對於安裝到 Kubernetes 中的應用程式， Helm 稱其為 <code>Release</code> </p>
+<p>而 Chart 到 Release 中間有一個客製化的概念，稱為 Config，透過這個 config 可以產生出適應不同環境的 Kubernetes Yaml</p>
+<p>這三者如下圖所示，每個 Charts 搭配不同環境的設定檔案最後會產生出一個唯一的 Release 物件，而該物件就代表者該應用程式於 Kubernetes 內的實體</p>
+<p><img src="https://i.imgur.com/60lEp4A.jpg" alt></p>
+<h2 id="客製化"><a href="#客製化" class="headerlink" title="客製化"></a>客製化</h2><p>為了滿足客製化的需求，希望開發者可以簡單的設計 Charts，使用者又可以簡單的客製化使用，這部分 Helm 採用的是 Go Template 的方式來進行 Yaml 的客製化，舉例來說</p>
+<p>下面一個常見的 Service Yaml 檔案，內容全部都寫死</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: v1</span><br><span class="line">kind: Service</span><br><span class="line">metadata:</span><br><span class="line">  name: example</span><br><span class="line">  labels:</span><br><span class="line">		app: example</span><br><span class="line">spec:</span><br><span class="line">  type: ClusterIP</span><br><span class="line">  ports:</span><br><span class="line">    - port: 80</span><br><span class="line">      targetPort: http</span><br><span class="line">      protocol: TCP</span><br><span class="line">      name: http</span><br><span class="line">  selector:</span><br><span class="line">    app.kubernetes.io/name: example</span><br><span class="line">    app.kubernetes.io/instance: example</span><br></pre></td></tr></table></figure>
+<p>這種情況下使用者就沒有辦法客製化需求，譬如需要的 Port(80)，或是不同類型 (ClusterIP/NodePort)</p>
+<p>Helm 針對這種情況引入了 Go Template，使得 Yaml 檔案的樣子可能會變成如下圖</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Service</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">&#123;&#123;</span> <span class="string">include</span> <span class="string">"example.fullname"</span> <span class="string">.</span> <span class="string">&#125;&#125;</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line"><span class="string">&#123;&#123;</span> <span class="string">include</span> <span class="string">"example.labels"</span> <span class="string">.</span> <span class="string">|</span> <span class="string">indent</span> <span class="number">4</span> <span class="string">&#125;&#125;</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">type:</span> <span class="string">&#123;&#123;</span> <span class="string">.Values.service.type</span> <span class="string">&#125;&#125;</span></span><br><span class="line">  <span class="attr">ports:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">port:</span> <span class="string">&#123;&#123;</span> <span class="string">.Values.service.port</span> <span class="string">&#125;&#125;</span></span><br><span class="line">      <span class="attr">targetPort:</span> <span class="string">http</span></span><br><span class="line">      <span class="attr">protocol:</span> <span class="string">TCP</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">http</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">app.kubernetes.io/name:</span> <span class="string">&#123;&#123;</span> <span class="string">include</span> <span class="string">"example.name"</span> <span class="string">.</span> <span class="string">&#125;&#125;</span></span><br><span class="line">    <span class="attr">app.kubernetes.io/instance:</span> <span class="string">&#123;&#123;</span> <span class="string">.Release.Name</span> <span class="string">&#125;&#125;</span></span><br></pre></td></tr></table></figure>
+<p>可以看到上述的採用大量的 <strong>大括號</strong> 的格式來進行變數的替換，使用者再使用該 Charts 的時候會對上述的變數進行設定，而這些變數最後在渲染這些 Template 檔案的時候就會給替換掉最後產生出真正的 Yaml 檔案。</p>
+<p>舉例來說，第一個使用者安裝的時候輸入 <code>service.type: ClusterIP</code>  就會產生出一個使用 <code>ClusterIP</code> 的 Service，而若輸入的是 <code>service.type:NodePort</code>  則會產生使用 <code>NodePort</code> 的 Service.</p>
+<p>為了方便使用者去使用，開發者設計的時候可以準備一套預設值放到一個名為 <code>values.yaml</code> 的檔案裡面，使用者可以直接修改該檔案或是使用別的檔案來替換所有的變數</p>
+<p>這種 Go Template 的方式的確可以讓 Yaml 變得很彈性，可以讓使用者針對不同情境傳入不同的數值，但是我認為他也帶來的更多的複雜性，因為這些 Template 的用法十分多元，從基本的變數替換，到 FOR 迴圈， IF 判斷條件等都可以使用。<br>對於 Helm 用法不理解的人初次看到這些滿滿被 <code>大括號</code> 入侵的 Yaml加上一堆不確定是幹嘛用的關鍵字，其實會難以入手，沒有花更多時間去理解的情況下，可能就只會使用而沒有辦法成為一個開發者去設計一個好的 Helm Chart</p>
+<h2 id="散播與發佈"><a href="#散播與發佈" class="headerlink" title="散播與發佈"></a>散播與發佈</h2><p>當開發者準備好一個 Helm Charts 的檔案時候，就可以透過打包的方式將其上傳到官方或是自行維護的 Helm Chart 伺服器</p>
+<p>一個使用範例如下(參考自官網)</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ helm repo add stable https://kubernetes-charts.storage.googleapis.com/</span><br><span class="line">$ helm search repo stable</span><br><span class="line">NAME                                    CHART VERSION   APP VERSION                     DESCRIPTION</span><br><span class="line">stable/acs-engine-autoscaler            2.2.2           2.1.1                           DEPRECATED Scales worker nodes within agent pools</span><br><span class="line">stable/aerospike                        0.2.8           v4.5.0.5                        A Helm chart <span class="keyword">for</span> Aerospike <span class="keyword">in</span> Kubernetes</span><br><span class="line">stable/airflow                          4.1.0           1.10.4                          Airflow is a platform to programmatically autho...</span><br><span class="line">stable/ambassador                       4.1.0           0.81.0                          A Helm chart <span class="keyword">for</span> Datawire Ambassador</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<p>上述指令代表的意思是我想要將 <code>https://kubernetes-charts.storage.googleapis.com/</code> 這個 Helm Charts 的伺服器加入到本地 <code>Helm</code> 指令的來源之一，並且嘗試搜尋上面任何有 <code>stable</code> 字眼的 Helm Chart</p>
+<p>下列指令則可以嘗試安裝 <code>stable/mysql</code> 這個 Helm Chart 到 Kubernetes 中，產生的 Release 名稱為 <code>smiling-penguin</code></p>
+<p>這邊要注意的是 Helm 本身會需要存取 Kubernetes 叢集，所以也是使用 KUBECONFIG 等方式來設定存取權限</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ helm install stable/mysql --generate-name</span><br><span class="line">Released smiling-penguin</span><br></pre></td></tr></table></figure>
+<p>最後可以透過 <code>Helm ls</code> 的指令來觀看目前安裝於叢集內的 Helm Release.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ helm ls</span><br><span class="line">NAME             VERSION   UPDATED                   STATUS    CHART</span><br><span class="line">smiling-penguin  1         Wed Sep 28 12:59:46 2016  DEPLOYED  mysql-0.1.0</span><br></pre></td></tr></table></figure>
+<h2 id="Helm-v2-v-s-Helm-v3"><a href="#Helm-v2-v-s-Helm-v3" class="headerlink" title="Helm v2 v.s Helm v3"></a>Helm v2 v.s Helm v3</h2><p>Helm 目前流通的版本有 Helm v2 以及 Helm v3，使用起來差別不會非常誇張，但是如果是新上手的朋友強烈建議直接上 Helm v3，而不要使用 Helm v2，否則後來還要處理更新搬移的問題。</p>
+<p>官方網站就有專門一個頁面在介紹如何從 Helm2 搬移至 Helm3, <a href="https://helm.sh/docs/topics/v2_v3_migration/" target="_blank" rel="noopener">Migrating Helm v2 to v3</a>, 有興趣的人可以點進去看更多詳細的介紹。</p>
+<p>下面來列一下 <a href="https://v3.helm.sh/docs/faq/#changes-since-helm-2" target="_blank" rel="noopener">v3 以及 v2 最大的差異</a></p>
+<ol>
+<li>Tiller 的移除，過往使用 Helm v2 的時候，還要在系統內先行安裝一個叫做 Tiller 的伺服器，同時也要對其設定一些權限，安裝起來麻煩，同時也有潛在的安全性問題。 Helm v3 基本上整個架構變得更乾淨，只需要一個 Helm 指令即可</li>
+<li>Helm Chart 裡面相關的 apiVersion 需要跳號，從 v1 跳到 v2，才會宣告該 Helm Chart 是屬於 Helm v3.</li>
+<li>更新應用程式的策略， v3 使用的是三方比對來進行測試，將會使用 <code>過往狀態</code>, <code>當前運作狀態</code> 以及 <code>期望狀態</code> 來比對，最後產生更新後的內容</li>
+<li>OCI 的支援，這個是我覺得最有趣的功能，未來 Helm Chart 打包後的格式可以遵循 OCI (Open Contaianer Initiative) 的格式，這意味者我們未來將有機會使用 Container Registry 來存放 Helm Chart, 只需要一個伺服器就可以同時滿足 Container Image 以及 Helm Chart，如果有興趣的人可以嘗試使用 Harbor 這套 Contaienr Registry 的解決方案來體驗看看這個功能</li>
+</ol>
+<blockquote>
+<p>想要知道更多關於 OCI 的介紹，可以參考這篇<a href="https://www.hwchiu.com/container-design-i.html">文章</a></p>
+</blockquote>
+<ol start="5">
+<li>Helm 一些子指令的新增與移除</li>
+</ol>
+<p>基本上修改的細部內容非常多，有興趣的建議參考上述官方連結去看看修改細節，可以更加瞭解 Helm3.</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>組合包<br><a href="https://hiskio.com/packages/mLwKb3zrx" target="_blank" rel="noopener">https://hiskio.com/packages/mLwKb3zrx</a></p>
+<p>疑難雜症除錯篇<br><a href="https://hiskio.com/courses/440/about?promo_code=VEQ4XNG" target="_blank" rel="noopener">https://hiskio.com/courses/440/about?promo_code=VEQ4XNG</a></p>
+<p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
+<p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
+
+    </div>
+
+    
+    
+    
+      
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-2.html" rel="bookmark">鐵人賽系列文章- Day 2 - Kubernetes 物件管理</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd.html" rel="bookmark">鐵人賽系列文章 - DevOps 與 Kubernetes 的愛恨情仇</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/gitops-bad-and-ugly.html" rel="bookmark">GitOps 帶來的痛點與反思</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/k8s-security.html" rel="bookmark">Kubernetes Container Security 探討</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/k8s-service-catalog.html" rel="bookmark">Service Catalog</a></div>
+    </li>
+  </ul>
+
+        
+
+  <div class="followme">
+    <p>Welcome to my other publishing channels</p>
+
+    <div class="social-list">
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+        </div>
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+        </div>
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+        </div>
+    </div>
+  </div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/ithome-20202-cicd-2.html" rel="prev" title="鐵人賽系列文章- Day 2 - Kubernetes 物件管理">
+      <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day 2 - Kubernetes 物件管理
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  <div class="comments">
+    <div id="disqus_thread">
+      <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+    </div>
+  </div>
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Helm"><span class="nav-number">1.</span> <span class="nav-text">Helm</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Purpose"><span class="nav-number">2.</span> <span class="nav-text">Purpose</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#客製化"><span class="nav-number">3.</span> <span class="nav-text">客製化</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#散播與發佈"><span class="nav-number">4.</span> <span class="nav-text">散播與發佈</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Helm-v2-v-s-Helm-v3"><span class="nav-number">5.</span> <span class="nav-text">Helm v2 v.s Helm v3</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number"></span> <span class="nav-text">個人資訊</span></a></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">214</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">110</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https://github.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https://twitter.com/hw_chiu" rel="noopener" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/hongwei.qiu" title="FB Page → https://www.facebook.com/hongwei.qiu" rel="noopener" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" rel="noopener" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https://instagram.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+  <div class="addthis_inline_share_toolbox">
+    <script src="//s7.addthis.com/js/300/addthis_widget.js#pubid=ra-5f4ca66cef0894e1" async="async"></script>
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+<script>
+  function loadCount() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://hwchiu.disqus.com/count.js';
+    s.id = 'dsq-count-scr';
+    (d.head || d.body).appendChild(s);
+  }
+  // defer loading until the whole page loading is completed
+  window.addEventListener('load', loadCount, false);
+</script>
+<script>
+  var disqus_config = function() {
+    this.page.url = "https://www.hwchiu.com/ithome-20202-cicd-3.html";
+    this.page.identifier = "ithome-20202-cicd-3.html";
+    this.page.title = "鐵人賽系列文章-Day 3 - Helm 介紹";
+    this.language = 'en';
+    };
+  NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
+    if (window.DISQUS) {
+      DISQUS.reset({
+        reload: true,
+        config: disqus_config
+      });
+    } else {
+      var d = document, s = d.createElement('script');
+      s.src = 'https://hwchiu.disqus.com/embed.js';
+      s.setAttribute('data-timestamp', '' + +new Date());
+      (d.head || d.body).appendChild(s);
+    }
+  });
+</script>
+
+</body>
+</html>
