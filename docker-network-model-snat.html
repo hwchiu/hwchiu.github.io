@@ -37,7 +37,7 @@
 <meta property="og:image" content="https://i.imgur.com/POi2cVr.jpg">
 <meta property="og:image" content="https://i.imgur.com/tBBZIn7.jpg">
 <meta property="og:image" content="https://i.imgur.com/ZyOxFzc.jpg">
-<meta property="og:updated_time" content="2020-11-07T21:30:12.995Z">
+<meta property="og:updated_time" content="2020-11-09T03:29:49.503Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Docker 網路入門篇(三) - 網路存取分析">
 <meta name="twitter:description" content="本篇文章探討 Docker Bridge 網路模型的運作過程，透過一系列步驟去拆解到底容器是如何對外上網">
@@ -274,7 +274,7 @@
 <p>用技術層面來講上面三個概念的話，大概是下列這些內容，不過本文不會太細究每個元件的內容</p>
 <ol>
 <li>routing table + forwrding table</li>
-<li>kenrle + iptables + conntrack</li>
+<li>kernel + iptables + conntrack</li>
 <li>iptables</li>
 </ol>
 <h1 id="環境"><a href="#環境" class="headerlink" title="環境"></a>環境</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ lsb_release -a</span><br><span class="line">No LSB modules are available.</span><br><span class="line">Distributor ID: Ubuntu</span><br><span class="line">Description:    Ubuntu 18.04.3 LTS</span><br><span class="line">Release:        18.04</span><br><span class="line">Codename:       bionic</span><br><span class="line"></span><br><span class="line">$ uname -a</span><br><span class="line">Linux k8s-dev 4.15.0-72-generic #81-Ubuntu SMP Tue Nov 26 12:20:02 UTC 2019 x86_64 x86_64 x86_64 GNU/Linux</span><br><span class="line"></span><br><span class="line">$ docker --version</span><br><span class="line">Docker version 19.03.13, build 4484c46d9d</span><br></pre></td></tr></table></figure>
@@ -313,10 +313,10 @@
 <li>重新發送 ping</li>
 </ol>
 <p>這時候就會發現容器之間可以透過 ICMP 傳送封包了<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">$ docker <span class="built_in">exec</span> -it c1 ping 10.55.66.3 -c1 -W1</span><br><span class="line">PING 10.55.66.3 (10.55.66.3) 56(84) bytes of data.</span><br><span class="line"></span><br><span class="line">--- 10.55.66.3 ping statistics ---</span><br><span class="line">1 packets transmitted, 0 received, 100% packet loss, time 0ms</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">$ <span class="built_in">echo</span> <span class="string">"0"</span> | sudo tee /proc/sys/net/bridge/bridge-nf-call-iptables</span><br><span class="line">0</span><br><span class="line"></span><br><span class="line">$ docker <span class="built_in">exec</span> -it c1 ping 10.55.66.3 -c1 -W1</span><br><span class="line">PING 10.55.66.3 (10.55.66.3) 56(84) bytes of data.</span><br><span class="line">64 bytes from 10.55.66.3: icmp_seq=1 ttl=64 time=0.025 ms</span><br><span class="line"></span><br><span class="line">--- 10.55.66.3 ping statistics ---</span><br><span class="line">1 packets transmitted, 1 received, 0% packet loss, time 0ms</span><br><span class="line">rtt min/avg/max/mdev = 0.025/0.025/0.025/0.000 ms</span><br><span class="line"></span><br><span class="line">$ <span class="built_in">echo</span> <span class="string">"1"</span> | sudo tee /proc/sys/net/bridge/bridge-nf-call-iptables</span><br><span class="line">1</span><br></pre></td></tr></table></figure></p>
-<p>當 <strong>iptables</strong> 被告知要干涉 <strong>Linux Bridge</strong> 的封包管理後，所有經過的封包都會讓 <strong>iptalbes</strong> 來進行檢查</p>
+<p>當 <strong>iptables</strong> 被告知要干涉 <strong>Linux Bridge</strong> 的封包管理後，所有經過的封包都會讓 <strong>iptables</strong> 來進行檢查</p>
 <p>Docker 的環境之中，採取的是白名單機制，若沒有告知要通過，則將該封包給丟棄，所以這也是為什麼我們的封包不會通過。<br>這邊有兩種解決方法</p>
 <ol>
-<li>修改成黑白單的概念，預設通過封包</li>
+<li>修改成黑名單的概念，預設通過封包</li>
 <li>加入相關規則，讓我們的封包可以通過</li>
 </ol>
 <p>前一篇文章的實驗就是針對 (1) 進行操作,這邊透過 <strong>iptables -P FORWARD ACCEPT</strong> 去說明，對於 <strong>FORAWRD</strong> 封包的處理，預設就是 <strong>ACCEPT</strong> 去接納他們</p>
