@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="dmOrse_OyDnuDJK-8EcAWxeJH0fRWpNIJVSN3BNv5co">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="ITHOME-2020 系列文章">
+<meta name="keywords" content="Kubernetes,DevOps,Linux,K8s">
+<meta property="og:type" content="article">
+<meta property="og:title" content="鐵人賽系列文章- Day 8 Skaffold 本地開發與測試">
+<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-8.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="ITHOME-2020 系列文章">
+<meta property="og:locale" content="en">
+<meta property="og:image" content="https://skaffold.dev/images/architecture.png">
+<meta property="og:updated_time" content="2020-11-15T17:40:28.302Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="鐵人賽系列文章- Day 8 Skaffold 本地開發與測試">
+<meta name="twitter:description" content="ITHOME-2020 系列文章">
+<meta name="twitter:image" content="https://skaffold.dev/images/architecture.png">
+
+<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-8.html">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>鐵人賽系列文章- Day 8 Skaffold 本地開發與測試 | Hwchiu Learning Note</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+    <script>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-54006186-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta custom-logo">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Hwchiu Learning Note</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <a>
+        <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+      </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+  <a href="https://github.com/hwchiu" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-8.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          鐵人賽系列文章- Day 8 Skaffold 本地開發與測試
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2020-11-15 09:39:19" itemprop="dateCreated datePublished" datetime="2020-11-15T09:39:19-08:00">2020-11-15</time>
+            </span>
+
+          
+            <span class="post-meta-item" title="Views">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-users"></i>
+              </span>
+              <span class="post-meta-item-text">Views: </span>
+              <span class="firestore-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/ithome-20202-cicd-8.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="ithome-20202-cicd-8.html" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">ITHOME-2020 系列文章</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>上篇文章中我們探討了本地開發應用程式與 Kubernetes 整合的測試流程，透過不同的 Kubernetes 部署工具會有不同的結果，如果採用</p>
+<p>的是 KIND 這種工具，本身就有提供額外的指令幫助開發者將本地測試的 Contianer Image 給載入到 KIND 叢集中，可以提升整體開發效</p>
+<p>率，但是如果採用的不是 KIND 的話，那該怎麼辦？</p>
+<p>因此本篇就要來介紹另外一個開源工具 <code>Skaffold</code>，看看我們可以如何使用這套工具來提升本地開發 Kubernetes 應用的效率 (前提是你有需要一個 Kubernetes 來測試)</p>
+<h1 id="Skaffold-介紹"><a href="#Skaffold-介紹" class="headerlink" title="Skaffold 介紹"></a>Skaffold 介紹</h1><p>Skaffold 官方是這樣介紹自己工具的</p>
+<blockquote>
+<p>Skaffold is a command line tool that facilitates continuous development for Kubernetes-native applications. Skaffold handles the workflow for building, pushing, and deploying your application, and provides building blocks for creating CI/CD pipelines. This enables you to focus on iterating on your application locally while Skaffold continuously deploys to your local or remote Kubernetes cluster.</p>
+</blockquote>
+<p>簡單來說 Skaffold 是一個幫助開發 Kubernetes-natvie 應用程式的工具，其會幫你建置你的 Container Image, 推送 Container Image 到 部署你的應用程式到 Kubernetes 叢集，將這些動作一次整合，讓開發者能夠專心於應用程式開發，而應用程式最後如何跑到 Kubernetes 上則全部交給 Skaffold 來處理。</p>
+<p>與之前的議題相比之下， Skaffold 除了支援本地的 Kubernetes 外，也支援遠方的 Kuberentes 叢集，我們來看一下其支援哪些類型的 Kuberentes 吧</p>
+<p>下表節錄自<a href="https://skaffold.dev/docs/environment/local-cluster/" target="_blank" rel="noopener">官方文件</a>, 可以看到對於本地的 Kubernetes 叢集支援不少，包含了 <code>minikube</code>, <code>kind</code> <code>k3d</code> 之前提過的都有支援，此外 <code>docker-desktop</code> 這類型也有支援。</p>
+<p>Remote 的話則是以 Google 為主，由於本章節探討的都是本地的部署，所以接下來還是會以本地的 Kuberentes 叢集為範例去介紹與使用</p>
+<table>
+<thead>
+<tr>
+<th>Kubernetes context</th>
+<th>Local cluster type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>docker-desktop</td>
+<td><a href="https://www.docker.com/products/docker-desktop" target="_blank" rel="noopener"><code>Docker Desktop</code></a></td>
+<td></td>
+</tr>
+<tr>
+<td>docker-for-desktop</td>
+<td><a href="https://www.docker.com/products/docker-desktop" target="_blank" rel="noopener"><code>Docker Desktop</code></a></td>
+<td>This context name is deprecated</td>
+</tr>
+<tr>
+<td>minikube</td>
+<td><a href="https://github.com/kubernetes/minikube/" target="_blank" rel="noopener"><code>minikube</code></a></td>
+<td></td>
+</tr>
+<tr>
+<td>kind-(.*)</td>
+<td><a href="https://github.com/kubernetes-sigs/kind" target="_blank" rel="noopener"><code>kind</code></a></td>
+<td>This pattern is used by kind &gt;= v0.6.0</td>
+</tr>
+<tr>
+<td>(.*)@kind</td>
+<td><a href="https://github.com/kubernetes-sigs/kind" target="_blank" rel="noopener"><code>kind</code></a></td>
+<td>This pattern was used by kind &lt; v0.6.0</td>
+</tr>
+<tr>
+<td>k3d-(.*)</td>
+<td><a href="https://github.com/rancher/k3d" target="_blank" rel="noopener"><code>k3d</code></a></td>
+<td>This pattern is used by k3d &gt;= v3.0.0</td>
+</tr>
+</tbody>
+</table>
+<h1 id="架構"><a href="#架構" class="headerlink" title="架構"></a>架構</h1><p>下圖節錄自<a href="https://skaffold.dev/docs/design/" target="_blank" rel="noopener">官方文件</a></p>
+<p><img src="https://skaffold.dev/images/architecture.png" alt="architecture"></p>
+<p>圖片中藍色基底就是 Skaffold 中最常使用到的功能，接下來我們就一個一個介紹每個區塊在做什麼事情</p>
+<h2 id="Detecting-Source-Code"><a href="#Detecting-Source-Code" class="headerlink" title="Detecting Source Code"></a>Detecting Source Code</h2><p>如同前言所述， Skaffold 希望開發者可以專注於程式碼的開發，而後續的流程都讓其來幫忙搞定，因此其內建一個偵測系統，當目標目錄內的程式碼有所更動時，就會自動地執行相關工作流程，這樣對於使用者來說，只需要存擋，等待一點時間就可以於 Kubernetes 叢集中看到最新的程式碼</p>
+<h2 id="Bulding-Artifacts"><a href="#Bulding-Artifacts" class="headerlink" title="Bulding Artifacts"></a>Bulding Artifacts</h2><p>當程式碼被偵測到更動後， Skaffold 就會開始建置相關產物，這邊支援多種類型，譬如 Dockerfile, Bazel, Jib Maven 甚至是其他自定義的腳本。除了本地的產物產生之外， Skaffold 也有跟 Google Cloud Build 有所整合，這部分我認為跟 Skaffold 是 Google 開源有很大的關係，所以目前只有 Google 家的服務有支援。</p>
+<h2 id="Test-Artifacts"><a href="#Test-Artifacts" class="headerlink" title="Test Artifacts"></a>Test Artifacts</h2><p>當產物產生後，會對這個產物進行測試，這個階段能做的選擇比較少，目前是基於 <a href="https://github.com/GoogleContainerTools/container-structure-test" target="_blank" rel="noopener">Container-structure-test</a> 這套開源軟體來進行測試，有興趣瞭解這個專案做什麼的可以點選前述連結或是到<a href="https://skaffold.dev/docs/pipeline-stages/testers/" target="_blank" rel="noopener">官方頁面</a>瞭解更多</p>
+<h2 id="Tagging-Artifacts"><a href="#Tagging-Artifacts" class="headerlink" title="Tagging Artifacts"></a>Tagging Artifacts</h2><p>當產物產生也測試完畢之後，接下來會對產物進行 Tag 的動作，該 Tag 會打到 Container Image 上，目前有支援四種選項，包含</p>
+<ol>
+<li>Git Commit IDs</li>
+<li>Sha256 Hash</li>
+<li>Go Tempate with Environment Variable Support</li>
+<li>Date &amp; Time</li>
+</ol>
+<p>四者詳細的差異可以觀看<a href="https://skaffold.dev/docs/pipeline-stages/taggers/" target="_blank" rel="noopener">官方頁面</a> 來瞭解更多，基本上就是讓你選擇不同的 image tag </p>
+<h2 id="Pushing-Artifac"><a href="#Pushing-Artifac" class="headerlink" title="Pushing Artifac"></a>Pushing Artifac</h2><p>這個步驟就是想辦法將上述的產物給送到 Kubernetes 裡面，這部分如果 Kubernetes 是本地機器，可以忽略這個步驟直接使用，就如同前述的 Kubeadm 的環境一樣。 如果是遠方的環境的話，這邊就會根據遠方 Kubernetes Cluster 不同種類而採用的方式來處理，其判斷準則則是依據 KUBECONFIG  CURRENT-CONTEXT 的名稱，就以最上面的支援環境來說</p>
+<table>
+<thead>
+<tr>
+<th>Kubernetes context</th>
+<th>Local cluster type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>docker-desktop</td>
+<td><a href="https://www.docker.com/products/docker-desktop" target="_blank" rel="noopener"><code>Docker Desktop</code></a></td>
+<td></td>
+</tr>
+<tr>
+<td>docker-for-desktop</td>
+<td><a href="https://www.docker.com/products/docker-desktop" target="_blank" rel="noopener"><code>Docker Desktop</code></a></td>
+<td>This context name is deprecated</td>
+</tr>
+<tr>
+<td>minikube</td>
+<td><a href="https://github.com/kubernetes/minikube/" target="_blank" rel="noopener"><code>minikube</code></a></td>
+<td></td>
+</tr>
+<tr>
+<td>kind-(.*)</td>
+<td><a href="https://github.com/kubernetes-sigs/kind" target="_blank" rel="noopener"><code>kind</code></a></td>
+<td>This pattern is used by kind &gt;= v0.6.0</td>
+</tr>
+<tr>
+<td>(.*)@kind</td>
+<td><a href="https://github.com/kubernetes-sigs/kind" target="_blank" rel="noopener"><code>kind</code></a></td>
+<td>This pattern was used by kind &lt; v0.6.0</td>
+</tr>
+<tr>
+<td>k3d-(.*)</td>
+<td><a href="https://github.com/rancher/k3d" target="_blank" rel="noopener"><code>k3d</code></a></td>
+<td>This pattern is used by k3d &gt;= v3.0.0</td>
+</tr>
+</tbody>
+</table>
+<p>可以看到不同版本的 <code>KIND</code> 產生的 kubernetes context 名稱不同，但是只要有符合這兩個規則， Skaffold 都會視為是 KIND 並且用 KIND 的方式幫你推上 KIND 叢集</p>
+<h2 id="Deploying-Artifacts"><a href="#Deploying-Artifacts" class="headerlink" title="Deploying Artifacts"></a>Deploying Artifacts</h2><p>最後則是將應用程式部署到 Kuberentes 裡面，這邊支援三種工具來部署，分別是</p>
+<ol>
+<li>kubectl</li>
+<li>helm</li>
+<li>kustomize</li>
+</ol>
+<p>我認為這三種基本上已經涵蓋了大部分人的使用情境， Skaffold 會將檔案內的 ImageTag 換成前面步驟產生的 Tag 並且將內容推到 Kubernetes 內部去更新</p>
+<p>想要瞭解更多關於 Skaffold 的介紹可以參閱<a href="https://skaffold.dev/" target="_blank" rel="noopener">官網</a></p>
+<h1 id="安裝"><a href="#安裝" class="headerlink" title="安裝"></a>安裝</h1><p>安裝指令也非常簡單，整個 Skaffold 的運作核心都在其 Binary，所以也只有一個軟體需要下載與安裝</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64 &amp;&amp; \</span><br><span class="line">sudo install skaffold /usr/<span class="built_in">local</span>/bin/</span><br></pre></td></tr></table></figure>
+<p>安裝完畢後可以看到該指令有非常多的用法可以使用，接下來將會介紹本地開發時可能會使用的指令及相關用法。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">$ skaffold</span><br><span class="line">A tool that facilitates continuous development <span class="keyword">for</span> Kubernetes applications.</span><br><span class="line"></span><br><span class="line">  Find more information at: https://skaffold.dev/docs/getting-started/</span><br><span class="line"></span><br><span class="line">End-to-end pipelines:</span><br><span class="line">  run               Run a pipeline</span><br><span class="line">  dev               Run a pipeline <span class="keyword">in</span> development mode</span><br><span class="line">  debug             [beta] Run a pipeline <span class="keyword">in</span> debug mode</span><br><span class="line"></span><br><span class="line">Pipeline building blocks <span class="keyword">for</span> CI/CD:</span><br><span class="line">  build             Build the artifacts</span><br><span class="line">  deploy            Deploy pre-built artifacts</span><br><span class="line">  delete            Delete the deployed application</span><br><span class="line">  render            [alpha] Perform all image builds, and output rendered Kubernetes manifests</span><br><span class="line"></span><br><span class="line">Getting started with a new project:</span><br><span class="line">  init              [alpha] Generate configuration <span class="keyword">for</span> deploying an application</span><br><span class="line">  fix               Update old configuration to a newer schema version</span><br><span class="line"></span><br><span class="line">Other Commands:</span><br><span class="line">  completion        Output shell completion <span class="keyword">for</span> the given shell (bash or zsh)</span><br><span class="line">  config            Interact with the Skaffold configuration</span><br><span class="line">  credits           Export third party notices to given path (./skaffold-credits by default)</span><br><span class="line">  diagnose          Run a diagnostic on Skaffold</span><br><span class="line">  schema            List and <span class="built_in">print</span> json schemas used to validate skaffold.yaml configuration</span><br><span class="line">  survey            Opens a web browser to fill out the Skaffold survey</span><br><span class="line">  version           Print the version information</span><br><span class="line"></span><br><span class="line">Usage:</span><br><span class="line">  skaffold [flags] [options]</span><br><span class="line"></span><br><span class="line">Use <span class="string">"skaffold &lt;command&gt; --help"</span> <span class="keyword">for</span> more information about a given <span class="built_in">command</span>.</span><br><span class="line">Use <span class="string">"skaffold options"</span> <span class="keyword">for</span> a list of global <span class="built_in">command</span>-line options (applies to all commands).</span><br></pre></td></tr></table></figure>
+<h1 id="Demo"><a href="#Demo" class="headerlink" title="Demo"></a>Demo</h1><p>這邊我們直接使用官方的範例 Repo 來測試</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">git <span class="built_in">clone</span> https://github.com/GoogleContainerTools/skaffold</span><br><span class="line"><span class="built_in">cd</span> skaffold/examples/getting-started</span><br></pre></td></tr></table></figure>
+<p>此外，我的系統中目前有之前由 KIND 所建立的 Kuberentes 叢集</p>
+<p>前述講到整個 Skaffold 的架構，裡面有些階段都會有些不同的選擇，實際上這些選擇都是依賴一個 yaml 的設定檔案來處理，該資料夾內就有一個這樣的檔案</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">$ cat skaffold.yaml</span><br><span class="line">apiVersion: skaffold/v2beta7</span><br><span class="line">kind: Config</span><br><span class="line">build:</span><br><span class="line">  artifacts:</span><br><span class="line">  - image: skaffold-example</span><br><span class="line">deploy:</span><br><span class="line">  kubectl:</span><br><span class="line">    manifests:</span><br><span class="line">      - k8s-*</span><br></pre></td></tr></table></figure>
+<p>這裡面設定幾個部分</p>
+<ol>
+<li>產物的部分，會把 image 叫做 skafoold-example</li>
+<li>部署的部分會把所有符合 <code>k8s-*</code> 字眼的檔案都用 kubectl 給部署進去</li>
+</ol>
+<p>預設的情況下都會使用 Dockerfile 來建置產物</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">$ cat Dockerfile</span><br><span class="line">FROM golang:1.12.9-alpine3.10 as builder</span><br><span class="line">COPY main.go .</span><br><span class="line">RUN go build -o /app main.go</span><br><span class="line"></span><br><span class="line">FROM alpine:3.10</span><br><span class="line"><span class="comment"># Define GOTRACEBACK to mark this container as using the Go language runtime</span></span><br><span class="line"><span class="comment"># for `skaffold debug` (https://skaffold.dev/docs/workflows/debug/).</span></span><br><span class="line">ENV GOTRACEBACK=single</span><br><span class="line">CMD [<span class="string">"./app"</span>]</span><br><span class="line">COPY --from=builder /app .</span><br></pre></td></tr></table></figure>
+<p>下方則是相關的 Kubernetes yaml, 非常乾淨與單純</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">$ cat k8s-pod.yaml</span><br><span class="line">apiVersion: v1</span><br><span class="line">kind: Pod</span><br><span class="line">metadata:</span><br><span class="line">  name: getting-started</span><br><span class="line">spec:</span><br><span class="line">  containers:</span><br><span class="line">  - name: getting-started</span><br><span class="line">    image: skaffold-example</span><br></pre></td></tr></table></figure>
+<p>接下來我們可以呼叫 <code>skaffold</code> 這個指令來執行 <code>一次完整的 workflow</code>, 包含建置 image, push image 以及 deploy 到 kubernetes 裡面。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><span class="line">$ skaffold dev</span><br><span class="line">Listing files to watch...</span><br><span class="line"> - skaffold-example</span><br><span class="line">Generating tags...</span><br><span class="line"> - skaffold-example -&gt; skaffold-example:v1.14.0-7-g677d665c3</span><br><span class="line">Checking cache...</span><br><span class="line"> - skaffold-example: Not found. Building</span><br><span class="line">Found [kind-kind] context, using <span class="built_in">local</span> docker daemon.</span><br><span class="line">Building [skaffold-example]...</span><br><span class="line">Sending build context to Docker daemon  3.072kB</span><br><span class="line">Step 1/7 : FROM golang:1.12.9-alpine3.10 as builder</span><br><span class="line">1.12.9-alpine3.10: Pulling from library/golang</span><br><span class="line">9d48c3bd43c5: Pull complete</span><br><span class="line">7f94eaf8af20: Pull complete</span><br><span class="line">9fe9984849c1: Pull complete</span><br><span class="line">cf0db633a67d: Pull complete</span><br><span class="line">0f7136d71739: Pull complete</span><br><span class="line">Digest: sha256:e0660b4f1e68e0d408420acb874b396fc6dd25e7c1d03ad36e7d6d1155a4dff6</span><br><span class="line">Status: Downloaded newer image <span class="keyword">for</span> golang:1.12.9-alpine3.10</span><br><span class="line"> ---&gt; e0d646523991</span><br><span class="line">Step 2/7 : COPY main.go .</span><br><span class="line"> ---&gt; afab364bca27</span><br><span class="line">Step 3/7 : RUN go build -o /app main.go</span><br><span class="line"> ---&gt; Running <span class="keyword">in</span> 7ac080c720c1</span><br><span class="line"> ---&gt; cbcc0f655527</span><br><span class="line"> Step 4/7 : FROM alpine:3.10</span><br><span class="line">3.10: Pulling from library/alpine</span><br><span class="line">21c83c524219: Already exists</span><br><span class="line">Digest: sha256:f0e9534a598e501320957059cb2a23774b4d4072e37c7b2cf7e95b241f019e35</span><br><span class="line">Status: Downloaded newer image <span class="keyword">for</span> alpine:3.10</span><br><span class="line"> ---&gt; be4e4bea2c2e</span><br><span class="line">Step 5/7 : ENV GOTRACEBACK=single</span><br><span class="line"> ---&gt; Running <span class="keyword">in</span> 3336c2434250</span><br><span class="line"> ---&gt; f7da9bb5a8f4</span><br><span class="line">Step 6/7 : CMD [<span class="string">"./app"</span>]</span><br><span class="line"> ---&gt; Running <span class="keyword">in</span> ad83b9fb99e8</span><br><span class="line"> ---&gt; c18d1a41c91d</span><br><span class="line">Step 7/7 : COPY --from=builder /app .</span><br><span class="line"> ---&gt; 4dec7885d19b</span><br><span class="line">Successfully built 4dec7885d19b</span><br><span class="line">Successfully tagged skaffold-example:v1.14.0-7-g677d665c3</span><br><span class="line">Tags used <span class="keyword">in</span> deployment:</span><br><span class="line"> - skaffold-example -&gt; skaffold-example:4dec7885d19bcf6a6fef2bc62c609390787a73be61501ad0bdaffd3b229fd9a5</span><br><span class="line">Loading images into kind cluster nodes...</span><br><span class="line"> - skaffold-example:4dec7885d19bcf6a6fef2bc62c609390787a73be61501ad0bdaffd3b229fd9a5 -&gt; Loaded</span><br><span class="line">Images loaded <span class="keyword">in</span> 1.629866454s</span><br><span class="line">Starting deploy...</span><br><span class="line"> - pod/getting-started created</span><br><span class="line">Waiting <span class="keyword">for</span> deployments to stabilize...</span><br><span class="line">Deployments stabilized <span class="keyword">in</span> 13.655262ms</span><br><span class="line">Press Ctrl+C to <span class="built_in">exit</span></span><br><span class="line">Watching <span class="keyword">for</span> changes...</span><br><span class="line">[getting-started] Hello world!</span><br><span class="line">[getting-started] Hello world!</span><br><span class="line">[getting-started] Hello world!</span><br><span class="line">[getting-started] Hello world!</span><br><span class="line">[getting-started] Hello world!</span><br><span class="line">[getting-started] Hello world</span><br></pre></td></tr></table></figure>
+<p>上述的範例可以觀察到</p>
+<ol>
+<li><p>Push 的規則, 偵測到使用的是 KIND，所以就呼叫 KIND 的方式把 Image 送進去</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Loading images into kind cluster nodes...</span><br><span class="line"> - skaffold-example:4dec7885d19bcf6a6fef2bc62c609390787a73be61501ad0bdaffd3b229fd9a5 -&gt; Loaded</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<ol start="2">
+<li>Deploy 的部分則是用 Kubectl 的方式將 Yaml 送進去，然後自動輸出相關的 Log.</li>
+</ol>
+<h2 id="修改程式碼"><a href="#修改程式碼" class="headerlink" title="修改程式碼"></a>修改程式碼</h2><p>接下來我們開兩個視窗，一個視窗透過 <code>skaffold dev</code> 來偵測並處理整個流程，另一個視窗則是用來修改 <code>main.go</code></p>
+<p>接下來我們修改 <code>main.go</code> 改成下列內容</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">        <span class="string">"fmt"</span></span><br><span class="line">        <span class="string">"time"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">        <span class="keyword">for</span> &#123;</span><br><span class="line">                fmt.Println(<span class="string">"Hello world!-hwchiu-ithome"</span>)</span><br><span class="line"></span><br><span class="line">                time.Sleep(time.Second * <span class="number">1</span>)</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>當檔案存下去之後，馬上觀察另外一個視窗，會發現很快就偵測到程式碼的更動，並且馬上將修改的內容直接送到 Kubernetes 裡面</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br></pre></td><td class="code"><pre><span class="line">[getting-started] Hello world!-hwchiu</span><br><span class="line">[getting-started] Hello world!-hwchiu</span><br><span class="line">[getting-started] Hello world!-hwchiu</span><br><span class="line">[getting-started] Hello world!-hwchiu</span><br><span class="line"></span><br><span class="line">Generating tags...</span><br><span class="line"> - skaffold-example -&gt; skaffold-example:v1.14.0-7-g677d665c3-dirty</span><br><span class="line">Checking cache...</span><br><span class="line"> - skaffold-example: Not found. Building</span><br><span class="line">Found [kind-kind] context, using <span class="built_in">local</span> docker daemon.</span><br><span class="line">Building [skaffold-example]...</span><br><span class="line">Sending build context to Docker daemon  3.072kB</span><br><span class="line">Step 1/7 : FROM golang:1.12.9-alpine3.10 as builder</span><br><span class="line"> ---&gt; e0d646523991</span><br><span class="line">Step 2/7 : COPY main.go .</span><br><span class="line"> ---&gt; 5a9d1bded1b1</span><br><span class="line">Step 3/7 : RUN go build -o /app main.go</span><br><span class="line"> ---&gt; Running <span class="keyword">in</span> 0b71f1abe4e7</span><br><span class="line"></span><br><span class="line"> ---&gt; bcc350de6d46</span><br><span class="line">Step 4/7 : FROM alpine:3.10</span><br><span class="line"> ---&gt; be4e4bea2c2e</span><br><span class="line">Step 5/7 : ENV GOTRACEBACK=single</span><br><span class="line"> ---&gt; Using cache</span><br><span class="line"> ---&gt; f7da9bb5a8f4</span><br><span class="line">Step 6/7 : CMD [<span class="string">"./app"</span>]</span><br><span class="line"> ---&gt; Using cache</span><br><span class="line"> ---&gt; c18d1a41c91d</span><br><span class="line">Step 7/7 : COPY --from=builder /app .</span><br><span class="line"> ---&gt; a73f3a1b761b</span><br><span class="line">Successfully built a73f3a1b761b</span><br><span class="line">Successfully tagged skaffold-example:v1.14.0-7-g677d665c3-dirty</span><br><span class="line">Tags used <span class="keyword">in</span> deployment:</span><br><span class="line"> - skaffold-example -&gt; skaffold-example:a73f3a1b761b040dfab47ba89b145da88c517ec7d031c32e5d61cb5e3bf205d3</span><br><span class="line">Loading images into kind cluster nodes...</span><br><span class="line"> - skaffold-example:a73f3a1b761b040dfab47ba89b145da88c517ec7d031c32e5d61cb5e3bf205d3 -&gt; Loaded</span><br><span class="line">Images loaded <span class="keyword">in</span> 1.327803742s</span><br><span class="line">Starting deploy...</span><br><span class="line"> - pod/getting-started configured</span><br><span class="line"> Waiting <span class="keyword">for</span> deployments to stabilize...</span><br><span class="line">Deployments stabilized <span class="keyword">in</span> 2.156854ms</span><br><span class="line">Watching <span class="keyword">for</span> changes...</span><br><span class="line">[getting-started] Hello world!-hwchiu-ithome</span><br><span class="line">[getting-started] Hello world!-hwchiu-ithome</span><br><span class="line">[getting-started] Hello world!-hwchiu-ithome</span><br><span class="line">[getting-started] Hello world!-hwchiu-ithome</span><br><span class="line">[getting-started] Hello world!-hwchiu-ithome</span><br><span class="line">[getting-started] Hello world!-hwchiu-ithome</span><br><span class="line">[getting-started] Hello world!-hwchiu-ithome</span><br><span class="line">[getting-started] Hello world!-hwchiu-ithome</span><br><span class="line">[getting-started] Hello world!-hwchiu-ithome</span><br><span class="line">[getting-started] Hello world!-hwchiu-ithome</span><br><span class="line">[getting-started] Hello world!-hwchiu-ithome</span><br><span class="line">[getting-started] Hello world!-hwchiu-ithome</span><br><span class="line">[getting-started] Hello world!-hwchiu-ithome</span><br><span class="line">[getting-started] Hello world!-hwchiu-ithome</span><br><span class="line">[getting-started] Hello world!-hwchiu-ithome</span><br></pre></td></tr></table></figure>
+<p>這時候用 kubectl 去觀察系統上的資源</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl get pods</span><br><span class="line">NAME              READY   STATUS    RESTARTS   AGE</span><br><span class="line">getting-started   1/1     Running   1          111s</span><br></pre></td></tr></table></figure>
+<p>可以發現這個 Pod 的 <code>Restart</code> 次數有增加，這是因為 Container Image 更新後，Pod 重啟，載入新的 Image 最後顯示出新的 log 資訊 <em>Hello world!-hwchiu-ithome</em></p>
+<p>到這邊我們就基本介紹了 Skaffold 的操作流程跟一個簡單 Demo, 如果對於這個工具有興趣的話可以嘗試玩玩看，將其整合到 Helm 或是 Kustomize 等不同部署方式，看看是否真的能夠提升自己的開發效率。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>組合包<br><a href="https://hiskio.com/packages/JPwq4znr1" target="_blank" rel="noopener">https://hiskio.com/packages/JPwq4znr1</a></p>
+<p>疑難雜症除錯篇<br><a href="https://hiskio.com/courses/440/about?promo_code=7EP1KY3" target="_blank" rel="noopener">https://hiskio.com/courses/440/about?promo_code=7EP1KY3</a></p>
+<p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
+<p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
+
+    </div>
+
+    
+    
+    
+      
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-7.html" rel="bookmark">鐵人賽系列文章- Day 7 - 本地開發 Kubernetes 應用程式流程</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-6.html" rel="bookmark">鐵人賽系列文章- Day 6 K3D 與KIND 的部署示範</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-5.html" rel="bookmark">鐵人賽系列文章- Day 5 淺談本地部署 Kubernetes 的各類選擇</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-4.html" rel="bookmark">鐵人賽系列文章- Day 4 - Helm 操作範例</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-3.html" rel="bookmark">鐵人賽系列文章- Day 3 - Helm 介紹</a></div>
+    </li>
+  </ul>
+
+        
+
+  <div class="followme">
+    <p>Welcome to my other publishing channels</p>
+
+    <div class="social-list">
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+        </div>
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+        </div>
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+        </div>
+    </div>
+  </div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/ithome-20202-cicd-7.html" rel="prev" title="鐵人賽系列文章- Day 7 - 本地開發 Kubernetes 應用程式流程">
+      <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day 7 - 本地開發 Kubernetes 應用程式流程
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  <div class="comments">
+    <div id="disqus_thread">
+      <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+    </div>
+  </div>
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Skaffold-介紹"><span class="nav-number">1.</span> <span class="nav-text">Skaffold 介紹</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#架構"><span class="nav-number">2.</span> <span class="nav-text">架構</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Detecting-Source-Code"><span class="nav-number">2.1.</span> <span class="nav-text">Detecting Source Code</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Bulding-Artifacts"><span class="nav-number">2.2.</span> <span class="nav-text">Bulding Artifacts</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Test-Artifacts"><span class="nav-number">2.3.</span> <span class="nav-text">Test Artifacts</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Tagging-Artifacts"><span class="nav-number">2.4.</span> <span class="nav-text">Tagging Artifacts</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Pushing-Artifac"><span class="nav-number">2.5.</span> <span class="nav-text">Pushing Artifac</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Deploying-Artifacts"><span class="nav-number">2.6.</span> <span class="nav-text">Deploying Artifacts</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#安裝"><span class="nav-number">3.</span> <span class="nav-text">安裝</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Demo"><span class="nav-number">4.</span> <span class="nav-text">Demo</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#修改程式碼"><span class="nav-number">4.1.</span> <span class="nav-text">修改程式碼</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">5.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">222</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">110</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https://github.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https://twitter.com/hw_chiu" rel="noopener" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/hongwei.qiu" title="FB Page → https://www.facebook.com/hongwei.qiu" rel="noopener" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" rel="noopener" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https://instagram.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+  <div class="addthis_inline_share_toolbox">
+    <script src="//s7.addthis.com/js/300/addthis_widget.js#pubid=ra-5f4ca66cef0894e1" async="async"></script>
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+  <script src="https://www.gstatic.com/firebasejs/6.3.3/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/6.3.3/firebase-firestore.js"></script>
+  <script>
+    firebase.initializeApp({
+      apiKey   : 'AIzaSyCKW4_VC3TasrnfItbUzvYuhy_EBW-aUjk',
+      projectId: 'blog-source'
+    });
+
+    function getCount(doc, increaseCount) {
+      // IncreaseCount will be false when not in article page
+      return doc.get().then(d => {
+        var count = 0;
+        if (!d.exists) { // Has no data, initialize count
+          if (increaseCount) {
+            doc.set({
+              count: 1
+            });
+            count = 1;
+          }
+        } else { // Has data
+          count = d.data().count;
+          if (increaseCount) {
+            // If first view this article
+            doc.set({ // Increase count
+              count: count + 1
+            });
+            count++;
+          }
+        }
+
+        return count;
+      });
+    }
+
+    function appendCountTo(el) {
+      return count => {
+        el.innerText = count;
+      }
+    }
+  </script>
+  <script>
+    (function() {
+      var db = firebase.firestore();
+      var articles = db.collection('articles');
+
+      if (CONFIG.page.isPost) { // Is article page
+        var title = document.querySelector('.post-title').innerText.trim();
+        var doc = articles.doc(title);
+        var increaseCount = CONFIG.hostname === location.hostname;
+        if (localStorage.getItem(title)) {
+          increaseCount = false;
+        } else {
+          // Mark as visited
+          localStorage.setItem(title, true);
+        }
+        getCount(doc, increaseCount).then(appendCountTo(document.querySelector('.firestore-visitors-count')));
+      } else if (CONFIG.page.isHome) { // Is index page
+        var promises = [...document.querySelectorAll('.post-title')].map(element => {
+          var title = element.innerText.trim();
+          var doc = articles.doc(title);
+          return getCount(doc);
+        });
+        Promise.all(promises).then(counts => {
+          var metas = document.querySelectorAll('.firestore-visitors-count');
+          counts.forEach((val, idx) => {
+            appendCountTo(metas[idx])(val);
+          });
+        });
+      }
+    })();
+  </script>
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+<script>
+  function loadCount() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://hwchiu.disqus.com/count.js';
+    s.id = 'dsq-count-scr';
+    (d.head || d.body).appendChild(s);
+  }
+  // defer loading until the whole page loading is completed
+  window.addEventListener('load', loadCount, false);
+</script>
+<script>
+  var disqus_config = function() {
+    this.page.url = "https://www.hwchiu.com/ithome-20202-cicd-8.html";
+    this.page.identifier = "ithome-20202-cicd-8.html";
+    this.page.title = "鐵人賽系列文章- Day 8 Skaffold 本地開發與測試";
+    this.language = 'en';
+    };
+  NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
+    if (window.DISQUS) {
+      DISQUS.reset({
+        reload: true,
+        config: disqus_config
+      });
+    } else {
+      var d = document, s = d.createElement('script');
+      s.src = 'https://hwchiu.disqus.com/embed.js';
+      s.setAttribute('data-timestamp', '' + +new Date());
+      (d.head || d.body).appendChild(s);
+    }
+  });
+</script>
+
+</body>
+</html>
