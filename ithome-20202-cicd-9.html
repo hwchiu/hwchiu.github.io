@@ -21,25 +21,22 @@
     var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="延續上篇文章 (Ceph Network Architecture 研究(一))[https://www.hwchiu.com/ceph-network-i.html#more]，本文將繼續探討 Async 這種網路類型底層真的架構與概念，所以本文章也不會有太硬的程式碼解讀，反而會比較偏向概念性的分析。 從上一篇文章中我們可知道，底層網路實現提供了包含 Messenger, Connection">
-<meta name="keywords" content="Ceph,Network,SourceCode,SDS,SOS">
+  <meta name="description" content="ITHOME-2020 系列文章">
+<meta name="keywords" content="Kubernetes,DevOps,Linux,K8s">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Ceph Network Architecture 研究(二)">
-<meta property="og:url" content="https://www.hwchiu.com/ceph-network-ii.html">
+<meta property="og:title" content="鐵人賽系列文章- Day 9 Pipeline System 介紹">
+<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-9.html">
 <meta property="og:site_name" content="Hwchiu Learning Note">
-<meta property="og:description" content="延續上篇文章 (Ceph Network Architecture 研究(一))[https://www.hwchiu.com/ceph-network-i.html#more]，本文將繼續探討 Async 這種網路類型底層真的架構與概念，所以本文章也不會有太硬的程式碼解讀，反而會比較偏向概念性的分析。 從上一篇文章中我們可知道，底層網路實現提供了包含 Messenger, Connection">
+<meta property="og:description" content="ITHOME-2020 系列文章">
 <meta property="og:locale" content="en">
-<meta property="og:image" content="http://i.imgur.com/yiDGubn.jpg">
-<meta property="og:image" content="http://i.imgur.com/4k6Rmpo.jpg">
-<meta property="og:image" content="http://i.imgur.com/yAzGB06.jpg">
-<meta property="og:image" content="http://i.imgur.com/l9h13kc.jpg">
-<meta property="og:updated_time" content="2020-10-29T02:07:02.582Z">
+<meta property="og:image" content="https://i.imgur.com/MhJGAMt.jpg">
+<meta property="og:updated_time" content="2020-11-21T17:42:47.640Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Ceph Network Architecture 研究(二)">
-<meta name="twitter:description" content="延續上篇文章 (Ceph Network Architecture 研究(一))[https://www.hwchiu.com/ceph-network-i.html#more]，本文將繼續探討 Async 這種網路類型底層真的架構與概念，所以本文章也不會有太硬的程式碼解讀，反而會比較偏向概念性的分析。 從上一篇文章中我們可知道，底層網路實現提供了包含 Messenger, Connection">
-<meta name="twitter:image" content="http://i.imgur.com/yiDGubn.jpg">
+<meta name="twitter:title" content="鐵人賽系列文章- Day 9 Pipeline System 介紹">
+<meta name="twitter:description" content="ITHOME-2020 系列文章">
+<meta name="twitter:image" content="https://i.imgur.com/MhJGAMt.jpg">
 
-<link rel="canonical" href="https://www.hwchiu.com/ceph-network-ii.html">
+<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-9.html">
 
 
 <script id="page-configurations">
@@ -52,7 +49,7 @@
   };
 </script>
 
-  <title>Ceph Network Architecture 研究(二) | Hwchiu Learning Note</title>
+  <title>鐵人賽系列文章- Day 9 Pipeline System 介紹 | Hwchiu Learning Note</title>
   
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
     <script>
@@ -189,7 +186,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ceph-network-ii.html">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-9.html">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/uploads/avatar.jpg">
@@ -202,7 +199,7 @@
     </span>
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
-          Ceph Network Architecture 研究(二)
+          鐵人賽系列文章- Day 9 Pipeline System 介紹
         </h1>
 
         <div class="post-meta">
@@ -212,7 +209,7 @@
               </span>
               <span class="post-meta-item-text">Posted on</span>
 
-              <time title="Created: 2017-05-25 10:15:21" itemprop="dateCreated datePublished" datetime="2017-05-25T10:15:21-07:00">2017-05-25</time>
+              <time title="Created: 2020-11-21 09:41:05" itemprop="dateCreated datePublished" datetime="2020-11-21T09:41:05-08:00">2020-11-21</time>
             </span>
 
           
@@ -231,12 +228,13 @@
       </span>
       <span class="post-meta-item-text">Disqus: </span>
     
-    <a title="disqus" href="/ceph-network-ii.html#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="ceph-network-ii.html" itemprop="commentCount"></span>
+    <a title="disqus" href="/ithome-20202-cicd-9.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="ithome-20202-cicd-9.html" itemprop="commentCount"></span>
     </a>
   </span>
   
   
+            <div class="post-description">ITHOME-2020 系列文章</div>
 
         </div>
       </header>
@@ -247,39 +245,85 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p>延續上篇文章 (Ceph Network Architecture 研究(一))[<a href="https://www.hwchiu.com/ceph-network-i.html#more]，本文將繼續探討">https://www.hwchiu.com/ceph-network-i.html#more]，本文將繼續探討</a> <strong>Async</strong> 這種網路類型底層真的架構與概念，所以本文章也不會有太硬的程式碼解讀，反而會比較偏向概念性的分析。</p>
-<p>從上一篇文章中我們可知道，底層網路實現提供了包含 <strong>Messenger</strong>, <strong>Connection</strong> 等介面供上層應用層去使用。<br>接下來</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">AsyncConnection.cc</span><br><span class="line">AsyncConnection.h</span><br><span class="line">AsyncMessenger.cc</span><br><span class="line">AsyncMessenger.h</span><br><span class="line">Event.cc</span><br><span class="line">Event.h</span><br><span class="line">EventEpoll.cc</span><br><span class="line">EventEpoll.h</span><br><span class="line">EventKqueue.h</span><br><span class="line">EventSelect.cc</span><br><span class="line">EventSelect.h</span><br><span class="line">PosixStack.cc</span><br><span class="line">PosixStack.h</span><br><span class="line">Stack.cc	</span><br><span class="line">Stack.h	</span><br><span class="line">net_handler.cc</span><br><span class="line">net_handler.h</span><br></pre></td></tr></table></figure>
-<p>從上述的檔案來看，我們大致上可以猜到 <strong>AsyncMessenger</strong> 以及 <strong>AsyncConnection</strong>的涵義，而 <strong>Event</strong> 一系列的檔案應該就是最底層的 I/O 的處理。<br><a id="more"></a></p>
-<h2 id="Event"><a href="#Event" class="headerlink" title="Event"></a>Event</h2><p>這邊先從最底層開始看起，首先是 <strong>Event</strong>。<br>整個 <strong>Event</strong> 代表了底層 I/O 的處理，目前支援三種實作方式，分別是</p>
-<ul>
-<li>Epool</li>
-<li>Kqueue</li>
-<li>Select</li>
-</ul>
-<p>在這三種實作上面，又提供了三種 <strong>EventType</strong> 供上層使用，分別是</p>
-<ul>
-<li>File_Event</li>
-<li>Time_Event</li>
-<li>External_Event</li>
-</ul>
-<h3 id="File-Event"><a href="#File-Event" class="headerlink" title="File_Event"></a>File_Event</h3><p>File event 是最常見也是最普遍使用的，針對每一個 <strong>file descriptor</strong> 進行設定，該 <strong>file descriptor</strong> 關注的是 <strong>read event</strong> 還是 <strong>write event</strong> 以及當該 <strong>event</strong> 發生時，應該要進行什麼樣的處理。</p>
-<h3 id="Time-Event"><a href="#Time-Event" class="headerlink" title="Time_Event"></a>Time_Event</h3><p>Time event 本身跟 <strong>file descriptor</strong> 無關，單純的是依照時間來驅動的事件，對於每一種 <strong>Time Event</strong> 則會有兩個設定，一個是多久(ms)之後要執行該事件，以及該執行的事件是什麼，這邊都是使用 function pointer 來指向該事件。</p>
-<h3 id="External-Event"><a href="#External-Event" class="headerlink" title="External_Event"></a>External_Event</h3><p>External event 實際上跟 Time event 是相同的，可以視為時間是 0ms 的 Time event，就是馬上執行該事件。</p>
-<p>整體架構如下圖，系統中會有一個 <strong>Event Center</strong>，底層支援各種 I/O 的實作，此外，本身會提供介面供上層使用，可以接受上述三種事件的註冊。<br>待一切都準備就緒後，就會開始透過底層 I/O 的事件去處理這三種事件，譬<br>如有封包到來的時候呼叫對應的函式處理，亦或是時間到的時候執行對應的<br> <strong>Time event</strong>。</p>
-<p><img src="http://i.imgur.com/yiDGubn.jpg" alt></p>
-<h3 id="Worker-and-Network-Stack"><a href="#Worker-and-Network-Stack" class="headerlink" title="Worker and Network Stack"></a>Worker and Network Stack</h3><p>上述看完了 <strong>EventCenter</strong>的概念後，我們知道每個 <strong>EventCenter</strong>專門用來負責底層的 I/O 處理，那這邊為了提高整體的效率，採用了 <strong>ThreadPool</strong>的概念，事先根據系統上的能力創造一批固定數量的 <strong>Thread</strong>，這邊統稱為 <strong>Worker</strong>，這些 <strong>Worker</strong> 的數量可以動態的增加，減少。<br>然後每一個 <strong>Worker</strong> 都配上一個 <strong>EventCenter</strong>，盡可能的讓所有的 <strong>Worker</strong>去平均分擔所有的 Network I/O 負擔。<br>在這群 <strong>Worker</strong> 之上存在一層 <strong>Network Stack</strong>，此 <strong>Stack</strong> 會掌管所有的 <strong>Workers</strong>，包含其創建/增加/刪除等行為。</p>
-<p>綜合以上概念，目前認知的架構圖如下。<br><img src="http://i.imgur.com/4k6Rmpo.jpg" alt></p>
-<h3 id="AsyncConnection"><a href="#AsyncConnection" class="headerlink" title="AsyncConnection"></a>AsyncConnection</h3><p>接下來看到 <strong>AsyncConnection</strong> ，此物件代表者任意兩個 <strong>ceph node</strong>之間的連線，可以是 <strong>osd<->osd</-></strong>，也可以是 <strong>mon<->mon</-></strong>亦或是 <strong>osd<->mon</-></strong>。<br>此物件本身除了代表連線外，跟網路傳輸相關的功能，如發送封包，接收封包等事情都會在這邊提供一個介面供更上層的應用(OSD)來使用。<br>不過這邊只是中介層而已，真正收送發包的還是上述提到 <strong>EventCenter</strong><br>在處理。</p>
-<p>由於系統上可以同時存在非常多條 <strong>connections</strong>，為了讓這些 <strong>connections</strong>能夠同時運作且不會互相影響，這邊配給<strong>每一個connection</strong>一個<strong>worker</strong>來處理。<br>由於 <strong>connection</strong>的數量基本上都會比<strong>worker</strong>還要多，因此在配對上就是盡量平均分擔下去，盡量讓每一個<strong>worker</strong>負擔相同數量的<strong>connection</strong>。</p>
-<p>所以看到這邊已經可以大概理解，系統上每一條 <strong>connection</strong> 都配上一個 <strong>thread</strong> 來處理，而每一個 <strong>thread</strong> 實際上可能會負責不少條 <strong>connection</strong>，這邊採用數量的方式來分散這些 <strong>connection</strong>，若能夠根據實際負擔作為分散的權重也許可以讓每個<br> <strong>thread</strong> 的負擔更為平均。</p>
-<p>因此看到這邊，目前的架構圖如下，圖中的 <strong>Async Connections</strong>只是一個抽象的概念，描述眾多的 <strong>Async Connection</strong>而已。</p>
-<p><img src="http://i.imgur.com/yAzGB06.jpg" alt></p>
-<h3 id="AsyncMessenger"><a href="#AsyncMessenger" class="headerlink" title="AsyncMessenger"></a>AsyncMessenger</h3><p>最後出場的就是 <strong>AsyncMessenger</strong>，其概念與之前講述過的 <strong>Messenger</strong>一樣，管理所有的 <strong>AsyncConnections</strong>，同時是最直接供上層應用程式的物件。<br>每個 <strong>AsyncMessenger</strong>都可以被註冊 <strong>Dispatcher</strong>，接者當底下的 <strong>connection</strong> 有收到來自遠方的封包(<strong>Messege</strong>)時，就呼叫對應的 <strong>Dispatcher</strong> 來處理。</p>
-<p>所以整體架構如下圖。</p>
-<p><img src="http://i.imgur.com/l9h13kc.jpg" alt></p>
-<h2 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h2><p>到這邊大致上已經對 <strong>Async</strong> 系列有一個基本的認識了，不過這基本上只局限於 <strong>async+poxis</strong> 類型而已，對於 <strong>RDMA</strong> 以及 <strong>DPDK</strong> 則因為這兩種運作方式的不同，其真正運作的方式又是截然不同的，這部分可以從原始碼中看到 <strong>RDMA/DPDK</strong> 都有額外的資料夾，且資料夾內又有為數不少的檔案可以大略猜測出來。</p>
-<p>接下來的文章會比較偏技術性質，會直接看進這些程式碼內，透過這些程式碼能夠更瞭解整體的架構以及實作細節，順便學習增廣見聞。</p>
+        <p>昨天我們介紹了本地開發的一個開源工具， Skaffold，如何透過 Skaffold 來提升本地開發的效率</p>
+<p>根據我們一開始展現的 CI/CD 世界圖，我們已經探索完畢 <code>Local Developement Environment</code> 的相關議題</p>
+<p><img src="https://i.imgur.com/MhJGAMt.jpg" alt="img"></p>
+<p>接下來我們要來探討 CI/CD Pipline 的設計，這部分牽扯到諸多議題，第一個最基本的問題就是, Pipeline 系統要選擇哪一套</p>
+<p>目前開源軟體超級多，選擇上其實非常困難，譬如有 GitLab, Jenkins, CircleCI, TravisCI, TeamCity, GithubAction…等</p>
+<p>所以今天這個章節，我們就來聊聊有哪些 Pipeline 系統可以使用，以及在選擇上有哪些點可以考慮</p>
+<p>我認為在選擇上，有一些可以考慮</p>
+<ol>
+<li>服務的部署模式，是自架部署還是使用 SaaS 服務</li>
+<li>該系統有哪些吸引人的特色</li>
+</ol>
+<p>接下來我們就來看看這幾點中有什麼細節可以討論</p>
+<h2 id="部署模式"><a href="#部署模式" class="headerlink" title="部署模式"></a>部署模式</h2><p>部署模式上基本上就是兩大塊，自架服務或是SaaS服務，這兩種類型我認為他們的好壞優點有</p>
+<h3 id="自架服務"><a href="#自架服務" class="headerlink" title="自架服務"></a>自架服務</h3><p>優點:</p>
+<ol>
+<li>彈性，擴展性佳，可以根據各種需求去修正，甚至有機會透過修改原始碼來滿足客製化需求</li>
+<li>使用上限制比較少</li>
+</ol>
+<p>缺點: </p>
+<ol>
+<li><p>要自己維護伺服器，包含了運算資源，儲存資源，網路資源甚至可能連硬體都要處理。</p>
+</li>
+<li><p>第三方整合不一定有，需要自己研究跟處理，甚至還要自己撰寫程式碼來完成</p>
+</li>
+<li>發現問題時不一定有太多支援可以尋求，會變成要花更多時間在處理這些問題而非賺錢的商業邏輯</li>
+</ol>
+<h3 id="SaaS"><a href="#SaaS" class="headerlink" title="SaaS"></a>SaaS</h3><p>優點:</p>
+<ol>
+<li>使用起來簡單，不用擔心底層基礎架設，譬如硬體資源，網路資源，儲存資源以及運算資源</li>
+<li>付費情況下會有比較好的支援服務可以尋求，發生問題時可以讓對方幫忙處理</li>
+</ol>
+<p>缺點:</p>
+<ol>
+<li>限制多，需要花更多的錢來獲得更好的服務與使用條件</li>
+<li>支援的平台與支援的語言完全受限於廠商，沒有辦法擴充</li>
+<li>彈性與擴充性比較低，一切都依賴廠商去開發</li>
+</ol>
+<p>大部分的 SaaS 都會提供免費版本的功能讓使用者使用，但是部分功能都會有所限制，想要解除這些限制就要付費，透過付錢來取得更好的使用品質，至些功能可能有</p>
+<ol>
+<li>可以有多少個並行的工作</li>
+<li>一段時間內可以跑多少時間的工作，譬如每個月只能跑 10 小時的工作</li>
+<li>每個 job 能夠支援的 Timeout 上限</li>
+<li>支援哪些平台與機器類型，譬如是否可以支援 Docker 或是 VM, 平台除了常見的 Linux 之外是否也支援 Winodws/OSX/iOS/Andorid 等平台。</li>
+</ol>
+<p>此外，對於這些 Piepline 系統來說，自架跟 SaaS 並不是二擇一，很多情況下，這些系統除了提供 SaaS 的服務外，也有提供自架服務</p>
+<p>這種情況下就可以讓使用者決定到底要使用自架服務或是 SaaS，譬如先透過 SaaS 去使用評估看看，覺得喜歡看考慮自架或是反過來</p>
+<p>一開始先自架來用看看，如果喜歡但是覺得維護麻煩，覺得改用 SaaS 更可以省時省力。</p>
+<h2 id="特色"><a href="#特色" class="headerlink" title="特色"></a>特色</h2><p>每個不同的 Piepline 系統都會有不同的特性，這些特性不一定每個環境都需要，所以選擇上還是根據自己的需求去選擇</p>
+<p>我個人的經驗下，可能會有這些特性(包含但不侷限)</p>
+<ol>
+<li><p>通知系統。當工作成功或是失敗的時候，能不能把這些結果通知出去，讓管理員有辦法被動知道這些工作的結果</p>
+</li>
+<li><p>專案的追蹤與問題管理，譬如是否該系統能夠把這些每個工作都跟一些 Issue Tracking 整合，譬如 Jira</p>
+</li>
+<li><p>使用者權限整合，是否可以跟已知常用的系統整合，譬如 LDAP/Windows AD/Google Suite/Crowd/OpenID</p>
+</li>
+<li><p>流水線的工作內容是否可以用程式碼的方式來保存，類似 Pipeline as a Code</p>
+</li>
+<li><p>使用工具與閱覽工具有哪些，是否有好用的 UI 或是工具可以使用</p>
+</li>
+<li><p>除錯與文件的完整性，使用上是否能夠找到詳細的文件來使用，發生問題時是否容易找到詢問的管道</p>
+</li>
+<li><p>Secret 這種機密資訊的管理與使用是否有支援，譬如 db password 等</p>
+</li>
+</ol>
+<p>要找到一套系統完全支持上述所有功能且都要好用穩定不會出錯其實不可能，最困難的還是去評估每個系統以及其特性，看看有哪些特性</p>
+<p>是你們一定要有，哪些可以妥協不一定要有的</p>
+<h2 id="工具的選擇"><a href="#工具的選擇" class="headerlink" title="工具的選擇"></a>工具的選擇</h2><p>就如同最上面所述的，市面上有非常多 Piepline 系統可以選擇，每個都有各自的優點與使用，接下來的文章為了讓整體操作簡單與順利，會採取使用 SaaS 服務的 Piepline 系統，並且基於免費版本來使用</p>
+<p>這些選擇中有 CircieCI, TravisCI 甚至是 Github 本身的 Github Action.</p>
+<p>由於我們的專案都很習慣放在 GitHub 上，我們就來使用 GitHub Action 作為後續的操作環境!</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>組合包<br><a href="https://hiskio.com/packages/JPwq4znr1" target="_blank" rel="noopener">https://hiskio.com/packages/JPwq4znr1</a></p>
+<p>疑難雜症除錯篇<br><a href="https://hiskio.com/courses/440/about?promo_code=7EP1KY3" target="_blank" rel="noopener">https://hiskio.com/courses/440/about?promo_code=7EP1KY3</a></p>
+<p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
+<p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
 
     </div>
 
@@ -290,19 +334,19 @@
   <div class="popular-posts-header">Related Posts</div>
   <ul class="popular-posts">
     <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/ceph-network-iii.html" rel="bookmark">Ceph Network Architecture 研究(三)</a></div>
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-8.html" rel="bookmark">鐵人賽系列文章- Day 8 Skaffold 本地開發與測試</a></div>
     </li>
     <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/ceph-network-i.html" rel="bookmark">Ceph Network Architecture 研究(一)</a></div>
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-7.html" rel="bookmark">鐵人賽系列文章- Day 7 - 本地開發 Kubernetes 應用程式流程</a></div>
     </li>
     <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/ceph-async-connection.html" rel="bookmark">Ceph Network - AsyncConnection</a></div>
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-6.html" rel="bookmark">鐵人賽系列文章- Day 6 K3D 與KIND 的部署示範</a></div>
     </li>
     <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/DRBD-v9-0-Network-Work-Flow-ii.html" rel="bookmark">DRBD v9.0 Network Work Flow(ii)</a></div>
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-5.html" rel="bookmark">鐵人賽系列文章- Day 5 淺談本地部署 Kubernetes 的各類選擇</a></div>
     </li>
     <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/DRBD-v9-0-Network-Work-Flow.html" rel="bookmark">DRBD v9.0 Network Work Flow(i)</a></div>
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-4.html" rel="bookmark">鐵人賽系列文章- Day 4 - Helm 操作範例</a></div>
     </li>
   </ul>
 
@@ -348,12 +392,9 @@
 
       <footer class="post-footer">
           <div class="post-tags">
-              <a href="/tags/SourceCode/" rel="tag"># SourceCode</a>
-              <a href="/tags/Ceph/" rel="tag"># Ceph</a>
-              <a href="/tags/Network/" rel="tag"># Network</a>
-              <a href="/tags/SDS/" rel="tag"># SDS</a>
-              <a href="/tags/SOS/" rel="tag"># SOS</a>
-              <a href="/tags/ScaleOut/" rel="tag"># ScaleOut</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
           </div>
 
         
@@ -362,13 +403,10 @@
         
     <div class="post-nav">
       <div class="post-nav-item">
-    <a href="/docker-build-image.html" rel="prev" title="Docker image for Hexo (一)">
-      <i class="fa fa-chevron-left"></i> Docker image for Hexo (一)
+    <a href="/ithome-20202-cicd-8.html" rel="prev" title="鐵人賽系列文章- Day 8 Skaffold 本地開發與測試">
+      <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day 8 Skaffold 本地開發與測試
     </a></div>
-      <div class="post-nav-item">
-    <a href="/ceph-network-iii.html" rel="next" title="Ceph Network Architecture 研究(三)">
-      Ceph Network Architecture 研究(三) <i class="fa fa-chevron-right"></i>
-    </a></div>
+      <div class="post-nav-item"></div>
     </div>
       </footer>
     
@@ -434,7 +472,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Event"><span class="nav-number">1.</span> <span class="nav-text">Event</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#File-Event"><span class="nav-number">1.1.</span> <span class="nav-text">File_Event</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Time-Event"><span class="nav-number">1.2.</span> <span class="nav-text">Time_Event</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#External-Event"><span class="nav-number">1.3.</span> <span class="nav-text">External_Event</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Worker-and-Network-Stack"><span class="nav-number">1.4.</span> <span class="nav-text">Worker and Network Stack</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#AsyncConnection"><span class="nav-number">1.5.</span> <span class="nav-text">AsyncConnection</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#AsyncMessenger"><span class="nav-number">1.6.</span> <span class="nav-text">AsyncMessenger</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Summary"><span class="nav-number">2.</span> <span class="nav-text">Summary</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#部署模式"><span class="nav-number">1.</span> <span class="nav-text">部署模式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#自架服務"><span class="nav-number">1.1.</span> <span class="nav-text">自架服務</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#SaaS"><span class="nav-number">1.2.</span> <span class="nav-text">SaaS</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#特色"><span class="nav-number">2.</span> <span class="nav-text">特色</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#工具的選擇"><span class="nav-number">3.</span> <span class="nav-text">工具的選擇</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number"></span> <span class="nav-text">個人資訊</span></a></div>
       </div>
       <!--/noindex-->
 
@@ -662,9 +700,9 @@
 </script>
 <script>
   var disqus_config = function() {
-    this.page.url = "https://www.hwchiu.com/ceph-network-ii.html";
-    this.page.identifier = "ceph-network-ii.html";
-    this.page.title = "Ceph Network Architecture 研究(二)";
+    this.page.url = "https://www.hwchiu.com/ithome-20202-cicd-9.html";
+    this.page.identifier = "ithome-20202-cicd-9.html";
+    this.page.title = "鐵人賽系列文章- Day 9 Pipeline System 介紹";
     this.language = 'en';
     };
   NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
