@@ -31,7 +31,7 @@
 <meta property="og:locale" content="en">
 <meta property="og:image" content="https://i.imgur.com/TMqnQYg.jpg">
 <meta property="og:image" content="https://i.imgur.com/mmYV2cK.jpg">
-<meta property="og:updated_time" content="2020-11-22T05:44:40.025Z">
+<meta property="og:updated_time" content="2020-11-22T08:18:08.406Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Docker 網路入門篇(四) - 外界主動存取">
 <meta name="twitter:description" content="本篇文章探討 Docker Bridge 網路模型的運作過程，透過步驟去分析到底 docker -p 的背後運作原理">
@@ -294,10 +294,10 @@
 <li>-host-port <----> -m tcp –dport</----></li>
 <li>–container-ip, –contianer-port <-----> -j DNAT –to-destination</-----></li>
 </ol>
-<p>所以其實這是一個，針對 <strong>loclahost</strong> 流量而設計的 Proxt 程式，幫忙處理 DNAT，將封包轉送到內部去。</p>
+<p>所以其實這是一個，針對 <strong>loclahost</strong> 流量而設計的 Proxy 程式，幫忙處理 DNAT，將封包轉送到內部去。</p>
 <p>此外，這個應用程式本身也會去聽 <strong>12345</strong> 這個 port，因此未來如果有任何應用程式想要註冊 <strong>12345</strong> 的話，就會沒有辦法註冊，因為已經被搶走</p>
 <h1 id="總結"><a href="#總結" class="headerlink" title="總結"></a>總結</h1><ol>
-<li><strong>docker -p</strong> 做法非常簡單，就是整合了 iptables DNAT 以及 kube-proxy</li>
+<li><strong>docker -p</strong> 做法非常簡單，就是整合了 iptables DNAT 以及 docker-proxy</li>
 <li>透過 iptables DNAT 的功能，我們可以讓外部網路透過宿主機來存取內部容器，然而這種情況下，你是沒有辦法於宿主機內透過一樣的方式去存取容器的，這部分的原因是 <strong>iptables</strong> 的執行點跟 <strong>localhost</strong> 這種直接存取是有落差的</li>
 <li>docker透過 docker-proxy 的方式來彌補上述的缺陷，專門用來處理本地封包</li>
 <li>同時， docker-proxy 也會佔據本地的 port，避免未來有其他的程式想要使用相同的 port 而造成混淆與服務不如預期。</li>
