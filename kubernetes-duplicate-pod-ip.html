@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="dmOrse_OyDnuDJK-8EcAWxeJH0fRWpNIJVSN3BNv5co">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="本文探討一種備份復原過程中可能會發生的 IP 重複問題，文章開頭先用簡單的模擬方式來模擬如何產生 IP 重複問題，接下來針對 CNI 的運作來探討其運作流程。">
+<meta name="keywords" content="Kubernetes,Network,CNI, IPAM, Restore">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kubernetes - IP 重複奇遇記">
+<meta property="og:url" content="https://www.hwchiu.com/kubernetes-duplicate-pod-ip.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文探討一種備份復原過程中可能會發生的 IP 重複問題，文章開頭先用簡單的模擬方式來模擬如何產生 IP 重複問題，接下來針對 CNI 的運作來探討其運作流程。">
+<meta property="og:locale" content="en">
+<meta property="og:image" content="https://i.imgur.com/sBiUu0E.jpg">
+<meta property="og:image" content="https://i.imgur.com/Sgc0odM.jpg">
+<meta property="og:image" content="https://i.imgur.com/zTyuUPX.jpg">
+<meta property="og:image" content="https://i.imgur.com/daK2V1U.jpg">
+<meta property="og:image" content="https://i.imgur.com/9qkqNyQ.jpg">
+<meta property="og:updated_time" content="2020-11-27T07:31:38.697Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Kubernetes - IP 重複奇遇記">
+<meta name="twitter:description" content="本文探討一種備份復原過程中可能會發生的 IP 重複問題，文章開頭先用簡單的模擬方式來模擬如何產生 IP 重複問題，接下來針對 CNI 的運作來探討其運作流程。">
+<meta name="twitter:image" content="https://i.imgur.com/sBiUu0E.jpg">
+
+<link rel="canonical" href="https://www.hwchiu.com/kubernetes-duplicate-pod-ip.html">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>Kubernetes - IP 重複奇遇記 | Hwchiu Learning Note</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+    <script>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-54006186-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta custom-logo">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Hwchiu Learning Note</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <a>
+        <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+      </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+  <a href="https://github.com/hwchiu" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/kubernetes-duplicate-pod-ip.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Kubernetes - IP 重複奇遇記
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2020-11-26 23:15:00" itemprop="dateCreated datePublished" datetime="2020-11-26T23:15:00-08:00">2020-11-26</time>
+            </span>
+
+          
+            <span class="post-meta-item" title="Views">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-users"></i>
+              </span>
+              <span class="post-meta-item-text">Views: </span>
+              <span class="firestore-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/kubernetes-duplicate-pod-ip.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="kubernetes-duplicate-pod-ip.html" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文探討一種備份復原過程中可能會發生的 IP 重複問題，文章開頭先用簡單的模擬方式來模擬如何產生 IP 重複問題，接下來針對 CNI 的運作來探討其運作流程。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>最近遇到一個有趣的案例，該案例中，新產生的 Pod 獲得的 IP 地址會跟已經存在的 Pod 相同。<br>最後就會看到叢集中有兩個 Pod 擁有相同的 IP 地址，進而導致衝突然後服務不能正常存取</p>
+<p>這個情況並不常見，但是一旦發生時，並不是很容易可以釐清這個問題，因為 Kubernetes 本身並不負責這些 IP 的發放，而是透過 CNI 來處理，而 Kubelet 則是 CNI 與 Kubernetes 中間的溝通者。</p>
+<p>本篇文章會嘗試模擬一個環境來探討這個問題，並且釐清問題的本質，當一切謎團都明瞭之時，我們再來看看真實情況下，有什麼踩到這個問題的可能性</p>
+<h1 id="模擬環境"><a href="#模擬環境" class="headerlink" title="模擬環境"></a>模擬環境</h1><p>本環境會採用 <a href="https://kind.sigs.k8s.io/" target="_blank" rel="noopener">KIND</a> 搭建一個多節點的 Kubernetes 叢集，使用的版本與相關設定檔案如下<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line">→ kind --version</span><br><span class="line">kind version 0.9.0</span><br><span class="line"></span><br><span class="line">→ cat kind.yaml</span><br><span class="line">kind: Cluster</span><br><span class="line">apiVersion: kind.x-k8s.io/v1alpha4</span><br><span class="line">nodes:</span><br><span class="line">- role: control-plane</span><br><span class="line">  image: kindest/node:v1.18.8@sha256:f4bcc97a0ad6e7abaf3f643d890add7efe6ee4ab90baeb374b4f41a4c95567eb</span><br><span class="line">- role: worker</span><br><span class="line">  image: kindest/node:v1.18.8@sha256:f4bcc97a0ad6e7abaf3f643d890add7efe6ee4ab90baeb374b4f41a4c95567eb</span><br><span class="line">- role: worker</span><br><span class="line">  image: kindest/node:v1.18.8@sha256:f4bcc97a0ad6e7abaf3f643d890add7efe6ee4ab90baeb374b4f41a4c95567eb</span><br><span class="line">- role: worker</span><br><span class="line">  image: kindest/node:v1.18.8@sha256:f4bcc97a0ad6e7abaf3f643d890add7efe6ee4ab90baeb374b4f41a4c95567eb</span><br><span class="line"></span><br><span class="line">→ kubectl version</span><br><span class="line">Client Version: version.Info&#123;Major:&quot;1&quot;, Minor:&quot;19&quot;, GitVersion:&quot;v1.19.4&quot;, GitCommit:&quot;d360454c9bcd1634cf4cc52d1867af5491dc9c5f&quot;, GitTreeState:&quot;clean&quot;, BuildDate:&quot;2020-11-11T13:17:17Z&quot;, GoVersion:&quot;go1.15.2&quot;, Compiler:&quot;gc&quot;, Platform:&quot;linux/amd64&quot;&#125;</span><br><span class="line">Server Version: version.Info&#123;Major:&quot;1&quot;, Minor:&quot;18&quot;, GitVersion:&quot;v1.18.8&quot;, GitCommit:&quot;9f2892aab98fe339f3bd70e3c470144299398ace&quot;, GitTreeState:&quot;clean&quot;, BuildDate:&quot;2020-09-14T07:44:34Z&quot;, GoVersion:&quot;go1.13.15&quot;, Compiler:&quot;gc&quot;, Platform:&quot;linux/amd64&quot;&#125;</span><br><span class="line"></span><br><span class="line">→ kubectl get nodes</span><br><span class="line">NAME                 STATUS   ROLES    AGE   VERSION</span><br><span class="line">kind-control-plane   Ready    master   18m   v1.18.8</span><br><span class="line">kind-worker          Ready    &lt;none&gt;   17m   v1.18.8</span><br><span class="line">kind-worker2         Ready    &lt;none&gt;   17m   v1.18.8</span><br><span class="line">kind-worker3         Ready    &lt;none&gt;   17m   v1.18.8</span><br><span class="line"></span><br><span class="line">```  </span><br><span class="line"></span><br><span class="line">我們會透過一個 deployment 來模擬大量的 pod，該內容如下</span><br><span class="line">```bash=</span><br><span class="line">→ cat debug.yaml</span><br><span class="line">apiVersion: apps/v1</span><br><span class="line">kind: Deployment</span><br><span class="line">metadata:</span><br><span class="line">  name: debug-pod</span><br><span class="line">spec:</span><br><span class="line">  replicas: 30</span><br><span class="line">  selector:</span><br><span class="line">    matchLabels:</span><br><span class="line">      app: debug-pod</span><br><span class="line">  template:</span><br><span class="line">    metadata:</span><br><span class="line">      labels:</span><br><span class="line">        app: debug-pod</span><br><span class="line">    spec:</span><br><span class="line">      containers:</span><br><span class="line">        - name: debug-pod</span><br><span class="line">          image: hwchiu/netutils:latest</span><br></pre></td></tr></table></figure></p>
+<h1 id="模擬步驟"><a href="#模擬步驟" class="headerlink" title="模擬步驟"></a>模擬步驟</h1><p>要模擬這個問題不會太困難，分成幾個步驟</p>
+<ol>
+<li>部署 pods</li>
+<li>停止節點上的 kubelet 並刪除節點上特定資料夾</li>
+<li>重啟節點上的 kubelet 並部署更多 pod 到該節點上</li>
+</ol>
+<p>接下來我們就針對上述步驟來操作，並且以節點 <code>kind-worker3</code> 作為問題發生的節點</p>
+<h2 id="部署-Pods"><a href="#部署-Pods" class="headerlink" title="部署 Pods"></a>部署 Pods</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">→ kubectl apply -f debug.yaml</span><br><span class="line">deployment.apps/debug-pod created</span><br></pre></td></tr></table></figure>
+<p>這邊我們專注觀察 kind-worker3 上面所有 Pod 的 IP 即可<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"> → kubectl get pods -o wide | grep kind-worker3</span><br><span class="line">debug-pod-7f9c756577-6nv7b   1/1     Running   0          3m38s   10.244.2.6    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-9l766   1/1     Running   0          3m38s   10.244.2.8    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-bg89r   1/1     Running   0          3m39s   10.244.2.9    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-hb2cr   1/1     Running   0          3m38s   10.244.2.7    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-kzkjr   1/1     Running   0          3m39s   10.244.2.3    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-ncqg8   1/1     Running   0          3m38s   10.244.2.5    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-pwk9v   1/1     Running   0          3m39s   10.244.2.2    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-twwpn   1/1     Running   0          3m39s   10.244.2.4    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-z7kmq   1/1     Running   0          3m39s   10.244.2.11   kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-zgs7k   1/1     Running   0          3m38s   10.244.2.10   kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br></pre></td></tr></table></figure></p>
+<p>目前上面總共有 10 個 pod，所有 IP 都不一樣，非常正常</p>
+<h2 id="停止節點上的-kubelet-並刪除節點上特定資料夾"><a href="#停止節點上的-kubelet-並刪除節點上特定資料夾" class="headerlink" title="停止節點上的 kubelet 並刪除節點上特定資料夾"></a>停止節點上的 kubelet 並刪除節點上特定資料夾</h2><p>如同前面所述，我們針對 kind-worker3 進行模擬，因此執行下列指令來停止 <code>kubelet</code>，</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">○ → sudo docker <span class="built_in">exec</span> kind-worker3 systemctl stop kubelet</span><br><span class="line">○ → sudo docker <span class="built_in">exec</span> kind-worker3 systemctl status kubelet</span><br><span class="line">● kubelet.service - kubelet: The Kubernetes Node Agent</span><br><span class="line">     Loaded: loaded (/etc/systemd/system/kubelet.service; enabled; vendor preset: enabled)</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<p>確認停止後，接者刪除相關資料夾<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo docker <span class="built_in">exec</span> kind-worker3 rm -rf /run/cni-ipam-state</span><br></pre></td></tr></table></figure></p>
+<h2 id="重啟節點上的-kubelet-並部署更多-pod-到該節點上"><a href="#重啟節點上的-kubelet-並部署更多-pod-到該節點上" class="headerlink" title="重啟節點上的 kubelet 並部署更多 pod 到該節點上"></a>重啟節點上的 kubelet 並部署更多 pod 到該節點上</h2><p>上述都完成後，我們重啟 kubelet</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">○ → sudo docker <span class="built_in">exec</span> kind-worker3 systemctl start kubelet                                                                         </span><br><span class="line">○ → sudo docker <span class="built_in">exec</span> kind-worker3 systemctl status kubelet</span><br><span class="line">● kubelet.service - kubelet: The Kubernetes Node Agent</span><br><span class="line">     Loaded: loaded (/etc/systemd/system/kubelet.service; enabled; vendor preset: enabled)</span><br><span class="line">    Drop-In: /etc/systemd/system/kubelet.service.d</span><br><span class="line">             └─10-kubeadm.conf</span><br><span class="line">     Active: active (running) (thawing) since Fri 2020-11-27 04:04:28 UTC; 3s ago</span><br><span class="line">       Docs: http://kubernetes.io/docs/</span><br></pre></td></tr></table></figure>
+<p>接下來我們要部署新的 pod 到 <code>kind-worker3</code> 身上，這邊我採取的方式是透過 <strong>drain</strong> 的概念，將 <strong>kind-worker</strong> 以及 <strong>kind-worker2</strong> 上面的 pod 都移除掉，然後重新部署到 <strong>kind-worker3</strong> 上，並且觀察這些 IP</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">○ → kubectl drain kind-worker --ignore-daemonsets</span><br><span class="line">○ → kubectl drain kind-worker2 --ignore-daemonsets</span><br></pre></td></tr></table></figure>
+<p>接者透過相同指令觀察 kind-worker3 上面的所有 pod IP</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">→ kubectl get pods -o wide | grep kind-worker3 | sort -k 6</span><br><span class="line">debug-pod-7f9c756577-hkhx9   1/1     Running   0          54s   10.244.2.10   kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-zgs7k   1/1     Running   0          11m   10.244.2.10   kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-qmjqk   1/1     Running   0          54s   10.244.2.11   kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-z7kmq   1/1     Running   0          11m   10.244.2.11   kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-pd6hl   1/1     Running   0          54s   10.244.2.12   kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-ssmsv   1/1     Running   0          54s   10.244.2.13   kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-bbx6j   1/1     Running   0          54s   10.244.2.14   kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-9rn4j   1/1     Running   0          54s   10.244.2.15   kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-sfwhs   1/1     Running   0          54s   10.244.2.16   kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-jc8nw   1/1     Running   0          54s   10.244.2.17   kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-5sb28   1/1     Running   0          54s   10.244.2.18   kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-mgtzx   1/1     Running   0          54s   10.244.2.19   kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-64xlq   1/1     Running   0          53s   10.244.2.20   kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-jpmfk   1/1     Running   0          53s   10.244.2.21   kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-pwk9v   1/1     Running   0          11m   10.244.2.2    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-rhfk4   1/1     Running   0          71s   10.244.2.2    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-kzkjr   1/1     Running   0          11m   10.244.2.3    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-njmw6   1/1     Running   0          71s   10.244.2.3    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-l9fl8   1/1     Running   0          71s   10.244.2.4    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-twwpn   1/1     Running   0          11m   10.244.2.4    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-ncqg8   1/1     Running   0          11m   10.244.2.5    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-rshx5   1/1     Running   0          71s   10.244.2.5    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-6nv7b   1/1     Running   0          11m   10.244.2.6    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-vklgs   1/1     Running   0          71s   10.244.2.6    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-hb2cr   1/1     Running   0          11m   10.244.2.7    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-jkpbd   1/1     Running   0          54s   10.244.2.7    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-9l766   1/1     Running   0          11m   10.244.2.8    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-lr8t5   1/1     Running   0          54s   10.244.2.8    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-bg89r   1/1     Running   0          11m   10.244.2.9    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">debug-pod-7f9c756577-wx4s6   1/1     Running   0          54s   10.244.2.9    kind-worker3   &lt;none&gt;           &lt;none&gt;</span><br></pre></td></tr></table></figure>
+<p>重上述的結果可以觀察到 <strong>10.244.2.11</strong> 以及更以前的(.2~.10) 地址全部都重複了。<br>到這邊為止，我們透過一個奇怪的操作流程來製造了 <strong>IP</strong> 重複的現象，但是目前還有兩個問題</p>
+<ol>
+<li>為什麼這個過程會導致 IP 重複?</li>
+<li>這個過程看起來很妙，什麼樣的實際情況會發生?</li>
+</ol>
+<h1 id="探究問題"><a href="#探究問題" class="headerlink" title="探究問題"></a>探究問題</h1><p>從這邊開始，我們就認真地去探討這個問題的本質，一旦理解整個 kubernetes 運作流程後，面對這個問題就會非常有想法知道該從何下手，以及可以很快的縮小問題的發生點</p>
+<p>問題開始前，我們要先有一個基本的概念，到底 <strong>IP</strong> 地址是怎麼來的？</p>
+<p>實際上 Kubernetes 本身並不會去幫忙分配這些 <strong>IP</strong> 地址，唯二會做就兩件事情</p>
+<ol>
+<li>Controller 會根據參數設定 Node 上的 NodeCIDR 等數值(本文不談)</li>
+<li>Kubelet 創建 Pod 時，最後會呼叫起 CNI 來幫忙處理</li>
+</ol>
+<p><strong>Container Network Interface(CNI)</strong> 這邊不談太多，想要瞭解更多可以閱讀我之前關於 CNI 的<a href="https://www.hwchiu.com/cni.html">介紹文</a></p>
+<p>接下來我們用圖表看一下 CNI 的運作流程(大概流程，實際上底層的呼叫有一點點不一樣)</p>
+<p>一開始， <strong>kubelet</strong> 會創造一個 Pod 的沙盒，這時候該 Pod 還沒有任何 IP 地址<br><img src="https://i.imgur.com/sBiUu0E.jpg" alt></p>
+<p>CNI 本身會要負責給予 Pod 對應的網路能力，這邊也包含 IP 的分配，預設情況下 CNI 的設定檔案會放在 /etc/cni/net.d。 </p>
+<p><strong>kubelet</strong> 會去讀取 <strong>/etc/cni/net.d</strong> 來判斷當前系統使用的 CNI 是誰<br><img src="https://i.imgur.com/Sgc0odM.jpg" alt></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line">→ docker <span class="built_in">exec</span> kind-worker3 cat /etc/cni/net.d/10-kindnet.conflist</span><br><span class="line"></span><br><span class="line">&#123;</span><br><span class="line">        <span class="string">"cniVersion"</span>: <span class="string">"0.3.1"</span>,</span><br><span class="line">        <span class="string">"name"</span>: <span class="string">"kindnet"</span>,</span><br><span class="line">        <span class="string">"plugins"</span>: [</span><br><span class="line">        &#123;</span><br><span class="line">                <span class="string">"type"</span>: <span class="string">"ptp"</span>,</span><br><span class="line">                <span class="string">"ipMasq"</span>: <span class="literal">false</span>,</span><br><span class="line">                <span class="string">"ipam"</span>: &#123;</span><br><span class="line">                        <span class="string">"type"</span>: <span class="string">"host-local"</span>,</span><br><span class="line">                        <span class="string">"dataDir"</span>: <span class="string">"/run/cni-ipam-state"</span>,</span><br><span class="line">                        <span class="string">"routes"</span>: [</span><br><span class="line">                                &#123;</span><br><span class="line">                                        <span class="string">"dst"</span>: <span class="string">"0.0.0.0/0"</span></span><br><span class="line">                                &#125;</span><br><span class="line">                        ],</span><br><span class="line">                        <span class="string">"ranges"</span>: [</span><br><span class="line">                        [</span><br><span class="line">                                &#123;</span><br><span class="line">                                        <span class="string">"subnet"</span>: <span class="string">"10.244.2.0/24"</span></span><br><span class="line">                                &#125;</span><br><span class="line">                        ]</span><br><span class="line">                ]</span><br><span class="line">                &#125;</span><br><span class="line">                ,</span><br><span class="line">                <span class="string">"mtu"</span>: 1500</span><br><span class="line"></span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">                <span class="string">"type"</span>: <span class="string">"portmap"</span>,</span><br><span class="line">                <span class="string">"capabilities"</span>: &#123;</span><br><span class="line">                        <span class="string">"portMappings"</span>: <span class="literal">true</span></span><br><span class="line">                &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        ]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上面範例是 <strong>kind</strong> 裡面的 CNI 的設定檔案，我們注意 <strong>IPAM</strong> 欄位，他使用的是 <strong>host-local</strong> 這個服務，並且將資料放到 <strong>/run/cni-ipam-state</strong>。</p>
+<p>所以 <strong>kubelet</strong> 就會根據找到的結果，叫起 <strong>kind-net</strong> 這套 CNI 來幫忙處理，而 <strong>kind-net</strong> 找上 <strong>host-local</strong> 來幫忙處理 IP 分配問題<br><img src="https://i.imgur.com/zTyuUPX.jpg" alt></p>
+<p><strong>host-local</strong> 會使用本地檔案 <strong>/run/cni-ipam-state/kindnet</strong> 作為本地資料庫，紀錄哪些 IP 已經使用過。最後根據搜尋從裡面結果挑出一個還沒有被用過的 <strong>IP</strong> 地址，並且把該結果送回給 <strong>kind-net</strong> CNI<br><img src="https://i.imgur.com/daK2V1U.jpg" alt></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">○ → docker <span class="built_in">exec</span> kind-worker3 ls /run/cni-ipam-state/kindnet</span><br><span class="line">10.244.2.10</span><br><span class="line">10.244.2.11</span><br><span class="line">10.244.2.12</span><br><span class="line">10.244.2.13</span><br><span class="line">10.244.2.14</span><br><span class="line">10.244.2.15</span><br><span class="line">10.244.2.16</span><br><span class="line">10.244.2.17</span><br><span class="line">10.244.2.18</span><br><span class="line">10.244.2.19</span><br><span class="line">10.244.2.2</span><br><span class="line">10.244.2.20</span><br><span class="line">10.244.2.21</span><br><span class="line">10.244.2.3</span><br><span class="line">10.244.2.4</span><br><span class="line">10.244.2.5</span><br><span class="line">10.244.2.6</span><br><span class="line">10.244.2.7</span><br><span class="line">10.244.2.8</span><br><span class="line">10.244.2.9</span><br><span class="line">last_reserved_ip.0</span><br><span class="line">lock</span><br></pre></td></tr></table></figure>
+<p>可以看到這邊會記錄當前使用的所有 <strong>CNI</strong> 狀態，這邊要特別注意的是，不是每個 <strong>CNI/IPAM</strong> 都是走 <strong>host-local</strong> 這種方式。 <strong>host-local</strong> 如其名稱一樣，就是每個節點獨立自行處理，而背後就是依賴一個資料夾搭配眾多檔案來記住當前到底分配哪些 <strong>IP 地址</strong></p>
+<p>一切完畢之後，<strong>kind-net</strong> 就會把相關的 <strong>IP</strong> 給設定到 <strong>Pod</strong> 上面。<br><img src="https://i.imgur.com/9qkqNyQ.jpg" alt></p>
+<h2 id="再看一次"><a href="#再看一次" class="headerlink" title="再看一次"></a>再看一次</h2><p>所以回到前面的模擬環境，現在要理解整個問題流程就非常清楚明瞭了。<br>一開始，我們部署大量的 Pod 到 kind-worker3 上面， <strong>host-local</strong> 開始針對每個分配的 <strong>IP</strong> 去寫檔案，並且記錄到  <strong>/run/cni-ipam-state/kindnet</strong>。</p>
+<p>接者我們停掉 kubelet，讓 CNI 暫時不會被呼叫，然後把維護 <strong>host-local</strong> 的所有狀態都移除了。</p>
+<p>到這個階段，其實系統已經出現了狀態不一致的現象， <strong>CNI</strong> 用來維護 <strong>IP</strong> 的狀態資訊被移除，但是使用那些 <strong>IP</strong> 的容器都還活者。</p>
+<p>最後，我們透過重新部署 <strong>Pod</strong> 到 <strong>kind-worker3</strong> 上面，這時候 <strong>host-local</strong> 會嘗試重新產生 <strong>IP</strong> 地址，由於 <strong>/run/cni-ipam-state/kindnet</strong> 裡面是空的，所以又會重新開始計算，因此分配出來的 <strong>IP</strong> 就會跟以前重複，產生 IP 衝突問題。</p>
+<h1 id="真實情境"><a href="#真實情境" class="headerlink" title="真實情境"></a>真實情境</h1><p>看到這邊，對於整個問題的發生心理都已經有了個底，但是我們真實情況下會發生這類型的問題嗎?</p>
+<p>要滿足這個問題有幾個條件</p>
+<ol>
+<li>採用的 CNI 最後會使用 host-local 這種本地資料庫來記錄使用的 Pod IP 地址</li>
+<li>系統上 <strong>host-local</strong> 使用的資料夾被刪除，導致裡面的資料全部消失，而 <strong>host-local</strong> 根本不知道</li>
+</ol>
+<p>要踩到條件一其實很簡單，預設情抗下 <strong>Flannel</strong> 就是使用這個方式來記錄的<br>至於條件二，如果系統檔案沒有遇到不如預期的修改的話，通常不會踩到這個點。</p>
+<p>但是今天有一個使用情境會完全滿足上述條件，就是透過 <strong>Rancher</strong> 安裝 Kubernetes 並且使用 <strong>Flannel</strong> 作為 CNI。 然後透過 <strong>Restore</strong> 的功能來復原 Kubernetes，這種情況下就會踩到這個問題。</p>
+<p>Rancher 再進行 Restore 的過程中，會先關掉 <strong>kubelet</strong>，並且對當節點進行<a href="https://github.com/rancher/rke/blob/2c270fa5ab2556e9eec3f2079cb6f2075d6dbfa9/hosts/hosts.go#L67-L82" target="_blank" rel="noopener">一番清除</a>，譬如<br><figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">const</span> (</span><br><span class="line">	ToCleanEtcdDir          = <span class="string">"/var/lib/etcd/"</span></span><br><span class="line">	ToCleanSSLDir           = <span class="string">"/etc/kubernetes/"</span></span><br><span class="line">	ToCleanCNIConf          = <span class="string">"/etc/cni/"</span></span><br><span class="line">	ToCleanCNIBin           = <span class="string">"/opt/cni/"</span></span><br><span class="line">	ToCleanCNILib           = <span class="string">"/var/lib/cni/"</span></span><br><span class="line">	ToCleanCalicoRun        = <span class="string">"/var/run/calico/"</span></span><br><span class="line">...    </span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(h *Host)</span> <span class="title">CleanUpAll</span><span class="params">(ctx context.Context, cleanerImage <span class="keyword">string</span>, prsMap <span class="keyword">map</span>[<span class="keyword">string</span>]v3.PrivateRegistry, externalEtcd <span class="keyword">bool</span>)</span> <span class="title">error</span></span> &#123;</span><br><span class="line">	log.Infof(ctx, <span class="string">"[hosts] Cleaning up host [%s]"</span>, h.Address)</span><br><span class="line">	toCleanPaths := []<span class="keyword">string</span>&#123;</span><br><span class="line">		path.Join(h.PrefixPath, ToCleanSSLDir),</span><br><span class="line">		ToCleanCNIConf,</span><br><span class="line">		ToCleanCNIBin,</span><br><span class="line">		ToCleanCalicoRun,</span><br><span class="line">		path.Join(h.PrefixPath, ToCleanTempCertPath),</span><br><span class="line">		path.Join(h.PrefixPath, ToCleanCNILib),</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> !externalEtcd &#123;</span><br><span class="line">		toCleanPaths = <span class="built_in">append</span>(toCleanPaths, path.Join(h.PrefixPath, ToCleanEtcdDir))</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> h.CleanUp(ctx, toCleanPaths, cleanerImage, prsMap)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>該函式就會把 <strong>ToCleanCNILib</strong> 這個路徑給移除掉，而 <strong>ToCleanCNILib</strong> 指向的位置則是  <strong>/var/lib/cni/</strong>。</p>
+<p>非常巧的是 <a href="https://github.com/containernetworking/plugins/blob/ded2f1757770e8e2aa41f65687f8fc876f83048b/plugins/ipam/host-local/backend/disk/backend.go#L31-L39" target="_blank" rel="noopener">host-local</a> 預設的路徑也是 <strong>/var/lib/cni</strong></p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> defaultDataDir = <span class="string">"/var/lib/cni/networks"</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Store is a simple disk-backed store that creates one file per IP</span></span><br><span class="line"><span class="comment">// address in a given directory. The contents of the file are the container ID.</span></span><br><span class="line"><span class="keyword">type</span> Store <span class="keyword">struct</span> &#123;</span><br><span class="line">	*FileLock</span><br><span class="line">	dataDir <span class="keyword">string</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>兩個事情很巧的撞再一起之後，就會產生 IP 衝突的問題了。</p>
+<h1 id="解決方式"><a href="#解決方式" class="headerlink" title="解決方式"></a>解決方式</h1><p>這個問題從兩個人的角度來看，其實都不覺得自己有錯，都很盡忠職守。<br>但是問題出在，對於 CNI/IPAM 來說，我用來維護整個 IP 狀態的檔案被移除了，可是使用那些 <strong>IP</strong> 的容器卻沒有被移除。</p>
+<p>所以一種做法就是把該節點上的所有 Pod 都重啟一次，讓 <strong>CNI</strong> 重新跑過。<br>或是我們透過 Rancher 安裝 Flannel 的時候，修改設定檔案讓 IPAM(host-local)  使用不同的位置。</p>
+<p>畢竟 Rancher (2.5以前)是基於 etcd 的概念去還原與備份整個 Kubernetes Cluster，因此這個過程將節點上的資料都清除是非常合理。</p>
+<p>但是 etcd 的資料並不能完整呈現整個 Kubernetes Cluster，畢竟還有一些資料並不存在 etcd 內。<br>譬如本文章的 CNI，或是其他的 PV/PVC 等，想要做到 k8s 完全備份與還原幾乎是不太可能的，這部分除了技術問題外，我覺得更多是哲學問題，要先定義你想要的備份與還原。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>組合包<br><a href="https://hiskio.com/packages/7ey2vdnyN" target="_blank" rel="noopener">https://hiskio.com/packages/7ey2vdnyN</a></p>
+<p>疑難雜症除錯篇<br><a href="https://hiskio.com/courses/440/about?promo_code=VEQ4N7G" target="_blank" rel="noopener">https://hiskio.com/courses/440/about?promo_code=VEQ4N7G</a></p>
+<p>單堂(CI/CD)<br><a href="https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1" target="_blank" rel="noopener">https://hiskio.com/courses/385?promo_code=13K49YE&amp;p=blog1</a></p>
+<p>基礎概念<br><a href="https://hiskio.com/courses/349?promo_code=13LY5RE" target="_blank" rel="noopener">https://hiskio.com/courses/349?promo_code=13LY5RE</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
+
+    </div>
+
+    
+    
+    
+      
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/cni-performance-2020.html" rel="bookmark">[文章導讀] - 基於10G網路的 Kubernetes CNI 效能比較</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/cni-experience.html" rel="bookmark">CNI 閒談</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/cni-flannel-iii.html" rel="bookmark">CNI - Flannel - VXLAN 封包運作篇</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/cni-flannel-ii.html" rel="bookmark">CNI - Flannel - IP 管理篇</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/cni-flannel-i.html" rel="bookmark">CNI - Flannel - 安裝設定篇</a></div>
+    </li>
+  </ul>
+
+        
+
+  <div class="followme">
+    <p>Welcome to my other publishing channels</p>
+
+    <div class="social-list">
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+        </div>
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+        </div>
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+        </div>
+    </div>
+  </div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/CNI/" rel="tag"># CNI</a>
+              <a href="/tags/Rancher/" rel="tag"># Rancher</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/ithome-20202-cicd-11.html" rel="prev" title="鐵人賽系列文章- Day 11 - Kubernetes 應用測試">
+      <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day 11 - Kubernetes 應用測試
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  <div class="comments">
+    <div id="disqus_thread">
+      <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+    </div>
+  </div>
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#模擬環境"><span class="nav-number">1.</span> <span class="nav-text">模擬環境</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#模擬步驟"><span class="nav-number">2.</span> <span class="nav-text">模擬步驟</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#部署-Pods"><span class="nav-number">2.1.</span> <span class="nav-text">部署 Pods</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#停止節點上的-kubelet-並刪除節點上特定資料夾"><span class="nav-number">2.2.</span> <span class="nav-text">停止節點上的 kubelet 並刪除節點上特定資料夾</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#重啟節點上的-kubelet-並部署更多-pod-到該節點上"><span class="nav-number">2.3.</span> <span class="nav-text">重啟節點上的 kubelet 並部署更多 pod 到該節點上</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#探究問題"><span class="nav-number">3.</span> <span class="nav-text">探究問題</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#再看一次"><span class="nav-number">3.1.</span> <span class="nav-text">再看一次</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#真實情境"><span class="nav-number">4.</span> <span class="nav-text">真實情境</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#解決方式"><span class="nav-number">5.</span> <span class="nav-text">解決方式</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">6.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">227</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">111</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https://github.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https://twitter.com/hw_chiu" rel="noopener" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/hongwei.qiu" title="FB Page → https://www.facebook.com/hongwei.qiu" rel="noopener" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" rel="noopener" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https://instagram.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+  <div class="addthis_inline_share_toolbox">
+    <script src="//s7.addthis.com/js/300/addthis_widget.js#pubid=ra-5f4ca66cef0894e1" async="async"></script>
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+  <script src="https://www.gstatic.com/firebasejs/6.3.3/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/6.3.3/firebase-firestore.js"></script>
+  <script>
+    firebase.initializeApp({
+      apiKey   : 'AIzaSyCKW4_VC3TasrnfItbUzvYuhy_EBW-aUjk',
+      projectId: 'blog-source'
+    });
+
+    function getCount(doc, increaseCount) {
+      // IncreaseCount will be false when not in article page
+      return doc.get().then(d => {
+        var count = 0;
+        if (!d.exists) { // Has no data, initialize count
+          if (increaseCount) {
+            doc.set({
+              count: 1
+            });
+            count = 1;
+          }
+        } else { // Has data
+          count = d.data().count;
+          if (increaseCount) {
+            // If first view this article
+            doc.set({ // Increase count
+              count: count + 1
+            });
+            count++;
+          }
+        }
+
+        return count;
+      });
+    }
+
+    function appendCountTo(el) {
+      return count => {
+        el.innerText = count;
+      }
+    }
+  </script>
+  <script>
+    (function() {
+      var db = firebase.firestore();
+      var articles = db.collection('articles');
+
+      if (CONFIG.page.isPost) { // Is article page
+        var title = document.querySelector('.post-title').innerText.trim();
+        var doc = articles.doc(title);
+        var increaseCount = CONFIG.hostname === location.hostname;
+        if (localStorage.getItem(title)) {
+          increaseCount = false;
+        } else {
+          // Mark as visited
+          localStorage.setItem(title, true);
+        }
+        getCount(doc, increaseCount).then(appendCountTo(document.querySelector('.firestore-visitors-count')));
+      } else if (CONFIG.page.isHome) { // Is index page
+        var promises = [...document.querySelectorAll('.post-title')].map(element => {
+          var title = element.innerText.trim();
+          var doc = articles.doc(title);
+          return getCount(doc);
+        });
+        Promise.all(promises).then(counts => {
+          var metas = document.querySelectorAll('.firestore-visitors-count');
+          counts.forEach((val, idx) => {
+            appendCountTo(metas[idx])(val);
+          });
+        });
+      }
+    })();
+  </script>
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+<script>
+  function loadCount() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://hwchiu.disqus.com/count.js';
+    s.id = 'dsq-count-scr';
+    (d.head || d.body).appendChild(s);
+  }
+  // defer loading until the whole page loading is completed
+  window.addEventListener('load', loadCount, false);
+</script>
+<script>
+  var disqus_config = function() {
+    this.page.url = "https://www.hwchiu.com/kubernetes-duplicate-pod-ip.html";
+    this.page.identifier = "kubernetes-duplicate-pod-ip.html";
+    this.page.title = "Kubernetes - IP 重複奇遇記";
+    this.language = 'en';
+    };
+  NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
+    if (window.DISQUS) {
+      DISQUS.reset({
+        reload: true,
+        config: disqus_config
+      });
+    } else {
+      var d = document, s = d.createElement('script');
+      s.src = 'https://hwchiu.disqus.com/embed.js';
+      s.setAttribute('data-timestamp', '' + +new Date());
+      (d.head || d.body).appendChild(s);
+    }
+  });
+</script>
+
+</body>
+</html>
