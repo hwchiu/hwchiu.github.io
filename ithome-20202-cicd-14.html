@@ -21,24 +21,25 @@
     var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="Adapter Pattern這個模式是用來讓兩個已經存在但是不相容的介面能夠相容的一種方式。如果資源允許且有辦法，通常都可以直接修改這些已經存在的介面原始碼，擴充讓他能夠支援全新的功能，然而在部分的情況下，其實舊有的介面並不能這樣重新修改。因此這時候可以採用 Adapter Pattern 的方式重新打造一個接口，上承新接口，下承舊接口，藉由這個方式讓舊有的城市不用修改也能夠正常運作。">
-<meta name="keywords" content="DesignPattern, Adapter Pattern">
+  <meta name="description" content="ITHOME-2020 系列文章">
+<meta name="keywords" content="Kubernetes,DevOps,Linux,K8s">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Adapter Pattern">
-<meta property="og:url" content="https://www.hwchiu.com/adapter-pattern.html">
+<meta property="og:title" content="鐵人賽系列文章- Day 14 - CD 與 Kubernetes 的整合">
+<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-14.html">
 <meta property="og:site_name" content="Hwchiu Learning Note">
-<meta property="og:description" content="Adapter Pattern這個模式是用來讓兩個已經存在但是不相容的介面能夠相容的一種方式。如果資源允許且有辦法，通常都可以直接修改這些已經存在的介面原始碼，擴充讓他能夠支援全新的功能，然而在部分的情況下，其實舊有的介面並不能這樣重新修改。因此這時候可以採用 Adapter Pattern 的方式重新打造一個接口，上承新接口，下承舊接口，藉由這個方式讓舊有的城市不用修改也能夠正常運作。">
+<meta property="og:description" content="ITHOME-2020 系列文章">
 <meta property="og:locale" content="en">
-<meta property="og:image" content="http://user-image.logdown.io/user/415/blog/415/post/161782/joRQRvslT8Kyo1xKe94q_test.png">
-<meta property="og:image" content="http://user-image.logdown.io/user/415/blog/415/post/161782/tW7GgPSTC2mJAahsN7Qi_test.png">
-<meta property="og:image" content="http://user-image.logdown.io/user/415/blog/415/post/161782/0OwKO5u0SqSz3YH1szpF_test.png">
-<meta property="og:updated_time" content="2020-11-26T03:31:19.393Z">
+<meta property="og:image" content="https://i.imgur.com/Qup5mjg.jpg">
+<meta property="og:image" content="https://i.imgur.com/GMzaUxw.jpg">
+<meta property="og:image" content="https://i.imgur.com/BTyDW7b.jpg">
+<meta property="og:image" content="https://i.imgur.com/b5l63Om.jpg">
+<meta property="og:updated_time" content="2020-12-11T12:51:23.438Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Adapter Pattern">
-<meta name="twitter:description" content="Adapter Pattern這個模式是用來讓兩個已經存在但是不相容的介面能夠相容的一種方式。如果資源允許且有辦法，通常都可以直接修改這些已經存在的介面原始碼，擴充讓他能夠支援全新的功能，然而在部分的情況下，其實舊有的介面並不能這樣重新修改。因此這時候可以採用 Adapter Pattern 的方式重新打造一個接口，上承新接口，下承舊接口，藉由這個方式讓舊有的城市不用修改也能夠正常運作。">
-<meta name="twitter:image" content="http://user-image.logdown.io/user/415/blog/415/post/161782/joRQRvslT8Kyo1xKe94q_test.png">
+<meta name="twitter:title" content="鐵人賽系列文章- Day 14 - CD 與 Kubernetes 的整合">
+<meta name="twitter:description" content="ITHOME-2020 系列文章">
+<meta name="twitter:image" content="https://i.imgur.com/Qup5mjg.jpg">
 
-<link rel="canonical" href="https://www.hwchiu.com/adapter-pattern.html">
+<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-14.html">
 
 
 <script id="page-configurations">
@@ -51,7 +52,7 @@
   };
 </script>
 
-  <title>Adapter Pattern | Hwchiu Learning Note</title>
+  <title>鐵人賽系列文章- Day 14 - CD 與 Kubernetes 的整合 | Hwchiu Learning Note</title>
   
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
     <script>
@@ -188,7 +189,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/adapter-pattern.html">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-14.html">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/uploads/avatar.jpg">
@@ -201,7 +202,7 @@
     </span>
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
-          Adapter Pattern
+          鐵人賽系列文章- Day 14 - CD 與 Kubernetes 的整合
         </h1>
 
         <div class="post-meta">
@@ -211,7 +212,7 @@
               </span>
               <span class="post-meta-item-text">Posted on</span>
 
-              <time title="Created: 2013-11-24 03:53:00" itemprop="dateCreated datePublished" datetime="2013-11-24T03:53:00+08:00">2013-11-24</time>
+              <time title="Created: 2020-12-11 20:50:32" itemprop="dateCreated datePublished" datetime="2020-12-11T20:50:32+08:00">2020-12-11</time>
             </span>
 
           
@@ -230,13 +231,13 @@
       </span>
       <span class="post-meta-item-text">Disqus: </span>
     
-    <a title="disqus" href="/adapter-pattern.html#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="adapter-pattern.html" itemprop="commentCount"></span>
+    <a title="disqus" href="/ithome-20202-cicd-14.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="ithome-20202-cicd-14.html" itemprop="commentCount"></span>
     </a>
   </span>
   
   
-            <div class="post-description">Adapter Pattern這個模式是用來讓兩個已經存在但是不相容的介面能夠相容的一種方式。如果資源允許且有辦法，通常都可以直接修改這些已經存在的介面原始碼，擴充讓他能夠支援全新的功能，然而在部分的情況下，其實舊有的介面並不能這樣重新修改。因此這時候可以採用 Adapter Pattern 的方式重新打造一個接口，上承新接口，下承舊接口，藉由這個方式讓舊有的城市不用修改也能夠正常運作。</div>
+            <div class="post-description">ITHOME-2020 系列文章</div>
 
         </div>
       </header>
@@ -247,23 +248,44 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><p>舉例來說，今天有一家廠商開發數位電視A，並有且對應的API可以讓使用者去操縱</p>
-<p>於是就有一家廠商根據這個API開發了對應的遙控器B。</p>
-<a id="more"></a>
-<p><img src="http://user-image.logdown.io/user/415/blog/415/post/161782/joRQRvslT8Kyo1xKe94q_test.png" alt="test.png"></p>
-<p>這時候一切都很正常work,但是不久之後，該廠商又開發了一台更新型的電視C，</p>
-<p>這時候提供的API卻跟原來的完全不一樣，這時候原本的遙控器就完全沒有辦法去操控這台新的電視C</p>
-<p>這時候解決方法如下</p>
-<ul>
-<li>重新製作一個新的遙控器，然後這個新的遙控器可以支援新舊兩款電視。</li>
-<li>對新的電視B製造一個轉接器，能夠再新舊API運作，使得舊有的遙控器能夠順利使用。</li>
-</ul>
-<p><img src="http://user-image.logdown.io/user/415/blog/415/post/161782/tW7GgPSTC2mJAahsN7Qi_test.png" alt="test.png"></p>
-<p>如果重新製作一個遙控器，每次有新的API出現，就要重新改寫遙控器，此外在維護上面也複雜。</p>
-<p>因此這邊採用轉接器的方式製作。</p>
-<p><img src="http://user-image.logdown.io/user/415/blog/415/post/161782/0OwKO5u0SqSz3YH1szpF_test.png" alt="test.png"></p>
-<p>再智慧電視B的前面多一層轉接器，這轉接器提供舊有一致的API給搖控器使用，底層使用新的API與電視B溝通，如此一來<br>遙控器本身依然可以正常運作的去操控新舊兩款電視。</p>
-<h2 id="Example"><a href="#Example" class="headerlink" title="Example"></a>Example</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">//television A</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">TelevisionA</span> <span class="keyword">implements</span> <span class="title">Television</span></span>&#123;</span><br><span class="line">	<span class="keyword">public</span> old_control&#123; .... &#125;</span><br><span class="line">	....</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//television C</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">TelevisionB</span></span>&#123;</span><br><span class="line">	<span class="keyword">public</span> new_control&#123; ...&#125;</span><br><span class="line">  ....</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//television adapter</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">TVBdapter</span> <span class="keyword">implements</span> <span class="title">Television</span></span>&#123;</span><br><span class="line">  	TelevisionB tb;</span><br><span class="line">	<span class="keyword">public</span> old_control&#123;   tb.new_control() ....&#125;</span><br><span class="line">  ...</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">//controller</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">controller</span></span>&#123;</span><br><span class="line">	televisionList = &#123;TelevisionA, TVBdapter &#125;;</span><br><span class="line">	<span class="keyword">for</span>(Television tv : televisionList)&#123;</span><br><span class="line">		tv.old_control(...)</span><br><span class="line">	&#125;</span><br><span class="line">	....</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+        <p>上篇文章中我們探討了 CD 過程的各種議題，而本篇文章則會開始探討 CD 與 Kubernetes 的部署整合</p>
+<p>這邊要特別強調的是 CI 跟 CD 兩件事情本來就不需要一定在一起，最簡單的情況下就是將 CI 與 CD 兩個步驟整合到同一個 pipeline 系統</p>
+<p>上。但是有時候會希望透過手動部署，但是部署中間的過程希望自動化，所以會透過手動觸發 CD 的流程來達成自動部署。</p>
+<p>此外， CI 與 CD 使用的流水線系統也不一定要用同一套系統，就如同前一篇文章提到專門針對 CD 這個步驟去列出相關的工具。</p>
+<p>以下將會列出四種用法，這四種用法可以分成兩大類</p>
+<ol>
+<li>Push Mode</li>
+<li>Pull Mode</li>
+</ol>
+<p>其中 Push Mode 的概念是由我們的 CD Pipeline 主動將新的應用程式推到遠方的 Kubernetes Cluster 內</p>
+<p>然而 Pull Mode 的概念是由 Kuberentes 主動去更新，藉由監聽遠方目標的變化來確保是否要自動更新版本</p>
+<h1 id="CI-CD-pipeline-Push"><a href="#CI-CD-pipeline-Push" class="headerlink" title="CI/CD pipeline (Push)"></a>CI/CD pipeline (Push)</h1><p><img src="https://i.imgur.com/Qup5mjg.jpg" alt></p>
+<p>第一個是我認為最直接且直觀，我們把 CI/CD 兩個流程都放到同一個 Pipeline 系統內，其設計上也相對簡單</p>
+<ol>
+<li>當 CI 流程結束後，接下來就跑下個步驟，這個步驟包含<br>a. 準備相關執行檔案<br>b. 透過相關工具部署到遠方的 Kubernetes</li>
+<li>這種架構下，因為要存取遠方的 kubernetes，也是會需要將 KUBECONFIG 這個檔案放到 Pipeline 系統中，所以使用上要特別注意<br>安全性的問題，避免別人存取到這個 KUBECONFIG，否則攻擊者可以控制你的 Kubernetes 叢集</li>
+</ol>
+<h1 id="人員觸發-Push"><a href="#人員觸發-Push" class="headerlink" title="人員觸發 (Push)"></a>人員觸發 (Push)</h1><p><img src="https://i.imgur.com/GMzaUxw.jpg" alt></p>
+<p>這種架構下，我們將 CI pipeline 與 CD pipeline 給分開執行，這兩套 pipeline 要不要使用同一套系統無所謂，至少 Job 是分開的。</p>
+<p>叢集管理員或是其他有權限的人可以透過直接執行當前的 <code>CD pipeline</code> 來觸發自動化部屬。這種的好處在於，對於一些正式的生產環境</p>
+<p>下，太過於自動的部署不一定是完全好的，有時候會需要一些人為介入的確認，確認一切都沒有問題後才會繼續執行自動部署。</p>
+<p>因此這個架構下可能的一個流程是</p>
+<ol>
+<li>透過 CI pipeline 通過測試以及產生出最後要使用的 Image 檔案</li>
+<li>部署團隊與 PM 等經過確認，公告更新時間後在手動觸發自動部署的工作來完成部署</li>
+<li>如同前面部署，這邊也會需要將 Kubernetes 存取所需要的 KUBECONFIG 放到 CD pipeline 內，所以也是有安全性的問題需要注意</li>
+</ol>
+<h1 id="Container-Image-觸發-Push"><a href="#Container-Image-觸發-Push" class="headerlink" title="Container Image 觸發 (Push)"></a>Container Image 觸發 (Push)</h1><p><img src="https://i.imgur.com/BTyDW7b.jpg" alt></p>
+<p>這是另外一種不同的架構，我們將人為觸發的部分提供了一個新的選擇，當 Container Registry 本身發現有新版本的 Container Image 更新時，會透過不同的方式通知遠方的 CD pipeline 去觸發自動更新。</p>
+<p>這個使用方法會依賴你使用的 Container Registry 是否有支援這種的架構，譬如 Harbor 這個開源專案就有支援，當 image 更新後可以透過 webhook 的方式將訊息打到遠方。而遠方的 CD pipeline 如果也有這種機制可以透過 webhook 來觸發的話，就可以實作上面的機制。</p>
+<p>由於是透過 container registry 所觸發的工作，所以這種架構可以支援更多的觸發方式，譬如管理員今天緊急需求，手動推動新版的 Container Image 到遠方 Registry，這樣也能夠觸發</p>
+<p>因為跟前述架構完全類似，所以 KUBECONFIG 也是會放到環境之中，必須要有安全性的考量。</p>
+<h1 id="Pull-Mode"><a href="#Pull-Mode" class="headerlink" title="Pull Mode"></a>Pull Mode</h1><p><img src="https://i.imgur.com/b5l63Om.jpg" alt></p>
+<p>最後我們來看另外一種不同的架構，這種架構下我們就不會從 Pipeline 系統中主動地將新版應用程式推到 Kubernetes 中，相反的是我們的 Kubernetes 內會有一個 Controller，這個 Controller 會自己去判斷是否要更新這些應用程式，譬如說當遠方的 Contaienr Image 有新版更新時，就會自動抓取新的 Image 並且更新到系統之中。</p>
+<p>這種架構下，我們不需要一個 CD Piepline 來維護這些事情，此外，因為沒有主動與 Kubernetes 溝通的需求，所以也不需要把 KUBECONFIG 給放到外部系統 (CD Pipeline) 中，算是減少了一個可能的安全性隱憂。</p>
+<p>當然這種架構下，整個部署的流程都必須依賴 Controller 的邏輯來處理，如果今天有任何客製化的需求就變成全部都讓 Controller 來處理，可能要自行修改開源軟體，或是依賴對方更新，相較於完全使用 CD Pipeline 處理來說，彈性會比較低，擴充性也比較低，同時整個架構的極限都會被侷限在 Controller 本身的能力。</p>
+<p>最後要說的是，以上介紹的架構沒有一個是完美的，都只是一個參考架構，真正適合的架構還是取決於使用者團隊，透過理解不同部署方</p>
+<p>式所帶來的優缺點，評估哪些優勢我團隊需要，哪些缺點是團隊可以接受，不可以接受，最後綜合評量後取捨出一套適合團隊工作的方式。</p>
 <h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
 <p>組合包<br><a href="https://hiskio.com/packages/7ey2vdnyN" target="_blank" rel="noopener">https://hiskio.com/packages/7ey2vdnyN</a></p>
 <p>疑難雜症除錯篇<br><a href="https://hiskio.com/courses/440/about?promo_code=VEQ4N7G" target="_blank" rel="noopener">https://hiskio.com/courses/440/about?promo_code=VEQ4N7G</a></p>
@@ -273,6 +295,7 @@
 <p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
 <p>你的捐款將給予我文章成長的動力</p>
 <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
+
     </div>
 
     
@@ -282,10 +305,19 @@
   <div class="popular-posts-header">Related Posts</div>
   <ul class="popular-posts">
     <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/strategy-pattern.html" rel="bookmark">Strategy Pattern</a></div>
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-13.html" rel="bookmark">鐵人賽系列文章- Day13 - CD 系統的選擇議題</a></div>
     </li>
     <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/facade-pattern.html" rel="bookmark">Facade Pattern</a></div>
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-12.html" rel="bookmark">鐵人賽系列文章- Day 12 CI Pipeline x Kubernetes 結論</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-11.html" rel="bookmark">鐵人賽系列文章- Day 11 - Kubernetes 應用測試</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-10.html" rel="bookmark">鐵人賽系列文章- Day 10 CI 與 Kubernetes 的整合</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-9.html" rel="bookmark">鐵人賽系列文章- Day 9 Pipeline System 介紹</a></div>
     </li>
   </ul>
 
@@ -331,7 +363,9 @@
 
       <footer class="post-footer">
           <div class="post-tags">
-              <a href="/tags/DesignPattern/" rel="tag"># DesignPattern</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
           </div>
 
         
@@ -340,13 +374,10 @@
         
     <div class="post-nav">
       <div class="post-nav-item">
-    <a href="/facade-pattern.html" rel="prev" title="Facade Pattern">
-      <i class="fa fa-chevron-left"></i> Facade Pattern
+    <a href="/ithome-20202-cicd-13.html" rel="prev" title="鐵人賽系列文章- Day13 - CD 系統的選擇議題">
+      <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day13 - CD 系統的選擇議題
     </a></div>
-      <div class="post-nav-item">
-    <a href="/floodlight-core-restapi.html" rel="next" title="Floodlight Core RestAPI - part1">
-      Floodlight Core RestAPI - part1 <i class="fa fa-chevron-right"></i>
-    </a></div>
+      <div class="post-nav-item"></div>
     </div>
       </footer>
     
@@ -412,7 +443,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Introduction"><span class="nav-number">1.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Example"><span class="nav-number">2.</span> <span class="nav-text">Example</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number"></span> <span class="nav-text">個人資訊</span></a></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#CI-CD-pipeline-Push"><span class="nav-number">1.</span> <span class="nav-text">CI/CD pipeline (Push)</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#人員觸發-Push"><span class="nav-number">2.</span> <span class="nav-text">人員觸發 (Push)</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Container-Image-觸發-Push"><span class="nav-number">3.</span> <span class="nav-text">Container Image 觸發 (Push)</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Pull-Mode"><span class="nav-number">4.</span> <span class="nav-text">Pull Mode</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">5.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -640,9 +671,9 @@
 </script>
 <script>
   var disqus_config = function() {
-    this.page.url = "https://www.hwchiu.com/adapter-pattern.html";
-    this.page.identifier = "adapter-pattern.html";
-    this.page.title = "Adapter Pattern";
+    this.page.url = "https://www.hwchiu.com/ithome-20202-cicd-14.html";
+    this.page.identifier = "ithome-20202-cicd-14.html";
+    this.page.title = "鐵人賽系列文章- Day 14 - CD 與 Kubernetes 的整合";
     this.language = 'en';
     };
   NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
