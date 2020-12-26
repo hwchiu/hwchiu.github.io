@@ -21,25 +21,22 @@
     var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="這篇文章要跟大家分享在 OpenvSwitch 裡面內建的 Bonding 模式，相對於傳統 Linux Kernel 自帶的六種模式，OpenvSwitch 只有提供三種模式。這三種模式的用途以及分配的方式都完全不同，完全取決於使用者本身的環境需求，來判斷自行的環境需要採用哪種模式，有單純的 Active-backup 模式，也有 Active-Active 的模式。再 Active-Activ">
-<meta name="keywords" content="OpenvSwitch,OVS,Bonding,slb.tcp.balacne,LACP">
+  <meta name="description" content="ITHOME-2020 系列文章">
+<meta name="keywords" content="Kubernetes,DevOps,Linux,K8s">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Understanding the OpenvSwitch Bonding">
-<meta property="og:url" content="https://www.hwchiu.com/openvswitch-bonding.html">
+<meta property="og:title" content="鐵人賽系列文章- Day 19  - Container Registry 的介紹及需求">
+<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-19.html">
 <meta property="og:site_name" content="Hwchiu Learning Note">
-<meta property="og:description" content="這篇文章要跟大家分享在 OpenvSwitch 裡面內建的 Bonding 模式，相對於傳統 Linux Kernel 自帶的六種模式，OpenvSwitch 只有提供三種模式。這三種模式的用途以及分配的方式都完全不同，完全取決於使用者本身的環境需求，來判斷自行的環境需要採用哪種模式，有單純的 Active-backup 模式，也有 Active-Active 的模式。再 Active-Activ">
+<meta property="og:description" content="ITHOME-2020 系列文章">
 <meta property="og:locale" content="en">
-<meta property="og:image" content="http://i.imgur.com/RbsM1rF.png">
-<meta property="og:image" content="http://i.imgur.com/nDNFI3L.png">
-<meta property="og:image" content="http://i.imgur.com/Fm3Coea.png">
-<meta property="og:image" content="http://i.imgur.com/Scvj1Hp.png">
-<meta property="og:updated_time" content="2020-12-26T15:02:09.688Z">
+<meta property="og:image" content="https://i.imgur.com/u6lWBKU.png">
+<meta property="og:updated_time" content="2020-12-26T15:03:48.725Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Understanding the OpenvSwitch Bonding">
-<meta name="twitter:description" content="這篇文章要跟大家分享在 OpenvSwitch 裡面內建的 Bonding 模式，相對於傳統 Linux Kernel 自帶的六種模式，OpenvSwitch 只有提供三種模式。這三種模式的用途以及分配的方式都完全不同，完全取決於使用者本身的環境需求，來判斷自行的環境需要採用哪種模式，有單純的 Active-backup 模式，也有 Active-Active 的模式。再 Active-Activ">
-<meta name="twitter:image" content="http://i.imgur.com/RbsM1rF.png">
+<meta name="twitter:title" content="鐵人賽系列文章- Day 19  - Container Registry 的介紹及需求">
+<meta name="twitter:description" content="ITHOME-2020 系列文章">
+<meta name="twitter:image" content="https://i.imgur.com/u6lWBKU.png">
 
-<link rel="canonical" href="https://www.hwchiu.com/openvswitch-bonding.html">
+<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-19.html">
 
 
 <script id="page-configurations">
@@ -52,7 +49,7 @@
   };
 </script>
 
-  <title>Understanding the OpenvSwitch Bonding | Hwchiu Learning Note</title>
+  <title>鐵人賽系列文章- Day 19  - Container Registry 的介紹及需求 | Hwchiu Learning Note</title>
   
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
     <script>
@@ -189,7 +186,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/openvswitch-bonding.html">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-19.html">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/uploads/avatar.jpg">
@@ -202,7 +199,7 @@
     </span>
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
-          Understanding the OpenvSwitch Bonding
+          鐵人賽系列文章- Day 19  - Container Registry 的介紹及需求
         </h1>
 
         <div class="post-meta">
@@ -212,7 +209,7 @@
               </span>
               <span class="post-meta-item-text">Posted on</span>
 
-              <time title="Created: 2015-10-03 13:32:00" itemprop="dateCreated datePublished" datetime="2015-10-03T13:32:00+08:00">2015-10-03</time>
+              <time title="Created: 2020-12-26 23:02:29" itemprop="dateCreated datePublished" datetime="2020-12-26T23:02:29+08:00">2020-12-26</time>
             </span>
 
           
@@ -231,13 +228,13 @@
       </span>
       <span class="post-meta-item-text">Disqus: </span>
     
-    <a title="disqus" href="/openvswitch-bonding.html#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="openvswitch-bonding.html" itemprop="commentCount"></span>
+    <a title="disqus" href="/ithome-20202-cicd-19.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="ithome-20202-cicd-19.html" itemprop="commentCount"></span>
     </a>
   </span>
   
   
-            <div class="post-description">這篇文章要跟大家分享在 OpenvSwitch 裡面內建的 Bonding 模式，相對於傳統 Linux Kernel 自帶的六種模式，OpenvSwitch 只有提供三種模式。這三種模式的用途以及分配的方式都完全不同，完全取決於使用者本身的環境需求，來判斷自行的環境需要採用哪種模式，有單純的 Active-backup 模式，也有 Active-Active 的模式。再 Active-Active 的模式中要如何去分配封包，可以針對 Layer2 也可以針對 Layer3/4 的環境來使用，這部份就是依賴管理員去思考的。</div>
+            <div class="post-description">ITHOME-2020 系列文章</div>
 
         </div>
       </header>
@@ -248,112 +245,45 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>Openvswitch 目前 (2.3.1) 總共支援 3種bonding mode，分別是</p>
-<ul>
-<li>Active-backup</li>
-<li>balance-slb</li>
-<li>balance-tcp</li>
-</ul>
-<h2 id="Active-backup"><a href="#Active-backup" class="headerlink" title="Active-backup"></a>Active-backup</h2><p>這種 mode 的用途主要在於穩定，平常只會使用 bonding 中的其中一條 link 進行傳輸，當該 link down 時，會馬上切換到其他 link 繼續傳輸。本質上沒有辦法提升 throughput。</p>
-<h2 id="Balance-slb"><a href="#Balance-slb" class="headerlink" title="Balance-slb"></a>Balance-slb</h2><p>這種 mode 的 hash 方式是根據封包的 source MAC + vlan tag來處理，可以參考此篇<a href="http://openvswitch.org/pipermail/dev/2011-July/010028.html" target="_blank" rel="noopener">文章</a>有更詳細的說明</p>
-<h2 id="Balance-tcp"><a href="#Balance-tcp" class="headerlink" title="Balance-tcp"></a>Balance-tcp</h2><p>這種 mode 的 hash 是根據封包的 L2/L3/L4 header 來處理的，所以每條 connection 可能會走不同的 link 出去，但是相同 connection 則會一直固定以避免發生 out of order 之類的事情。</p>
-<p>註: 如果使用 linux 本身的 round-robin bonding 則可以讓一條 connction 走不同的 link，兩條 1G 的link大概可以衝到 1.5G左右</p>
-<p>對於 Balance-slb 以及 Balance-tcp 來說，這邊還能夠再增加是否要開啟 LACP (802.3ad) 的設定。<br>當開啟 LACP 後，會使用 balance-slb 或是 balance-tcp 的 hash method 當作其分配封包的方式。<br>唯一要注意的是 balance-tcp 一定要搭配 LACP 才可以使用。</p>
-<h2 id="Commands"><a href="#Commands" class="headerlink" title="Commands"></a>Commands</h2><h3 id="創造-bonding"><a href="#創造-bonding" class="headerlink" title="創造 bonding"></a>創造 bonding</h3><ul>
-<li>ovs-vsctl add-br my_test</li>
-<li>ovs-vsctl add-bond my_test bond0 eth0 eth1 eth2</li>
-</ul>
-<p>此指令會在 my_test 此 bridge 上面創造一個 bonding interface <em>bond0</em>，此 bonding interface 會將 eth0, eth1, eth2 給綁起來</p>
-<h3 id="改變-bonding-mode"><a href="#改變-bonding-mode" class="headerlink" title="改變 bonding mode"></a>改變 bonding mode</h3><p>預設的 bonding mode 是 active-back，可以再創造的時候設定或是之後再改變</p>
-<ul>
-<li>ovs-vsctl add-bond my_test bond0 eth0 eth1 eth2 bond_mode=balance-slb</li>
-<li>ovs-vsctl set port my_test bond_mode=balance-slb</li>
-</ul>
-<h3 id="看-bonding-相關資訊"><a href="#看-bonding-相關資訊" class="headerlink" title="看 bonding 相關資訊"></a>看 bonding 相關資訊</h3><ul>
-<li>ovs-appctl bond/show bond0</li>
-<li>ovs-appctl bond/list bond0</li>
-<li>ovs-appctl bond/hash bond0 (可以看 hash 對應的 slave interface)</li>
-<li>ovs-appctl bond/migrate (能夠將某 hash 從某slave 搬移到別的slave)</li>
-</ul>
-<h2 id="Testing"><a href="#Testing" class="headerlink" title="Testing"></a>Testing</h2><h3 id="測試配備如下"><a href="#測試配備如下" class="headerlink" title="測試配備如下"></a>測試配備如下</h3><ul>
-<li>HP ProCurve Switch 2824 (J4903A)<ul>
-<li>針對 LACP 的實驗，必須要在這邊開啟 LACP</li>
-</ul>
+        <p>本篇開始要來介紹一些 CI/CD 過程中都一定會用到的一個元件， Container Registry</p>
+<p>Container Registry 顧名思義就是用來保存 Container Image 的一個倉庫，我認為 Container Registry 也有一些有趣的議題可以探討，譬如說</p>
+<ol>
+<li>要使用 SaaS 服務還是自己架設</li>
+<li>是否支持 Private registry</li>
+<li>多人合作下是否支持權限控管</li>
+<li>是否有 web hook 可以與後續的 pipeline 或是其他系統連動</li>
+<li>跟 Git 等相關專案是否有自動連動與處理</li>
+<li>是否支援弱點掃描，可以用來檢查當前 Registry 內的 image 是否有潛在安全性的問題</li>
+</ol>
+<p>上述的每個議題也都滿有趣的，我們可以先來聊聊 (1) 這個議題到底有什麼要探討的地方</p>
+<p>我認為近8年大部分踏入容器化世界的開發者或使用者，第一個接觸的解決方案基本上都是 Docker Container，後續開始使用時通常都會使用 Docker Hub 這個由 Docker 所提供的 Container Registry 作為第一個接觸的 Contaienr Registry 解決方案。</p>
+<p>Docker Hub 使用起來，我認為算是非常方便，特別是跟 GitHub/Bitbucket 的連動非常輕鬆設定，通常只要在專案內準備一個 Dockerfile 的檔案，就可以讓 Docker Hub 自動地幫你部署相關的 Image 並且存放到 Docker Hub 上。</p>
+<p>這種情況下對於一些要準備自己 Image 的開發者來說非常便利，都不需要額外的 CI Pipeline 系統來處理，只要將程式碼合併，等待一段時間後相關的 Image 就出現了。 </p>
+<p>然而隨者專案的擴大，使用環境的改變， Docker Hub 並不一定可以適合所有情境</p>
+<p>舉例來說，很多落地的工作環境中，會基於保密，機密等安全性要求，不希望運行的 Contianer Image 放置雲端，這時候就會思考是否有辦法自架一個本地端的 Container Registry。</p>
+<p>此外更多的情境是網路問題，因為 Container Image 的容量說大不大，說小不小，幾百 MB 到幾 GB 都有，如果遇到網路速度瓶頸問題，就會發生抓一個 Image 花上長時間等待。 這部分的問題其實常常看到，舉例來說</p>
+<p><a href="https://github.com/docker/hub-feedback/issues/1675" target="_blank" rel="noopener">Extremely Slow Image Pulls</a></p>
+<p><a href="https://github.com/docker/hub-feedback/issues?q=is%3Aissue+is%3Aopen+slow" target="_blank" rel="noopener">hub-feedback issue about slow</a></p>
+<p>這些連結都可以看到滿滿的關於下載速度的問題，有時候還會牽扯到 docker hub CDN 的問題，問題發生的時候還真的什麼都不能做，只能祈禱 docker hub 快點修復。</p>
+<h1 id="Docker-Hub-方案比較"><a href="#Docker-Hub-方案比較" class="headerlink" title="Docker Hub 方案比較"></a>Docker Hub 方案比較</h1><p>此外，部分工作團隊也會有一些 contaienr image 的需求，但是又不想要公開相關的內容，這時候會需要 private registry 的支援，可惜的是對於 Docker Hub 來說，這部分會取決於方案的選擇，譬如下圖的<a href="https://www.docker.com/pricing" target="_blank" rel="noopener">方案比較</a></p>
+<p>免費方案只能有一個 Private，付費又會取決於你是個人用戶還是一個團隊，對於團隊來說，其價格還會根據使用者數量而有所增加，</p>
+<p>所以如果今天團隊內會希望根據架構有不同的權限控管，因此使用者的數量可能會有不少的時候，整個成本又會大幅度增加。</p>
+<p><img src="https://i.imgur.com/u6lWBKU.png" alt></p>
+<p>總總考量之下，自架 Container Registry 的需求就會逐漸出現，不論是為了成本，為了功能或是其他因素， SaaS 與 自架的選擇從來沒有</p>
+<p>停止過，就如同之前探討 pipeline 系統一樣，每個系統都會有 SaaS 與自架的需求比較，但是哪一種比較適合貴團隊就沒有答案</p>
+<p>此外，不同的開源專案提供的 container registry 的功能也都不盡相同，這種情況下就需要有人去針對每套軟體進行評估，找出一套適合自己團隊的服務，或是最後轉回使用 SaaS 商用解決方案都有可能。</p>
+<h1 id="DockerHub-使用者條款"><a href="#DockerHub-使用者條款" class="headerlink" title="DockerHub 使用者條款"></a>DockerHub 使用者條款</h1><p>最後要提的是，使用 SaaS 服務也不是就沒有完全痛點，譬如 2020 八月份 Docker Hub 的<a href="https://www.docker.com/legal/docker-terms-service" target="_blank" rel="noopener">使用者條款更新</a>，該更新中有幾個更動令很多無付費使用者都在思考該怎麼處理，是否要轉換到其他的 SaaS 服務或是都要改成自架來處理。主要更新有</p>
+<ol>
+<li>當一個 Image repository 六個月內沒有任何動作(push/pull)，則該 image repository 會被自動刪除</li>
+<li>針對無認證用戶或是免費版本用戶有下載量的限制。<ol>
+<li>無認證用戶每六小時只能 Pull Image 100 次</li>
+<li>認證的免費用戶每六小時只能 pull 200 次</li>
+</ol>
 </li>
-<li>Linux PC *1</li>
-<li>Windows PC *2</li>
-</ul>
-<h3 id="測試拓樸一"><a href="#測試拓樸一" class="headerlink" title="測試拓樸一"></a>測試拓樸一</h3><p><img class="left" src="http://i.imgur.com/RbsM1rF.png"></p>
-<ul>
-<li>linux PC 上面安裝 OpenvSwitch，並且與 HP Switch 以兩個 1G 的 port 進行 bonding。</li>
-<li>兩台 Windows PC 都連接在 HP Switch</li>
-<li>Linux PC 與 Windows PC 以 iperf 作為產生流量的工具</li>
-<li>TX 測試<ul>
-<li>linux PC 跑 iperf client (-P4) 分別打到兩台 windows PC<ul>
-<li>windows PC 分別跑 iperf server</li>
-</ul>
-</li>
-</ul>
-</li>
-<li>RX 測試<ul>
-<li>linux PC 跑 iperf server<ul>
-<li>windows PC 分別跑 iperf client，分別用 iperf -P4 去連接 linux PC</li>
-</ul>
-</li>
-</ul>
-</li>
-<li>實驗數據 (TX、RX是分開跑)<br><img src="http://i.imgur.com/nDNFI3L.png" alt><ul>
-<li>數據分析方式請看最後面</li>
-</ul>
-</li>
-<li>分析<ul>
-<li>Active-backup 就只有用一條link傳輸，沒有辦法達到 speed up 的效果</li>
-<li>Balance-slb without lacp 因為我們的 source mac 都是 linuxPC 本身，所以也只會用一條 link 來傳輸，本身沒有任何幫助</li>
-<li>Balance-slb with lacp 因為有打開 LACP 的功能，所以從 switch 回來的封包會分兩個 link 去送，所以 RX 可以看到有明顯的上升，大概1.9G左右</li>
-<li>Balance-tcp with lacp 因為是根據 L2/L3/L4 來進行 hash，所以同一個 Host 發出的不同 connection 可以分散在不同 link上，所以 TX 的速度也有明顯上升</li>
-</ul>
-</li>
-</ul>
-<h3 id="測試拓樸二"><a href="#測試拓樸二" class="headerlink" title="測試拓樸二"></a>測試拓樸二</h3><p><img class="left" src="http://i.imgur.com/Fm3Coea.png"></p>
-<ul>
-<li>linux PC 上面安裝 OpenvSwitch，並且與 HP Switch 以兩個 1G 的 port 進行 bonding。</li>
-<li>linux PC 上面設定兩個獨立的 network namespace，並且把此兩個 NS 的給掛到 OpenvSwitch 上面</li>
-<li>兩台 Windows PC 都連接在 HP Switch</li>
-<li>Linux PC 上的 NS 與 Windows PC 以 iperf 作為產生流量的工具</li>
-<li>TX 測試<ul>
-<li>NS 分別跑 iperf client (-P4)<ul>
-<li>windows PC 分別跑 iperf server</li>
-<li>一個 NS 對應一個 Windows PC</li>
-</ul>
-</li>
-</ul>
-</li>
-<li>RX 測試<ul>
-<li>windows PC 分別跑 iperf client (-P4)<ul>
-<li>NS 分別跑 iperf server</li>
-<li>一個 NS 對應一個 Windows PC</li>
-</ul>
-</li>
-</ul>
-</li>
-<li>實驗數據 (TX、RX是分開跑)<ul>
-<li>數據分析方式請看最後面<br><img src="http://i.imgur.com/Scvj1Hp.png" alt></li>
-</ul>
-</li>
-<li>分析<ul>
-<li>Balance-slb without lacp 因為我們的 source mac 是兩台不同的 NS ，所以有機會兩台 NS 的 MAC會被 hash 到不同的 link，所以 TX 的速度也有明顯上升</li>
-<li>Balance-slb with lacp TX 方面理由如上， RX是因為 LACP 而加速</li>
-<li>Balance-tcp with lacp 理由如同實驗一</li>
-</ul>
-</li>
-</ul>
-<h2 id="個人心得"><a href="#個人心得" class="headerlink" title="個人心得"></a>個人心得</h2><ul>
-<li>只有一台 host 本身的話，其實跑 OVS 的bonding沒有太大效果，除非你外面有支援 LACP的switch 可以用，不然就直接用 linux 原先的 XOR 之類的hash就好</li>
-<li>若是在多 VM 的環境下，這時候有 balance-slb 與 balance-tcp 可以考慮(假設想要 speed up)，這兩個主要考慮的點在於<br>使用 balance-slb 的話，會讓同一個 VM 的所有流量都走同一個 interface 出去，所以若當前其他 VM 都閒置的情況下，該 VM 還是只能用到一條 link 的資源。<br>若採用 balance-tcp 的話，則會依照 connction 來分，所以不論何種情況都能夠盡量使用每條 link 的資源</li>
-</ul>
-<h2 id="其他"><a href="#其他" class="headerlink" title="其他"></a>其他</h2><ul>
-<li>流量的觀察方式是在 linux PC 上面透過 /proc/net/dev 週期性觀察兩張 slave interface 的 TX/RX counter計算得知，週期性為一秒。</li>
-</ul>
+</ol>
+<p>對於很多使用者或是開發者來說，這兩個問題都會造成一些使用上的困擾，特別是 (2) 的限制，因此不少人開始思考要如何於不花錢的情況下解決這些問題，譬如 <a href="https://poweruser.blog/avoiding-the-docker-hub-retention-limit-e18cdcacdfde" target="_blank" rel="noopener">avoiding the docker hub retention limit</a>, 或是轉戰到其他的 SaaS。</p>
+<p>只能說天下沒有白吃的午餐，享受免費方案的同時，也要多注意所謂的使用者條款，如果發現這些條款的修正會影響自己的使用情境，可能就要開始考慮搬移，自架或是付費等選擇</p>
+<p>接下來的文章，我們就會探討自架 Contaienr Registry 的各種選擇與示範，最後會在展示如何將自架 Contianer Registry 與 Kubernetes 結合，讓你的 Kubernetes 叢集能夠接受 Docker Hub 以外的 Contaeinr Registry.</p>
 <h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
 <p>組合包<br><a href="https://hiskio.com/packages/7ey2vdnyN" target="_blank" rel="noopener">https://hiskio.com/packages/7ey2vdnyN</a></p>
 <p>疑難雜症除錯篇<br><a href="https://hiskio.com/courses/440/about?promo_code=LG28Q5G" target="_blank" rel="noopener">https://hiskio.com/courses/440/about?promo_code=LG28Q5G</a></p>
@@ -363,6 +293,7 @@
 <p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
 <p>你的捐款將給予我文章成長的動力</p>
 <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
+
     </div>
 
     
@@ -372,19 +303,19 @@
   <div class="popular-posts-header">Related Posts</div>
   <ul class="popular-posts">
     <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/ovs-dpdk-docker.html" rel="bookmark">OVS + DPDK + Docker 共同玩耍</a></div>
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-16.html" rel="bookmark">鐵人賽系列文章- Day 16 - GitOps 的介紹</a></div>
     </li>
     <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/2014-09-19-mininet-with-different-network-subnet-v2.html" rel="bookmark">Mininet with different network subnet (v2)</a></div>
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-18.html" rel="bookmark">鐵人賽系列文章- Day 18 - GitOps - ArgoCD 介紹</a></div>
     </li>
     <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/2014-08-23-mininet-and-network-subnet.html" rel="bookmark">Mininet with different network subnet</a></div>
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-17.html" rel="bookmark">鐵人賽系列文章- Day 17 - GitOps 與 Kubernetes 的整合</a></div>
     </li>
     <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/2014-08-21-rest-api-services-in-floodlight-topology.html" rel="bookmark">REST API services in Floodlight (Topology)</a></div>
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-15.html" rel="bookmark">鐵人賽系列文章- Day15 - CD 之 Pull Mode 介紹: Keel</a></div>
     </li>
     <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/2014-08-20-rest-api-services-in-floodlight.html" rel="bookmark">REST API services in Floodlight (Device)</a></div>
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-14.html" rel="bookmark">鐵人賽系列文章- Day 14 - CD 與 Kubernetes 的整合</a></div>
     </li>
   </ul>
 
@@ -430,11 +361,9 @@
 
       <footer class="post-footer">
           <div class="post-tags">
-              <a href="/tags/Network/" rel="tag"># Network</a>
-              <a href="/tags/SDN/" rel="tag"># SDN</a>
-              <a href="/tags/Openflow/" rel="tag"># Openflow</a>
-              <a href="/tags/OpenvSwitch/" rel="tag"># OpenvSwitch</a>
-              <a href="/tags/Bonding/" rel="tag"># Bonding</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
           </div>
 
         
@@ -443,13 +372,10 @@
         
     <div class="post-nav">
       <div class="post-nav-item">
-    <a href="/bluze-5x.html" rel="prev" title="Bluez 5.x ">
-      <i class="fa fa-chevron-left"></i> Bluez 5.x 
+    <a href="/ithome-20202-cicd-16.html" rel="prev" title="鐵人賽系列文章- Day 16 - GitOps 的介紹">
+      <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day 16 - GitOps 的介紹
     </a></div>
-      <div class="post-nav-item">
-    <a href="/netfilter-nfqueue.html" rel="next" title="NFQUEUE drop UDP packets">
-      NFQUEUE drop UDP packets <i class="fa fa-chevron-right"></i>
-    </a></div>
+      <div class="post-nav-item"></div>
     </div>
       </footer>
     
@@ -515,7 +441,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Active-backup"><span class="nav-number">1.1.</span> <span class="nav-text">Active-backup</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Balance-slb"><span class="nav-number">1.2.</span> <span class="nav-text">Balance-slb</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Balance-tcp"><span class="nav-number">1.3.</span> <span class="nav-text">Balance-tcp</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Commands"><span class="nav-number">1.4.</span> <span class="nav-text">Commands</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#創造-bonding"><span class="nav-number">1.4.1.</span> <span class="nav-text">創造 bonding</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#改變-bonding-mode"><span class="nav-number">1.4.2.</span> <span class="nav-text">改變 bonding mode</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#看-bonding-相關資訊"><span class="nav-number">1.4.3.</span> <span class="nav-text">看 bonding 相關資訊</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Testing"><span class="nav-number">1.5.</span> <span class="nav-text">Testing</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#測試配備如下"><span class="nav-number">1.5.1.</span> <span class="nav-text">測試配備如下</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#測試拓樸一"><span class="nav-number">1.5.2.</span> <span class="nav-text">測試拓樸一</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#測試拓樸二"><span class="nav-number">1.5.3.</span> <span class="nav-text">測試拓樸二</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#個人心得"><span class="nav-number">1.6.</span> <span class="nav-text">個人心得</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#其他"><span class="nav-number">1.7.</span> <span class="nav-text">其他</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">2.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Docker-Hub-方案比較"><span class="nav-number">1.</span> <span class="nav-text">Docker Hub 方案比較</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#DockerHub-使用者條款"><span class="nav-number">2.</span> <span class="nav-text">DockerHub 使用者條款</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">3.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -743,9 +669,9 @@
 </script>
 <script>
   var disqus_config = function() {
-    this.page.url = "https://www.hwchiu.com/openvswitch-bonding.html";
-    this.page.identifier = "openvswitch-bonding.html";
-    this.page.title = "Understanding the OpenvSwitch Bonding";
+    this.page.url = "https://www.hwchiu.com/ithome-20202-cicd-19.html";
+    this.page.identifier = "ithome-20202-cicd-19.html";
+    this.page.title = "鐵人賽系列文章- Day 19  - Container Registry 的介紹及需求";
     this.language = 'en';
     };
   NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
