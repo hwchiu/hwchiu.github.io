@@ -29,7 +29,7 @@
 <meta property="og:site_name" content="Hwchiu Learning Note">
 <meta property="og:description" content="在系統管理時，由於是一個檔案系統給眾多使用者使用，所以為了避免有使用者獨佔整個系統空間，便會對每個使用者設定空間限制。此外，也可以針對group去設定空間大小，這樣就可以達到分級制度的管理。 在quota管理中，主要是分成三個主要屬性  soft limit: 軟限制，使用者的容量可以超過這個限制，但是在grace period期限內，要將自己的容量給降低到soft limit以下，否則就會無法繼">
 <meta property="og:locale" content="en">
-<meta property="og:updated_time" content="2020-12-26T15:02:09.576Z">
+<meta property="og:updated_time" content="2020-12-29T07:59:15.703Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Freebsd_Quota">
 <meta name="twitter:description" content="在系統管理時，由於是一個檔案系統給眾多使用者使用，所以為了避免有使用者獨佔整個系統空間，便會對每個使用者設定空間限制。此外，也可以針對group去設定空間大小，這樣就可以達到分級制度的管理。 在quota管理中，主要是分成三個主要屬性  soft limit: 軟限制，使用者的容量可以超過這個限制，但是在grace period期限內，要將自己的容量給降低到soft limit以下，否則就會無法繼">
@@ -254,20 +254,20 @@
 <h2 id="Setup-Disk-Quota-in-FreeBSD"><a href="#Setup-Disk-Quota-in-FreeBSD" class="headerlink" title="Setup Disk Quota in FreeBSD"></a>Setup Disk Quota in FreeBSD</h2><h3 id="Build-Kernel"><a href="#Build-Kernel" class="headerlink" title="Build Kernel"></a>Build Kernel</h3><p>因為預設的kernel中並沒有支援這個功能，所以要自己重編kernel,加入<br>options QUOTA</p>
 <p>關於build kernel，參考<a href="http://www.freebsd.org/doc/handbook/kernelconfig-building.html" target="_blank" rel="noopener">這裡</a></p>
 <h3 id="Edit-etc-fstab"><a href="#Edit-etc-fstab" class="headerlink" title="Edit /etc/fstab"></a>Edit /etc/fstab</h3><p>修改/etc/fstab,對想要進行quota控制的FS進行參數調整</p>
-<pre><code>Device  MountPoint FSType Options Dump Pass  
+<pre><code>Device  MountPoint FSType Options Dump Pass
 /dev/da0p2     /  UFS rw,userquota,groupquota 1 1
 </code></pre><p>接者重新開機，或是remount FS，使其重新讀取設定</p>
 <h3 id="對使用者或是群組-調整其上限"><a href="#對使用者或是群組-調整其上限" class="headerlink" title="對使用者或是群組 調整其上限"></a>對使用者或是群組 調整其上限</h3><p>這邊使用<strong>edquota</strong>這個指令來調整</p>
-<p>-u: 加上要調整的使用者<br>-g: 加上要調整的群組<br>-t: 調整grace period  </p>
-<p>執行後會看到已EDITOR對應的文字編輯器開啟編輯，會出現類似下面  </p>
+<p>-u: 加上要調整的使用者<br>-g: 加上要調整的群組<br>-t: 調整grace period</p>
+<p>執行後會看到已EDITOR對應的文字編輯器開啟編輯，會出現類似下面</p>
 <blockquote>
-<p>Quotas for user hwchiu:<br>/usr : in use: 11216k, limits (soft = 0k, hard = 0k)<br>   inodes in use : 903, limits (soft, hard=0)  </p>
+<p>Quotas for user hwchiu:<br>/usr : in use: 11216k, limits (soft = 0k, hard = 0k)<br>   inodes in use : 903, limits (soft, hard=0)</p>
 </blockquote>
 <p>這邊就可以去調整軟硬限制，根據FILE SIZE或是INODES的數量</p>
-<h4 id="啟動quotacheck"><a href="#啟動quotacheck" class="headerlink" title="啟動quotacheck"></a><strong>啟動quotacheck</strong></h4><p>使用quotacheck來掃描使用者的使用狀況<br>-a : 掃描/ect/fstab底下所有FS中檔案的使用情況<br>-v : 詳細過程<br>-u : 掃描使用者的檔案情況<br>-g : 掃描群組的檔案情況  </p>
+<h4 id="啟動quotacheck"><a href="#啟動quotacheck" class="headerlink" title="啟動quotacheck"></a><strong>啟動quotacheck</strong></h4><p>使用quotacheck來掃描使用者的使用狀況<br>-a : 掃描/ect/fstab底下所有FS中檔案的使用情況<br>-v : 詳細過程<br>-u : 掃描使用者的檔案情況<br>-g : 掃描群組的檔案情況</p>
 <p>就給他執行 <strong>quotacheck -avug</strong></p>
 <h4 id="啟動quota"><a href="#啟動quota" class="headerlink" title="啟動quota"></a><strong>啟動quota</strong></h4><p>執行quotaon -a，執行quota限制的功能，沒有開啟的話，一切的設定就只是擺好看的</p>
-<h4 id="觀看"><a href="#觀看" class="headerlink" title="觀看"></a><strong>觀看</strong></h4><p>使用<strong>quota</strong>這個指令來觀看<br>quota:<br>-u:使用者名稱<br>-g:群組名稱<br>-v:詳細<br>-h:以容易辨識的格式表達大小，如M、  </p>
+<h4 id="觀看"><a href="#觀看" class="headerlink" title="觀看"></a><strong>觀看</strong></h4><p>使用<strong>quota</strong>這個指令來觀看<br>quota:<br>-u:使用者名稱<br>-g:群組名稱<br>-v:詳細<br>-h:以容易辨識的格式表達大小，如M、</p>
 <blockquote>
 <p>Filesystem        usage    quota   limit   grace  files   quota  limit   grace<br>/amd/gcs           305M     390M    410M           6414   40000  42000<br>/amd/mail           41M      97M    117M              1       2      3</p>
 </blockquote>
@@ -437,14 +437,14 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">235</span>
+          <span class="site-state-item-count">236</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">111</span>
+        <span class="site-state-item-count">112</span>
         <span class="site-state-item-name">tags</span></a>
       </div>
   </nav>

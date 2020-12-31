@@ -29,7 +29,7 @@
 <meta property="og:site_name" content="Hwchiu Learning Note">
 <meta property="og:description" content="本文基於 SDN Controller Floodlight 的原始碼進行了一次簡單的分析，藉由分析這些原始碼更可以學習到其內部是如何轉送封包的，藉由 Topology 模組提供的 Global Topology 資訊, Floodlight 可以從該資訊中對於任何一個點到點的之間的連線找到一條傳送路徑。接者針對這傳送路徑上所有的交換機輸入對應的 Openflow 規則來幫忙轉送封包。相對於文件的">
 <meta property="og:locale" content="en">
-<meta property="og:updated_time" content="2020-12-26T15:02:09.574Z">
+<meta property="og:updated_time" content="2020-12-29T07:59:15.668Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="FloodlightModule-Forwarding">
 <meta name="twitter:description" content="本文基於 SDN Controller Floodlight 的原始碼進行了一次簡單的分析，藉由分析這些原始碼更可以學習到其內部是如何轉送封包的，藉由 Topology 模組提供的 Global Topology 資訊, Floodlight 可以從該資訊中對於任何一個點到點的之間的連線找到一條傳送路徑。接者針對這傳送路徑上所有的交換機輸入對應的 Openflow 規則來幫忙轉送封包。相對於文件的">
@@ -258,7 +258,7 @@
 </ul>
 <p><strong>得到一個Openflow Flow-Modify類型的封包</strong><br><code>OFFlowMod fm =(OFFlowMod) floodlightProvider.getOFMessageFactory().getMessage(OFType.FLOW_MOD);</code></p>
 <p><strong>設定一個Actions,然後不增加任何action,這樣就會事drop的行為</strong><br><code>List&lt;OFAction&gt; actions = new ArrayList&lt;OFAction&gt;();</code></p>
-<p><strong>設定Flow-Modify Packet的ㄧ些欄位，譬如HardTimeout,IdleTimeout…,這邊沒有設定Command預設就是flow_add</strong><br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">fm.setCookie(cookie)</span><br><span class="line">  .setHardTimeout((<span class="keyword">short</span>) <span class="number">0</span>)</span><br><span class="line">  .setIdleTimeout((<span class="keyword">short</span>) <span class="number">5</span>)</span><br><span class="line">  .setBufferId(OFPacketOut.BUFFER_ID_NONE) </span><br><span class="line">  .setMatch(match)</span><br><span class="line">  .setActions(actions)</span><br><span class="line">  .setLengthU(OFFlowMod.MINIMUM_LENGTH);</span><br></pre></td></tr></table></figure></p>
+<p><strong>設定Flow-Modify Packet的ㄧ些欄位，譬如HardTimeout,IdleTimeout…,這邊沒有設定Command預設就是flow_add</strong><br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">fm.setCookie(cookie)</span><br><span class="line">  .setHardTimeout((<span class="keyword">short</span>) <span class="number">0</span>)</span><br><span class="line">  .setIdleTimeout((<span class="keyword">short</span>) <span class="number">5</span>)</span><br><span class="line">  .setBufferId(OFPacketOut.BUFFER_ID_NONE)</span><br><span class="line">  .setMatch(match)</span><br><span class="line">  .setActions(actions)</span><br><span class="line">  .setLengthU(OFFlowMod.MINIMUM_LENGTH);</span><br></pre></td></tr></table></figure></p>
 <p><strong>把訊息藉由messageDamper送給switch</strong><br><code>messageDamper.write(sw, fm, cntx);</code></p>
 <h2 id="Flood"><a href="#Flood" class="headerlink" title="Flood"></a>Flood</h2><ul>
 <li>Check the ingress port is allowed broadcast ( according broadcast tree)</li>
@@ -281,7 +281,7 @@
 <p><strong>先取得source 跟 destination device</strong><br><strong>每個device 是用IP、MAC、VLAN來做為區別的</strong><br><code>IDevice dstDevice = IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_DST_DEVICE);</code><br><code>IDevice srcDevice = IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_SRC_DEVICE);</code></p>
 <p><strong>接下來根據pkacetIN進來的switch取得其所屬的cluster.</strong><br><code>Long srcIsland = topology.getL2DomainId(sw.getId());</code></p>
 <p><strong>去探訪destination device所連接到的switch,看看是否有跟發生PacketIn的switch是在同一個Cluster,<br>是的話才有辦法轉送，否則就Flood出去</strong></p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> (SwitchPort dstDap : dstDevice.getAttachmentPoints()) &#123;</span><br><span class="line">    Long dstSwDpid = dstDap.getSwitchDPID();</span><br><span class="line">    Long dstIsland = topology.getL2DomainId(dstSwDpid);`</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> ((dstIsland != <span class="keyword">null</span>) &amp;&amp; dstIsland.equals(srcIsland)) </span><br><span class="line">on_same_island = <span class="keyword">true</span>;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> (SwitchPort dstDap : dstDevice.getAttachmentPoints()) &#123;</span><br><span class="line">    Long dstSwDpid = dstDap.getSwitchDPID();</span><br><span class="line">    Long dstIsland = topology.getL2DomainId(dstSwDpid);`</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> ((dstIsland != <span class="keyword">null</span>) &amp;&amp; dstIsland.equals(srcIsland))</span><br><span class="line">on_same_island = <span class="keyword">true</span>;</span><br></pre></td></tr></table></figure>
 <p><strong>取得source / destination device所連接到的所有switch</strong><br><strong>目前還不是很清楚怎樣的情形下，可以一個device連接到多個switch 也許用hub吧</strong></p>
 <p><code>SwitchPort[] srcDaps = srcDevice.getAttachmentPoints();</code>SwitchPort[] dstDaps = dstDevice.getAttachmentPoints();`</p>
 <p><strong>利用routingEngine來取得兩個switch間的最短路徑 (dijstra)</strong><br><code>Route route = routingEngine.getRoute(srcDap.getSwitchDPID(),(short)srcDap.getPort(),dstDap.getSwitchDPID(),
@@ -459,14 +459,14 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">235</span>
+          <span class="site-state-item-count">236</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">111</span>
+        <span class="site-state-item-count">112</span>
         <span class="site-state-item-name">tags</span></a>
       </div>
   </nav>

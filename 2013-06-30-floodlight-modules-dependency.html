@@ -31,7 +31,7 @@
 <meta property="og:locale" content="en">
 <meta property="og:image" content="https://lh3.googleusercontent.com/-bzM04DIckB8/UdAltVq05LI/AAAAAAAAAsc/x6MLQsfi4YE/w1205-h491-no/1.jpg">
 <meta property="og:image" content="https://lh3.googleusercontent.com/-CC2tGU6YF7Q/UdAlt9GTt3I/AAAAAAAAAso/8TB5hWyxhfY/w1285-h762-no/2.jpg">
-<meta property="og:updated_time" content="2020-12-26T15:02:09.467Z">
+<meta property="og:updated_time" content="2020-12-29T07:59:15.687Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Floodlight-modules-dependency">
 <meta name="twitter:description" content="在floodlight這個openflow controller中，對於module之間的執行順序是如何決定的，這部分很重要 如圖為例，假設有四個component，分別是 LLDP、DEVICE、Forwarding、VirtualNetwork這四個module如果今天switch送了一個封包到controller來，那這四個module誰要先處理這個封包? 順序交換是否會有影響?">
@@ -248,7 +248,7 @@
         <p>在floodlight這個openflow controller中，對於module之間的執行順序是如何決定的，這部分很重要</p>
 <p>如圖為例，假設有四個component，分別是 LLDP、DEVICE、Forwarding、VirtualNetwork這四個module<br>如果今天switch送了一個封包到controller來，那這四個module誰要先處理這個封包? 順序交換是否會有影響?<br><a id="more"></a></p>
 <p><img src="https://lh3.googleusercontent.com/-bzM04DIckB8/UdAltVq05LI/AAAAAAAAAsc/x6MLQsfi4YE/w1205-h491-no/1.jpg" alt></p>
-<h2 id="FIFO"><a href="#FIFO" class="headerlink" title="FIFO"></a>FIFO</h2><p>今天完全不考慮每個module之間的dependency，依照module被載入的順序來決定處理封包的順序<br>那我們就把所有進來的封包依照 LLDP-&gt;DEVICE-&gt;Forwarding-&gt;VirtualNetwork 這樣的順序去處理。<br>這邊要注意的是 </p>
+<h2 id="FIFO"><a href="#FIFO" class="headerlink" title="FIFO"></a>FIFO</h2><p>今天完全不考慮每個module之間的dependency，依照module被載入的順序來決定處理封包的順序<br>那我們就把所有進來的封包依照 LLDP-&gt;DEVICE-&gt;Forwarding-&gt;VirtualNetwork 這樣的順序去處理。<br>這邊要注意的是</p>
 <ul>
 <li>Forwarding會把封包用最短路徑的方式傳送到destination</li>
 <li>VirtualNetwork會根據mac address建立一個layer 2的virtual network</li>
@@ -290,9 +290,9 @@
 <li>用terminal modules為起點跑DFS，建立modules的執行順序</li>
 </ol>
 <p><strong><em>Terminal module</em></strong>指的是其後面不會有任何module要執行的module，因此這種module可以拖延期執行次序，因為該module本身沒有限制一定要在哪裡執行。</p>
-<h3 id="Algorithm-pseudo"><a href="#Algorithm-pseudo" class="headerlink" title="Algorithm (pseudo)"></a>Algorithm (pseudo)</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">for(int i=0;i&lt;modules.size;i++)</span><br><span class="line">&#123;	</span><br><span class="line">  isTerminal = true;</span><br><span class="line">  for(int j=0;j&lt;modules.size;j++)</span><br><span class="line">  &#123;	 </span><br><span class="line">    if( modules[j] go after modules[i])</span><br><span class="line">    &#123;</span><br><span class="line">      isTerminal = false;</span><br><span class="line">      break;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  if(isTerminal)</span><br><span class="line">    terminalQueue.add(modules[i]);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="Algorithm-pseudo"><a href="#Algorithm-pseudo" class="headerlink" title="Algorithm (pseudo)"></a>Algorithm (pseudo)</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">for(int i=0;i&lt;modules.size;i++)</span><br><span class="line">&#123;</span><br><span class="line">  isTerminal = true;</span><br><span class="line">  for(int j=0;j&lt;modules.size;j++)</span><br><span class="line">  &#123;</span><br><span class="line">    if( modules[j] go after modules[i])</span><br><span class="line">    &#123;</span><br><span class="line">      isTerminal = false;</span><br><span class="line">      break;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  if(isTerminal)</span><br><span class="line">    terminalQueue.add(modules[i]);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>每個modules都去問其他的module，根據每個module先前定義的優先權function，如果所有的modules都沒有要求要在我之後那我就是terminal modules，反之只要有一個modules必須要在我之後執行，則就跳開。</p>
-<p>接者針對每個terminal module都去跑一個DFS，來建立執行順序。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">for(int i=0;i&lt;terminalQueue.size();i++)</span><br><span class="line">&#123;</span><br><span class="line">	visit(terminalQueue[i]);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">function visit(listener)</span><br><span class="line">&#123;</span><br><span class="line">	if(!visted.contain(listener)</span><br><span class="line">  &#123;</span><br><span class="line">  	visted.add(listener)</span><br><span class="line">    for(int i=0;i&lt;modules.size();i++)</span><br><span class="line">    &#123;</span><br><span class="line">    	if( modules[i] go before listener)</span><br><span class="line">      	visit(modules[i])</span><br><span class="line">    &#125; </span><br><span class="line">    orderingQueue.add(listener);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>接者針對每個terminal module都去跑一個DFS，來建立執行順序。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">for(int i=0;i&lt;terminalQueue.size();i++)</span><br><span class="line">&#123;</span><br><span class="line">	visit(terminalQueue[i]);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">function visit(listener)</span><br><span class="line">&#123;</span><br><span class="line">	if(!visted.contain(listener)</span><br><span class="line">  &#123;</span><br><span class="line">  	visted.add(listener)</span><br><span class="line">    for(int i=0;i&lt;modules.size();i++)</span><br><span class="line">    &#123;</span><br><span class="line">    	if( modules[i] go before listener)</span><br><span class="line">      	visit(modules[i])</span><br><span class="line">    &#125;</span><br><span class="line">    orderingQueue.add(listener);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
 <p>每次進入visit後，就去問其他的modules，看有沒有modules要在我前面執行，然後遞迴下去<br>如果這個modules都問完了，就把他加入到執行queue裡面。</p>
 <p>以剛剛的範例來說，Terminal modules只會有一個modules 就是forwarding<br>然後以forwarding為起點去跑DFS，則過程如下</p>
 <blockquote>
@@ -316,11 +316,11 @@
 </blockquote>
 <hr>
 <blockquote>
-<p> listener:VirtualNetwork<br>  visted:forwarding,Device,LLDP,VirtualNetwork<br>  ordering:LLDP,Device,VirtualNetwork<br>  action:找不到符合條件的modules,所以把自己加入到ordering。 (因為DEVICE跟LLDP已經visted了，所以不會繼續跑)  </p>
+<p> listener:VirtualNetwork<br>  visted:forwarding,Device,LLDP,VirtualNetwork<br>  ordering:LLDP,Device,VirtualNetwork<br>  action:找不到符合條件的modules,所以把自己加入到ordering。 (因為DEVICE跟LLDP已經visted了，所以不會繼續跑)</p>
 </blockquote>
 <hr>
 <blockquote>
-<p> listener:forwarding<br>  visted:forwarding,Device,LLDP,VirtualNetwork<br>  ordering:LLDP,Device,VirtualNetwork,forwarding<br>  action:找不到符合條件的modules,所以把自己加入到ordering。 (因為其他都已經visted了，所以不會繼續跑)  </p>
+<p> listener:forwarding<br>  visted:forwarding,Device,LLDP,VirtualNetwork<br>  ordering:LLDP,Device,VirtualNetwork,forwarding<br>  action:找不到符合條件的modules,所以把自己加入到ordering。 (因為其他都已經visted了，所以不會繼續跑)</p>
 </blockquote>
 <p>按照這個流程跑完，可以發現執行順序就是<br>LLDP,Device,VirtualNetwork,forwarding<br>符合我們的預期，同時這種設計可以讓module針對多個modules去進行相依性的處理。</p>
 <p>但是這方面如果沒有寫好，就會造成dead lock，當發生deadlock時，就會找不到terminal modules，此時floodlight就會丟出錯誤。算是有做個錯誤預防。</p>
@@ -494,14 +494,14 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">235</span>
+          <span class="site-state-item-count">236</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">111</span>
+        <span class="site-state-item-count">112</span>
         <span class="site-state-item-name">tags</span></a>
       </div>
   </nav>

@@ -31,7 +31,7 @@
 <meta property="og:locale" content="en">
 <meta property="og:image" content="https://i.imgur.com/botAbi0.png">
 <meta property="og:image" content="https://i.imgur.com/botAbi0.png">
-<meta property="og:updated_time" content="2020-12-26T15:02:09.524Z">
+<meta property="og:updated_time" content="2020-12-29T07:59:15.675Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="使用 golang 開發第一個 CNI 程式">
 <meta name="twitter:description" content="本篇文章算是一個手把手實作的文章，主要會介紹如何使用 golang 開發一個基於 Linux Bridge 的 CNI 應用程式，並且介紹如何搭配設定檔來使用這個 CNI 操作 Linux Network Namespace, 藉由這篇文章的過程理解到一個 CNI 的運作及開發，對於往後研究其他 CNI 都會有一些幫助，特別是城市的框架跟概念。 最後本篇開發的 CNI 應用程式其實是可以直接套用到">
@@ -317,7 +317,7 @@
 </li>
 <li>創建完畢後透過 <strong>veth</strong> 的回傳變數取得創建於 <strong>host</strong> 上的 interface 名稱，通常是 <strong>vethxxxxxxx</strong> 這種格式</li>
 <li>根據上述的名稱再次透過 <strong>netlink</strong> 去取得該網路介面的物件</li>
-<li>最後透過 <strong>netlink</strong> 的方式把該介面接上已經創建好的 <strong>Linux Bridfge</strong> </li>
+<li>最後透過 <strong>netlink</strong> 的方式把該介面接上已經創建好的 <strong>Linux Bridfge</strong></li>
 </ol>
 <p>接下來一個步驟一個步驟試試看</p>
 <p>首先透過 <a href="https://github.com/containernetworking/plugins/blob/master/pkg/ns/ns_linux.go#L136" target="_blank" rel="noopener">官方函式庫</a> 提供的功能來取得 netns 的物件，其參數就是我們在執行時傳入的 <strong>/var/run/netns/ns1</strong><br><figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">netns, err := ns.GetNS(args.Netns)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">	<span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
@@ -336,7 +336,7 @@
 <li>創建 <strong>veth</strong> 後我們還需要額外取得當前 <strong>eth10</strong> 的 <strong>netlink</strong> 物件，這樣才可以透過 <strong>netlink</strong> 對該物件進行 <strong>IP</strong> 的設定</li>
 <li><strong>netlink</strong> 設定 IP 的方式是透過物件 <strong>ip.IPNet</strong>, 這邊要怎麼創造這個物件方法百百種，也跟你怎麼設計自己的 config 有關。</li>
 </ol>
-<p>跟剛剛上述不同，這次創建 <strong>veth</strong> 配對的時候，我們第二個物件也要一併收集 <strong>containerVeth</strong>，代表的就是 <strong>eth10</strong> 這張網卡。<br><figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">hostVeth, containerVeth, err := ip.SetupVeth(args.IfName, <span class="number">1500</span>, hostNS)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">	<span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br><span class="line">      </span><br><span class="line">hostIface.Name = hostVeth.Name</span><br></pre></td></tr></table></figure></p>
+<p>跟剛剛上述不同，這次創建 <strong>veth</strong> 配對的時候，我們第二個物件也要一併收集 <strong>containerVeth</strong>，代表的就是 <strong>eth10</strong> 這張網卡。<br><figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">hostVeth, containerVeth, err := ip.SetupVeth(args.IfName, <span class="number">1500</span>, hostNS)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">	<span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">hostIface.Name = hostVeth.Name</span><br></pre></td></tr></table></figure></p>
 <p>因為 config 內目前的設計是 <strong>192.168.1.12/24</strong> 這種 CIDR 的格式，所以我直接採用 <strong>net.ParseCIDR</strong> 的方式來解讀該格式，並且可以直接取得 <strong>ip.IPNet</strong> 的物件。</p>
 <p>由於 <strong>ParseCIDR</strong> 產生後的 IPNet 物件，放置的是網段內容並非 IP 資訊，我們需要將 IP 的部分重新覆蓋</p>
 <p>假如我們傳進去的參數是 <strong>192.168.2.12/24</strong>, 則創建出來的 <strong>ip.IPNet</strong> 會長<br><figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">IPNet&#123;</span><br><span class="line">    <span class="number">192.0</span><span class="number">.2</span><span class="number">.0</span>/<span class="number">24</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
@@ -533,14 +533,14 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">235</span>
+          <span class="site-state-item-count">236</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">111</span>
+        <span class="site-state-item-count">112</span>
         <span class="site-state-item-name">tags</span></a>
       </div>
   </nav>

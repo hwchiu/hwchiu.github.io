@@ -35,7 +35,7 @@
 <meta property="og:image" content="http://i.imgur.com/Ek4X7S8.jpg">
 <meta property="og:image" content="http://i.imgur.com/gC3zpKs.jpg">
 <meta property="og:image" content="http://i.imgur.com/02gIXfD.jpg">
-<meta property="og:updated_time" content="2020-12-26T15:02:09.702Z">
+<meta property="og:updated_time" content="2020-12-29T07:59:15.706Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="手把手打造仿 mininet 網路">
 <meta name="twitter:description" content="相信不少開始學習 SDN 的人一定都有聽過 mininet 這套軟體，甚至大量使用過。之前於 Mininet 運作原理 有分析過 mininet 的原始碼，並瞭解其運作原理。而今天這篇文章要講述的是如何透過 ip 指令配上 OpenvSwitch 在自己的系統上建造出一個類似 mininet 的環境。">
@@ -271,7 +271,7 @@
 <p>依序執行下列指令，創造好這兩個 netns 後，我們可以透過 <strong>ip netns list</strong> 確認的確有產生兩個 netns 。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">ip netns add ns1</span><br><span class="line">ip netns add ns2</span><br><span class="line">ip netns list</span><br></pre></td></tr></table></figure>
 <p>接下來我們可以透過 <strong>ip netns exec ns1 bash</strong> 這個指令在 <strong>network namespace ns1</strong> 內執行 <strong>bash</strong> 這個指令，這樣我們就可以暫時切換裡面。<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ip netns <span class="built_in">exec</span> ns1 bash</span><br></pre></td></tr></table></figure></p>
-<p>接下來直接執行 <strong>ifconfig -a</strong> 查看系統上面的網路資訊，你會發現什麼都不見了，只剩下一個最簡單的 <strong>loopback</strong> 介面。<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&gt; ifconfig -a</span><br><span class="line">lo        Link encap:Local Loopback  </span><br><span class="line">          LOOPBACK  MTU:65536  Metric:1</span><br><span class="line">          RX packets:0 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:1000 </span><br><span class="line">          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)</span><br></pre></td></tr></table></figure></p>
+<p>接下來直接執行 <strong>ifconfig -a</strong> 查看系統上面的網路資訊，你會發現什麼都不見了，只剩下一個最簡單的 <strong>loopback</strong> 介面。<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&gt; ifconfig -a</span><br><span class="line">lo        Link encap:Local Loopback</span><br><span class="line">          LOOPBACK  MTU:65536  Metric:1</span><br><span class="line">          RX packets:0 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:1000</span><br><span class="line">          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)</span><br></pre></td></tr></table></figure></p>
 <p>這就是 <strong>network isolation</strong> 的功用，將網路完全隔絕開來，不過我們暫時還沒有任何連線可以使用，所以先執行 <strong>exit</strong> 離開該 <strong>network namespace</strong> 回到我們的 <strong>Ubuntu</strong>吧。</p>
 <p>上述的指令執行完畢後，我們的系統大概如下圖，有一點點的長進了。<br><img src="http://i.imgur.com/zzbxLwQ.jpg" alt></p>
 <h2 id="Step3"><a href="#Step3" class="headerlink" title="Step3"></a>Step3</h2><p>我們已經將 <strong>software switch</strong> 以及相關的 <strong>network namespace</strong> 都準備好了，接下來我們要想辦法將這些東西串起來，打通整個連線。<br>這邊要使用的是 <strong>ip link</strong> 這個指令來處理，由於我們要在系統上創建的是一條虛擬的連結，稱之為 <strong>veth</strong>，這條虛擬連結要連接兩個 <strong>interface</strong>， 而這兩個 <strong>interface</strong> 則會分別給 <strong>switch</strong> 以及 <strong>ns</strong> 給使用，因此我們指令的原型大概如下</p>
@@ -468,14 +468,14 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">235</span>
+          <span class="site-state-item-count">236</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">111</span>
+        <span class="site-state-item-count">112</span>
         <span class="site-state-item-name">tags</span></a>
       </div>
   </nav>

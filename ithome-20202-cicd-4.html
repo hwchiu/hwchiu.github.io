@@ -29,7 +29,7 @@
 <meta property="og:site_name" content="Hwchiu Learning Note">
 <meta property="og:description" content="ITHOME-2020 系列文章">
 <meta property="og:locale" content="en">
-<meta property="og:updated_time" content="2020-12-26T15:02:09.619Z">
+<meta property="og:updated_time" content="2020-12-29T07:59:15.666Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="鐵人賽系列文章- Day 4 - Helm 操作範例">
 <meta name="twitter:description" content="ITHOME-2020 系列文章">
@@ -270,11 +270,11 @@
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">helm -n ithome get values ithome</span><br><span class="line">USER-SUPPLIED VALUES:</span><br><span class="line">null</span><br></pre></td></tr></table></figure>
 <p>根據這個指令我們可以觀察到本次安裝沒有任何客製化的變動，採用的是最原生的 Values.yaml.</p>
 <p>因此接下來我們嘗試升級該 Release，並且修改裡面的設定值</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ helm -n ithome upgrade ithome --<span class="built_in">set</span> service.type=NodePort .                                                                                                          </span><br><span class="line">Release <span class="string">"ithome"</span> has been upgraded. Happy Helming!</span><br><span class="line">NAME: ithome</span><br><span class="line">LAST DEPLOYED: Tue Sep  8 22:02:49 2020</span><br><span class="line">NAMESPACE: ithome</span><br><span class="line">STATUS: deployed</span><br><span class="line">REVISION: 2</span><br><span class="line">NOTES:</span><br><span class="line">1. Get the application URL by running these commands:</span><br><span class="line">  <span class="built_in">export</span> NODE_PORT=$(kubectl get --namespace ithome -o jsonpath=<span class="string">"&#123;.spec.ports[0].nodePort&#125;"</span> services ithome)</span><br><span class="line">  <span class="built_in">export</span> NODE_IP=$(kubectl get nodes --namespace ithome -o jsonpath=<span class="string">"&#123;.items[0].status.addresses[0].address&#125;"</span>)</span><br><span class="line">  <span class="built_in">echo</span> http://<span class="variable">$NODE_IP</span>:<span class="variable">$NODE_PORT</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ helm -n ithome upgrade ithome --<span class="built_in">set</span> service.type=NodePort .</span><br><span class="line">Release <span class="string">"ithome"</span> has been upgraded. Happy Helming!</span><br><span class="line">NAME: ithome</span><br><span class="line">LAST DEPLOYED: Tue Sep  8 22:02:49 2020</span><br><span class="line">NAMESPACE: ithome</span><br><span class="line">STATUS: deployed</span><br><span class="line">REVISION: 2</span><br><span class="line">NOTES:</span><br><span class="line">1. Get the application URL by running these commands:</span><br><span class="line">  <span class="built_in">export</span> NODE_PORT=$(kubectl get --namespace ithome -o jsonpath=<span class="string">"&#123;.spec.ports[0].nodePort&#125;"</span> services ithome)</span><br><span class="line">  <span class="built_in">export</span> NODE_IP=$(kubectl get nodes --namespace ithome -o jsonpath=<span class="string">"&#123;.items[0].status.addresses[0].address&#125;"</span>)</span><br><span class="line">  <span class="built_in">echo</span> http://<span class="variable">$NODE_IP</span>:<span class="variable">$NODE_PORT</span></span><br></pre></td></tr></table></figure>
 <p>指令中我們透過 <code>helm upgrade</code> 的方式來升級已經存在的 Released <code>ithome</code>, 我們透過 <code>--set service.type=NodePort</code> 的方式去覆蓋掉 <code>values.yaml</code> 裡面的預設數值(這邊也可以直接修改 values.yaml, 或是產生一個全新的 Yaml 然後送給 Helm 指令)。最後我們指令來源 Helm Chart 的位置 <code>.</code> (當前目錄)。</p>
 <p>可以看到上述指令後來輸出一些部署的資訊，包含該 Relased 是第二個版本，部署的時間，當前狀態，什麼 namespace.</p>
 <p>一切完畢之後，我們再度使用 <code>helm get values</code> 的指令來看看是否有什麼變化</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ helm -n ithome get values ithome</span><br><span class="line">USER-SUPPLIED VALUES:</span><br><span class="line">service:</span><br><span class="line">  <span class="built_in">type</span>: NodePort</span><br><span class="line">$ kubectl -n ithome get svc                                                                                                                                          </span><br><span class="line">NAME     TYPE       CLUSTER-IP     EXTERNAL-IP   PORT(S)        AGE</span><br><span class="line">ithome   NodePort   10.43.95.165   &lt;none&gt;        80:30232/TCP   9m20s</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ helm -n ithome get values ithome</span><br><span class="line">USER-SUPPLIED VALUES:</span><br><span class="line">service:</span><br><span class="line">  <span class="built_in">type</span>: NodePort</span><br><span class="line">$ kubectl -n ithome get svc</span><br><span class="line">NAME     TYPE       CLUSTER-IP     EXTERNAL-IP   PORT(S)        AGE</span><br><span class="line">ithome   NodePort   10.43.95.165   &lt;none&gt;        80:30232/TCP   9m20s</span><br></pre></td></tr></table></figure>
 <p>這時候可以很明確地看到，當前運行的 <code>ithome released</code> 有一個客製化的選項，就是我們前述所輸入的 <code>service.type</code> ，同時觀察 <code>kuberctl -n ithome get svc</code> 也真的看到 service 的內容變成 NodePort.</p>
 <p>Helm 可以操作與設定的東西非常多，這邊的設定只是一個非常簡單的範例，實務上有非常多的事情要處理，也有非常多的小麻煩，譬如當你的客製化資訊本身有雙引號或是個 JSON 字串，你的腳本該怎麼處理。 Helm 要如何跟應用程式整理，開發人員跟維護人員誰要負責設計與維護應用程式的 Helm Chart, 基本上都沒有一個完整答案，只要能夠讓你輕鬆上班，簡單部署，達到薪水小偷的境界就是一個好的解決方案。</p>
 <h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
@@ -355,8 +355,8 @@
       <footer class="post-footer">
           <div class="post-tags">
               <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
-              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
               <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
           </div>
 
         
@@ -453,14 +453,14 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">235</span>
+          <span class="site-state-item-count">236</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">111</span>
+        <span class="site-state-item-count">112</span>
         <span class="site-state-item-name">tags</span></a>
       </div>
   </nav>

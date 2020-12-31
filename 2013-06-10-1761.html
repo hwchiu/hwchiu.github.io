@@ -21,18 +21,18 @@
     var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="Floodlight把module分成core跟application兩個方向為主core的部分提供的都是比較核心的功能，譬如PacketIN,PacketOUt,或是拓樸的更動…等    而application則是用這些core的功能來達到一些進階的功能如防火牆、最短路徑搜尋….等 這邊就簡單研究一下Core Module中的相關功能。">
+  <meta name="description" content="Floodlight把module分成core跟application兩個方向為主core的部分提供的都是比較核心的功能，譬如PacketIN,PacketOUt,或是拓樸的更動…等 而application則是用這些core的功能來達到一些進階的功能如防火牆、最短路徑搜尋….等 這邊就簡單研究一下Core Module中的相關功能。">
 <meta name="keywords" content="SDN,Floodlight,Java">
 <meta property="og:type" content="article">
 <meta property="og:title" content="FloodLight--Module">
 <meta property="og:url" content="https://www.hwchiu.com/2013-06-10-1761.html">
 <meta property="og:site_name" content="Hwchiu Learning Note">
-<meta property="og:description" content="Floodlight把module分成core跟application兩個方向為主core的部分提供的都是比較核心的功能，譬如PacketIN,PacketOUt,或是拓樸的更動…等    而application則是用這些core的功能來達到一些進階的功能如防火牆、最短路徑搜尋….等 這邊就簡單研究一下Core Module中的相關功能。">
+<meta property="og:description" content="Floodlight把module分成core跟application兩個方向為主core的部分提供的都是比較核心的功能，譬如PacketIN,PacketOUt,或是拓樸的更動…等 而application則是用這些core的功能來達到一些進階的功能如防火牆、最短路徑搜尋….等 這邊就簡單研究一下Core Module中的相關功能。">
 <meta property="og:locale" content="en">
-<meta property="og:updated_time" content="2020-12-26T15:02:09.465Z">
+<meta property="og:updated_time" content="2020-12-29T07:59:15.696Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="FloodLight--Module">
-<meta name="twitter:description" content="Floodlight把module分成core跟application兩個方向為主core的部分提供的都是比較核心的功能，譬如PacketIN,PacketOUt,或是拓樸的更動…等    而application則是用這些core的功能來達到一些進階的功能如防火牆、最短路徑搜尋….等 這邊就簡單研究一下Core Module中的相關功能。">
+<meta name="twitter:description" content="Floodlight把module分成core跟application兩個方向為主core的部分提供的都是比較核心的功能，譬如PacketIN,PacketOUt,或是拓樸的更動…等 而application則是用這些core的功能來達到一些進階的功能如防火牆、最短路徑搜尋….等 這邊就簡單研究一下Core Module中的相關功能。">
 
 <link rel="canonical" href="https://www.hwchiu.com/2013-06-10-1761.html">
 
@@ -242,20 +242,20 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p>Floodlight把module分成core跟application兩個方向為主<br>core的部分提供的都是比較核心的功能，譬如PacketIN,PacketOUt,或是拓樸的更動…等   </p>
+        <p>Floodlight把module分成core跟application兩個方向為主<br>core的部分提供的都是比較核心的功能，譬如PacketIN,PacketOUt,或是拓樸的更動…等</p>
 <p>而application則是用這些core的功能來達到一些進階的功能<br>如防火牆、最短路徑搜尋….等</p>
 <p>這邊就簡單研究一下Core Module中的相關功能。</p>
 <a id="more"></a>
 <p>#Core Module#</p>
-<p>##FloodlightProvider##<br>相關檔案   </p>
+<p>##FloodlightProvider##<br>相關檔案</p>
 <ul>
-<li>FloodlightProvider.java  </li>
-<li>IFloodlightProviderService.java  </li>
+<li>FloodlightProvider.java</li>
+<li>IFloodlightProviderService.java</li>
 <li>Controller.java   (主要功能實現)</li>
 </ul>
 <p>###FloodlightProvider.java###<br>實作 IFloodlightModule<br>並且override五個function</p>
 <ol>
-<li><p>getModuleServices()<br> 回傳一個含有    IFloodlightProviderService.class 的 Collection Container。  </p>
+<li><p>getModuleServices()<br> 回傳一個含有    IFloodlightProviderService.class 的 Collection Container。</p>
 </li>
 <li><p>getServiceImpls()<br> 回傳一個型態為 <code>key = &lt;Class&lt;? extends IFloodlightService&gt; value = IFloodlightService</code>的map container,已包含一個成員，其value 為 Controler()。<br> 在FloodlightModuleLoader中會執行initModules此function,會把所有要用到的module都產生一份物件，並且透過<code>floodlightModuleContext.addService</code>把這些物件都收集起來，這樣所有的module就可以透過floodlightModuleContext.getServiceImpl(Class<t> service)的方式來取得其他的module物件。</t></p>
 </li>
@@ -273,7 +273,7 @@
 </li>
 <li><p>addOFMessageListener(OFType type, IOFMessageListener listener)<br>註冊成為OpenFlow message Listener。<br>OFType 共有<br>(HELLO<br>ERROR<br>ECHO_REQUEST<br>ECHO_REPLY<br>VENDOR<br>FEATURES_REQUEST<br>FEATURES_REPLY<br>GET_CONFIG_REQUEST<br>GET_CONFIG_REPLY<br>SET_CONFIG<br>ACKET_IN    FLOW_REMOVED<br>PORT_STATUS<br>PACKET_OUT<br>FLOW_MOD<br>PORT_MOD<br>STATS_REQUEST<br>STATS_REPLY<br>BARRIER_REQUEST<br>BARRIER_REPLY<br>QUEUE_GET_CONFIG_REQUEST<br>QUEUE_GET_CONFIG_REPLY)<br>IOFMessageListener 則是一個Interface,必須實做該介面並override下列function。<br><code>public Command receive(IOFSwitch sw, OFMessage msg, FloodlightContext cntx);</code></p>
 </li>
-<li><p>removeOFMessageListener(OFType type, IOFMessageListener listener)<br>取消註冊，與(2)對應。    </p>
+<li><p>removeOFMessageListener(OFType type, IOFMessageListener listener)<br>取消註冊，與(2)對應。</p>
 </li>
 <li><p>Map&lt;OFType, List<iofmessagelistener>&gt; getListeners();<br>取得所有Listener。</iofmessagelistener></p>
 </li>
@@ -471,14 +471,14 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">235</span>
+          <span class="site-state-item-count">236</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">111</span>
+        <span class="site-state-item-count">112</span>
         <span class="site-state-item-name">tags</span></a>
       </div>
   </nav>

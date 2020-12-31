@@ -21,18 +21,18 @@
     var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="最近在弄irc機器人，希望這個機器人能夠靈活一些，因此把所有功能都弄成module 機器人在掛上這些module來完成各種能力，心中的設想架構如下 --------ircbot     |-------config.json     |     |     |-------server.py     |         |     |-------modules         |">
+  <meta name="description" content="最近在弄irc機器人，希望這個機器人能夠靈活一些，因此把所有功能都弄成module 機器人在掛上這些module來完成各種能力，心中的設想架構如下 --------ircbot     |-------config.json     |     |     |-------server.py     |     |     |-------modules         |         |--">
 <meta name="keywords" content="Python">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Python 動態載入模組">
 <meta property="og:url" content="https://www.hwchiu.com/2013-04-22-dynamicimport.html">
 <meta property="og:site_name" content="Hwchiu Learning Note">
-<meta property="og:description" content="最近在弄irc機器人，希望這個機器人能夠靈活一些，因此把所有功能都弄成module 機器人在掛上這些module來完成各種能力，心中的設想架構如下 --------ircbot     |-------config.json     |     |     |-------server.py     |         |     |-------modules         |">
+<meta property="og:description" content="最近在弄irc機器人，希望這個機器人能夠靈活一些，因此把所有功能都弄成module 機器人在掛上這些module來完成各種能力，心中的設想架構如下 --------ircbot     |-------config.json     |     |     |-------server.py     |     |     |-------modules         |         |--">
 <meta property="og:locale" content="en">
-<meta property="og:updated_time" content="2020-12-26T15:02:09.463Z">
+<meta property="og:updated_time" content="2020-12-29T07:59:15.684Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Python 動態載入模組">
-<meta name="twitter:description" content="最近在弄irc機器人，希望這個機器人能夠靈活一些，因此把所有功能都弄成module 機器人在掛上這些module來完成各種能力，心中的設想架構如下 --------ircbot     |-------config.json     |     |     |-------server.py     |         |     |-------modules         |">
+<meta name="twitter:description" content="最近在弄irc機器人，希望這個機器人能夠靈活一些，因此把所有功能都弄成module 機器人在掛上這些module來完成各種能力，心中的設想架構如下 --------ircbot     |-------config.json     |     |     |-------server.py     |     |     |-------modules         |         |--">
 
 <link rel="canonical" href="https://www.hwchiu.com/2013-04-22-dynamicimport.html">
 
@@ -249,18 +249,18 @@
     |
     |
     |-------server.py
-    |    
+    |
     |
     |-------modules
         |
         |-----googleSearch
         |   |
         |   |---googleSearch.py
-        |   
+        |
         |-----wikiSearch
         |   |
         |    |---wikiSearch.py
-        |   
+        |
         |-----echoServer
             |
             |---echoServer.py
@@ -269,7 +269,7 @@
 <p>server.py是主要的server程式，可以透過指令重新去載入config.json</p>
 <p>當server載入設定檔後，會動態的去把modules資料夾底下的py都載入，這樣未來當有新功能要增加的時候，只要修改config.json，然後發送指令</p>
 <p>叫server重新載入就可以獲得新功能，而不需要整個server重開。</p>
-<p>參考<a href="http://stackoverflow.com/questions/7218673/telling-import-where-to-look-am-i-stuck-with-sys-path" target="_blank" rel="noopener">Telling <strong>import</strong> where to look - am I stuck with sys.path?</a><br>以及<a href="http://eriol.iteye.com/blog/1113588" target="_blank" rel="noopener">python3.0中重载模块</a>後  </p>
+<p>參考<a href="http://stackoverflow.com/questions/7218673/telling-import-where-to-look-am-i-stuck-with-sys-path" target="_blank" rel="noopener">Telling <strong>import</strong> where to look - am I stuck with sys.path?</a><br>以及<a href="http://eriol.iteye.com/blog/1113588" target="_blank" rel="noopener">python3.0中重载模块</a>後</p>
 <p>整理如下</p>
 <p>首先要先創造出一個pseudo-package，sys.modules是一個dict的物件，由module name mapping 到 對應的module</p>
 <p>這邊先創造一個tuple，key=’plugins’ value = type為sys的物件，叫做plugins</p>
@@ -282,7 +282,7 @@
 <p>bytecode、轉成執行碼，因此這個行為必須要透過reload強制重做才可以達成。</p>
 <p>最後就可以呼叫每個module的方法來達成動態載入的功能了</p>
 <p>範例如下</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">  def dynamicLoadModules(self):</span><br><span class="line">      sys.modules[&apos;plugins&apos;] = self.plugins = type(sys)(&apos;plugins&apos;)</span><br><span class="line">      self.plugins.__path__ = []</span><br><span class="line">      for path in self.config[&apos;MODULES&apos;]:</span><br><span class="line">          path = os.path.join(sys.path[0],&apos;modules&apos;,path)</span><br><span class="line">          self.plugins.__path__.append(path)</span><br><span class="line">     </span><br><span class="line">	##dynamic load modules</span><br><span class="line">      self.modules = []</span><br><span class="line">      self.modules = [ importlib.import_module(&apos;plugins.&apos;+module) for module in self.config[&apos;MODULES&apos;]]</span><br><span class="line">      for module in self.modules: #用此來重新載入module http://eriol.iteye.com/blog/1113588</span><br><span class="line">          reload(module)</span><br><span class="line">for module in self.modules:</span><br><span class="line">	module.run()</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">  def dynamicLoadModules(self):</span><br><span class="line">      sys.modules[&apos;plugins&apos;] = self.plugins = type(sys)(&apos;plugins&apos;)</span><br><span class="line">      self.plugins.__path__ = []</span><br><span class="line">      for path in self.config[&apos;MODULES&apos;]:</span><br><span class="line">          path = os.path.join(sys.path[0],&apos;modules&apos;,path)</span><br><span class="line">          self.plugins.__path__.append(path)</span><br><span class="line"></span><br><span class="line">	##dynamic load modules</span><br><span class="line">      self.modules = []</span><br><span class="line">      self.modules = [ importlib.import_module(&apos;plugins.&apos;+module) for module in self.config[&apos;MODULES&apos;]]</span><br><span class="line">      for module in self.modules: #用此來重新載入module http://eriol.iteye.com/blog/1113588</span><br><span class="line">          reload(module)</span><br><span class="line">for module in self.modules:</span><br><span class="line">	module.run()</span><br></pre></td></tr></table></figure>
 
     </div>
 
@@ -447,14 +447,14 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">235</span>
+          <span class="site-state-item-count">236</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">111</span>
+        <span class="site-state-item-count">112</span>
         <span class="site-state-item-name">tags</span></a>
       </div>
   </nav>

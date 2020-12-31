@@ -29,7 +29,7 @@
 <meta property="og:site_name" content="Hwchiu Learning Note">
 <meta property="og:description" content="之前在網路上看到了一篇 papermTCP: A Highly Scalable User-level TCP Stack for Multicore Systems標題覺得還滿有趣的，就花了些時間將其看完，並且用這篇文章當作筆記 Introduction 當前的 TCP connection 中，大部分的封包都是小size的，如何快速的處理這些封包是個提升效能的重點 根據這篇論文，在特定的網路環">
 <meta property="og:locale" content="en">
-<meta property="og:updated_time" content="2020-12-26T15:02:09.488Z">
+<meta property="og:updated_time" content="2020-12-29T07:59:15.877Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="mTCP 讀後筆記">
 <meta name="twitter:description" content="之前在網路上看到了一篇 papermTCP: A Highly Scalable User-level TCP Stack for Multicore Systems標題覺得還滿有趣的，就花了些時間將其看完，並且用這篇文章當作筆記 Introduction 當前的 TCP connection 中，大部分的封包都是小size的，如何快速的處理這些封包是個提升效能的重點 根據這篇論文，在特定的網路環">
@@ -343,7 +343,7 @@
     此外，mTCP 希望能夠提供在多網卡狀況下，能夠高效率處理 TX/RX queues 的多工能力。舉例來說，假如系統當前正在等待 control packet 的到來，若此時因為要去 polling RX 封包，就會導致 TX 沒有辦法順利的將封包送出，若 TX 想要送出的是如 ACK/SYN 之類的封包，可能就會觸發 TCP 的重傳機制導致整體速度下降。
 
 為了解決這個問題， mTCP 這邊採用了 PacketShader I/O engine (PSIO) 來提供高效率的 event-driven packet I/O interface.
-    PSIO 使用 RSS 這個技術來達到 flow-level 的封包分配技術，讓每條 connection 的封包都能夠維持在同一個 RX queue中。藉此降低不同 CPU競爭封包的負擔。  
+    PSIO 使用 RSS 這個技術來達到 flow-level 的封包分配技術，讓每條 connection 的封包都能夠維持在同一個 RX queue中。藉此降低不同 CPU競爭封包的負擔。
 </code></pre><h4 id="Implementation"><a href="#Implementation" class="headerlink" title="Implementation"></a>Implementation</h4><ul>
 <li>提供了與 <strong>select</strong> 類似的 <strong>ps_select</strong>。<ul>
 <li>此 API 會去監聽有興趣網卡的TX/RX queue事件，與 netmap 提供的 selece/poll 類似</li>
@@ -576,14 +576,14 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">235</span>
+          <span class="site-state-item-count">236</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">111</span>
+        <span class="site-state-item-count">112</span>
         <span class="site-state-item-name">tags</span></a>
       </div>
   </nav>

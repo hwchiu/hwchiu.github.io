@@ -29,7 +29,7 @@
 <meta property="og:site_name" content="Hwchiu Learning Note">
 <meta property="og:description" content="這篇文章用來介紹在 C# 中如果想要針對 xml 的種格式的資料進行處理的話，可以使用那些函式庫來幫忙處理。同時也針對不同種的使用方法給予相對應的範例程式碼，讓大家可以更快速且方便地用 C# 來操作 xml 的格式資料。">
 <meta property="og:locale" content="en">
-<meta property="og:updated_time" content="2020-12-26T15:02:09.548Z">
+<meta property="og:updated_time" content="2020-12-29T07:59:15.681Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="XML in C-Sharp(C#)">
 <meta name="twitter:description" content="這篇文章用來介紹在 C# 中如果想要針對 xml 的種格式的資料進行處理的話，可以使用那些函式庫來幫忙處理。同時也針對不同種的使用方法給予相對應的範例程式碼，讓大家可以更快速且方便地用 C# 來操作 xml 的格式資料。">
@@ -251,10 +251,10 @@
 <p>C#中，關於XML有關的函式都在System.Xml中</p>
 <h1 id="Create-XML-file"><a href="#Create-XML-file" class="headerlink" title="Create XML file"></a>Create XML file</h1><p>XmlDocument 是 XML的文件類別，要存取一個XML文件，就要透過這個類別<br>XmlDeclaration 是XML文件類別的開頭宣告，可以利用此函式為XML文件寫下其聲明<br>XmlElement 是XML文件中重要的一個物件，代表每一個節點，所有資料的搬移讀寫都靠操作節點完成<br>可以透過XmlElement::SetAttribute其屬性與其值，再將該XmlElement透過相關function來根據情況插入node</p>
 <ul>
-<li>AppendChild </li>
-<li>PrependChild  </li>
-<li>ReplaceChild </li>
-<li>InsertAfter </li>
+<li>AppendChild</li>
+<li>PrependChild</li>
+<li>ReplaceChild</li>
+<li>InsertAfter</li>
 <li>InsertBefore</li>
 </ul>
 <p>在進行一系列操作後，要執行XmlDocument::Save，這樣就完成寫入一個XML格式的檔案。<br>以下就來一個簡單範例</p>
@@ -305,7 +305,7 @@ private void AddTextElement(XmlDocument doc, XmlElement nodeParent, string Tag, 
 <blockquote>
 <p> <name> =&gt;  Element;<br> hwchiu =&gt;  Text;<br> </name>=&gt; EndElement;</p>
 </blockquote>
-<p>其中對於某些node中，有其attribute的，可以使用MoveToAttribute(<code>string name</code>)或是<br>MoveToNextAttribute()來遍尋，範例如下<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">using(XmlReader reader = XmlReader.Create(&quot;student.xml&quot;))&#123;</span><br><span class="line">    while (reader.Read())</span><br><span class="line">    &#123;</span><br><span class="line">        switch (reader.NodeType)</span><br><span class="line">        &#123; </span><br><span class="line">               case XmlNodeType.Element:</span><br><span class="line">                   Console.Write(&quot;&lt;&quot;+reader.Name);</span><br><span class="line">                   while (reader.MoveToNextAttribute())</span><br><span class="line">                       Console.Write(&quot; &quot; + reader.Name + &quot;=&quot; + reader.Value);</span><br><span class="line">                   Console.WriteLine(&quot;&gt;&quot;);</span><br><span class="line">                   break;</span><br><span class="line">               case XmlNodeType.Text:</span><br><span class="line">                   Console.WriteLine(reader.Value);</span><br><span class="line">                   break;</span><br><span class="line">               case XmlNodeType.EndElement:</span><br><span class="line">                   Console.Write(&quot;&lt;&quot; + reader.Name);</span><br><span class="line">                   Console.WriteLine(&quot;&gt;&quot;);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>其中對於某些node中，有其attribute的，可以使用MoveToAttribute(<code>string name</code>)或是<br>MoveToNextAttribute()來遍尋，範例如下<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">using(XmlReader reader = XmlReader.Create(&quot;student.xml&quot;))&#123;</span><br><span class="line">    while (reader.Read())</span><br><span class="line">    &#123;</span><br><span class="line">        switch (reader.NodeType)</span><br><span class="line">        &#123;</span><br><span class="line">               case XmlNodeType.Element:</span><br><span class="line">                   Console.Write(&quot;&lt;&quot;+reader.Name);</span><br><span class="line">                   while (reader.MoveToNextAttribute())</span><br><span class="line">                       Console.Write(&quot; &quot; + reader.Name + &quot;=&quot; + reader.Value);</span><br><span class="line">                   Console.WriteLine(&quot;&gt;&quot;);</span><br><span class="line">                   break;</span><br><span class="line">               case XmlNodeType.Text:</span><br><span class="line">                   Console.WriteLine(reader.Value);</span><br><span class="line">                   break;</span><br><span class="line">               case XmlNodeType.EndElement:</span><br><span class="line">                   Console.Write(&quot;&lt;&quot; + reader.Name);</span><br><span class="line">                   Console.WriteLine(&quot;&gt;&quot;);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
 <p>Output</p>
 <pre><code>&lt;Students&gt;
 &lt;Student StudentID=156521&gt;
@@ -334,7 +334,7 @@ sppsorrg11.cs97@nctu.edu.tw
 </code></pre><h2 id="XMLDocument"><a href="#XMLDocument" class="headerlink" title="XMLDocument"></a>XMLDocument</h2><p>XMLDocument載入xml檔案時，會一次讀完，所以可以直接使用其方法來訪問各個節點<br>一樣以剛剛的student.xml為範例<br>先利用GetElementsByTagName取得所有node的list 集合<br>由於底下的<code>&lt;name&gt;&lt;age&gt;&lt;email&gt;</code>都是其child node,所以必須又要在取得一次NodeList,<br>如此反覆就可以取得所有資料</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">XmlDocument xml = new XmlDocument();</span><br><span class="line">xml.Load(&quot;student.xml&quot;);</span><br><span class="line">XmlNodeList nodeList = xml.GetElementsByTagName(&quot;Student&quot;);</span><br><span class="line">foreach (XmlNode parentNode in nodeList)</span><br><span class="line">&#123;</span><br><span class="line">    if (parentNode is XmlElement)</span><br><span class="line">    &#123;</span><br><span class="line">        XmlElement element = (XmlElement)parentNode;</span><br><span class="line">        String id = element.GetAttribute(&quot;StudentID&quot;);</span><br><span class="line">        XmlNodeList childList = element.ChildNodes;</span><br><span class="line"></span><br><span class="line">        Console.WriteLine(&quot;StudentID=&quot;+id);</span><br><span class="line">        foreach (XmlNode childNode in childList)</span><br><span class="line">        &#123;</span><br><span class="line">            Console.Write(&quot;&lt;&quot; + ((XmlElement)childNode).Name + &quot;&gt; &quot;);</span><br><span class="line">            Console.WriteLine(((XmlElement)childNode).ChildNodes.Item(0).Value);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <hr>
-<p>Output  </p>
+<p>Output</p>
 <pre><code>StudentID=156521
 &lt;name&gt; hwchiu
 &lt;age&gt; 22
@@ -343,7 +343,7 @@ StudentID=9717164
 &lt;name&gt; sppsorrg
 &lt;age&gt; 18
 &lt;email&gt; sppsorrg11.cs97@nctu.edu.tw
-</code></pre><h1 id="LINQ"><a href="#LINQ" class="headerlink" title="LINQ"></a>LINQ</h1><p>這邊使用LINQ來搜尋XML文件，所以必須要先使用<br><strong>using system.xml.Linq</strong> </p>
+</code></pre><h1 id="LINQ"><a href="#LINQ" class="headerlink" title="LINQ"></a>LINQ</h1><p>這邊使用LINQ來搜尋XML文件，所以必須要先使用<br><strong>using system.xml.Linq</strong></p>
 <p>為了讓Linq能夠順利運行，這邊使用的物件是XElement以及XNode<br>首先以XElement的方式來讀取檔案，接者使用linq的語法從中獲取我們想要的資訊<br>範例中先以root.Elements(“Student”)獲取所有Student的節點，接者在去比較其屬性中的<br>StudentID，來得到特定的資訊。</p>
 <p>最後回傳的資訊是個<code>IEnumerable&lt;XElement&gt;</code>的型態，使用foreach來拜訪<br>這邊的XElement本身的值就是</p>
 <pre><code>&lt;Student StudentID=&quot;156521&quot;&gt;
@@ -353,12 +353,12 @@ StudentID=9717164
 &lt;/Student&gt;
 </code></pre><p>所以為了獲得其中的資訊，就必須要繼續拆解該節點，繼續以foreach的方式取得<br>每個XNode都代表者一行資訊如</p>
 <blockquote>
-<p><code>&lt;name&gt;hwchiu&lt;/name&gt;</code>  </p>
+<p><code>&lt;name&gt;hwchiu&lt;/name&gt;</code></p>
 </blockquote>
-<p>此時可以將XNode給轉型為XElement，就可以利用<code>&lt;Name/Value&gt;</code>的方式分別取得<br><code>&lt;name&gt;跟hwchiu</code>  </p>
+<p>此時可以將XNode給轉型為XElement，就可以利用<code>&lt;Name/Value&gt;</code>的方式分別取得<br><code>&lt;name&gt;跟hwchiu</code></p>
 <p>若只是想要取得特別的資訊，可以直接透過Linq的語法來查詢，寫起來會更加簡潔及可讀。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">XElement root = XElement.Load(&quot;student.xml&quot;);</span><br><span class="line">   var student =</span><br><span class="line">       from el in root.Elements(&quot;Student&quot;)</span><br><span class="line">       where (string)el.Attribute(&quot;StudentID&quot;) == &quot;156521&quot;</span><br><span class="line">       select el;</span><br><span class="line">   foreach (XElement el in student)</span><br><span class="line">   &#123;</span><br><span class="line">       foreach (XNode node in el.Nodes())</span><br><span class="line">       &#123;</span><br><span class="line">           Console.WriteLine(node);</span><br><span class="line">       &#125;</span><br><span class="line">   &#125;</span><br></pre></td></tr></table></figure></p>
 <hr>
-<p>Output  </p>
+<p>Output</p>
 <pre><code>&lt;name&gt;hwchiu&lt;/name&gt;
 &lt;age&gt;22&lt;/age&gt;
 &lt;email&gt;sppsorrg11.csg01@nctu.edu.tw&lt;/email&gt;
@@ -515,14 +515,14 @@ StudentID=9717164
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">235</span>
+          <span class="site-state-item-count">236</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">111</span>
+        <span class="site-state-item-count">112</span>
         <span class="site-state-item-name">tags</span></a>
       </div>
   </nav>

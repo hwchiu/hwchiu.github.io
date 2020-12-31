@@ -29,7 +29,7 @@
 <meta property="og:site_name" content="Hwchiu Learning Note">
 <meta property="og:description" content="314 Binary Tree Vertical Order Traversal原題目是付費題目，有興趣看到完整的請自行付費觀賞，在此就不提供超連結了。 Introduction 給定一個 binary tree，將此 tree 以 vertical 的方式走過， 輸出時，從最左邊開始輸出 相同 colume 的算同一個 group，若屬於同 row 且同 colume，則從左邊開始算起">
 <meta property="og:locale" content="en">
-<meta property="og:updated_time" content="2020-12-26T15:02:09.492Z">
+<meta property="og:updated_time" content="2020-12-29T07:59:15.878Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="LeetCode - 314">
 <meta name="twitter:description" content="314 Binary Tree Vertical Order Traversal原題目是付費題目，有興趣看到完整的請自行付費觀賞，在此就不提供超連結了。 Introduction 給定一個 binary tree，將此 tree 以 vertical 的方式走過， 輸出時，從最左邊開始輸出 相同 colume 的算同一個 group，若屬於同 row 且同 colume，則從左邊開始算起">
@@ -250,10 +250,10 @@
   <a id="more"></a>
 </li>
 </ul>
-<h2 id="Example"><a href="#Example" class="headerlink" title="Example"></a>Example</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">        0</span><br><span class="line">   / \   </span><br><span class="line">  1   4</span><br><span class="line"> / \ / \ </span><br><span class="line">2   35  6</span><br><span class="line">           / \</span><br><span class="line">          7   8</span><br></pre></td></tr></table></figure>
+<h2 id="Example"><a href="#Example" class="headerlink" title="Example"></a>Example</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">        0</span><br><span class="line">   / \</span><br><span class="line">  1   4</span><br><span class="line"> / \ / \</span><br><span class="line">2   35  6</span><br><span class="line">           / \</span><br><span class="line">          7   8</span><br></pre></td></tr></table></figure>
 <p>輸出為<br>[2]<br>[1]<br>[0,3,5]<br>[4,7]<br>[6]<br>[8]</p>
 <h2 id="Solution"><a href="#Solution" class="headerlink" title="Solution"></a>Solution</h2><p>這題不太困難，基本上可以採用 BFS 來搜尋整個 tree，然後加入一個 index 的欄位，root 的 index 是 0，往左遞減，往右遞增，在 BFS 的過程中，就把相同 index 都收集起來，最後再一口氣輸出即可。</p>
-<p>pseudo code 如下<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">queue</span>.push(pair(<span class="number">0</span>, root));</span><br><span class="line"><span class="keyword">while</span> (!<span class="built_in">queue</span>.empty()) &#123;</span><br><span class="line">      index = <span class="built_in">queue</span>.front().first;</span><br><span class="line">      node = <span class="built_in">queue</span>.front().second;</span><br><span class="line">      </span><br><span class="line">      ans[index].push(node-&gt;val)</span><br><span class="line">      </span><br><span class="line">      <span class="keyword">if</span> (node-&gt;left)</span><br><span class="line">          <span class="built_in">queue</span>.push(pair(index<span class="number">-1</span>, node-&gt;left);</span><br><span class="line">      <span class="keyword">if</span> (node-&gt;right)</span><br><span class="line">          <span class="built_in">queue</span>.push(pair(index+<span class="number">1</span>, node-&gt;right);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">return</span> ans;</span><br></pre></td></tr></table></figure></p>
+<p>pseudo code 如下<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">queue</span>.push(pair(<span class="number">0</span>, root));</span><br><span class="line"><span class="keyword">while</span> (!<span class="built_in">queue</span>.empty()) &#123;</span><br><span class="line">      index = <span class="built_in">queue</span>.front().first;</span><br><span class="line">      node = <span class="built_in">queue</span>.front().second;</span><br><span class="line"></span><br><span class="line">      ans[index].push(node-&gt;val)</span><br><span class="line"></span><br><span class="line">      <span class="keyword">if</span> (node-&gt;left)</span><br><span class="line">          <span class="built_in">queue</span>.push(pair(index<span class="number">-1</span>, node-&gt;left);</span><br><span class="line">      <span class="keyword">if</span> (node-&gt;right)</span><br><span class="line">          <span class="built_in">queue</span>.push(pair(index+<span class="number">1</span>, node-&gt;right);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">return</span> ans;</span><br></pre></td></tr></table></figure></p>
 
     </div>
 
@@ -410,14 +410,14 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">235</span>
+          <span class="site-state-item-count">236</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">111</span>
+        <span class="site-state-item-count">112</span>
         <span class="site-state-item-name">tags</span></a>
       </div>
   </nav>

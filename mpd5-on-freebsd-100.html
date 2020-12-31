@@ -29,7 +29,7 @@
 <meta property="og:site_name" content="Hwchiu Learning Note">
 <meta property="og:description" content="VPN server is a very useful tool for your network connectivity, although there&apos;re many online VPN service around the world, it&apos;s slow speed and money cost and you can&apos;t sure they won&apos;t collect your co">
 <meta property="og:locale" content="en">
-<meta property="og:updated_time" content="2020-12-26T15:02:09.671Z">
+<meta property="og:updated_time" content="2020-12-29T07:59:15.672Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="mpd5 on FreeBSD 10.0">
 <meta name="twitter:description" content="VPN server is a very useful tool for your network connectivity, although there&apos;re many online VPN service around the world, it&apos;s slow speed and money cost and you can&apos;t sure they won&apos;t collect your co">
@@ -245,7 +245,7 @@
       
         <h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>Install a VPN server on FreeBSD 10.0-Release on Amazon EC2.</p>
 <h1 id="Install"><a href="#Install" class="headerlink" title="Install"></a>Install</h1><h2 id="Pkg"><a href="#Pkg" class="headerlink" title="Pkg"></a>Pkg</h2><ul>
-<li>pkg install mpd5  </li>
+<li>pkg install mpd5</li>
 </ul>
 <h2 id="Ports"><a href="#Ports" class="headerlink" title="Ports"></a>Ports</h2><ul>
 <li>portmaster net/mpd5</li>
@@ -255,7 +255,7 @@
 <li><code>set user hwchiu 123456</code> used to config the admin’s accoutn and password of the web page.</li>
 <li><code>set web self 0.0.0.0 5006</code> is the listen ip address and port of the web page.</li>
 </ul>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">startup:</span><br><span class="line">        <span class="comment"># configure mpd users</span></span><br><span class="line">        <span class="built_in">set</span> user hwchiu 123456  </span><br><span class="line">        <span class="comment"># configure the console</span></span><br><span class="line">        <span class="built_in">set</span> console self 127.0.0.1 5005</span><br><span class="line">        <span class="built_in">set</span> console open</span><br><span class="line">        <span class="comment"># configure the web server</span></span><br><span class="line">        <span class="built_in">set</span> web self 0.0.0.0 5006  </span><br><span class="line">        <span class="built_in">set</span> web open</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">startup:</span><br><span class="line">        <span class="comment"># configure mpd users</span></span><br><span class="line">        <span class="built_in">set</span> user hwchiu 123456</span><br><span class="line">        <span class="comment"># configure the console</span></span><br><span class="line">        <span class="built_in">set</span> console self 127.0.0.1 5005</span><br><span class="line">        <span class="built_in">set</span> console open</span><br><span class="line">        <span class="comment"># configure the web server</span></span><br><span class="line">        <span class="built_in">set</span> web self 0.0.0.0 5006</span><br><span class="line">        <span class="built_in">set</span> web open</span><br></pre></td></tr></table></figure>
 <ul>
 <li>comment the <code>dialup</code> and add <code>pptp_server</code>, we will config the options of pptp_server later.</li>
 </ul>
@@ -269,7 +269,7 @@
 </li>
 </ul>
 <h2 id="Use-configuration"><a href="#Use-configuration" class="headerlink" title="Use configuration"></a>Use configuration</h2><ul>
-<li><strong>cp /usr/local/etc/mpd5/mpd.secret.sample  /usr/local/etc/mpd5/mpd.secret</strong><br>The format of mpd.secret is <code>username password ip_address</code> per line.  </li>
+<li><strong>cp /usr/local/etc/mpd5/mpd.secret.sample  /usr/local/etc/mpd5/mpd.secret</strong><br>The format of mpd.secret is <code>username password ip_address</code> per line.</li>
 <li><strong>Example</strong></li>
 </ul>
 <figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">fred            <span class="string">"fred-pw"</span></span><br><span class="line">joe             <span class="string">"foobar"</span>        192.168.1.1</span><br></pre></td></tr></table></figure>
@@ -282,7 +282,7 @@
 <li>pass in tcp for port 1723 (PPTP)</li>
 <li>pass in protocol gre</li>
 <li>pass in from any to internal private network and vice versa.</li>
-<li>Use the <code>pfctl -f file</code> to reload the pf instead of <code>/etc/rc.d/pf restart</code>, the latter will disconnect all exist connection.<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">my_int = <span class="string">"xn0"</span></span><br><span class="line">internal_net = <span class="string">"192.168.0.0/16"</span></span><br><span class="line">external_addr = <span class="string">"172.31.18.110"</span></span><br><span class="line">nat on <span class="variable">$my_int</span> from <span class="variable">$internal_net</span> to any -&gt; <span class="variable">$external_addr</span> </span><br><span class="line"><span class="built_in">set</span> skip on lo    </span><br><span class="line">block <span class="keyword">in</span> <span class="built_in">log</span> all  </span><br><span class="line">pass <span class="keyword">in</span> on <span class="variable">$my_int</span> proto tcp from any to any port 1723 keep state</span><br><span class="line">pass <span class="keyword">in</span> on <span class="variable">$my_int</span> proto tcp from any to any port 443 keep state</span><br><span class="line">pass <span class="keyword">in</span> quick on <span class="variable">$my_int</span> proto icmp all keep state</span><br><span class="line">pass <span class="keyword">in</span> proto gre all keep state</span><br><span class="line">pass <span class="keyword">in</span> from any to <span class="variable">$internal_net</span></span><br><span class="line">pass <span class="keyword">in</span> from <span class="variable">$internal_net</span> to any</span><br><span class="line">pass out proto &#123; gre, tcp, udp, icmp &#125; all keep state</span><br></pre></td></tr></table></figure>
+<li>Use the <code>pfctl -f file</code> to reload the pf instead of <code>/etc/rc.d/pf restart</code>, the latter will disconnect all exist connection.<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">my_int = <span class="string">"xn0"</span></span><br><span class="line">internal_net = <span class="string">"192.168.0.0/16"</span></span><br><span class="line">external_addr = <span class="string">"172.31.18.110"</span></span><br><span class="line">nat on <span class="variable">$my_int</span> from <span class="variable">$internal_net</span> to any -&gt; <span class="variable">$external_addr</span></span><br><span class="line"><span class="built_in">set</span> skip on lo</span><br><span class="line">block <span class="keyword">in</span> <span class="built_in">log</span> all</span><br><span class="line">pass <span class="keyword">in</span> on <span class="variable">$my_int</span> proto tcp from any to any port 1723 keep state</span><br><span class="line">pass <span class="keyword">in</span> on <span class="variable">$my_int</span> proto tcp from any to any port 443 keep state</span><br><span class="line">pass <span class="keyword">in</span> quick on <span class="variable">$my_int</span> proto icmp all keep state</span><br><span class="line">pass <span class="keyword">in</span> proto gre all keep state</span><br><span class="line">pass <span class="keyword">in</span> from any to <span class="variable">$internal_net</span></span><br><span class="line">pass <span class="keyword">in</span> from <span class="variable">$internal_net</span> to any</span><br><span class="line">pass out proto &#123; gre, tcp, udp, icmp &#125; all keep state</span><br></pre></td></tr></table></figure>
 </li>
 </ol>
 </li>
@@ -466,14 +466,14 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">235</span>
+          <span class="site-state-item-count">236</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">111</span>
+        <span class="site-state-item-count">112</span>
         <span class="site-state-item-name">tags</span></a>
       </div>
   </nav>

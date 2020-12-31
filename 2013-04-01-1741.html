@@ -21,19 +21,19 @@
     var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="最近突然對抓封包挺有興趣的，正好以前修網際網路規約時，有trace過linux中TCP/IP相關的code 所以這次就來嘗試看看自己分析封包。   第一個方式就是重編kernel,直接在kernel中寫CODE，但是這樣的缺點就是重編kernel太消耗時間了，每次修改都要等個十多分鐘，實在不是很有效益，所以這個方案直接放棄 而我採用的方法是利用kernel module的方式，自己先在kernel">
+  <meta name="description" content="最近突然對抓封包挺有興趣的，正好以前修網際網路規約時，有trace過linux中TCP/IP相關的code 所以這次就來嘗試看看自己分析封包。 第一個方式就是重編kernel,直接在kernel中寫CODE，但是這樣的缺點就是重編kernel太消耗時間了，每次修改都要等個十多分鐘，實在不是很有效益，所以這個方案直接放棄 而我採用的方法是利用kernel module的方式，自己先在kernel中加">
 <meta name="keywords" content="System,C,Network">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Linux-Kernel-PacketCapture">
 <meta property="og:url" content="https://www.hwchiu.com/2013-04-01-1741.html">
 <meta property="og:site_name" content="Hwchiu Learning Note">
-<meta property="og:description" content="最近突然對抓封包挺有興趣的，正好以前修網際網路規約時，有trace過linux中TCP/IP相關的code 所以這次就來嘗試看看自己分析封包。   第一個方式就是重編kernel,直接在kernel中寫CODE，但是這樣的缺點就是重編kernel太消耗時間了，每次修改都要等個十多分鐘，實在不是很有效益，所以這個方案直接放棄 而我採用的方法是利用kernel module的方式，自己先在kernel">
+<meta property="og:description" content="最近突然對抓封包挺有興趣的，正好以前修網際網路規約時，有trace過linux中TCP/IP相關的code 所以這次就來嘗試看看自己分析封包。 第一個方式就是重編kernel,直接在kernel中寫CODE，但是這樣的缺點就是重編kernel太消耗時間了，每次修改都要等個十多分鐘，實在不是很有效益，所以這個方案直接放棄 而我採用的方法是利用kernel module的方式，自己先在kernel中加">
 <meta property="og:locale" content="en">
 <meta property="og:image" content="https://lh3.googleusercontent.com/-bx6mrN_NVGw/UdAlum_Ad_I/AAAAAAAAAsw/Er2dWeUWg7o/w880-h559-no/ipheader.jpg">
-<meta property="og:updated_time" content="2020-12-26T15:02:09.457Z">
+<meta property="og:updated_time" content="2020-12-29T07:59:15.685Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Linux-Kernel-PacketCapture">
-<meta name="twitter:description" content="最近突然對抓封包挺有興趣的，正好以前修網際網路規約時，有trace過linux中TCP/IP相關的code 所以這次就來嘗試看看自己分析封包。   第一個方式就是重編kernel,直接在kernel中寫CODE，但是這樣的缺點就是重編kernel太消耗時間了，每次修改都要等個十多分鐘，實在不是很有效益，所以這個方案直接放棄 而我採用的方法是利用kernel module的方式，自己先在kernel">
+<meta name="twitter:description" content="最近突然對抓封包挺有興趣的，正好以前修網際網路規約時，有trace過linux中TCP/IP相關的code 所以這次就來嘗試看看自己分析封包。 第一個方式就是重編kernel,直接在kernel中寫CODE，但是這樣的缺點就是重編kernel太消耗時間了，每次修改都要等個十多分鐘，實在不是很有效益，所以這個方案直接放棄 而我採用的方法是利用kernel module的方式，自己先在kernel中加">
 <meta name="twitter:image" content="https://lh3.googleusercontent.com/-bx6mrN_NVGw/UdAlum_Ad_I/AAAAAAAAAsw/Er2dWeUWg7o/w880-h559-no/ipheader.jpg">
 
 <link rel="canonical" href="https://www.hwchiu.com/2013-04-01-1741.html">
@@ -245,14 +245,14 @@
 
       
         <p>最近突然對抓封包挺有興趣的，正好以前修網際網路規約時，有trace過linux中TCP/IP相關的code</p>
-<p>所以這次就來嘗試看看自己分析封包。  </p>
+<p>所以這次就來嘗試看看自己分析封包。</p>
 <p>第一個方式就是重編kernel,直接在kernel中寫CODE，但是這樣的缺點就是重編kernel太消耗時間了，<br>每次修改都要等個十多分鐘，實在不是很有效益，所以這個方案直接放棄</p>
 <p>而我採用的方法是利用kernel module的方式，自己先在kernel中加入自定義function,接收來自上層的封包，然後再透過修改kernel module的方式來分析取得的封包，這樣的話，我只有一開始需要重編kernel，後續都直接修改kernel module，編譯速度飛快，效率就高得許多。</p>
 <p>使用的資訊版本如下<br><strong>linux:2.6.32</strong><br><strong>function name: myPacket</strong><br><a id="more"></a></p>
 <p>#Step1<br>在送出封包的function中，加入我們自定義function的使用,所以目標就是位於<br><strong>/net/core/dev.c</strong>中的<code>dev_queue_xmit</code>這個function，修改如下</p>
 <ol>
 <li>先加入一個function pointer,參數是sk_buff,回傳int</li>
-<li>在function中，判斷function pointer是否有值，有的話就執行該function,並把sk_buff傳入<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">int</span>(*myPacket)(struct sk_buff*)=<span class="number">0</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">dev_queue_xmit</span><span class="params">(struct sk_buff *skb)</span></span></span><br><span class="line"><span class="function"></span>&#123;	</span><br><span class="line">	<span class="keyword">if</span>(myPacket)</span><br><span class="line">	&#123;</span><br><span class="line">		myPacket(skb);</span><br><span class="line">	&#125;</span><br><span class="line">	...ignore</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<li>在function中，判斷function pointer是否有值，有的話就執行該function,並把sk_buff傳入<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">int</span>(*myPacket)(struct sk_buff*)=<span class="number">0</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">dev_queue_xmit</span><span class="params">(struct sk_buff *skb)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">if</span>(myPacket)</span><br><span class="line">	&#123;</span><br><span class="line">		myPacket(skb);</span><br><span class="line">	&#125;</span><br><span class="line">	...ignore</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 </li>
 </ol>
 <p>#Step2<br>接者我們要讓kernel module知道有myPacket這個function存在所以在<strong>/net/core/sock.c</strong>這個檔案中</p>
@@ -319,12 +319,12 @@
 </code></pre><p>接者到/var/log/message去看訊息，看看印出來的資訊如何</p>
 <pre><code>version =4
 header_len =5
-tos  = 0 
+tos  = 0
 total_len = 21504
 id =0
 frag = 0
 frag_off = 64
-protocl = 1 
+protocl = 1
 ttl = 64
 souce_addr = 140.113.214.84
 dest_addr = 140.113.235.81
@@ -334,12 +334,12 @@ dest_addr = 140.113.235.81
 <p>輸出為</p>
 <pre><code>version =4
 header_len =5
-tos  = 0 
+tos  = 0
 total_len = 84
 id =0
 frag = 2
 frag_off = 0
-protocl = 1 
+protocl = 1
 ttl = 64
 souce_addr = 140.113.214.84
 dest_addr = 140.113.235.81
@@ -510,14 +510,14 @@ dest_addr = 140.113.235.81
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">235</span>
+          <span class="site-state-item-count">236</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">111</span>
+        <span class="site-state-item-count">112</span>
         <span class="site-state-item-name">tags</span></a>
       </div>
   </nav>
