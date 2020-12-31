@@ -24,19 +24,20 @@
   <meta name="description" content="ITHOME-2020 系列文章">
 <meta name="keywords" content="Kubernetes,DevOps,Linux,K8s">
 <meta property="og:type" content="article">
-<meta property="og:title" content="鐵人賽系列文章- Day 3 - Helm 介紹">
-<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-3.html">
+<meta property="og:title" content="鐵人賽系列文章- Day 20 - Container Registry 的方案介紹">
+<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-20.html">
 <meta property="og:site_name" content="Hwchiu Learning Note">
 <meta property="og:description" content="ITHOME-2020 系列文章">
 <meta property="og:locale" content="en">
-<meta property="og:image" content="https://i.imgur.com/60lEp4A.jpg">
-<meta property="og:updated_time" content="2020-12-29T07:59:15.672Z">
+<meta property="og:image" content="https://github.com/goharbor/harbor/raw/release-2.0.0/docs/img/architecture/architecture.png">
+<meta property="og:image" content="https://i.imgur.com/BcaLHvk.png">
+<meta property="og:updated_time" content="2020-12-31T03:52:51.667Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="鐵人賽系列文章- Day 3 - Helm 介紹">
+<meta name="twitter:title" content="鐵人賽系列文章- Day 20 - Container Registry 的方案介紹">
 <meta name="twitter:description" content="ITHOME-2020 系列文章">
-<meta name="twitter:image" content="https://i.imgur.com/60lEp4A.jpg">
+<meta name="twitter:image" content="https://github.com/goharbor/harbor/raw/release-2.0.0/docs/img/architecture/architecture.png">
 
-<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-3.html">
+<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-20.html">
 
 
 <script id="page-configurations">
@@ -49,7 +50,7 @@
   };
 </script>
 
-  <title>鐵人賽系列文章- Day 3 - Helm 介紹 | Hwchiu Learning Note</title>
+  <title>鐵人賽系列文章- Day 20 - Container Registry 的方案介紹 | Hwchiu Learning Note</title>
   
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
     <script>
@@ -186,7 +187,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-3.html">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-20.html">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/uploads/avatar.jpg">
@@ -199,7 +200,7 @@
     </span>
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
-          鐵人賽系列文章- Day 3 - Helm 介紹
+          鐵人賽系列文章- Day 20 - Container Registry 的方案介紹
         </h1>
 
         <div class="post-meta">
@@ -209,7 +210,7 @@
               </span>
               <span class="post-meta-item-text">Posted on</span>
 
-              <time title="Created: 2020-10-25 19:34:12" itemprop="dateCreated datePublished" datetime="2020-10-25T19:34:12+08:00">2020-10-25</time>
+              <time title="Created: 2020-12-29 10:46:46" itemprop="dateCreated datePublished" datetime="2020-12-29T10:46:46+08:00">2020-12-29</time>
             </span>
 
           
@@ -228,8 +229,8 @@
       </span>
       <span class="post-meta-item-text">Disqus: </span>
     
-    <a title="disqus" href="/ithome-20202-cicd-3.html#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="ithome-20202-cicd-3.html" itemprop="commentCount"></span>
+    <a title="disqus" href="/ithome-20202-cicd-20.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="ithome-20202-cicd-20.html" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -245,58 +246,54 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p>上篇文章探討了關於 Kubernetes 內應用程式的包裝方式，提到了一些相關的議題，包含了如何散佈安裝檔案，同時支援不同版本的選擇，以及客製化的選項。</p>
-<p>因此本篇我們將來介紹 Helm3 這個工具，同時也會介紹 Helm 是如何實現上述所提過的各種議題</p>
-<h2 id="Helm"><a href="#Helm" class="headerlink" title="Helm"></a>Helm</h2><p>根據官方敘述, Helm 是一個管理 Kubernetes 應用程式的套件，透過 Helm Charts 這套系統，可以幫助開發者打包，安裝，升級相關的 Kubernetes 應用程式。</p>
-<p>此外， Helm Charts 本身也被設計得很容易去創造，版本控制，分享以及發佈，所以透過 Helm Charts 就可以避免到處 Copy-and-Paste 各式各樣的 Yaml。</p>
-<p>Helm 本身也是一個開源專案，而且也是 <a href="https://cncf.io/" target="_blank" rel="noopener">CNCF</a> 內的畢業專案，目前是由  <a href="https://github.com/helm/community" target="_blank" rel="noopener">Helm 社群</a> 進行維護</p>
-<blockquote>
-<p>Helm helps you manage Kubernetes applications — Helm Charts help you define, install, and upgrade even the most complex Kubernetes application.<br>Charts are easy to create, version, share, and publish — so start using Helm and stop the copy-and-paste.<br>Helm is a graduated project in the <a href="https://cncf.io/" target="_blank" rel="noopener">CNCF</a> and is maintained by the <a href="https://github.com/helm/community" target="_blank" rel="noopener">Helm community</a>.</p>
-</blockquote>
-<p>Helm 的架構概念非常簡單，就是將整包 Kubernetes 的所有資源物件再疊加一層抽象層，這個抽象層是給 Helm 工具使用的，Helm 的工具會有自己的方式去解讀這個抽象層，最後產生出最後的 Kubernetes 資源物件然後安裝到 Kubernetes 裡面</p>
-<h2 id="Purpose"><a href="#Purpose" class="headerlink" title="Purpose"></a>Purpose</h2><p>Helm 將所有 Kubernetes 的應用程式都統稱為 <code>Charts</code>.</p>
-<p>Helm 的工具會將這些 Charts 打包成 <strong>tgz</strong> 的檔案，接下來可以可以透過 Helm Charts Server 的方式將這個 <strong>tgz</strong> 的檔案給散佈出去，讓其</p>
-<p>他使用者可以方便地取得這些已經打包好的應用程式(Charts)。</p>
-<p>此外， Helm 的工具也可以直接針對這些 Charts 所描述的應用程式去安裝到/解除於 Kubernetes 叢集中</p>
-<p>對於安裝到 Kubernetes 中的應用程式， Helm 稱其為 <code>Release</code></p>
-<p>而 Chart 到 Release 中間有一個客製化的概念，稱為 Config，透過這個 config 可以產生出適應不同環境的 Kubernetes Yaml</p>
-<p>這三者如下圖所示，每個 Charts 搭配不同環境的設定檔案最後會產生出一個唯一的 Release 物件，而該物件就代表者該應用程式於 Kubernetes 內的實體</p>
-<p><img src="https://i.imgur.com/60lEp4A.jpg" alt></p>
-<h2 id="客製化"><a href="#客製化" class="headerlink" title="客製化"></a>客製化</h2><p>為了滿足客製化的需求，希望開發者可以簡單的設計 Charts，使用者又可以簡單的客製化使用，這部分 Helm 採用的是 Go Template 的方式來進行 Yaml 的客製化，舉例來說</p>
-<p>下面一個常見的 Service Yaml 檔案，內容全部都寫死</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: v1</span><br><span class="line">kind: Service</span><br><span class="line">metadata:</span><br><span class="line">  name: example</span><br><span class="line">  labels:</span><br><span class="line">		app: example</span><br><span class="line">spec:</span><br><span class="line">  type: ClusterIP</span><br><span class="line">  ports:</span><br><span class="line">    - port: 80</span><br><span class="line">      targetPort: http</span><br><span class="line">      protocol: TCP</span><br><span class="line">      name: http</span><br><span class="line">  selector:</span><br><span class="line">    app.kubernetes.io/name: example</span><br><span class="line">    app.kubernetes.io/instance: example</span><br></pre></td></tr></table></figure>
-<p>這種情況下使用者就沒有辦法客製化需求，譬如需要的 Port(80)，或是不同類型 (ClusterIP/NodePort)</p>
-<p>Helm 針對這種情況引入了 Go Template，使得 Yaml 檔案的樣子可能會變成如下圖</p>
-<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Service</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">&#123;&#123;</span> <span class="string">include</span> <span class="string">"example.fullname"</span> <span class="string">.</span> <span class="string">&#125;&#125;</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line"><span class="string">&#123;&#123;</span> <span class="string">include</span> <span class="string">"example.labels"</span> <span class="string">.</span> <span class="string">|</span> <span class="string">indent</span> <span class="number">4</span> <span class="string">&#125;&#125;</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">type:</span> <span class="string">&#123;&#123;</span> <span class="string">.Values.service.type</span> <span class="string">&#125;&#125;</span></span><br><span class="line">  <span class="attr">ports:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">port:</span> <span class="string">&#123;&#123;</span> <span class="string">.Values.service.port</span> <span class="string">&#125;&#125;</span></span><br><span class="line">      <span class="attr">targetPort:</span> <span class="string">http</span></span><br><span class="line">      <span class="attr">protocol:</span> <span class="string">TCP</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">http</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">app.kubernetes.io/name:</span> <span class="string">&#123;&#123;</span> <span class="string">include</span> <span class="string">"example.name"</span> <span class="string">.</span> <span class="string">&#125;&#125;</span></span><br><span class="line">    <span class="attr">app.kubernetes.io/instance:</span> <span class="string">&#123;&#123;</span> <span class="string">.Release.Name</span> <span class="string">&#125;&#125;</span></span><br></pre></td></tr></table></figure>
-<p>可以看到上述的採用大量的 <strong>大括號</strong> 的格式來進行變數的替換，使用者再使用該 Charts 的時候會對上述的變數進行設定，而這些變數最後在渲染這些 Template 檔案的時候就會給替換掉最後產生出真正的 Yaml 檔案。</p>
-<p>舉例來說，第一個使用者安裝的時候輸入 <code>service.type: ClusterIP</code>  就會產生出一個使用 <code>ClusterIP</code> 的 Service，而若輸入的是 <code>service.type:NodePort</code>  則會產生使用 <code>NodePort</code> 的 Service.</p>
-<p>為了方便使用者去使用，開發者設計的時候可以準備一套預設值放到一個名為 <code>values.yaml</code> 的檔案裡面，使用者可以直接修改該檔案或是使用別的檔案來替換所有的變數</p>
-<p>這種 Go Template 的方式的確可以讓 Yaml 變得很彈性，可以讓使用者針對不同情境傳入不同的數值，但是我認為他也帶來的更多的複雜性，因為這些 Template 的用法十分多元，從基本的變數替換，到 FOR 迴圈， IF 判斷條件等都可以使用。<br>對於 Helm 用法不理解的人初次看到這些滿滿被 <code>大括號</code> 入侵的 Yaml加上一堆不確定是幹嘛用的關鍵字，其實會難以入手，沒有花更多時間去理解的情況下，可能就只會使用而沒有辦法成為一個開發者去設計一個好的 Helm Chart</p>
-<h2 id="散播與發佈"><a href="#散播與發佈" class="headerlink" title="散播與發佈"></a>散播與發佈</h2><p>當開發者準備好一個 Helm Charts 的檔案時候，就可以透過打包的方式將其上傳到官方或是自行維護的 Helm Chart 伺服器</p>
-<p>一個使用範例如下(參考自官網)</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ helm repo add stable https://kubernetes-charts.storage.googleapis.com/</span><br><span class="line">$ helm search repo stable</span><br><span class="line">NAME                                    CHART VERSION   APP VERSION                     DESCRIPTION</span><br><span class="line">stable/acs-engine-autoscaler            2.2.2           2.1.1                           DEPRECATED Scales worker nodes within agent pools</span><br><span class="line">stable/aerospike                        0.2.8           v4.5.0.5                        A Helm chart <span class="keyword">for</span> Aerospike <span class="keyword">in</span> Kubernetes</span><br><span class="line">stable/airflow                          4.1.0           1.10.4                          Airflow is a platform to programmatically autho...</span><br><span class="line">stable/ambassador                       4.1.0           0.81.0                          A Helm chart <span class="keyword">for</span> Datawire Ambassador</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
-<p>上述指令代表的意思是我想要將 <code>https://kubernetes-charts.storage.googleapis.com/</code> 這個 Helm Charts 的伺服器加入到本地 <code>Helm</code> 指令的來源之一，並且嘗試搜尋上面任何有 <code>stable</code> 字眼的 Helm Chart</p>
-<p>下列指令則可以嘗試安裝 <code>stable/mysql</code> 這個 Helm Chart 到 Kubernetes 中，產生的 Release 名稱為 <code>smiling-penguin</code></p>
-<p>這邊要注意的是 Helm 本身會需要存取 Kubernetes 叢集，所以也是使用 KUBECONFIG 等方式來設定存取權限</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ helm install stable/mysql --generate-name</span><br><span class="line">Released smiling-penguin</span><br></pre></td></tr></table></figure>
-<p>最後可以透過 <code>Helm ls</code> 的指令來觀看目前安裝於叢集內的 Helm Release.</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ helm ls</span><br><span class="line">NAME             VERSION   UPDATED                   STATUS    CHART</span><br><span class="line">smiling-penguin  1         Wed Sep 28 12:59:46 2016  DEPLOYED  mysql-0.1.0</span><br></pre></td></tr></table></figure>
-<h2 id="Helm-v2-v-s-Helm-v3"><a href="#Helm-v2-v-s-Helm-v3" class="headerlink" title="Helm v2 v.s Helm v3"></a>Helm v2 v.s Helm v3</h2><p>Helm 目前流通的版本有 Helm v2 以及 Helm v3，使用起來差別不會非常誇張，但是如果是新上手的朋友強烈建議直接上 Helm v3，而不要使用 Helm v2，否則後來還要處理更新搬移的問題。</p>
-<p>官方網站就有專門一個頁面在介紹如何從 Helm2 搬移至 Helm3, <a href="https://helm.sh/docs/topics/v2_v3_migration/" target="_blank" rel="noopener">Migrating Helm v2 to v3</a>, 有興趣的人可以點進去看更多詳細的介紹。</p>
-<p>下面來列一下 <a href="https://v3.helm.sh/docs/faq/#changes-since-helm-2" target="_blank" rel="noopener">v3 以及 v2 最大的差異</a></p>
+        <p>本篇文章要來跟大家分享其他 Contaienr Registry 的選擇及相關議題，這些議題包含(包含但不限於)</p>
 <ol>
-<li>Tiller 的移除，過往使用 Helm v2 的時候，還要在系統內先行安裝一個叫做 Tiller 的伺服器，同時也要對其設定一些權限，安裝起來麻煩，同時也有潛在的安全性問題。 Helm v3 基本上整個架構變得更乾淨，只需要一個 Helm 指令即可</li>
-<li>Helm Chart 裡面相關的 apiVersion 需要跳號，從 v1 跳到 v2，才會宣告該 Helm Chart 是屬於 Helm v3.</li>
-<li>更新應用程式的策略， v3 使用的是三方比對來進行測試，將會使用 <code>過往狀態</code>, <code>當前運作狀態</code> 以及 <code>期望狀態</code> 來比對，最後產生更新後的內容</li>
-<li>OCI 的支援，這個是我覺得最有趣的功能，未來 Helm Chart 打包後的格式可以遵循 OCI (Open Contaianer Initiative) 的格式，這意味者我們未來將有機會使用 Container Registry 來存放 Helm Chart, 只需要一個伺服器就可以同時滿足 Container Image 以及 Helm Chart，如果有興趣的人可以嘗試使用 Harbor 這套 Contaienr Registry 的解決方案來體驗看看這個功能</li>
-</ol>
+<li><p>使用者登入權限控管與整合</p>
+</li>
+<li><p>硬碟空間處理機制</p>
 <blockquote>
-<p>想要知道更多關於 OCI 的介紹，可以參考這篇<a href="https://www.hwchiu.com/container-design-i.html">文章</a></p>
+<p>Registry 的空間處理問題非常重要，處理不好很容易造成使用者沒有辦法繼續推送 Image</p>
 </blockquote>
-<ol start="5">
-<li>Helm 一些子指令的新增與移除</li>
+</li>
+<li><p>UI 介面的操作</p>
+</li>
+<li>潛在漏洞與安全性檢查</li>
+<li>SSL 憑證的支援性</li>
 </ol>
-<p>基本上修改的細部內容非常多，有興趣的建議參考上述官方連結去看看修改細節，可以更加瞭解 Helm3.</p>
+<p>此外這邊要特別注意，自架 Container Registry 不一定是免費的，有時候自架的會需要有相關授權等花費。 SaaS 不一定要錢，只是免費的通常都會有一些限定</p>
+<p>接下來我們就來看一下方案介紹與比較</p>
+<h1 id="Docker-Registry-2-0"><a href="#Docker-Registry-2-0" class="headerlink" title="Docker Registry 2.0"></a>Docker Registry 2.0</h1><p>Docker Registry 2.0 是由 <code>Docker</code> 所維護的開源專案，提供開發者一個自架 Docker Registry 的選項，使用上非常簡單，透過 Docker Container 的方式就可以輕鬆創建出一個 docker registry 2.0 的服務器。</p>
+<p>舉例來說，下列指令就可以創建完畢</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker run -d -p 5000:5000 --restart always --name registry registry:2</span><br></pre></td></tr></table></figure>
+<p>不過我個人對於 docker registry 沒有很愛，主要是其預設情況下並沒有提供任何 UI 的支援，一切的操控都只能透過 docker 指令或是 curl 等指令來處理，對於多人控管以及操作上非常不便利。</p>
+<p>網路上也有相關的專案，譬如 <a href="https://github.com/Joxit/docker-registry-ui" target="_blank" rel="noopener">docker-registry-ui</a> 這些第三方專案在幫忙實作 UI，讓使用者有一個比較好的方式可以管理，但是這種情況下會變成 UI 與 Server 兩個程式是由不同的維護團隊在維護，功能上的整合， Issue 的問題等都不一定夠順暢，所以如果不是為了本地簡單測試的情況下，我通常不會採用 Docker Registry 作為一個長期的解決方案。</p>
+<p>儲存方面， <a href="https://docs.docker.com/registry/deploying/#support-for-lets-encrypt" target="_blank" rel="noopener">Customize the storage location</a> 以及 <a href="https://docs.docker.com/registry/deploying/#customize-the-storage-back-end" target="_blank" rel="noopener">Customize the stoage back-end</a> 等來自官方的文章再介紹相關的設定</p>
+<p>對於外部存取的話，其也有支援 <a href="https://docs.docker.com/registry/configuration/#letsencrypt" target="_blank" rel="noopener">Let’s Encrypt</a> 等機制，讓其自動幫你 renew 快過期的憑證，使用上相對方便。</p>
+<p> 權限認證方面我認為功能比較少，滿多的認證方式都需要自行透過額外的伺服器幫忙處理，可以參考  <a href="https://docs.docker.com/registry/deploying/#restricting-access" target="_blank" rel="noopener">restricting-access</a> 或是 <a href="https://medium.com/@two.oes/reverse-proxy-ssl-ldap-for-docker-registry-805539daaa94" target="_blank" rel="noopener">reverse proxy + SSL + LDAP for Docker Registry</a></p>
+<h1 id="Harbor"><a href="#Harbor" class="headerlink" title="Harbor"></a>Harbor</h1><p>Harbor 是由 VMWare 所開源的 Container Registry 專案，我認為 Harbor 一個很值得推薦的原因是該專案是 <a href="https://www.cncf.io/projects/" target="_blank" rel="noopener">CNCF 畢業專案</a>，要成為 CNCF 畢業專案必須要滿足一些條件，雖然沒有一個專案可以完美的適合所有情形，但是就社群使用程度與社群貢獻程度來看， Harbor 算是滿優良的，這部分至少可以證明其本身是不少使用者在使用，而不是一個乏人問津的專案。</p>
+<p>Harbor 的目標很簡單，源自期<a href="https://goharbor.io/" target="_blank" rel="noopener">官網</a>的介紹</p>
+<blockquote>
+<p>Our mission is to be the trusted cloud native repository for Kubernetes</p>
+</blockquote>
+<p>Harbor 本身使用上不會太困難，可以透更 docker-compose 的方式去安裝，同時本身也有提供簡單的 UI 供使用操作，</p>
+<p>詳細的架構可以參考這個 <a href="https://github.com/goharbor/harbor/wiki/Architecture-Overview-of-Harbor" target="_blank" rel="noopener">Architecture Overview of Harbor</a>, 大概條列一下幾個重點功能</p>
+<ol>
+<li>登入授權方式支援 LDAP/AD 以及 OIDC(OpenID Connect)，基本上銜接到 OIDC 就可以支援超多種登入，譬如 google, microsoft, saml, github, gitlab 等眾多方式都有機會整合進來</li>
+<li>Harbor v2.0 架構大改，成為一個 OCI (Open Container Initiative) 相容的 Artifacct Registry, 這意味者 Harbor 不單純只是一個 Container Image Registry，而是只要符合 OCI 檔案格式的產物都可以存放，影響最大的就是 Helm3 的打包內容。 未來是有機會透過一個 Harbor 來同時維護 Container Image 以及 Helm Charts</li>
+<li>支援不同的潛在安全性掃描引擎</li>
+<li>本身可跟其他知名的 Container Registry 進行連動，譬如複製，或是中繼轉發都可以</li>
+<li>除此之外還有很多特性，有興趣的點選上方連結瞭解更多</li>
+</ol>
+<p><img src="https://github.com/goharbor/harbor/raw/release-2.0.0/docs/img/architecture/architecture.png" alt="arch"></p>
+<h1 id="Cloud-Provider-Registry"><a href="#Cloud-Provider-Registry" class="headerlink" title="Cloud Provider Registry"></a>Cloud Provider Registry</h1><p>三大公有雲 Azure, AWS, GCP 都有針對自己的平台提供基於雲端的 Container Registry，使用這些 Registry 的好處就是他們與自家的運算平台都會有良好的整合，同時服務方面也會有比較好的支援。</p>
+<p>當然這些 SaaS 服務本身都會有免費與收費版本，就拿 <a href="https://aws.amazon.com/ecr/pricing/" target="_blank" rel="noopener">AWS(ECR)</a> 為範例，一開始會有一個嚐鮮方案，大概是每個月有 500GB 的容量使用，但是接下來更多的容量就會開始計費，計費的方式則是用(1)容量計費，每多少 GB 多少錢，(2)流量計費，流量的價錢是一個區間價格，使用愈高後的單位平均價格愈低。</p>
+<p><img src="https://i.imgur.com/BcaLHvk.png" alt></p>
+<p>就如同之前提過，使用 SaaS 服務有很多的優點，包含不需要自行維護伺服器，從軟體到硬體都可以全部交由服務供應商去處理，自己只要專心處理應用的邏輯即可，但是成本考量就是一個需要注意的事項。</p>
+<h1 id="Others"><a href="#Others" class="headerlink" title="Others"></a>Others</h1><p>除此之外還有不少專案有提供 Self-Hosted 的服務，譬如由 SUSE 所維護的開源專案 <a href="http://port.us.org/" target="_blank" rel="noopener">Portus</a> ，其專注整合 Docker Registry 並提供友善的介面與更多進階的功能，譬如 LDAP 控管，更進階的搜尋等。</p>
+<blockquote>
+<h3 id="Portus-is-an-open-source-authorization-service-and-user-interface-for-the-next-generation-Docker-Registry"><a href="#Portus-is-an-open-source-authorization-service-and-user-interface-for-the-next-generation-Docker-Registry" class="headerlink" title="Portus is an open source authorization service and user interface for the next generation Docker Registry."></a><a href="https://github.com/SUSE/Portus" target="_blank" rel="noopener">Portus</a> is an open source authorization service and user interface for the next generation Docker Registry.</h3></blockquote>
+<p>不過觀察該專案的<a href="https://github.com/SUSE/Portus" target="_blank" rel="noopener">Github</a> 顯示已經數個月沒有更新，甚至其最新的 Issue 都在探討是否該專案已經被放棄，<a href="https://github.com/SUSE/Portus/issues/2313" target="_blank" rel="noopener">Is Portus no longer being worked on</a>， 有其他網友發現 SUSE 後來開了一個新的專案 <a href="https://github.com/SUSE/registry/tree/master/harbor-helm" target="_blank" rel="noopener">harbor-helm</a>，大膽猜測可能 SUSE 也在研究採用 Harbor 作為其容器管理平台而放棄自主研發的 Portus。</p>
+<p>如果本身已經是使用 Gitlab 的團隊，可以考慮直接使用 <a href="https://docs.gitlab.com/ee/administration/packages/container_registry.html#enable-the-container-registry" target="_blank" rel="noopener">GItlab Container Registry</a>，其直接整合 Gitlab 與 Docker Registry 提供了良好的介面讓你控管 Container Registry，好處是可以將程式碼的管理與 Image 的管理都同時透過 Gitlab 來整合。</p>
 <h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
 <p>組合包<br><a href="https://hiskio.com/packages/7ey2vdnyN" target="_blank" rel="noopener">https://hiskio.com/packages/7ey2vdnyN</a></p>
 <p>疑難雜症除錯篇<br><a href="https://hiskio.com/courses/440/about?promo_code=LG28Q5G" target="_blank" rel="noopener">https://hiskio.com/courses/440/about?promo_code=LG28Q5G</a></p>
@@ -316,9 +313,6 @@
   <div class="popular-posts-header">Related Posts</div>
   <ul class="popular-posts">
     <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/ithome-20202-cicd-20.html" rel="bookmark">鐵人賽系列文章- Day 20 - Container Registry 的方案介紹</a></div>
-    </li>
-    <li class="popular-posts-item">
       <div class="popular-posts-title"><a href="/ithome-20202-cicd-19.html" rel="bookmark">鐵人賽系列文章- Day 19  - Container Registry 的介紹及需求</a></div>
     </li>
     <li class="popular-posts-item">
@@ -329,6 +323,9 @@
     </li>
     <li class="popular-posts-item">
       <div class="popular-posts-title"><a href="/ithome-20202-cicd-17.html" rel="bookmark">鐵人賽系列文章- Day 17 - GitOps 與 Kubernetes 的整合</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-15.html" rel="bookmark">鐵人賽系列文章- Day15 - CD 之 Pull Mode 介紹: Keel</a></div>
     </li>
   </ul>
 
@@ -385,12 +382,12 @@
         
     <div class="post-nav">
       <div class="post-nav-item">
-    <a href="/ithome-20202-cicd-2.html" rel="prev" title="鐵人賽系列文章- Day 2 - Kubernetes 物件管理">
-      <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day 2 - Kubernetes 物件管理
+    <a href="/ithome-20202-cicd-19.html" rel="prev" title="鐵人賽系列文章- Day 19  - Container Registry 的介紹及需求">
+      <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day 19  - Container Registry 的介紹及需求
     </a></div>
       <div class="post-nav-item">
-    <a href="/docker-network-model.html" rel="next" title="Docker Network - 網路模型">
-      Docker Network - 網路模型 <i class="fa fa-chevron-right"></i>
+    <a href="/2020-review.html" rel="next" title="2020-年度回顧">
+      2020-年度回顧 <i class="fa fa-chevron-right"></i>
     </a></div>
     </div>
       </footer>
@@ -457,7 +454,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Helm"><span class="nav-number">1.</span> <span class="nav-text">Helm</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Purpose"><span class="nav-number">2.</span> <span class="nav-text">Purpose</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#客製化"><span class="nav-number">3.</span> <span class="nav-text">客製化</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#散播與發佈"><span class="nav-number">4.</span> <span class="nav-text">散播與發佈</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Helm-v2-v-s-Helm-v3"><span class="nav-number">5.</span> <span class="nav-text">Helm v2 v.s Helm v3</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number"></span> <span class="nav-text">個人資訊</span></a></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Docker-Registry-2-0"><span class="nav-number">1.</span> <span class="nav-text">Docker Registry 2.0</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Harbor"><span class="nav-number">2.</span> <span class="nav-text">Harbor</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Cloud-Provider-Registry"><span class="nav-number">3.</span> <span class="nav-text">Cloud Provider Registry</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Others"><span class="nav-number">4.</span> <span class="nav-text">Others</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Portus-is-an-open-source-authorization-service-and-user-interface-for-the-next-generation-Docker-Registry"><span class="nav-number">4.0.1.</span> <span class="nav-text">Portus is an open source authorization service and user interface for the next generation Docker Registry.</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">5.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -685,9 +682,9 @@
 </script>
 <script>
   var disqus_config = function() {
-    this.page.url = "https://www.hwchiu.com/ithome-20202-cicd-3.html";
-    this.page.identifier = "ithome-20202-cicd-3.html";
-    this.page.title = "鐵人賽系列文章- Day 3 - Helm 介紹";
+    this.page.url = "https://www.hwchiu.com/ithome-20202-cicd-20.html";
+    this.page.identifier = "ithome-20202-cicd-20.html";
+    this.page.title = "鐵人賽系列文章- Day 20 - Container Registry 的方案介紹";
     this.language = 'en';
     };
   NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
