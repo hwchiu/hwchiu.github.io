@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="dmOrse_OyDnuDJK-8EcAWxeJH0fRWpNIJVSN3BNv5co">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="ITHOME-2020 系列文章">
+<meta name="keywords" content="Kubernetes,DevOps,Linux,K8s">
+<meta property="og:type" content="article">
+<meta property="og:title" content="鐵人賽系列文章- Day26 - kubelet Plugin 介紹">
+<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-26.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="ITHOME-2020 系列文章">
+<meta property="og:locale" content="en">
+<meta property="og:updated_time" content="2021-02-03T22:13:19.149Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="鐵人賽系列文章- Day26 - kubelet Plugin 介紹">
+<meta name="twitter:description" content="ITHOME-2020 系列文章">
+
+<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-26.html">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>鐵人賽系列文章- Day26 - kubelet Plugin 介紹 | Hwchiu Learning Note</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+    <script>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-54006186-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta custom-logo">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Hwchiu Learning Note</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <a>
+        <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+      </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+  <a href="https://github.com/hwchiu" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-26.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          鐵人賽系列文章- Day26 - kubelet Plugin 介紹
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2021-02-03 14:11:10" itemprop="dateCreated datePublished" datetime="2021-02-03T14:11:10-08:00">2021-02-03</time>
+            </span>
+
+          
+            <span class="post-meta-item" title="Views">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-users"></i>
+              </span>
+              <span class="post-meta-item-text">Views: </span>
+              <span class="firestore-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/ithome-20202-cicd-26.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="ithome-20202-cicd-26.html" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">ITHOME-2020 系列文章</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>最後幾天，我們就來介紹一些操作 Kubernetes 上可能會使用到的工具，這些工具對於開發者，對於叢集管理者都可能會有一些便利的好處，畢竟在操作上如果可以用更快的時間做出需要的事情，找出需要的事情，其實整體工作效率會更高</p>
+<p>今天要來介紹的 kubectl plugin 的生態，有興趣瞭解更多的可以到 <a href="https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/" target="_blank" rel="noopener">Extend kubectl with plugins</a> 去瞭解更多</p>
+<h1 id="架構"><a href="#架構" class="headerlink" title="架構"></a>架構</h1><p>Kubectl plugins 的生態非常簡單，基本上就是用一堆執行檔組合再一起即可，只要將該執行檔放到一個你當前系統上 <code>$PATH</code></p>
+<p>可以執行到的位置，並且將該檔案命名為 <code>kubectl-</code> 即可</p>
+<h1 id="示範"><a href="#示範" class="headerlink" title="示範"></a>示範</h1><p>接下來用一個快速範例來示範，準備一個 kubectl-ithome 的檔案</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">$ cat kubectl-ithome</span><br><span class="line"><span class="meta">#!/bin/bash</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># optional argument handling</span></span><br><span class="line"><span class="keyword">if</span> [[ <span class="string">"<span class="variable">$1</span>"</span> == <span class="string">"version"</span> ]]</span><br><span class="line"><span class="keyword">then</span></span><br><span class="line">    <span class="built_in">echo</span> <span class="string">"1.0.0"</span></span><br><span class="line">    <span class="built_in">exit</span> 0</span><br><span class="line"><span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># optional argument handling</span></span><br><span class="line"><span class="keyword">if</span> [[ <span class="string">"<span class="variable">$1</span>"</span> == <span class="string">"post"</span> ]]</span><br><span class="line"><span class="keyword">then</span></span><br><span class="line">    <span class="built_in">echo</span> <span class="string">"day 26"</span></span><br><span class="line">    <span class="built_in">exit</span> 0</span><br><span class="line"><span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> <span class="string">"I am a plugin named kubectl-ithome"</span></span><br></pre></td></tr></table></figure>
+<p>接下來將該檔案設定為可執行並且放到一個 <code>$PATH</code> 指向的位置</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">$ chmod 755 kubectl-ithome</span><br><span class="line">$ sudo mv kubectl-ithome /usr/<span class="built_in">local</span>/bin/</span><br><span class="line">$ kubectl ithome version</span><br><span class="line">1.0.0</span><br><span class="line">$ kubectl ithome post</span><br><span class="line">day 26</span><br></pre></td></tr></table></figure>
+<p>可以看到使用上非常簡單，就是準備一個執行檔案並且設定相關的權限與位置就好</p>
+<h2 id="探索"><a href="#探索" class="headerlink" title="探索"></a>探索</h2><p>因為其架構非常簡單，所以只要執行 <code>kubectl plugin list</code>，預設情況下會因為沒有安裝任何的東西，執行結果就不會找到任何東西</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl plugin list</span><br><span class="line">Unable <span class="built_in">read</span> directory <span class="string">"/home/ubuntu/go/bin"</span> from your PATH: open /home/ubuntu/go/bin: no such file or directory. Skipping...</span><br><span class="line">error: unable to find any kubectl plugins <span class="keyword">in</span> your PATH</span><br></pre></td></tr></table></figure>
+<p>但是如果每次要安裝這些 plugin 都要自己想辦法去找這些執行檔，並且放到系統環境下其實滿累的。</p>
+<p>所以這時候我們就可以使用 <code>krew</code> 這套系統來幫忙管理整個 kubectl plugin, 等等就來試試看相關功能</p>
+<h2 id="限制"><a href="#限制" class="headerlink" title="限制"></a>限制</h2><p>要注意的是因為 kubectl 本身已經有很多子指令可以使用了，因此這些 Plugin 不能覆蓋這些子指令，譬如不能創造一個 <code>kubectl-get</code> 來取代 <code>kubectl get</code> 之類的，不過對於非開發者來說，這些限制可以忽略，專注於如何找尋現存的 plugin 並且使用到日常工作中即可</p>
+<h1 id="Krew"><a href="#Krew" class="headerlink" title="Krew"></a>Krew</h1><p>Krew 的官方說明如下</p>
+<blockquote>
+<p>Krew is the package manager for kubectl plugins.</p>
+</blockquote>
+<blockquote>
+<p>Krew is a tool that makes it easy to use <a href="https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/" target="_blank" rel="noopener">kubectl plugins</a>. Krew helps you discover plugins, install and manage them on your machine. It is similar to tools like apt, dnf or <a href="http://brew.sh/" target="_blank" rel="noopener">brew</a>. Today, over <a href="http://sigs.k8s.io/krew-index/plugins.md" target="_blank" rel="noopener">70 kubectl plugins</a> are available on Krew.</p>
+</blockquote>
+<p>根據說明目前已經超過 70 個以上的 plugin, 因此我們接下來就從中挑幾個有趣的來玩看看</p>
+<h2 id="安裝"><a href="#安裝" class="headerlink" title="安裝"></a>安裝</h2><p>首先我們要先安裝 Krew, 基本上 Krew 也會變成一個 kubectl plugin ，之後會透過 <code>kubectl krew</code> 來管理</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ (</span><br><span class="line">  <span class="built_in">set</span> -x; <span class="built_in">cd</span> <span class="string">"<span class="variable">$(mktemp -d)</span>"</span> &amp;&amp;</span><br><span class="line">  curl -fsSLO <span class="string">"https://github.com/kubernetes-sigs/krew/releases/latest/download/krew.tar.gz"</span> &amp;&amp;</span><br><span class="line">  tar zxvf krew.tar.gz &amp;&amp;</span><br><span class="line">  KREW=./krew-<span class="string">"<span class="variable">$(uname | tr '[:upper:]' '[:lower:]')</span>_amd64"</span> &amp;&amp;</span><br><span class="line">  <span class="string">"<span class="variable">$KREW</span>"</span> install krew</span><br><span class="line">)</span><br><span class="line">$ <span class="built_in">export</span> PATH=<span class="string">"<span class="variable">$&#123;KREW_ROOT:-$HOME/.krew&#125;</span>/bin:<span class="variable">$PATH</span>"</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl krew</span><br><span class="line">krew is the kubectl plugin manager.</span><br><span class="line">You can invoke krew through kubectl: <span class="string">"kubectl krew [command]..."</span></span><br><span class="line"></span><br><span class="line">Usage:</span><br><span class="line">  kubectl krew [<span class="built_in">command</span>]</span><br><span class="line"></span><br><span class="line">Available Commands:</span><br><span class="line">  <span class="built_in">help</span>        Help about any <span class="built_in">command</span></span><br><span class="line">  index       Manage custom plugin indexes</span><br><span class="line">  info        Show information about an available plugin</span><br><span class="line">  install     Install kubectl plugins</span><br><span class="line">  list        List installed kubectl plugins</span><br><span class="line">  search      Discover kubectl plugins</span><br><span class="line">  uninstall   Uninstall plugins</span><br><span class="line">  update      Update the <span class="built_in">local</span> copy of the plugin index</span><br><span class="line">  upgrade     Upgrade installed plugins to newer versions</span><br><span class="line">  version     Show krew version and diagnostics</span><br><span class="line"></span><br><span class="line">Flags:</span><br><span class="line">  -h, --<span class="built_in">help</span>      <span class="built_in">help</span> <span class="keyword">for</span> krew</span><br><span class="line">  -v, --v Level   number <span class="keyword">for</span> the <span class="built_in">log</span> level verbosity</span><br><span class="line"></span><br><span class="line">Use <span class="string">"kubectl krew [command] --help"</span> <span class="keyword">for</span> more information about a <span class="built_in">command</span>.</span><br></pre></td></tr></table></figure>
+<p>Krew 底下滿多指令的，我們等等會透過 <code>search</code> 來探索全部 plugins 並且透過 <code>install</code> 來安裝</p>
+<h2 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h2><p>搜尋上非常簡單，透過 <code>kubectl krew search</code> 去列出目前</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl krew search</span><br><span class="line">NAME                            DESCRIPTION                                         INSTALLED</span><br><span class="line">access-matrix                   Show an RBAC access matrix <span class="keyword">for</span> server resources     no</span><br><span class="line">advise-psp                      Suggests PodSecurityPolicies <span class="keyword">for</span> cluster.           no</span><br><span class="line">apparmor-manager                Manage AppArmor profiles <span class="keyword">for</span> cluster.               no</span><br><span class="line">auth-proxy                      Authentication proxy to a pod or service            no</span><br><span class="line">bd-xray                         Run Black Duck Image Scans                          no</span><br><span class="line">bulk-action                     Do bulk actions on Kubernetes resources.            no</span><br><span class="line">ca-cert                         Print the PEM CA certificate of the current clu...  no</span><br><span class="line">capture                         Triggers a Sysdig capture to troubleshoot the r...  no</span><br><span class="line">cert-manager                    Manage cert-manager resources inside your cluster   no</span><br><span class="line">change-ns                       View or change the current namespace via kubectl.   no</span><br><span class="line">cilium                          Easily interact with Cilium agents.                 no</span><br><span class="line">cluster-group                   Exec commands across a group of contexts.           no</span><br><span class="line">config-cleanup                  Automatically clean up your kubeconfig              no</span><br><span class="line">cssh                            SSH into Kubernetes nodes                           no</span><br><span class="line">ctx                             Switch between contexts <span class="keyword">in</span> your kubeconfig          no</span><br><span class="line">custom-cols                     A <span class="string">"kubectl get"</span> replacement with customizable c...  no</span><br><span class="line">datadog                         Manage the Datadog Operator                         no</span><br><span class="line">debug                           Attach ephemeral debug container to running pod     no</span><br><span class="line">debug-shell                     Create pod with interactive kube-shell.             no</span><br><span class="line">deprecations                    Checks <span class="keyword">for</span> deprecated objects <span class="keyword">in</span> a cluster          no</span><br><span class="line">df-pv                           Show disk usage (like unix df) <span class="keyword">for</span> persistent v...  no</span><br><span class="line">doctor                          Scans your cluster and reports anomalies.           no</span><br><span class="line">duck                            List custom resources with ducktype support         no</span><br><span class="line">edit-status                     Edit /status subresources of CRs                    no</span><br><span class="line">eksporter                       Export resources and removes a pre-defined <span class="built_in">set</span> ...  no</span><br><span class="line">emit-event                      Emit Kubernetes Events <span class="keyword">for</span> the requested object     no</span><br><span class="line">evict-pod                       Evicts the given pod                                no</span><br><span class="line">example                         Prints out example manifest YAMLs                   no</span><br><span class="line"><span class="built_in">exec</span>-as                         Like kubectl <span class="built_in">exec</span>, but offers a `user` flag to ...  no</span><br><span class="line"><span class="built_in">exec</span>-cronjob                    Run a CronJob immediately as Job                    no</span><br><span class="line">fields                          Grep resources hierarchy by field name              no</span><br><span class="line">flame                           Generate CPU flame graphs from pods                 no</span><br><span class="line">fleet                           Shows config and resources of a fleet of clusters   no</span><br><span class="line">fuzzy                           Fuzzy and partial string search <span class="keyword">for</span> kubectl         no</span><br><span class="line">gadget                          Gadgets <span class="keyword">for</span> debugging and introspecting apps        no</span><br><span class="line">get-all                         Like `kubectl get all` but _really_ everything      no</span><br><span class="line">gke-credentials                 Fetch credentials <span class="keyword">for</span> GKE clusters                  no</span><br><span class="line">gopass                          Imports secrets from gopass                         no</span><br><span class="line">graph                           Visualize Kubernetes resources and relationships.   no</span><br><span class="line">grep                            Filter Kubernetes resources by matching their n...  no</span><br><span class="line">gs                              Handle custom resources with Giant Swarm            no</span><br><span class="line">iexec                           Interactive selection tool <span class="keyword">for</span> `kubectl <span class="built_in">exec</span>`       no</span><br><span class="line">images                          Show container images used <span class="keyword">in</span> the cluster.          no</span><br><span class="line">ingress-nginx                   Interact with ingress-nginx                         no</span><br><span class="line">ipick                           A kubectl wrapper <span class="keyword">for</span> interactive resource sele...  no</span><br><span class="line">konfig                          Merge, split or import kubeconfig files             no</span><br><span class="line">krew                            Package manager <span class="keyword">for</span> kubectl plugins.                yes</span><br><span class="line">kubesec-scan                    Scan Kubernetes resources with kubesec.io.          no</span><br><span class="line">kudo                            Declaratively build, install, and run operators...  no</span><br><span class="line">kuttl                           Declaratively run and <span class="built_in">test</span> operators                no</span><br><span class="line">kyverno                         Kyverno is a policy engine <span class="keyword">for</span> kubernetes           no</span><br><span class="line">match-name                      Match names of pods and other API objects           no</span><br><span class="line">modify-secret                   modify secret with implicit base64 translations     no</span><br><span class="line">mtail                           Tail logs from multiple pods matching label sel...  no</span><br><span class="line">neat                            Remove clutter from Kubernetes manifests to mak...  no</span><br><span class="line">net-forward                     Proxy to arbitrary TCP services on a cluster ne...  no</span><br><span class="line">node-admin                      List nodes and run privileged pod with chroot       no</span><br><span class="line">node-restart                    Restart cluster nodes sequentially and gracefully   no</span><br><span class="line">node-shell                      Spawn a root shell on a node via kubectl            no</span><br><span class="line">np-viewer                       Network Policies rules viewer                       no</span><br><span class="line">ns                              Switch between Kubernetes namespaces                no</span><br><span class="line">oidc-login                      Log <span class="keyword">in</span> to the OpenID Connect provider               no</span><br><span class="line">open-svc                        Open the Kubernetes URL(s) <span class="keyword">for</span> the specified se...  no</span><br><span class="line">operator                        Manage operators with Operator Lifecycle Manager    no</span><br><span class="line">oulogin                         Login to a cluster via OpenUnison                   no</span><br><span class="line">outdated                        Finds outdated container images running <span class="keyword">in</span> a cl...  no</span><br><span class="line">passman                         Store kubeconfig credentials <span class="keyword">in</span> keychains or pa...  no</span><br><span class="line">pod-dive                        Shows a pod<span class="string">'s workload tree and info inside a node  no</span></span><br><span class="line"><span class="string">pod-logs                        Display a list of pods to get logs from             no</span></span><br><span class="line"><span class="string">pod-shell                       Display a list of pods to execute a shell in        no</span></span><br><span class="line"><span class="string">podevents                       Show events for pods                                no</span></span><br><span class="line"><span class="string">popeye                          Scans your clusters for potential resource issues   no</span></span><br><span class="line"><span class="string">preflight                       Executes application preflight tests in a cluster   no</span></span><br><span class="line"><span class="string">profefe                         Gather and manage pprof profiles from running pods  no</span></span><br><span class="line"><span class="string">prompt                          Prompts for user confirmation when executing co...  no</span></span><br><span class="line"><span class="string">prune-unused                    Prune unused resources                              no</span></span><br><span class="line"><span class="string">psp-util                        Manage Pod Security Policy(PSP) and the related...  no</span></span><br><span class="line"><span class="string">rbac-lookup                     Reverse lookup for RBAC                             no</span></span><br><span class="line"><span class="string">rbac-view                       A tool to visualize your RBAC permissions.          no</span></span><br><span class="line"><span class="string">resource-capacity               Provides an overview of resource requests, limi...  no</span></span><br><span class="line"><span class="string">resource-snapshot               Prints a snapshot of nodes, pods and HPAs resou...  no</span></span><br><span class="line"><span class="string">restart                         Restarts a pod with the given name                  no</span></span><br><span class="line"><span class="string">rm-standalone-pods              Remove all pods without owner references            no</span></span><br><span class="line"><span class="string">rolesum                         Summarize RBAC roles for subjects                   no</span></span><br><span class="line"><span class="string">roll                            Rolling restart of all persistent pods in a nam...  no</span></span><br><span class="line"><span class="string">schemahero                      Declarative database schema migrations via YAML     no</span></span><br><span class="line"><span class="string">score                           Kubernetes static code analysis.                    no</span></span><br><span class="line"><span class="string">service-tree                    Status for ingresses, services, and their backends  no</span></span><br><span class="line"><span class="string">sick-pods                       Find and debug Pods that are "Not Ready"            no</span></span><br><span class="line"><span class="string">snap                            Delete half of the pods in a namespace or cluster   no</span></span><br><span class="line"><span class="string">sniff                           Start a remote packet capture on pods using tcp...  no</span></span><br><span class="line"><span class="string">sort-manifests                  Sort manifest files in a proper order by Kind       no</span></span><br><span class="line"><span class="string">split-yaml                      Split YAML output into one file per resource.       no</span></span><br><span class="line"><span class="string">spy                             pod debugging tool for kubernetes clusters with...  no</span></span><br><span class="line"><span class="string">sql                             Query the cluster via pseudo-SQL                    no</span></span><br><span class="line"><span class="string">ssh-jump                        A kubectl plugin to SSH into Kubernetes nodes u...  no</span></span><br><span class="line"><span class="string">sshd                            Run SSH server in a Pod                             no</span></span><br><span class="line"><span class="string">ssm-secret                      Import/export secrets from/to AWS SSM param store   no</span></span><br><span class="line"><span class="string">starboard                       Toolkit for finding risks in kubernetes resources   no</span></span><br><span class="line"><span class="string">status                          Show status details of a given resource.            no</span></span><br><span class="line"><span class="string">sudo                            Run Kubernetes commands impersonated as group s...  no</span></span><br><span class="line"><span class="string">support-bundle                  Creates support bundles for off-cluster analysis    no</span></span><br><span class="line"><span class="string">tail                            Stream logs from multiple pods and containers u...  no</span></span><br><span class="line"><span class="string">tap                             Interactively proxy Kubernetes Services with ease   no</span></span><br><span class="line"><span class="string">tmux-exec                       An exec multiplexer using Tmux                      no</span></span><br><span class="line"><span class="string">topology                        Explore region topology for nodes or pods           no</span></span><br><span class="line"><span class="string">trace                           bpftrace programs in a cluster                      no</span></span><br><span class="line"><span class="string">tree                            Show a tree of object hierarchies through owner...  no</span></span><br><span class="line"><span class="string">unused-volumes                  List unused PVCs                                    no</span></span><br><span class="line"><span class="string">view-allocations                List allocations per resources, nodes, pods.        no</span></span><br><span class="line"><span class="string">view-secret                     Decode Kubernetes secrets                           no</span></span><br><span class="line"><span class="string">view-serviceaccount-kubeconfig  Show a kubeconfig setting to access the apiserv...  no</span></span><br><span class="line"><span class="string">view-utilization                Shows cluster cpu and memory utilization            no</span></span><br><span class="line"><span class="string">virt                            Control KubeVirt virtual machines using virtctl     no</span></span><br><span class="line"><span class="string">warp                            Sync and execute local files in Pod                 no</span></span><br><span class="line"><span class="string">who-can                         Shows who has RBAC permissions to access Kubern...  no</span></span><br><span class="line"><span class="string">whoami                          Show the subject that'</span>s currently authenticated...  no</span><br></pre></td></tr></table></figure>
+<p>如果覺得上面資訊太多，也可以傳遞第二個參數來過濾，譬如</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl krew search pod</span><br><span class="line">NAME                DESCRIPTION                                         INSTALLED</span><br><span class="line">evict-pod           Evicts the given pod                                no</span><br><span class="line">pod-dive            Shows a pod<span class="string">'s workload tree and info inside a node  no</span></span><br><span class="line"><span class="string">pod-logs            Display a list of pods to get logs from             no</span></span><br><span class="line"><span class="string">pod-shell           Display a list of pods to execute a shell in        no</span></span><br><span class="line"><span class="string">podevents           Show events for pods                                no</span></span><br><span class="line"><span class="string">rm-standalone-pods  Remove all pods without owner references            no</span></span><br><span class="line"><span class="string">sick-pods           Find and debug Pods that are "Not Ready"            no</span></span><br><span class="line"><span class="string">support-bundle      Creates support bundles for off-cluster analysis    no</span></span><br></pre></td></tr></table></figure>
+<p>下一篇我們就來從中挑選一些有趣的 plugin 玩看看</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>詳細可以參閱<br>矽谷年線上學院<br><a href="https://course.hwchiu.com" target="_blank" rel="noopener">https://course.hwchiu.com</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
+
+    </div>
+
+    
+    
+    
+      
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-24.html" rel="bookmark">鐵人賽系列文章- Day 24 - Secret 的部署問題與參考解法(下)</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-23.html" rel="bookmark">鐵人賽系列文章- Day 23 - Secret 的部署問題與參考解法(上)</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-22.html" rel="bookmark">鐵人賽系列文章- Day 22 - 自架 Registry 與 Kubernetes 的整合</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-21.html" rel="bookmark">鐵人賽系列文章- Day 21 - 自架 Registry - Harbor</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-20.html" rel="bookmark">鐵人賽系列文章- Day 20 - Container Registry 的方案介紹</a></div>
+    </li>
+  </ul>
+
+        
+
+  <div class="followme">
+    <p>Welcome to my other publishing channels</p>
+
+    <div class="social-list">
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+        </div>
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+        </div>
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+        </div>
+    </div>
+  </div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/ithome-20202-cicd-24.html" rel="prev" title="鐵人賽系列文章- Day 24 - Secret 的部署問題與參考解法(下)">
+      <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day 24 - Secret 的部署問題與參考解法(下)
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  <div class="comments">
+    <div id="disqus_thread">
+      <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+    </div>
+  </div>
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#架構"><span class="nav-number">1.</span> <span class="nav-text">架構</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#示範"><span class="nav-number">2.</span> <span class="nav-text">示範</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#探索"><span class="nav-number">2.1.</span> <span class="nav-text">探索</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#限制"><span class="nav-number">2.2.</span> <span class="nav-text">限制</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Krew"><span class="nav-number">3.</span> <span class="nav-text">Krew</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#安裝"><span class="nav-number">3.1.</span> <span class="nav-text">安裝</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#使用"><span class="nav-number">3.2.</span> <span class="nav-text">使用</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">4.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">242</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">112</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https://github.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https://twitter.com/hw_chiu" rel="noopener" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/hongwei.qiu" title="FB Page → https://www.facebook.com/hongwei.qiu" rel="noopener" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" rel="noopener" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https://instagram.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+  <div class="addthis_inline_share_toolbox">
+    <script src="//s7.addthis.com/js/300/addthis_widget.js#pubid=ra-5f4ca66cef0894e1" async="async"></script>
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+  <script src="https://www.gstatic.com/firebasejs/6.3.3/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/6.3.3/firebase-firestore.js"></script>
+  <script>
+    firebase.initializeApp({
+      apiKey   : 'AIzaSyCKW4_VC3TasrnfItbUzvYuhy_EBW-aUjk',
+      projectId: 'blog-source'
+    });
+
+    function getCount(doc, increaseCount) {
+      // IncreaseCount will be false when not in article page
+      return doc.get().then(d => {
+        var count = 0;
+        if (!d.exists) { // Has no data, initialize count
+          if (increaseCount) {
+            doc.set({
+              count: 1
+            });
+            count = 1;
+          }
+        } else { // Has data
+          count = d.data().count;
+          if (increaseCount) {
+            // If first view this article
+            doc.set({ // Increase count
+              count: count + 1
+            });
+            count++;
+          }
+        }
+
+        return count;
+      });
+    }
+
+    function appendCountTo(el) {
+      return count => {
+        el.innerText = count;
+      }
+    }
+  </script>
+  <script>
+    (function() {
+      var db = firebase.firestore();
+      var articles = db.collection('articles');
+
+      if (CONFIG.page.isPost) { // Is article page
+        var title = document.querySelector('.post-title').innerText.trim();
+        var doc = articles.doc(title);
+        var increaseCount = CONFIG.hostname === location.hostname;
+        if (localStorage.getItem(title)) {
+          increaseCount = false;
+        } else {
+          // Mark as visited
+          localStorage.setItem(title, true);
+        }
+        getCount(doc, increaseCount).then(appendCountTo(document.querySelector('.firestore-visitors-count')));
+      } else if (CONFIG.page.isHome) { // Is index page
+        var promises = [...document.querySelectorAll('.post-title')].map(element => {
+          var title = element.innerText.trim();
+          var doc = articles.doc(title);
+          return getCount(doc);
+        });
+        Promise.all(promises).then(counts => {
+          var metas = document.querySelectorAll('.firestore-visitors-count');
+          counts.forEach((val, idx) => {
+            appendCountTo(metas[idx])(val);
+          });
+        });
+      }
+    })();
+  </script>
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+<script>
+  function loadCount() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://hwchiu.disqus.com/count.js';
+    s.id = 'dsq-count-scr';
+    (d.head || d.body).appendChild(s);
+  }
+  // defer loading until the whole page loading is completed
+  window.addEventListener('load', loadCount, false);
+</script>
+<script>
+  var disqus_config = function() {
+    this.page.url = "https://www.hwchiu.com/ithome-20202-cicd-26.html";
+    this.page.identifier = "ithome-20202-cicd-26.html";
+    this.page.title = "鐵人賽系列文章- Day26 - kubelet Plugin 介紹";
+    this.language = 'en';
+    };
+  NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
+    if (window.DISQUS) {
+      DISQUS.reset({
+        reload: true,
+        config: disqus_config
+      });
+    } else {
+      var d = document, s = d.createElement('script');
+      s.src = 'https://hwchiu.disqus.com/embed.js';
+      s.setAttribute('data-timestamp', '' + +new Date());
+      (d.head || d.body).appendChild(s);
+    }
+  });
+</script>
+
+</body>
+</html>
