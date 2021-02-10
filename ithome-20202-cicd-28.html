@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta name="google-site-verification" content="dmOrse_OyDnuDJK-8EcAWxeJH0fRWpNIJVSN3BNv5co">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="ITHOME-2020 系列文章">
+<meta name="keywords" content="Kubernetes,DevOps,Linux,K8s">
+<meta property="og:type" content="article">
+<meta property="og:title" content="鐵人賽系列文章- Day 28 - Kubernetes 第三方好用工具介紹">
+<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-28.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="ITHOME-2020 系列文章">
+<meta property="og:locale" content="en">
+<meta property="og:image" content="https://i.imgur.com/eOMBFcw.png">
+<meta property="og:image" content="https://i.imgur.com/yNScI5K.png">
+<meta property="og:image" content="https://i.imgur.com/GetTetQ.png">
+<meta property="og:updated_time" content="2021-02-10T05:51:49.607Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="鐵人賽系列文章- Day 28 - Kubernetes 第三方好用工具介紹">
+<meta name="twitter:description" content="ITHOME-2020 系列文章">
+<meta name="twitter:image" content="https://i.imgur.com/eOMBFcw.png">
+
+<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-28.html">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>鐵人賽系列文章- Day 28 - Kubernetes 第三方好用工具介紹 | Hwchiu Learning Note</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+    <script>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-54006186-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta custom-logo">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Hwchiu Learning Note</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <a>
+        <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+      </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+  <a href="https://github.com/hwchiu" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-28.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          鐵人賽系列文章- Day 28 - Kubernetes 第三方好用工具介紹
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2021-02-09 21:50:53" itemprop="dateCreated datePublished" datetime="2021-02-09T21:50:53-08:00">2021-02-09</time>
+            </span>
+
+          
+            <span class="post-meta-item" title="Views">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-users"></i>
+              </span>
+              <span class="post-meta-item-text">Views: </span>
+              <span class="firestore-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Disqus: </span>
+    
+    <a title="disqus" href="/ithome-20202-cicd-28.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="ithome-20202-cicd-28.html" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">ITHOME-2020 系列文章</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>今天則要來介紹一些其他關於 kubernetes 操作的好工具，每個工具都有自己適合的地方與場景，每個人就根據自己的習慣選擇</p>
+<h1 id="Stern-Kail"><a href="#Stern-Kail" class="headerlink" title="Stern/Kail"></a>Stern/Kail</h1><p>第一個要分享的工具是跟觀看 log 有關的， Kubernetes 由於提供很多個副本，同時透過 deployment/replicaset 創建出來的 Pod 名稱上面都會有一些不好閱讀的亂數，舉例來說</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl get pods</span><br><span class="line">NAME                      READY   STATUS    RESTARTS   AGE</span><br><span class="line">ithome-6564f65698-947rv   1/1     Running   0          84s</span><br><span class="line">ithome-6564f65698-fglr9   1/1     Running   0          84s</span><br><span class="line">ithome-6564f65698-k5wtg   1/1     Running   0          84s</span><br><span class="line">ithome-6564f65698-rrvk4   1/1     Running   0          84s</span><br><span class="line">ithome-6564f65698-zhwlj   1/1     Running   0          84s</span><br></pre></td></tr></table></figure>
+<p>這種情況下我們如果使用 kubectl 來觀察個別 Pod 的 log 就必須要於不同的 pod 之間來回切換，可時候有時候要除錯問題時，就希望可以同時觀看這些 Pod 的 log。</p>
+<p>因此今天要介紹的工具就是再處理這方面的需求，主要是針對多個 Pod 同時存取相關的 log 並且整理後顯示出來，這方面的工具滿多的，譬如 Stern, Kube-tail, Kail 等都可以。 而今天則是會介紹 Stern 的用法</p>
+<p>從其官網上可以看到說明</p>
+<blockquote>
+<p>Stern allows you to <code>tail</code> multiple pods on Kubernetes and multiple containers within the pod. Each result is color coded for quicker debugging.</p>
+<p>The query is a regular expression so the pod name can easily be filtered and you don’t need to specify the exact id (for instance omitting the deployment id). If a pod is deleted it gets removed from tail and if a new pod is added it automatically gets tailed.</p>
+</blockquote>
+<p>特別的是你可以透過正規表達式的方式來選擇你想要符合的 Pod</p>
+<h2 id="安裝"><a href="#安裝" class="headerlink" title="安裝"></a>安裝</h2><p>直接到官方 <a href="https://github.com/wercker/stern/releases" target="_blank" rel="noopener">Github Release Page</a> 抓去每個平台的 binary 版本</p>
+<h2 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h2><p>舉例來說，上述範例會有五個 pod，而且這五個pod的名稱都是 ithome開頭，因此我可以直接用 <code>stern ithom</code> 的方式來抓取這些 pod 的資訊，結果如下圖</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">$ stern ithome</span><br><span class="line">...</span><br><span class="line">ithome-6564f65698-zhwlj netutils Hello! 369 secs elapsed...</span><br><span class="line">ithome-6564f65698-fglr9 netutils Hello! 369 secs elapsed...</span><br><span class="line">ithome-6564f65698-947rv netutils Hello! 367 secs elapsed...</span><br><span class="line">ithome-6564f65698-k5wtg netutils Hello! 368 secs elapsed...</span><br><span class="line">ithome-6564f65698-rrvk4 netutils Hello! 369 secs elapsed...</span><br><span class="line">ithome-6564f65698-zhwlj netutils Hello! 370 secs elapsed...</span><br><span class="line">ithome-6564f65698-fglr9 netutils Hello! 370 secs elapsed...</span><br><span class="line">ithome-6564f65698-947rv netutils Hello! 368 secs elapsed...</span><br><span class="line">ithome-6564f65698-k5wtg netutils Hello! 370 secs elapsed...</span><br><span class="line">ithome-6564f65698-rrvk4 netutils Hello! 370 secs elapsed...</span><br><span class="line">ithome-6564f65698-zhwlj netutils Hello! 371 secs elapsed...</span><br><span class="line">ithome-6564f65698-fglr9 netutils Hello! 371 secs elapsed...</span><br><span class="line">ithome-6564f65698-947rv netutils Hello! 369 secs elapsed...</span><br><span class="line"></span><br><span class="line">ithome-6564f65698-k5wtg netutils Hello! 371 secs elapsed...</span><br><span class="line">ithome-6564f65698-rrvk4 netutils Hello! 371 secs elapsed...</span><br><span class="line">ithome-6564f65698-zhwlj netutils Hello! 372 secs elapsed...</span><br><span class="line">ithome-6564f65698-fglr9 netutils Hello! 372 secs elapsed...</span><br><span class="line">^C</span><br></pre></td></tr></table></figure>
+<p>實際上觀看的時候，不同 Pod 的名稱還會有不同的顏色標註，幫助使用者更快的區別這些文字。</p>
+<h1 id="K9S"><a href="#K9S" class="headerlink" title="K9S"></a>K9S</h1><p>過往總是透過 kubectl 指令於各個資源，各 namespace 間切來切去，特別是要使用 <code>exec, get, describe, logs, delete</code> 等指令時，常常打的手忙腳亂或是覺得心累，有這種困擾的人可以考慮使用看看 k9s 這個工具</p>
+<p>K9s 官網介紹</p>
+<blockquote>
+<p>K9s provides a terminal UI to interact with your Kubernetes clusters. The aim of this project is to make it easier to navigate, observe and manage your applications in the wild. K9s continually watches Kubernetes for changes and offers subsequent commands to interact with your observed resources.</p>
+</blockquote>
+<p>基本上就是基於 Terminal 去提供一個友善的操作畫面，讓你可以透過鍵盤來輕鬆的完成上面提到的事情，不論是切換 namespace, 砍掉資源，執行 Shell, 觀看 log 等都可以輕鬆達成。</p>
+<h2 id="使用-1"><a href="#使用-1" class="headerlink" title="使用"></a>使用</h2><p>上述五個 pod 的範例透過 k9s 執行後可以得到下面的畫面，畫面中可以清楚地看到</p>
+<ol>
+<li>Pod 的名稱</li>
+<li>有沒有開 Port-Forward</li>
+<li>當前 Continers’s READY 狀態</li>
+<li>當前 Pod 狀態</li>
+<li>當前 IP</li>
+<li>運行節點資訊</li>
+<li>存活時間<br>這些指令其實都可以用 kubectl 獲得，但是操作起來可能就相對繁瑣，需要比較多的指令</li>
+</ol>
+<p><img src="https://i.imgur.com/eOMBFcw.png" alt></p>
+<p>此外畫面上方還會有一些基本資訊，譬如 Context/Cluster/User 等 Kubeconfig 內的資訊，右邊還有可以使用的快捷鍵，除了上述提到的功能之外，還可以透過 <code>port-forward</code> 來使用，個人覺得相當不錯。</p>
+<p><img src="https://i.imgur.com/yNScI5K.png" alt></p>
+<p>一路往下點選後，還可以看到每個 Pod 裡面每個 Container 各自的 log, 使用上非常方便，過往有多個 containers 的時候都要於 <code>kubectl logs -f $Pod_name -c $container_name</code> 來讀取，特別是沒有仔細去看 Pod 的設定都會忘記 Container Name，這時候又要再跑別的指令查詢一次。</p>
+<p><img src="https://i.imgur.com/GetTetQ.png" alt></p>
+<p>透過 k9s 這工具可以提供一個滿不錯的視窗管理工具，讓你一目了然 kubernetes 當前的狀態，並且提供基本功能讓你進行操作</p>
+<h1 id="Ksniff"><a href="#Ksniff" class="headerlink" title="Ksniff"></a>Ksniff</h1><p>接下來要介紹的是一個抓取網路封包的工具，過往我們分析封包的時候都會使用 tcpdupm 或是 wireshark 這些工具來輔助，而 Ksniff 就是一個將這些工具整合到 Kubernetes 系統內的工具</p>
+<p>Ksniff 的介紹如下</p>
+<blockquote>
+<p>A kubectl plugin that utilize tcpdump and Wireshark to start a remote capture on any pod in your Kubernetes cluster.</p>
+<p>You get the full power of Wireshark with minimal impact on your running pods.</p>
+</blockquote>
+<p>基本上本身也是一個 kubectl 的 plugin ，所以也是可以透過前述的 krew 來安裝管理。這邊就不再贅述其安裝過程</p>
+<h2 id="使用-2"><a href="#使用-2" class="headerlink" title="使用"></a>使用</h2><p>其使用上的概念是，選擇一個想要觀察的 Pod，然後 Ksniff 這個工具會嘗試幫你將 tcpdump 的執行檔案給複製到該 Pod的某個 Container 裡面(預設是第一個)，接下來根據你的參數幫你運行 tcpdump，最後將結果複製出來到本機上面的 wireshark 來呈現。</p>
+<p>但是假如系統中沒有 wireshark 可以呈現這些結果，可以改用命令列的工具，譬如 tshark 來取代</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">$ sudo apt install tshark</span><br><span class="line">$ kubectl sniff ithome-6564f65698-947rv -o - | tshark -r -</span><br><span class="line">$ kubectl sniff ithome-6564f65698-947rv -o - | tshark -r -</span><br><span class="line">INFO[0000] sniffing method: upload static tcpdump</span><br><span class="line">INFO[0000] using tcpdump path at: <span class="string">'/home/ubuntu/.krew/store/sniff/v1.4.2/static-tcpdump'</span></span><br><span class="line">INFO[0000] no container specified, taking first container we found <span class="keyword">in</span> pod.</span><br><span class="line">INFO[0000] selected container: <span class="string">'netutils'</span></span><br><span class="line">INFO[0000] sniffing on pod: <span class="string">'ithome-6564f65698-947rv'</span> [namespace: <span class="string">'default'</span>, container: <span class="string">'netutils'</span>, filter: <span class="string">''</span>, interface: <span class="string">'any'</span>]</span><br><span class="line">INFO[0000] uploading static tcpdump binary from: <span class="string">'/home/ubuntu/.krew/store/sniff/v1.4.2/static-tcpdump'</span> to: <span class="string">'/tmp/static-tcpdump'</span></span><br><span class="line">INFO[0000] uploading file: <span class="string">'/home/ubuntu/.krew/store/sniff/v1.4.2/static-tcpdump'</span> to <span class="string">'/tmp/static-tcpdump'</span> on container: <span class="string">'netutils'</span></span><br><span class="line">INFO[0000] executing <span class="built_in">command</span>: <span class="string">'[/bin/sh -c ls -alt /tmp/static-tcpdump]'</span> on container: <span class="string">'netutils'</span>, pod: <span class="string">'ithome-6564f65698-947rv'</span>, namespace: <span class="string">'default'</span></span><br><span class="line">INFO[0000] <span class="built_in">command</span>: <span class="string">'[/bin/sh -c ls -alt /tmp/static-tcpdump]'</span> executing successfully exitCode: <span class="string">'0'</span>, stdErr :<span class="string">''</span></span><br><span class="line">INFO[0000] file found: <span class="string">'-rwxr-xr-x 1 root root 2696368 Jan  1  1970 /tmp/static-tcpdump</span></span><br><span class="line"><span class="string">'</span></span><br><span class="line">INFO[0000] file was already found on remote pod</span><br><span class="line">INFO[0000] tcpdump uploaded successfully</span><br><span class="line">INFO[0000] output file option specified, storing output <span class="keyword">in</span>: <span class="string">'-'</span></span><br><span class="line">INFO[0000] start sniffing on remote container</span><br><span class="line">INFO[0000] executing <span class="built_in">command</span>: <span class="string">'[/tmp/static-tcpdump -i any -U -w - ]'</span> on container: <span class="string">'netutils'</span>, pod: <span class="string">'ithome-6564f65698-947rv'</span>, namespace: <span class="string">'default'</span></span><br></pre></td></tr></table></figure>
+<p>從上面可以觀察到這些資訊就代表系統開始運行了，這時候我們可以開啟第二個視窗，進入到該 Container 內透過 <code>ping 8.8.8.8</code> 往外送封包，並且觀察上述的輸出</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl <span class="built_in">exec</span> ithome-6564f65698-947rv -- ping 8.8.8.8</span><br><span class="line">PING 8.8.8.8 (8.8.8.8) 56(84) bytes of data.</span><br><span class="line">64 bytes from 8.8.8.8: icmp_seq=1 ttl=97 time=9.42 ms</span><br><span class="line">64 bytes from 8.8.8.8: icmp_seq=2 ttl=97 time=9.44 ms</span><br><span class="line">64 bytes from 8.8.8.8: icmp_seq=3 ttl=97 time=9.36 ms</span><br><span class="line">...</span><br><span class="line">------</span><br><span class="line">$ kubectl sniff ithome-6564f65698-947rv -o - | tshark -r -</span><br><span class="line">...</span><br><span class="line">    2  38.393757   10.244.1.8 → 8.8.8.8      ICMP 100 Echo (ping) request  id=0x04f5, seq=1/256, ttl=64</span><br><span class="line">    3  38.403163      8.8.8.8 → 10.244.1.8   ICMP 100 Echo (ping) reply    id=0x04f5, seq=1/256, ttl=97 (request <span class="keyword">in</span> 2)</span><br><span class="line">    4  39.394274   10.244.1.8 → 8.8.8.8      ICMP 100 Echo (ping) request  id=0x04f5, seq=2/512, ttl=64</span><br><span class="line">    5  39.403697      8.8.8.8 → 10.244.1.8   ICMP 100 Echo (ping) reply    id=0x04f5, seq=2/512, ttl=97 (request <span class="keyword">in</span> 4)</span><br><span class="line">    6  40.395882   10.244.1.8 → 8.8.8.8      ICMP 100 Echo (ping) request  id=0x04f5, seq=3/768, ttl=64</span><br><span class="line">    7  40.405230      8.8.8.8 → 10.244.1.8   ICMP 100 Echo (ping) reply    id=0x04f5, seq=3/768, ttl=97 (request <span class="keyword">in</span> 6)</span><br><span class="line">    8  41.397387   10.244.1.8 → 8.8.8.8      ICMP 100 Echo (ping) request  id=0x04f5, seq=4/1024, ttl=64</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<p>可以看到另外一個視窗很及時地將相關的封包內容都給顯示出來。</p>
+<p>我認為這個工具最方便的地方就是幫你上傳 tcpdump 的檔案，因為大部分的 Container 內建都沒有這個執行檔案，甚至也不好安裝，所以要錄製封包的時候都不太方便，然而透過這個工具可以幫忙解決這個問題</p>
+<p>除此之外還有很多有趣好用的工具，就留待大家自己挖掘囉</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>詳細可以參閱<br>矽谷年線上學院<br><a href="https://course.hwchiu.com" target="_blank" rel="noopener">https://course.hwchiu.com</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a href="https://t.me/technologynote" target="_blank" rel="noopener">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0"></script>
+
+    </div>
+
+    
+    
+    
+      
+  <div class="popular-posts-header">Related Posts</div>
+  <ul class="popular-posts">
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-27.html" rel="bookmark">鐵人賽系列文章- Day27 - Kubernetes plugin 範例</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-26.html" rel="bookmark">鐵人賽系列文章- Day26 - kubelet Plugin 介紹</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-24.html" rel="bookmark">鐵人賽系列文章- Day 24 - Secret 的部署問題與參考解法(下)</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-23.html" rel="bookmark">鐵人賽系列文章- Day 23 - Secret 的部署問題與參考解法(上)</a></div>
+    </li>
+    <li class="popular-posts-item">
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-22.html" rel="bookmark">鐵人賽系列文章- Day 22 - 自架 Registry 與 Kubernetes 的整合</a></div>
+    </li>
+  </ul>
+
+        
+
+  <div class="followme">
+    <p>Welcome to my other publishing channels</p>
+
+    <div class="social-list">
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+        </div>
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+        </div>
+
+        <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+        </div>
+    </div>
+  </div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/ithome-20202-cicd-27.html" rel="prev" title="鐵人賽系列文章- Day27 - Kubernetes plugin 範例">
+      <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day27 - Kubernetes plugin 範例
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  <div class="comments">
+    <div id="disqus_thread">
+      <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
+    </div>
+  </div>
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Stern-Kail"><span class="nav-number">1.</span> <span class="nav-text">Stern/Kail</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#安裝"><span class="nav-number">1.1.</span> <span class="nav-text">安裝</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#使用"><span class="nav-number">1.2.</span> <span class="nav-text">使用</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#K9S"><span class="nav-number">2.</span> <span class="nav-text">K9S</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#使用-1"><span class="nav-number">2.1.</span> <span class="nav-text">使用</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Ksniff"><span class="nav-number">3.</span> <span class="nav-text">Ksniff</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#使用-2"><span class="nav-number">3.1.</span> <span class="nav-text">使用</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">4.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">244</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">112</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https://github.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https://twitter.com/hw_chiu" rel="noopener" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/hongwei.qiu" title="FB Page → https://www.facebook.com/hongwei.qiu" rel="noopener" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" rel="noopener" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https://instagram.com/hwchiu" rel="noopener" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+  <div class="addthis_inline_share_toolbox">
+    <script src="//s7.addthis.com/js/300/addthis_widget.js#pubid=ra-5f4ca66cef0894e1" async="async"></script>
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+  <script src="https://www.gstatic.com/firebasejs/6.3.3/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/6.3.3/firebase-firestore.js"></script>
+  <script>
+    firebase.initializeApp({
+      apiKey   : 'AIzaSyCKW4_VC3TasrnfItbUzvYuhy_EBW-aUjk',
+      projectId: 'blog-source'
+    });
+
+    function getCount(doc, increaseCount) {
+      // IncreaseCount will be false when not in article page
+      return doc.get().then(d => {
+        var count = 0;
+        if (!d.exists) { // Has no data, initialize count
+          if (increaseCount) {
+            doc.set({
+              count: 1
+            });
+            count = 1;
+          }
+        } else { // Has data
+          count = d.data().count;
+          if (increaseCount) {
+            // If first view this article
+            doc.set({ // Increase count
+              count: count + 1
+            });
+            count++;
+          }
+        }
+
+        return count;
+      });
+    }
+
+    function appendCountTo(el) {
+      return count => {
+        el.innerText = count;
+      }
+    }
+  </script>
+  <script>
+    (function() {
+      var db = firebase.firestore();
+      var articles = db.collection('articles');
+
+      if (CONFIG.page.isPost) { // Is article page
+        var title = document.querySelector('.post-title').innerText.trim();
+        var doc = articles.doc(title);
+        var increaseCount = CONFIG.hostname === location.hostname;
+        if (localStorage.getItem(title)) {
+          increaseCount = false;
+        } else {
+          // Mark as visited
+          localStorage.setItem(title, true);
+        }
+        getCount(doc, increaseCount).then(appendCountTo(document.querySelector('.firestore-visitors-count')));
+      } else if (CONFIG.page.isHome) { // Is index page
+        var promises = [...document.querySelectorAll('.post-title')].map(element => {
+          var title = element.innerText.trim();
+          var doc = articles.doc(title);
+          return getCount(doc);
+        });
+        Promise.all(promises).then(counts => {
+          var metas = document.querySelectorAll('.firestore-visitors-count');
+          counts.forEach((val, idx) => {
+            appendCountTo(metas[idx])(val);
+          });
+        });
+      }
+    })();
+  </script>
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+<script>
+  function loadCount() {
+    var d = document, s = d.createElement('script');
+    s.src = 'https://hwchiu.disqus.com/count.js';
+    s.id = 'dsq-count-scr';
+    (d.head || d.body).appendChild(s);
+  }
+  // defer loading until the whole page loading is completed
+  window.addEventListener('load', loadCount, false);
+</script>
+<script>
+  var disqus_config = function() {
+    this.page.url = "https://www.hwchiu.com/ithome-20202-cicd-28.html";
+    this.page.identifier = "ithome-20202-cicd-28.html";
+    this.page.title = "鐵人賽系列文章- Day 28 - Kubernetes 第三方好用工具介紹";
+    this.language = 'en';
+    };
+  NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
+    if (window.DISQUS) {
+      DISQUS.reset({
+        reload: true,
+        config: disqus_config
+      });
+    } else {
+      var d = document, s = d.createElement('script');
+      s.src = 'https://hwchiu.disqus.com/embed.js';
+      s.setAttribute('data-timestamp', '' + +new Date());
+      (d.head || d.body).appendChild(s);
+    }
+  });
+</script>
+
+</body>
+</html>
