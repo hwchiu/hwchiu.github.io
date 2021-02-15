@@ -24,21 +24,17 @@
   <meta name="description" content="ITHOME-2020 系列文章">
 <meta name="keywords" content="Kubernetes,DevOps,Linux,K8s">
 <meta property="og:type" content="article">
-<meta property="og:title" content="鐵人賽系列文章- Day 24 - Secret 的部署問題與參考解法(下)">
-<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-24.html">
+<meta property="og:title" content="鐵人賽系列文章- Day 25 - Secret 使用範例: sealed-secrets">
+<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-25.html">
 <meta property="og:site_name" content="Hwchiu Learning Note">
 <meta property="og:description" content="ITHOME-2020 系列文章">
 <meta property="og:locale" content="en">
-<meta property="og:image" content="https://i.imgur.com/3tDZr43.jpg">
-<meta property="og:image" content="https://i.imgur.com/JTgHac7.jpg">
-<meta property="og:image" content="https://i.imgur.com/Vwcbn37.jpg">
-<meta property="og:updated_time" content="2021-02-01T02:01:15.810Z">
+<meta property="og:updated_time" content="2021-02-15T02:59:06.438Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="鐵人賽系列文章- Day 24 - Secret 的部署問題與參考解法(下)">
+<meta name="twitter:title" content="鐵人賽系列文章- Day 25 - Secret 使用範例: sealed-secrets">
 <meta name="twitter:description" content="ITHOME-2020 系列文章">
-<meta name="twitter:image" content="https://i.imgur.com/3tDZr43.jpg">
 
-<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-24.html">
+<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-25.html">
 
 
 <script id="page-configurations">
@@ -51,7 +47,7 @@
   };
 </script>
 
-  <title>鐵人賽系列文章- Day 24 - Secret 的部署問題與參考解法(下) | Hwchiu Learning Note</title>
+  <title>鐵人賽系列文章- Day 25 - Secret 使用範例: sealed-secrets | Hwchiu Learning Note</title>
   
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
     <script>
@@ -188,7 +184,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-24.html">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-25.html">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/uploads/avatar.jpg">
@@ -201,7 +197,7 @@
     </span>
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
-          鐵人賽系列文章- Day 24 - Secret 的部署問題與參考解法(下)
+          鐵人賽系列文章- Day 25 - Secret 使用範例: sealed-secrets
         </h1>
 
         <div class="post-meta">
@@ -211,7 +207,7 @@
               </span>
               <span class="post-meta-item-text">Posted on</span>
 
-              <time title="Created: 2021-01-31 18:00:31" itemprop="dateCreated datePublished" datetime="2021-01-31T18:00:31-08:00">2021-01-31</time>
+              <time title="Created: 2021-02-02 11:07:09" itemprop="dateCreated datePublished" datetime="2021-02-02T11:07:09-08:00">2021-02-02</time>
             </span>
 
           
@@ -230,8 +226,8 @@
       </span>
       <span class="post-meta-item-text">Disqus: </span>
     
-    <a title="disqus" href="/ithome-20202-cicd-24.html#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="ithome-20202-cicd-24.html" itemprop="commentCount"></span>
+    <a title="disqus" href="/ithome-20202-cicd-25.html#disqus_thread" itemprop="discussionUrl">
+      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="ithome-20202-cicd-25.html" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -247,71 +243,36 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p>前篇文章中我們探討了 CI/CD 自動化部屬中機密資訊的保存與使用議題，介紹了第一種透過 Pipeline 架構本身來處理問題，同時也探討了潛在的隱憂，而今天這篇我們將繼續從不同的架構下繼續探討解決方案</p>
-<p>開始之前，我們先複習一下，我們會有三個使用情境， <code>Helm</code>, <code>原生 Yaml</code> 以及 <code>Kustomize</code></p>
-<h1 id="Centralized-Management"><a href="#Centralized-Management" class="headerlink" title="Centralized Management"></a>Centralized Management</h1><p>這種架構會有一個 Secret 的管理者，這個管理者所在的位置影響不太大，主要問題是取決於什麼時間點使用這個管理者。</p>
-<p>相較於上一篇的架構，將這個 secret 管理者從 pipeline 系統抽離的一個好處就是我們把存取機密資訊的用法與 pipeline 系統脫離，因此未來如果需要轉換到不同平台，所花費的時間與成本會少很多，因為大部分的東西都可以共用。</p>
-<p>今天這個架構的重點是，我們將產生 secret 的發生地點往後延遲，從本來的 pipeline 系統推遲到 kubernetes 內部，當應用程式真正要部署的時候才會去動態產生這些 secret 的檔案。</p>
-<p>上述是一個概念，但是實作上可以有不同做法，舉一個範例就是，Pod 本身先賦予相關的權限能力，讓其有能力跟 Secret 管理者溝通，然後部署 Pod 的時候要去描述說 <code>資料庫的密碼放在什麼地方，什麼路徑</code>，接下來 Pod 把這些資訊拿去問給 Secret 管理者，然後管理者回覆這些資訊。</p>
-<p>也可以有不同做法是 Pod 本身其實不知道後面是接什麼系統，總之他相信會有人給他一些設定檔案，然後我們有額外的其他應用程式，或是 sidecar container 會幫忙去問 secret 管理者，問完後就產生出最後的設定檔案給應用程式使用。</p>
-<p>後者的做法比前者更好，因為對於應用程式來說，我們隱藏了背後的運作細節，這使得開發者比較容易本地端開發，用一個簡單的設定檔案就可以建立環境，同時未來要遷移到不同系統時，要改變的只有維護團隊以及那些 sidecar 的運作模式，應用程式本身邏輯都不需要更動。</p>
-<p>接下來我們嘗試將上述三種情境套入到這個架構中，看看會怎麼執行</p>
-<h3 id="Helm"><a href="#Helm" class="headerlink" title="Helm"></a>Helm</h3><ol>
-<li>一開始 Helm 裡面就要準備好相關的設定檔案，包含帳號密碼要用什麼東西問等，這部分取決於實作的需求</li>
-<li>CI/CD pipeline 運行到後面階段後，沒有什麼事情要特別處理，因此直接透過 <code>helm upgrade --install ...</code> 的方式部署到 kubernetes內部</li>
-<li>當應用程式部署進去後，應用程式或是 sidecar 就會根據當前的設定去詢問需要的機密資訊，最後產生相對應的檔案給應用程式讀取</li>
-</ol>
-<h3 id="Kustomize-Yaml"><a href="#Kustomize-Yaml" class="headerlink" title="Kustomize/Yaml"></a>Kustomize/Yaml</h3><ol>
-<li>基本上這兩者的做法一樣，其實也跟 Helm 差不多，因為不需要於 pipeline 系統中動態取得這些機密資訊，所以這個步驟也不太需要客製化。</li>
-<li>一切的運作邏輯跟 Helm 一樣，只要確保部署進去的資源能夠與 secret 管理者溝通即可。</li>
-</ol>
-<p>這種架構下帶來的好處有</p>
+        <p>上篇文章中我們介紹了不同參考架構的解決方案，而本篇我們將使用 sealed-secrets 這個開源專案來實現其中一種架構，也就是最後一種基於加解密的解決方案。透過這個方案我們可以將機密資訊加密後存放到 Git 保存，但內容被部署到 Kubernetes 內部後則是會被自動解密</p>
+<h1 id="安裝"><a href="#安裝" class="headerlink" title="安裝"></a>安裝</h1><p><a href="https://github.com/bitnami-labs/sealed-secrets" target="_blank" rel="noopener">Sealed-secrets</a> 本身有是由兩個元件組成，一個是 Kubernetes 內的 controller，而另外一個則是操作使用的 CLI。</p>
+<p>等等我們會需要借助這兩個工具來處理，其中透過 Controller 來解密，而 CLI 要先跟 Controller 溝通取得憑證，最後加密</p>
+<p>安裝 Controller 的方法很多種，可以使用原生 Yaml, Kustomize 或是 Helm 都可以</p>
+<p>以下我們使用 Helm 來安裝，我們將服務安裝到 default namespace，並且取名為 ithome。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ helm repo add stable https://kubernetes-charts.storage.googleapis.com</span><br><span class="line">$ helm repo update</span><br><span class="line">$ helm install --namespace default ithome stable/sealed-secrets</span><br></pre></td></tr></table></figure>
+<p>接下來我們要安裝 CLI 的工具，這部分可以直接安裝編譯好的版本</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"> $ wget https://github.com/bitnami-labs/sealed-secrets/releases/download/v0.12.5/kubeseal-linux-amd64</span><br><span class="line"> $ chmod 755 kubeseal-linux-amd64</span><br><span class="line"> $ sudo mv kubeseal-linux-amd64 /usr/<span class="built_in">local</span>/bin</span><br><span class="line"> $ kubeseal  --<span class="built_in">help</span></span><br><span class="line">Usage of kubeseal:</span><br><span class="line">      --add_dir_header                   If <span class="literal">true</span>, adds the file directory to the header</span><br><span class="line">      --allow-empty-data                 Allow empty data <span class="keyword">in</span> the secret object</span><br><span class="line">      --alsologtostderr                  <span class="built_in">log</span> to standard error as well as files</span><br><span class="line">      --as string                        Username to impersonate <span class="keyword">for</span> the operation</span><br><span class="line">      --as-group stringArray             Group to impersonate <span class="keyword">for</span> the operation, this flag can be repeated to specify multiple groups.</span><br><span class="line">      --cert string                      Certificate / public key file/URL to use <span class="keyword">for</span> encryption. Overrides --controller-*</span><br><span class="line">      --certificate-authority string     Path to a cert file <span class="keyword">for</span> the certificate authority</span><br><span class="line">      --client-certificate string        Path to a client certificate file <span class="keyword">for</span> TLS</span><br><span class="line">      --client-key string                Path to a client key file <span class="keyword">for</span> TLS</span><br><span class="line">      --cluster string                   The name of the kubeconfig cluster to use</span><br><span class="line">      --context string                   The name of the kubeconfig context to use</span><br><span class="line">      --controller-name string           Name of sealed-secrets controller. (default <span class="string">"sealed-secrets-controller"</span>)</span><br><span class="line">      --controller-namespace string      Namespace of sealed-secrets controller. (default <span class="string">"kube-system"</span>)</span><br><span class="line">      --fetch-cert                       Write certificate to stdout. Useful <span class="keyword">for</span> later use with --cert</span><br><span class="line">  -o, --format string                    Output format <span class="keyword">for</span> sealed secret. Either json or yaml (default <span class="string">"json"</span>)</span><br><span class="line">      --from-file strings                (only with --raw) Secret items can be sourced from files. Pro-tip: you can use /dev/stdin to <span class="built_in">read</span> pipe input. This flag tries to fol</span><br><span class="line">low the same syntax as <span class="keyword">in</span> kubectl</span><br><span class="line">......</span><br><span class="line">$ kubeseal</span><br><span class="line">(tty detected: expecting json/yaml k8s resource <span class="keyword">in</span> stdin)</span><br><span class="line">error: cannot fetch certificate: services <span class="string">"sealed-secrets-controller"</span> not found</span><br></pre></td></tr></table></figure>
+<p>這邊執行會失敗是因為預設情況下， kubeseal 會嘗試跟 <code>sealed-secrets-controller</code> 這個 service 去溝通，取得相關資訊，但是因為我們透過 helm 安裝的關係，名稱不會一致，所以執行的時候要透過 –controller-name 以及 –controller-namespace 兩個來替換掉到我們安裝的名稱與 namespace。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ kubeseal --controller-name=ithome-sealed-secrets --controller-namespace=default</span><br><span class="line">(tty detected: expecting json/yaml k8s resource <span class="keyword">in</span> stdin)</span><br><span class="line">^C</span><br></pre></td></tr></table></figure>
+<p>改成上述執行就不會有獲取憑證失敗的問題了，這時候可以按下 CTRL+C 給跳出。因為 kubeseal 的工作很簡單，給我 kubernetes secret 檔案，我給你加密後的結果。預設情況是從 STDIN 輸入。</p>
+<h1 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h1><p>接下來的示範流程如下</p>
 <ol>
-<li>因為與 pipeline 的部分都抽離了，所以 GItOps 就有機會實現</li>
-<li>大部分機密資訊的保存與管理都跟 pipeline 系統無關，要抽換容易</li>
-<li>這類型 secret 管理者的介面跟操作能力都比 pipeline 系統提供的介面強超級多，用起來相對彈性</li>
-<li>使用上與設計上稍嫌複雜，同時 secret 管理者的存活要自己負責，如果要設計 HA 的架構就要花一些心思去探索</li>
+<li>準備一個 kubernetes secret，決定使用 docker login 後產生的 login.json</li>
+<li>將該 kubernetes secret 透過 kubeseal 產生出一個 sealedsecret 的物件，該物件的內容是加密，不是 secret 的編碼</li>
+<li>將 sealedsecret 這個物件部署到 kubernetes 內，觀察是否有產生全新的 secret 內容</li>
+<li>檢查該 secret 的內容，與(1)產生的一樣</li>
+<li>透過反解 base64 編碼，確認內容與 login.json 一致</li>
 </ol>
-<p><img src="https://i.imgur.com/3tDZr43.jpg" alt></p>
-<h1 id="Centralized-Management-ii"><a href="#Centralized-Management-ii" class="headerlink" title="Centralized Management(ii)"></a>Centralized Management(ii)</h1><p>這種架構是上一種的不同實作方式，就如同所說的其實 secret manager 位置放在哪邊不是重點，重點是什麼時間點去呼叫來取得資訊。</p>
-<p>如果今天我們依然還是在 Pipeline 系統中去取得這些資訊，那基本上我們還是會得到跟第一篇架構一樣的結果。</p>
-<p>由於這類型的服務本身也需要一些 token/key 才可以存取，而現在存取的時間點是 pipeline 系統上，所以我們只要利用 pipeline 系統本</p>
-<p>身的管理機制去管理這些 token/key 即可。剩下應用程式所需要的機密資訊就跟遠方的 secret manager 去獲取即可。</p>
-<p>但是這邊有一個要特別注意的地方，因為我們的 secret 管理者現在已經搬移到系統外面，所以 pipeline 系統對於你的各種操作都沒有辦</p>
-<p>法辨認哪些東西是機密，哪些不是機密，因此 log 檔案會有機會將你的操作內容全部記錄下來，包含你的帳號與密碼。 這部分要特別小</p>
-<p>心，避免這些資訊遺漏否則可能會釀成大禍。</p>
-<p>之前提到的三個情境再這個架構下的實作方法大同小異，這邊就不再贅述，相關的隱憂基本上也都存在，只有搬移平台部分會是相對順</p>
-<p>利，因為所有的存取方式與內容都與 pipeline 系統抽離。</p>
-<p><img src="https://i.imgur.com/JTgHac7.jpg" alt></p>
-<h1 id="Encrption-Decryption"><a href="#Encrption-Decryption" class="headerlink" title="Encrption/Decryption"></a>Encrption/Decryption</h1><p>最後一個架構的做法是透過加解密的方式來記錄這些資訊，過往我們會擔心 Kubernetes Secret 的資訊是因為其本身只有 base64 編碼，並不是加密，因此實際上就是沒有安全性可言。</p>
-<p>那如果我們有辦法把它變成加密後的結果，是否就會更有信心的放到 Yaml 上面，直接使用 Git 保存?</p>
-<p>這個架構就是基於這樣的想法，其運作流程如下(概念，實作不一定)</p>
-<ol>
-<li>Kubernetes 中要安裝一個 Controller，這個 Controller 會準備 key，這把 key 會用來加密跟解密</li>
-<li>Kubernetes 中新增一個全新的物件，譬如叫做 Encrypted Secret，代表被加密後的 secret 資料。</li>
-<li>叢集管理者使用那把 key 將機密資料加密，得到加密後的結果，並且把這個結果寫到 EncryptedSecret 的 Yaml 中</li>
-<li>當未來這個 EncryptedSecret 被部署到叢集之中，該 Controller 就會偵測到，並且使用 key 去解密</li>
-<li>解密成功後就會把解密的內容產生一個 Secret ，這時候應用程式就可以去讀取來使用</li>
-</ol>
-<p>簡單來說，上述的流程也是把取得機密內容的時間點延後到 Kubernetes 內部，只是他的做法是一開始加密，直到進入 Kubernetes 後就將其解密，最後得到真正資訊。</p>
-<p>接下來我們嘗試將上述三種情境套入到這個架構中，看看會怎麼執行</p>
-<h3 id="Helm-1"><a href="#Helm-1" class="headerlink" title="Helm"></a>Helm</h3><ol>
-<li>一開始 Helm 裡面就要先透過 key 去加密，準備好一個 Encrypted Secret 的物件</li>
-<li>CI/CD pipeline 運行到後面階段後，沒有什麼事情要特別處理，因此直接透過 <code>helm upgrade --install ...</code> 的方式部署到 kubernetes內部</li>
-<li>當應用程式部署進去後，該 controller 偵測到 Encrypted Secret 的出現，就會幫其解密，解密後產生對應的 secret 物件，然後應用程式去讀取</li>
-</ol>
-<h3 id="Kustomize-Yaml-1"><a href="#Kustomize-Yaml-1" class="headerlink" title="Kustomize/Yaml"></a>Kustomize/Yaml</h3><ol>
-<li>基本上這兩者的做法一樣，其實也跟 Helm 差不多，因為不需要於 pipeline 系統中動態取得這些機密資訊，所以這個步驟也不太需要客製化。</li>
-<li>一切的運作邏輯跟 Helm 一樣，只要確保部署進去的資源能夠與 secret 管理者溝通即可。</li>
-</ol>
-<p>這種架構帶來的好壞處有</p>
-<ol>
-<li>本身也不需要 CD pipeline 的參與，所以 GitOps 的概念可以實現</li>
-<li>如同上述架構一樣， Controller 的生命尤為重要，要保護好他的生命以及相關的 key</li>
-<li>機密資訊都直接存放到 Git 上面，每次要修改都要有對應權限的人去產生加密後的結果，有可能會讓工作效率比較低，但是安全性更高</li>
-</ol>
-<p><img src="https://i.imgur.com/Vwcbn37.jpg" alt></p>
-<p>到這邊為止我們探討了數種可能的解決方式與架構，下一篇我們將實際操作一個範例來展示其用法</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl create secret generic ithome-example --from-file=.dockerconfigjson=/home/ubuntu/.docker/config.json --<span class="built_in">type</span>=kubernetes.io/dockerconfigjson --dry-run=client -o yaml &gt; secret.yaml</span><br><span class="line">$ kubeseal --controller-name=ithome-sealed-secrets --controller-namespace=default -o yaml &lt; secret.yaml  &gt; sealedsecret.yaml</span><br><span class="line">$ cat sealedsecret.yaml</span><br><span class="line">apiVersion: bitnami.com/v1alpha1</span><br><span class="line">kind: SealedSecret</span><br><span class="line">metadata:</span><br><span class="line">  creationTimestamp: null</span><br><span class="line">  name: ithome-example</span><br><span class="line">  namespace: default</span><br><span class="line">spec:</span><br><span class="line">  encryptedData:</span><br><span class="line">    .dockerconfigjson: AgBOq/FUB4OSIjOfua8vikrosi9R6uFROuAeT0rV3myf4memo+Y3LwP9mDGsswcUhFk5N29BS1V76ycLX31a8IbzON40AWJAnclSn9qWoj+ZDZmD1p+1OSPCdjV5FjDhVnGNwi49DAvr+L+WLREGdD2fgizVWq+Ebk7acFjmI2uGq7J2yoocH+/qpX/13e2kj36J7+Rwd+RBhnkKTImlQJsXjKsBYENxjsRnc+UzNjkXjBcXEYihHq9MIXdtElPG1Kur27pIC+urj9FkWnQ4lO2tUoI3NDIuQFCvKaeAwEP0cu+3wlY0F2Ax2/CT0SQ9WB0VM8iyrNaccFDuItGnqRksya0WtXLV4fYafbxR4+itzCpt8sH0VOUouoDml9FqAgLfWrqld74VnEpSJybdf/Wfea3PYLFTDScHClWDW7qBTvZmkCIWDS44/HNcQdflpnrmLJk2sxO20T6aJPYDK9M7V5iD0b7Ch8OHNmL/8e/kDhaCTVqUcUXw2qtx7LBJhaxalSoYfhzvwFIDG9AbRe95d2oQJpXl6mHviNqJkOqNiU5M6Byt3YXR+YaFV+A9n0aj6Rl0Bw8y4s9+0LoXrTdv2t3opSe26xOJhmgfOxuxELKY+kaATNpLYez3+S3QaTgDZ0n7tgTzFg041brOL3SkUa+UZ9MqUG9XKMPGXQY0lFf5DhB1FIjWiCOWfOS+JAJsG38izjd8iYZ8wIWIoe983exo2AaCcLS+4cB18ftwoDmlYn8Y+WqmEtzhZA8OMsk4KTSsWPakWFc8rbxRt6aHTER0enXof86B2V/TwxDuPzN4OWmcO7mSMUgdXxbAnRLKVfmuVwYEYTW91wZN5+IQWZVTHwZnXS+ahHzV7TS+zFF74F06yz7Tx6YRQUmnWUH8HJiuxPTNeZbKkvcD7Q==</span><br><span class="line">  template:</span><br><span class="line">    metadata:</span><br><span class="line">      creationTimestamp: null</span><br><span class="line">      name: ithome-example</span><br><span class="line">      namespace: default</span><br><span class="line">    <span class="built_in">type</span>: kubernetes.io/dockerconfigjson</span><br></pre></td></tr></table></figure>
+<p>首先透過 <code>kubectl create secret</code> 就如同之前 harbor 的範例一樣，產生出一個 secret.yaml，其內容其實是編碼後的 config.json</p>
+<p>接下來，透過 kubeseal 的指令，把剛剛的 secret.yaml 傳進去，然後最後產生出一個 sealedsecret.yaml 檔案。我們可以觀察到這個檔案裡面的內容跟 kubernetes secret 很類似，多了一個 <code>encryptedData</code> 的欄位，下面的資訊都是加密後，並不是編碼。這個物件<code>就是我們可以放在 Git</code>內保存的。</p>
+<p>接下來我們把這個物件送到 kubernetes 內，然後我們馬上觀察 <code>SealedSecret</code> 以及 <code>Secret</code>，的確有一個全新的 <code>Secret</code> 產生了，名稱就是我們前面用的 <code>ithome-example</code>。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl apply -f sealedsecret.yaml</span><br><span class="line">sealedsecret.bitnami.com/ithome-example created</span><br><span class="line">$ kubectl get SealedSecret</span><br><span class="line">NAME             AGE</span><br><span class="line">ithome-example   12s</span><br><span class="line">$ kubectl get secret ithome-example</span><br><span class="line">NAME             TYPE                             DATA   AGE</span><br><span class="line">ithome-example   kubernetes.io/dockerconfigjson   1      16s</span><br></pre></td></tr></table></figure>
+<p>現在來觀察產生出來的 <code>secret</code> 跟我們最原始的 <code>secret</code> 內容是否一致，主要觀察 <code>data</code> 內部的資料，可以發現 <code>.dockerconfigjson</code> 的編碼結果是完全一致的</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl get secret ithome-example -o yaml</span><br><span class="line">apiVersion: v1</span><br><span class="line">data:</span><br><span class="line">  .dockerconfigjson: ewoJImF1dGhzIjogewoJCSJyZWdpc3RyeS5od2NoaXUuY29tIjogewoJCQkiYXV0aCI6ICJZV1J0YVc0NlNHRnlZbTl5TVRJek5EVT0iCgkJfQoJfSwKCSJIdHRwSGVhZGVycyI6IHsKCQkiVXNlci1BZ2VudCI6ICJEb2NrZXItQ2xpZW50LzE5LjAzLjEyIChsaW51eCkiCgl9Cn0=</span><br><span class="line">kind: Secret</span><br><span class="line">metadata:</span><br><span class="line">  creationTimestamp: <span class="string">"2020-09-14T05:31:36Z"</span></span><br><span class="line">  name: ithome-example</span><br><span class="line">  namespace: default</span><br><span class="line">  ownerReferences:</span><br><span class="line">  - apiVersion: bitnami.com/v1alpha1</span><br><span class="line">    controller: <span class="literal">true</span></span><br><span class="line">    kind: SealedSecret</span><br><span class="line">    name: ithome-example</span><br><span class="line">    uid: a6fa91c0-eb90-403b-baea-5aabc979212c</span><br><span class="line">  resourceVersion: <span class="string">"1025425"</span></span><br><span class="line">  selfLink: /api/v1/namespaces/default/secrets/ithome-example</span><br><span class="line">  uid: 8546ec86-6e51-4a20-883f-f403ac2b450a</span><br><span class="line"><span class="built_in">type</span>: kubernetes.io/dockerconfigjson</span><br><span class="line">$ cat secret.yaml</span><br><span class="line">apiVersion: v1</span><br><span class="line">data:</span><br><span class="line">  .dockerconfigjson: ewoJImF1dGhzIjogewoJCSJyZWdpc3RyeS5od2NoaXUuY29tIjogewoJCQkiYXV0aCI6ICJZV1J0YVc0NlNHRnlZbTl5TVRJek5EVT0iCgkJfQoJfSwKCSJIdHRwSGVhZGVycyI6IHsKCQkiVXNlci1BZ2VudCI6ICJEb2NrZXItQ2xpZW50LzE5LjAzLjEyIChsaW51eCkiCgl9Cn0=</span><br><span class="line">kind: Secret</span><br><span class="line">metadata:</span><br><span class="line">  creationTimestamp: null</span><br><span class="line">  name: ithome-example</span><br><span class="line"><span class="built_in">type</span>: kubernetes.io/dockerconfigjson</span><br></pre></td></tr></table></figure>
+<p>最後再來檢查反編碼後的結果，這邊我使用了 view-secret 這個 kubectl plugin 來自動幫忙反編碼，同時也比對最原始的 ~/.docker/config.json，最後確認兩者內容一致。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl view-secret ithome-example</span><br><span class="line">Choosing key: .dockerconfigjson</span><br><span class="line">&#123;</span><br><span class="line">        <span class="string">"auths"</span>: &#123;</span><br><span class="line">                <span class="string">"registry.hwchiu.com"</span>: &#123;</span><br><span class="line">                        <span class="string">"auth"</span>: <span class="string">"YWRtaW46SGFyYm9yMTIzNDU="</span></span><br><span class="line">                &#125;</span><br><span class="line">        &#125;,</span><br><span class="line">        <span class="string">"HttpHeaders"</span>: &#123;</span><br><span class="line">                <span class="string">"User-Agent"</span>: <span class="string">"Docker-Client/19.03.12 (linux)"</span></span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br><span class="line">$ cat ~/.docker/config.json</span><br><span class="line">&#123;</span><br><span class="line">        <span class="string">"auths"</span>: &#123;</span><br><span class="line">                <span class="string">"registry.hwchiu.com"</span>: &#123;</span><br><span class="line">                        <span class="string">"auth"</span>: <span class="string">"YWRtaW46SGFyYm9yMTIzNDU="</span></span><br><span class="line">                &#125;</span><br><span class="line">        &#125;,</span><br><span class="line">        <span class="string">"HttpHeaders"</span>: &#123;</span><br><span class="line">                <span class="string">"User-Agent"</span>: <span class="string">"Docker-Client/19.03.12 (linux)"</span></span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>到這邊我們的 Demo 就告了一個段落，我們透過 kubeseal 來幫忙加密，加密後的結果是一個名為 SealedSecret 的物件，其內容都是加密後的樣式，我們可以直接存放於 Git 裡面，這樣的話 GitOps 的模式也可以套用上去。</p>
+<p><a href="https://github.com/bitnami-labs/sealed-secrets" target="_blank" rel="noopener">SealedSecret</a> 官網上面還有更多關於 Key 的操作，包含 Renew, 更新等各種進階用法，如果對這個開源軟體有興趣的人歡迎玩耍看看</p>
 <h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
 <p>詳細可以參閱<br>矽谷年線上學院<br><a href="https://course.hwchiu.com" target="_blank" rel="noopener">https://course.hwchiu.com</a></p>
 <p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a href="https://www.facebook.com/technologynoteniu" target="_blank" rel="noopener">https://www.facebook.com/technologynoteniu</a></p>
@@ -337,7 +298,7 @@
       <div class="popular-posts-title"><a href="/ithome-20202-cicd-26.html" rel="bookmark">鐵人賽系列文章- Day26 - kubelet Plugin 介紹</a></div>
     </li>
     <li class="popular-posts-item">
-      <div class="popular-posts-title"><a href="/ithome-20202-cicd-25.html" rel="bookmark">鐵人賽系列文章- Day 25 - Secret 使用範例: sealed-secrets</a></div>
+      <div class="popular-posts-title"><a href="/ithome-20202-cicd-24.html" rel="bookmark">鐵人賽系列文章- Day 24 - Secret 的部署問題與參考解法(下)</a></div>
     </li>
     <li class="popular-posts-item">
       <div class="popular-posts-title"><a href="/ithome-20202-cicd-23.html" rel="bookmark">鐵人賽系列文章- Day 23 - Secret 的部署問題與參考解法(上)</a></div>
@@ -397,12 +358,12 @@
         
     <div class="post-nav">
       <div class="post-nav-item">
-    <a href="/ithome-20202-cicd-23.html" rel="prev" title="鐵人賽系列文章- Day 23 - Secret 的部署問題與參考解法(上)">
-      <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day 23 - Secret 的部署問題與參考解法(上)
+    <a href="/ithome-20202-cicd-24.html" rel="prev" title="鐵人賽系列文章- Day 24 - Secret 的部署問題與參考解法(下)">
+      <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day 24 - Secret 的部署問題與參考解法(下)
     </a></div>
       <div class="post-nav-item">
-    <a href="/ithome-20202-cicd-25.html" rel="next" title="鐵人賽系列文章- Day 25 - Secret 使用範例: sealed-secrets">
-      鐵人賽系列文章- Day 25 - Secret 使用範例: sealed-secrets <i class="fa fa-chevron-right"></i>
+    <a href="/ithome-20202-cicd-26.html" rel="next" title="鐵人賽系列文章- Day26 - kubelet Plugin 介紹">
+      鐵人賽系列文章- Day26 - kubelet Plugin 介紹 <i class="fa fa-chevron-right"></i>
     </a></div>
     </div>
       </footer>
@@ -469,7 +430,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Centralized-Management"><span class="nav-number">1.</span> <span class="nav-text">Centralized Management</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Helm"><span class="nav-number">1.0.1.</span> <span class="nav-text">Helm</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Kustomize-Yaml"><span class="nav-number">1.0.2.</span> <span class="nav-text">Kustomize/Yaml</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Centralized-Management-ii"><span class="nav-number">2.</span> <span class="nav-text">Centralized Management(ii)</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Encrption-Decryption"><span class="nav-number">3.</span> <span class="nav-text">Encrption/Decryption</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Helm-1"><span class="nav-number">3.0.1.</span> <span class="nav-text">Helm</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Kustomize-Yaml-1"><span class="nav-number">3.0.2.</span> <span class="nav-text">Kustomize/Yaml</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">4.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#安裝"><span class="nav-number">1.</span> <span class="nav-text">安裝</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#使用"><span class="nav-number">2.</span> <span class="nav-text">使用</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#個人資訊"><span class="nav-number">3.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -697,9 +658,9 @@
 </script>
 <script>
   var disqus_config = function() {
-    this.page.url = "https://www.hwchiu.com/ithome-20202-cicd-24.html";
-    this.page.identifier = "ithome-20202-cicd-24.html";
-    this.page.title = "鐵人賽系列文章- Day 24 - Secret 的部署問題與參考解法(下)";
+    this.page.url = "https://www.hwchiu.com/ithome-20202-cicd-25.html";
+    this.page.identifier = "ithome-20202-cicd-25.html";
+    this.page.title = "鐵人賽系列文章- Day 25 - Secret 使用範例: sealed-secrets";
     this.language = 'en';
     };
   NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
