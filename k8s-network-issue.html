@@ -40,7 +40,7 @@
 <meta property="og:image" content="https://i.imgur.com/at8aYOy.png">
 <meta property="og:image" content="https://i.imgur.com/H4MtKsd.png">
 <meta property="og:image" content="https://i.imgur.com/Ik4XkP0.png">
-<meta property="og:updated_time" content="2021-04-26T04:05:42.148Z">
+<meta property="og:updated_time" content="2021-04-26T18:25:53.572Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="從網路觀點來看導入 Kubernetes 的可能痛點">
 <meta name="twitter:description" content="探討 Kubernetes 架構下網路能力的不足，導入 Kubernetes 時有可能會無法解決的網路架構問題。">
@@ -319,7 +319,7 @@
 <p>就實務上的經驗，大部分的情況都是基於第二種架構，大部分跨地區的叢集都會是獨立一套自己的 k8s 叢集，而不會讓彼此節點跨地區。</p>
 <p>針對上述的架構，可以衍伸出至少三種不同的 IPAM 處理方式，分別如下</p>
 <p>第一種是最常見的作法，也是目前自架叢集時 CNI 會採取的策略，針對整個 Cluster 給予一個很大的虛擬IP地址，譬如範例中的 10.123.16.0/20，意義是整個 k8s 叢集內的 Pod 都必須要符合這個網段</p>
-<p>接者為了方便與管理，同時基於每個 Pod 的 IP 要唯一不衝突，每個 k8s 節點會需要設定能夠容量的 Pod 數量上限。針對這個上限反推出需要使用的網段大小，譬如大愛 256 個Pod 就需要 /24 這樣的網段，而這個網段必須符合叢集範圍 10.123.16.0/20。</p>
+<p>接者為了方便與管理，同時基於每個 Pod 的 IP 要唯一不衝突，每個 k8s 節點會需要設定能夠容量的 Pod 數量上限。針對這個上限反推出需要使用的網段大小，譬如要用 256 個Pod 就需要 /24 這樣的網段，而這個網段必須符合叢集範圍 10.123.16.0/20。</p>
 <p>由於叢集的範圍是/20,每個節點需要/24，因此差距就是(24-20)，換算出來就是 2^4=16。<br>這意味整個 k8s 叢集只能有 16 個節點，每個節點 256 個 Pod，整個叢集容量就是 4096 個 Pod。</p>
 <p><img src="https://i.imgur.com/DzXngJa.png" alt></p>
 <p>範例中可以看到三個節點分別分配了 10.123.24.4, 10.123.25.4 以及 10.123.26.4 的IP，精準地講可以說這三個節點上的Pod IP 範圍必須屬於 10.123.24.0/24, 10.123.25.0/24 以及 10.123.26.0/24。</p>
