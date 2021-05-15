@@ -18,7 +18,7 @@
 
 <script id="hexo-configurations">
     var NexT = window.NexT || {};
-    var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+    var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
   <meta name="description" content="本文透過對 iptables/ebtables 來設定相對應的規則，藉由這些規則來觀察在 Docker Bridge Network 的網路設定下，不同情境的網路傳遞實際上會受到哪些 iptables/ebtables 規則的影響。這些情境包含了常見的用法，譬如容器與容器之間同網段的傳輸，宿主機透過容器IP位址直接連線，甚至是外部網路透過 docker run -p xxx.xxx 的規則來接觸到">
@@ -226,20 +226,6 @@
               <span class="post-meta-item-text">Views: </span>
               <span class="firestore-visitors-count"></span>
             </span>
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus: </span>
-    
-    <a title="disqus" href="/netfilter-eiptables-iii.html#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="netfilter-eiptables-iii.html" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
             <div class="post-description">本文透過對 iptables/ebtables 來設定相對應的規則，藉由這些規則來觀察在 Docker Bridge Network 的網路設定下，不同情境的網路傳遞實際上會受到哪些 iptables/ebtables 規則的影響。這些情境包含了常見的用法，譬如容器與容器之間同網段的傳輸，宿主機透過容器IP位址直接連線，甚至是外部網路透過 docker run -p xxx.xxx 的規則來接觸到內部容器。這些不同情境的網路連線牽扯到關於 Layer3 路由，Layer2 橋接 等不同方式的處理，因此在 iptables/ebtables 都會有不同的走向。只要能夠更佳的熟悉 iptables/ebtables 的用法與規則，未來有需要親自設定相關規則時，都能夠更精準且安全的去達到想要的目的，減少盲目猜測的時間與花費。</div>
 
         </div>
@@ -493,11 +479,11 @@
           </div>
           
     
+  
   <div class="comments">
-    <div id="disqus_thread">
-      <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
-    </div>
+  <script src="https://utteranc.es/client.js" repo="hwchiu/blog-comment" issue-term="pathname" theme="github-dark" crossorigin="anonymous" async></script>
   </div>
+  
   
 
 <script>
@@ -760,38 +746,6 @@
   
 
   
-
-<script>
-  function loadCount() {
-    var d = document, s = d.createElement('script');
-    s.src = 'https://hwchiu.disqus.com/count.js';
-    s.id = 'dsq-count-scr';
-    (d.head || d.body).appendChild(s);
-  }
-  // defer loading until the whole page loading is completed
-  window.addEventListener('load', loadCount, false);
-</script>
-<script>
-  var disqus_config = function() {
-    this.page.url = "https://www.hwchiu.com/netfilter-eiptables-iii.html";
-    this.page.identifier = "netfilter-eiptables-iii.html";
-    this.page.title = "[netfilter] Dig Into Docker Bridge Network By iptables/ebtables";
-    this.language = 'en';
-    };
-  NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
-    if (window.DISQUS) {
-      DISQUS.reset({
-        reload: true,
-        config: disqus_config
-      });
-    } else {
-      var d = document, s = d.createElement('script');
-      s.src = 'https://hwchiu.disqus.com/embed.js';
-      s.setAttribute('data-timestamp', '' + +new Date());
-      (d.head || d.body).appendChild(s);
-    }
-  });
-</script>
 
 </body>
 </html>

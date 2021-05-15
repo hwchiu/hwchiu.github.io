@@ -18,7 +18,7 @@
 
 <script id="hexo-configurations">
     var NexT = window.NexT || {};
-    var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}},"activeClass":"disqus"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+    var CONFIG = {"hostname":"www.hwchiu.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"disqus","storage":true,"lazyload":false,"nav":{"disqus":{"text":"Load Disqus","order":0}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
   <meta name="description" content="在前述中我們已經學過了什麼是 kubernetes service 以及如何實現 ClusterIP/NodePort 等 service 類型. 透過對 iptables 的探討與研究. 接下來要研究的則是 Service 裡面的一個參數, 叫做 SessionAffinity, 所謂的連線親和力, 透過該參數的設定,希望能夠讓符合特定條件的連線最後都會選用到相同的後端應用程式,目前有支援的選項">
@@ -225,20 +225,6 @@
               <span class="post-meta-item-text">Views: </span>
               <span class="firestore-visitors-count"></span>
             </span>
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Disqus: </span>
-    
-    <a title="disqus" href="/kubernetes-service-iiii.html#disqus_thread" itemprop="discussionUrl">
-      <span class="post-comments-count disqus-comment-count" data-disqus-identifier="kubernetes-service-iiii.html" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
             <div class="post-description">在前述中我們已經學過了什麼是 kubernetes service 以及如何實現 ClusterIP/NodePort 等 service 類型. 透過對 iptables 的探討與研究. 接下來要研究的則是 Service 裡面的一個參數, 叫做 SessionAffinity, 所謂的連線親和力, 透過該參數的設定,希望能夠讓符合特定條件的連線最後都會選用到相同的後端應用程式,目前有支援的選項是 ClinetIP, 這意味者只要連線的來源 IP 地址是相同的,最後都會被導向到相同的容器應用程式. 然而這部分到底是如何實現的, 本文會先介紹什麼叫做 Connection. 並且介紹 SessionAffinity 的使用方式以及使用後的結果. 最後一樣透過相同的思路, 藉由研究 iptables 的規則來學習到 SessionAffinity 要如何完成, 同時也可以學習到 iptables 衆多靈活的使用方式.</div>
 
         </div>
@@ -448,11 +434,11 @@
           </div>
           
     
+  
   <div class="comments">
-    <div id="disqus_thread">
-      <noscript>Please enable JavaScript to view the comments powered by Disqus.</noscript>
-    </div>
+  <script src="https://utteranc.es/client.js" repo="hwchiu/blog-comment" issue-term="pathname" theme="github-dark" crossorigin="anonymous" async></script>
   </div>
+  
   
 
 <script>
@@ -715,38 +701,6 @@
   
 
   
-
-<script>
-  function loadCount() {
-    var d = document, s = d.createElement('script');
-    s.src = 'https://hwchiu.disqus.com/count.js';
-    s.id = 'dsq-count-scr';
-    (d.head || d.body).appendChild(s);
-  }
-  // defer loading until the whole page loading is completed
-  window.addEventListener('load', loadCount, false);
-</script>
-<script>
-  var disqus_config = function() {
-    this.page.url = "https://www.hwchiu.com/kubernetes-service-iiii.html";
-    this.page.identifier = "kubernetes-service-iiii.html";
-    this.page.title = "[Kubernetes] How to Implement Kubernetes Service - SessionAffinity";
-    this.language = 'en';
-    };
-  NexT.utils.loadComments(document.querySelector('#disqus_thread'), () => {
-    if (window.DISQUS) {
-      DISQUS.reset({
-        reload: true,
-        config: disqus_config
-      });
-    } else {
-      var d = document, s = d.createElement('script');
-      s.src = 'https://hwchiu.disqus.com/embed.js';
-      s.setAttribute('data-timestamp', '' + +new Date());
-      (d.head || d.body).appendChild(s);
-    }
-  });
-</script>
 
 </body>
 </html>
