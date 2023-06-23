@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="Introduction  此篇文章用來說明在當前 kernel 中, switchdev 相關的檔案有哪些，哪些是 switchdev 的核心，哪些是與原先的 linux kernel 整合，同時簡述一下各整合的用途為何。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Switchdev] How Kernel Implement SwitchDev(i)">
+<meta property="og:url" content="https://www.hwchiu.com/2016-04-04-switchdev-ii.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="Introduction  此篇文章用來說明在當前 kernel 中, switchdev 相關的檔案有哪些，哪些是 switchdev 的核心，哪些是與原先的 linux kernel 整合，同時簡述一下各整合的用途為何。">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2016-04-03T23:01:00.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.594Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="System">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="Kernel">
+<meta property="article:tag" content="Switchdev">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/2016-04-04-switchdev-ii.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/2016-04-04-switchdev-ii.html","path":"2016-04-04-switchdev-ii.html","title":"[Switchdev] How Kernel Implement SwitchDev(i)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>[Switchdev] How Kernel Implement SwitchDev(i) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Introduction"><span class="nav-number">1.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Architecture"><span class="nav-number">2.</span> <span class="nav-text">Architecture</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Header"><span class="nav-number">3.</span> <span class="nav-text">Header</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Linux-Netowrk-Function-Integration"><span class="nav-number">3.1.</span> <span class="nav-text">Linux Netowrk Function Integration</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#SwtichDev-Implemnetation"><span class="nav-number">3.2.</span> <span class="nav-text">SwtichDev Implemnetation####</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#implementation"><span class="nav-number">4.</span> <span class="nav-text">implementation</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Linux-Netowrk-Function-Integration-1"><span class="nav-number">4.1.</span> <span class="nav-text">Linux Netowrk Function Integration</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#SwtichDev-Implementation"><span class="nav-number">4.2.</span> <span class="nav-text">SwtichDev Implementation</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Switch-Driver-Implementation"><span class="nav-number">4.3.</span> <span class="nav-text">Switch Driver Implementation</span></a></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/2016-04-04-switchdev-ii.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="[Switchdev] How Kernel Implement SwitchDev(i) | Hwchiu Learning Note">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          [Switchdev] How Kernel Implement SwitchDev(i)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2016-04-04 07:01:00" itemprop="dateCreated datePublished" datetime="2016-04-04T07:01:00+08:00">2016-04-04</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><p>  此篇文章用來說明在當前 kernel 中, switchdev 相關的檔案有哪些，哪些是 switchdev 的核心，哪些是與原先的 linux kernel 整合，同時簡述一下各整合的用途為何。</p>
+<span id="more"></span>
+
+
+<h2 id="Architecture"><a href="#Architecture" class="headerlink" title="Architecture"></a>Architecture</h2><p>  switchdev 在 kernel 中的檔案架構如下</p>
+<h2 id="Header"><a href="#Header" class="headerlink" title="Header"></a>Header</h2><h3 id="Linux-Netowrk-Function-Integration"><a href="#Linux-Netowrk-Function-Integration" class="headerlink" title="Linux Netowrk Function Integration"></a>Linux Netowrk Function Integration</h3><ul>
+<li>include&#x2F;net&#x2F;dsa.h<ul>
+<li><p>這個是 <strong>Distributed Switch Architecture</strong>, 於 2015 年此 commit(b73adef) 將 switchdev 給整合進來</p>
+</li>
+<li><p>根據 2008 的第一筆 commit log 來看, DSA是用來控制 hardware switch chips 的協定，不過大部分的功能都是在 2014 年後才慢慢實作，目前還無法確認此協定能夠做什麼</p>
+<blockquote>
+<p>Distributed Switch Architecture is a protocol for managing hardware<br>switch chips.  It consists of a set of MII management registers and<br>commands to configure the switch, and an ethernet header format to<br>signal which of the ports of the switch a packet was received from<br>or is intended to be sent to.</p>
+</blockquote>
+</li>
+</ul>
+</li>
+<li>include&#x2F;inux&#x2F;netdevice.h<ul>
+<li>net_device 用來代表整個 kernel 中所有的網路裝置，包含了常見的 network interface.</li>
+<li>主要針對 net_device 這個結構進行擴充，加上與 swticdev 的整合。<ol>
+<li>加上 switchdev_ops 來提供相關的 operation</li>
+<li>加上 offload_fwd_mark 來避免已經被 offload 的 packet 再次被 forward.</li>
+</ol>
+</li>
+</ul>
+</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">switchdev_ops</span> *<span class="title">switchdev_ops</span>;</span></span><br><span class="line">u32                     offload_fwd_mark;</span><br></pre></td></tr></table></figure>
+<h3 id="SwtichDev-Implemnetation"><a href="#SwtichDev-Implemnetation" class="headerlink" title="SwtichDev Implemnetation####"></a>SwtichDev Implemnetation####</h3><ul>
+<li>include&#x2F;net&#x2F;switchdev.h<ul>
+<li>switchdev.h 包含了所有的 struct, function, 要瞭解 switchdev 的核心就必須要看此檔案</li>
+</ul>
+</li>
+</ul>
+<h2 id="implementation"><a href="#implementation" class="headerlink" title="implementation"></a>implementation</h2><h3 id="Linux-Netowrk-Function-Integration-1"><a href="#Linux-Netowrk-Function-Integration-1" class="headerlink" title="Linux Netowrk Function Integration"></a>Linux Netowrk Function Integration</h3><ul>
+<li>net&#x2F;8021q&#x2F;vlan_dev.c<ul>
+<li>若底下的 bridge port 是個 vlan interface 的話，為了要能夠取得其 static FDB 以及 port 相關的狀態，在 net_device_ops 中把相關的 operation handler 都設定為 switchdev 的 function.</li>
+</ul>
+</li>
+<li>net&#x2F;bridge&#x2F;br.c</li>
+<li>net&#x2F;bridge&#x2F;br_fdb.c</li>
+<li>net&#x2F;bridge&#x2F;br_if.c</li>
+<li>net&#x2F;bridge&#x2F;br_mdb.c</li>
+<li>net&#x2F;bridge&#x2F;br_stp.c</li>
+<li>net&#x2F;bridge&#x2F;br_stp_if.c</li>
+<li>net&#x2F;bridge&#x2F;br_vlan.c<ul>
+<li>以上所有 bridge 相關的改動都是要將 hardware switch 的 l2 offload 與 linux kernel 給整合，包含了 STP&#x2F;FDB&#x2F;vlan&#x2F;MDB 的變動。</li>
+<li>當底下 hardware switch 有任何變動時，都必須要主動通知 kernel 內的 bridge function 來處理。</li>
+</ul>
+</li>
+<li>net&#x2F;core&#x2F;net-sysfs.c<ul>
+<li>export 一個新的 interface <strong>&#x2F;sys&#x2F;class&#x2F;net&#x2F;<iface>&#x2F;phys_switch_id</strong>, 可用來知道 <strong>iface</strong> 此 port 所屬的 hardware switch ID</li>
+</ul>
+</li>
+<li>net&#x2F;core&#x2F;rtnetlink.c<ul>
+<li>新增一種 rtnl type <strong>IFLA_PHYS_SWITCH_ID</strong>, 可用來獲得特定 netdevice 所屬的 switch id。</li>
+<li>在 <strong>iproute2</strong> 也加入了此 type 的支援，意味者 user space 的 tool 也一併支援此功能了。</li>
+</ul>
+</li>
+<li>net&#x2F;dsa&#x2F;slave.c<ul>
+<li>For DSA 使用，不熟所以忽略</li>
+</ul>
+</li>
+<li>net&#x2F;ipv4&#x2F;fib_trie.c<ul>
+<li>將 ipv4 的 FIB forwarding 與 hardware switch 整合，當 kernel 內關於 FIB 有任何更動時(ADD&#x2F;DEL&#x2F;MOD)時，要主動通知 hardware switch，將該 flow 加入到 ipv4 offload rules 中。</li>
+<li>並非所有的 FIB 都會通知底下，目前的規範是</li>
+</ul>
+</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">/* Don&#x27;t offload route if using custom ip rules or if</span><br><span class="line">* IPv4 FIB offloading has been disabled completely.</span><br><span class="line">*/</span><br></pre></td></tr></table></figure>
+
+<h3 id="SwtichDev-Implementation"><a href="#SwtichDev-Implementation" class="headerlink" title="SwtichDev Implementation"></a>SwtichDev Implementation</h3><ul>
+<li>net&#x2F;switchdev&#x2F;switchdev.c<ul>
+<li>switchdev 的實作都在這邊，包含了與 hardware switch 以及 kernel 內相關 function 的互動。</li>
+</ul>
+</li>
+</ul>
+<h3 id="Switch-Driver-Implementation"><a href="#Switch-Driver-Implementation" class="headerlink" title="Switch Driver Implementation"></a>Switch Driver Implementation</h3><ul>
+<li>drivers&#x2F;net&#x2F;ethernet&#x2F;rocker&#x2F;</li>
+<li>drivers&#x2F;net&#x2F;ethernet&#x2F;mellanox&#x2F;mlxsw&#x2F;</li>
+</ul>
+<p>目前 kernel 只有兩個真正的實作而已，而 rocker 算是作者開發 switchdev 中的共同產物，所以 mellanox 應該算是第一個進入的廠商。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/System/" rel="tag"># System</a>
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/Kernel/" rel="tag"># Kernel</a>
+              <a href="/tags/Switchdev/" rel="tag"># Switchdev</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2016-03-27-switchdev-i.html" rel="prev" title="[Switchdev] Introduuction To Switchdev">
+                  <i class="fa fa-chevron-left"></i> [Switchdev] Introduuction To Switchdev
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2016-04-04-switchdev-iii.html" rel="next" title="[Switchdev] How Kernel Implement SwitchDev(ii)">
+                  [Switchdev] How Kernel Implement SwitchDev(ii) <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

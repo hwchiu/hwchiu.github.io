@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="作業二的部分是要寫一個script,真對參數變化然後使用gunplot去進行繪圖">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SA - Shell Script(2)">
+<meta property="og:url" content="https://www.hwchiu.com/2013-11-30-sa-shell-script2.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="作業二的部分是要寫一個script,真對參數變化然後使用gunplot去進行繪圖">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2013-11-30T09:02:00.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.591Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="System">
+<meta property="article:tag" content="ShellScript">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/2013-11-30-sa-shell-script2.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/2013-11-30-sa-shell-script2.html","path":"2013-11-30-sa-shell-script2.html","title":"SA - Shell Script(2)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>SA - Shell Script(2) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-overview-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/2013-11-30-sa-shell-script2.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="SA - Shell Script(2) | Hwchiu Learning Note">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          SA - Shell Script(2)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2013-11-30 17:02:00" itemprop="dateCreated datePublished" datetime="2013-11-30T17:02:00+08:00">2013-11-30</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>作業二的部分是要寫一個script,真對參數變化然後使用gunplot去進行繪圖</p>
+<span id="more"></span>
+
+<p>程式要求要有下列參數</p>
+<ul>
+<li>o : output file name</li>
+<li>t : type</li>
+<li>c : collor</li>
+<li>n : number of point should used</li>
+</ul>
+<p>每個參數都要做錯誤檢查，這邊我使用了 <code>getopts</code> 來做參數的取得，並且把對應的值都存起來</p>
+<p>然後再一個一個判斷是否有錯誤。</p>
+<p>再gnuplot的部分，因為要求X軸必須是反向的，即(-10,-9,-8….0),這部分我採用的是利用一個暫存檔來做</p>
+<p>先使用<code>tail</code>的方式取得最後 <strong>n</strong>筆資料，然後再透過 <code>awk</code> 把項目加上負號並且印出<br>如<code>tail -r -n $pointNumber $&#123;inputFile:=&quot;/tmp/sysmonitor&quot;&#125; | awk &#39;&#123; print -NR&quot; &quot;$1&#125;&#39; &gt; $tempInput</code><br>後來有同學說可以再gnuplot中可以使用<code>using</code>這個方式來辦到這個結果。</p>
+<p>gnuplot的部分，先把所有設定檔寫入暫存檔中，然後再直接透過gnuplot去執行該檔案，最後再刪除這些暫存檔。</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/bin/sh</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">print_usage</span></span>()</span><br><span class="line">&#123;</span><br><span class="line">	<span class="built_in">echo</span> <span class="string">&quot;Usage cpuplot [-h] [-o out_file_name] [-t type] [-c color] -n &lt;60-600&gt;&quot;</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">print_help</span></span>()</span><br><span class="line">&#123;</span><br><span class="line">	<span class="built_in">echo</span> <span class="string">&quot;-o set the output file name. (default: out.png)&quot;</span></span><br><span class="line">	<span class="built_in">echo</span> <span class="string">&quot;-t set the graph type. (one of ‘filledcurve’, ‘lines’. default: ‘filledcurve’)&quot;</span></span><br><span class="line">	<span class="built_in">echo</span> <span class="string">&quot;set graph color. (in hexadecimal form, default: #1E90FF)&quot;</span></span><br><span class="line">	<span class="built_in">echo</span> <span class="string">&quot;set the number of point should use. (must be set. should be in range[60-600]&quot;</span></span><br><span class="line">	<span class="built_in">echo</span> <span class="string">&quot;Read LOGFILE environment variable. If it is not set, use /tmp/sysmonitor&quot;</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># Parse the arguments</span></span><br><span class="line"><span class="keyword">while</span> <span class="built_in">getopts</span> <span class="string">&quot;ho:t:c:n:&quot;</span> opt</span><br><span class="line"><span class="keyword">do</span></span><br><span class="line">	<span class="keyword">case</span> <span class="string">&quot;<span class="variable">$opt</span>&quot;</span> <span class="keyword">in</span></span><br><span class="line">		h)  print_help;</span><br><span class="line">		    <span class="built_in">exit</span> 1</span><br><span class="line">		    ;;</span><br><span class="line">		o)</span><br><span class="line">			outName=<span class="variable">$OPTARG</span></span><br><span class="line">			;;</span><br><span class="line">		t)</span><br><span class="line">			graphType=<span class="variable">$OPTARG</span></span><br><span class="line">			;;</span><br><span class="line">		c)</span><br><span class="line">			graphColor=<span class="variable">$OPTARG</span></span><br><span class="line">			;;</span><br><span class="line">		n)</span><br><span class="line">			pointNumber=<span class="variable">$OPTARG</span></span><br><span class="line">			;;</span><br><span class="line">		*)</span><br><span class="line">			<span class="built_in">exit</span> 1</span><br><span class="line">			;;</span><br><span class="line">	<span class="keyword">esac</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">done</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># check graph type, which must be filledcurve or lines.</span></span><br><span class="line"><span class="keyword">if</span> [ <span class="string">&quot;<span class="variable">$graphType</span>&quot;</span> ] ; <span class="keyword">then</span></span><br><span class="line">	<span class="keyword">if</span> [ <span class="string">&quot;<span class="variable">$graphType</span>&quot;</span> != <span class="string">&quot;filledcurve&quot;</span> ] &amp;&amp; [ <span class="string">&quot;<span class="variable">$graphType</span>&quot;</span> != <span class="string">&quot;lines&quot;</span> ] ; <span class="keyword">then</span></span><br><span class="line">		<span class="built_in">echo</span> <span class="string">&quot;type should be one of &#x27;filledcurve&#x27; and &#x27;lines&#x27;.&quot;</span></span><br><span class="line">	<span class="keyword">fi</span></span><br><span class="line">	<span class="keyword">if</span> [ <span class="string">&quot;<span class="variable">$graphType</span>&quot;</span> == <span class="string">&quot;filledcurve&quot;</span> ] ; <span class="keyword">then</span></span><br><span class="line">		graphType=<span class="string">&quot;filledcurve y1=0&quot;</span></span><br><span class="line">	<span class="keyword">fi</span></span><br><span class="line"><span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># check graph color, wich must fit #[0-9a-f]&#123;6&#125;</span></span><br><span class="line"><span class="keyword">if</span> [ <span class="string">&quot;<span class="variable">$graphColor</span>&quot;</span> ] ; <span class="keyword">then</span></span><br><span class="line">	tmp=`<span class="built_in">echo</span> <span class="variable">$graphColor</span> | grep <span class="string">&#x27;^#[0-9a-f]\&#123;6\&#125;&#x27;</span> `</span><br><span class="line">	<span class="keyword">if</span> [ -z <span class="string">&quot;<span class="variable">$tmp</span>&quot;</span> ] ; <span class="keyword">then</span></span><br><span class="line">		<span class="built_in">echo</span> <span class="string">&quot;color format error.&quot;</span></span><br><span class="line">		<span class="built_in">exit</span></span><br><span class="line">	<span class="keyword">fi</span></span><br><span class="line"><span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># check point number range in 60 ~ 600</span></span><br><span class="line"><span class="keyword">if</span> [ -z <span class="variable">$pointNumber</span> ] || [ <span class="string">&quot;<span class="variable">$pointNumber</span>&quot;</span> -lt 60 ] || [ <span class="string">&quot;<span class="variable">$pointNumber</span>&quot;</span> -gt 600 ] ; <span class="keyword">then</span></span><br><span class="line">	print_usage</span><br><span class="line">	<span class="built_in">exit</span></span><br><span class="line"><span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># check input files&#x27;s location</span></span><br><span class="line"></span><br><span class="line">inputFile=`<span class="built_in">printenv</span> LOGFILE`</span><br><span class="line"></span><br><span class="line"><span class="comment">#generate a reverse data</span></span><br><span class="line">tempInput=<span class="string">&quot;input2&quot;</span></span><br><span class="line">`<span class="built_in">tail</span> -r -n <span class="variable">$pointNumber</span> <span class="variable">$&#123;inputFile:=&quot;/tmp/sysmonitor&quot;&#125;</span> | awk <span class="string">&#x27;&#123; print -NR&quot; &quot;$1&#125;&#x27;</span> &gt; <span class="variable">$tempInput</span>`</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">#generate a temp plt file</span></span><br><span class="line">tempFile=<span class="string">&quot;temp.plt&quot;</span></span><br><span class="line">`<span class="built_in">touch</span> <span class="variable">$tempFile</span>`</span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;set term png&quot;</span> &gt;&gt; <span class="variable">$tempFile</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;set out &#x27;<span class="variable">$&#123;outName:=&quot;out.png&quot;&#125;</span>&#x27;&quot;</span> &gt;&gt; <span class="variable">$tempFile</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;set title &#x27;CPU Usage&#x27;&quot;</span> &gt;&gt; <span class="variable">$tempFile</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;unset key&quot;</span> &gt;&gt; <span class="variable">$tempFile</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;set grid front&quot;</span> &gt;&gt; <span class="variable">$tempFile</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;set xlabel &#x27;time from now(sec)&#x27;&quot;</span> &gt;&gt; <span class="variable">$tempFile</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;set ylabel &#x27;CPU Usage(%)&#x27;&quot;</span> &gt;&gt; <span class="variable">$tempFile</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;plot [-<span class="variable">$pointNumber</span>:0] [0:100] &#x27;<span class="variable">$tempInput</span>&#x27; with <span class="variable">$&#123;graphType:=&quot;filledcurve y1=0&quot;&#125;</span> linetype rgb &#x27;<span class="variable">$&#123;graphColor:=&quot;#1E90FF&quot;&#125;</span>&#x27; &quot;</span> &gt;&gt; <span class="variable">$tempFile</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">`gnuplot <span class="variable">$tempFile</span>`</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> [ -f <span class="variable">$tempInput</span> ] ; <span class="keyword">then</span></span><br><span class="line">	`<span class="built_in">rm</span> <span class="variable">$tempInput</span>`</span><br><span class="line"><span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> [ -f <span class="variable">$tempFile</span> ] ; <span class="keyword">then</span></span><br><span class="line">	`<span class="built_in">rm</span> <span class="variable">$tempFile</span>`</span><br><span class="line"><span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/System/" rel="tag"># System</a>
+              <a href="/tags/ShellScript/" rel="tag"># ShellScript</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/strategy-pattern.html" rel="prev" title="Strategy Pattern">
+                  <i class="fa fa-chevron-left"></i> Strategy Pattern
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/openvswitch-install.html" rel="next" title="OpenVSwitch - Basic Install">
+                  OpenVSwitch - Basic Install <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

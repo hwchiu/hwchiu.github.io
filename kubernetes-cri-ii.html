@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本文介紹了 &#96;containerd 的概念，並且嘗試建置一個基於 containerd 的 kubernetes cluster, 讓大家體驗看看佈樁 docker 也可以運行 kubernetes 的使用方式，同時也可以學習到是如何透過設定來改變 kubernetes 這一連串的行為的。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kubernetes &amp; CRI (II) - containerd">
+<meta property="og:url" content="https://www.hwchiu.com/kubernetes-cri-ii.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文介紹了 &#96;containerd 的概念，並且嘗試建置一個基於 containerd 的 kubernetes cluster, 讓大家體驗看看佈樁 docker 也可以運行 kubernetes 的使用方式，同時也可以學習到是如何透過設定來改變 kubernetes 這一連串的行為的。">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2019-09-20T23:12:36.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.628Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="ITHOME">
+<meta property="article:tag" content="Container">
+<meta property="article:tag" content="CRI">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/kubernetes-cri-ii.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/kubernetes-cri-ii.html","path":"kubernetes-cri-ii.html","title":"Kubernetes & CRI (II) - containerd"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Kubernetes & CRI (II) - containerd | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%92%B0%E5%A2%83%E5%BB%BA%E7%BD%AE"><span class="nav-number">2.</span> <span class="nav-text">環境建置</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%92%B0%E5%A2%83%E9%9C%80%E6%B1%82"><span class="nav-number">2.1.</span> <span class="nav-text">環境需求</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Ansible-2-4-%E6%9C%89%E6%B2%92%E6%9C%89%E4%BD%BF%E7%94%A8-ansible-%E9%83%BD%E7%84%A1%E6%89%80%E8%AC%82%EF%BC%8C%E5%9B%A0%E7%82%BA%E6%88%91%E5%80%91%E6%9C%83%E6%8B%86%E8%A7%A3%E8%A3%A1%E9%9D%A2%E7%9A%84%E6%AD%A5%E9%A9%9F%EF%BC%8C%E5%8E%BB%E7%9C%8B%E7%9C%8B%E5%85%A8%E9%83%A8%E7%9A%84%E5%AE%89%E8%A3%9D%E6%AD%A5%E9%A9%9F"><span class="nav-number">2.2.</span> <span class="nav-text">Ansible: 2.4+  - 有沒有使用 ansible 都無所謂，因為我們會拆解裡面的步驟，去看看全部的安裝步驟</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%92%B0%E5%A2%83%E5%AE%89%E8%A3%9D"><span class="nav-number">2.3.</span> <span class="nav-text">環境安裝</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Ansible-%E7%89%88%E6%9C%AC"><span class="nav-number">2.3.1.</span> <span class="nav-text">Ansible 版本</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%89%8B%E5%8B%95%E5%AE%89%E8%A3%9D%E7%89%88%E6%9C%AC"><span class="nav-number">2.3.2.</span> <span class="nav-text">手動安裝版本</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Kubernetes-Cluster"><span class="nav-number">2.4.</span> <span class="nav-text">Kubernetes Cluster</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%A7%80%E5%AF%9F"><span class="nav-number">3.</span> <span class="nav-text">觀察</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Containerd"><span class="nav-number">3.1.</span> <span class="nav-text">Containerd</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Docker"><span class="nav-number">3.2.</span> <span class="nav-text">Docker</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">4.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">5.</span> <span class="nav-text">個人資訊</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%83%E8%80%83"><span class="nav-number">6.</span> <span class="nav-text">參考</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/kubernetes-cri-ii.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Kubernetes & CRI (II) - containerd | Hwchiu Learning Note">
+      <meta itemprop="description" content="本文介紹了 `containerd 的概念，並且嘗試建置一個基於 containerd 的 kubernetes cluster, 讓大家體驗看看佈樁 docker 也可以運行 kubernetes 的使用方式，同時也可以學習到是如何透過設定來改變 kubernetes 這一連串的行為的。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Kubernetes & CRI (II) - containerd
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-09-21 07:12:36" itemprop="dateCreated datePublished" datetime="2019-09-21T07:12:36+08:00">2019-09-21</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本文介紹了 `containerd 的概念，並且嘗試建置一個基於 containerd 的 kubernetes cluster, 讓大家體驗看看佈樁 docker 也可以運行 kubernetes 的使用方式，同時也可以學習到是如何透過設定來改變 kubernetes 這一連串的行為的。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前篇文章中跟大家探討了 <code>kubernetes</code> 內關於容器運行標準化的架構，透過 <code>Container Runtime Interface</code> 與各式各樣的 <code>Container Runtime</code> 解決方案溝通，可以讓 <code>kubernetes</code> 本身只需要專注於 <code>kubelet</code> 以及 <code>CRI 標準</code> 的互動，第三方開發者則可以根據需求開發出各式各樣不同的產品，只要能夠滿足 <code>CRI 標準</code> 即可。</p>
+<p>就我所知，目前相容於 <code>CRI</code> 的解決方案可根據其架構分成三大類，分別是</p>
+<ul>
+<li>真的是輕量級虛擬化的容器</li>
+<li>背後是虛擬機器，但是卻運作起來像輕量級虛擬化的容器</li>
+<li>真的是傳統虛擬機器</li>
+</ul>
+<p>接下來的數篇文章會根據每個類別詳細介紹一種解決方案，並探討設計理念與架構，與此同時大家也可以思考自己的環境是不是有可能可以搭載其他的解決方案，而非永遠使用 <code>Docker</code> ?</p>
+<p>本篇會先透過一個簡單的環境實驗來帶過如何建置一個使用 <code>containerd</code> 的 <code>kubernetes</code> 環境，可以體驗到不安裝 <code>docker</code> 也可以運行的 <code>kubernetes</code> 叢集， 同時之後若安裝了 <code>docker</code> 也可以觀察到是否真的如上篇文章所說， <code>docker</code> 與 <code>kubernetes</code> 本身創造出來的 <code>container</code> 是互相不干涉的。</p>
+<h1 id="環境建置"><a href="#環境建置" class="headerlink" title="環境建置"></a>環境建置</h1><p>接下來的建置環境與步驟是參考 <a target="_blank" rel="noopener" href="https://github.com/containerd/cri/tree/master/contrib/ansible">Containerd GitHub</a> 濃縮的。</p>
+<h2 id="環境需求"><a href="#環境需求" class="headerlink" title="環境需求"></a>環境需求</h2><ul>
+<li>OS: Ubuntu 16.04<ul>
+<li>18.04 會因為 <code>kubernetes deb</code> 相關的問題導致套件更新失敗，建議先基於 <code>16.04</code> 測試即可</li>
+</ul>
+</li>
+<li>Python: 2.7+</li>
+<li><h2 id="Ansible-2-4-有沒有使用-ansible-都無所謂，因為我們會拆解裡面的步驟，去看看全部的安裝步驟"><a href="#Ansible-2-4-有沒有使用-ansible-都無所謂，因為我們會拆解裡面的步驟，去看看全部的安裝步驟" class="headerlink" title="Ansible: 2.4+  - 有沒有使用 ansible 都無所謂，因為我們會拆解裡面的步驟，去看看全部的安裝步驟"></a>Ansible: 2.4+<br>  - 有沒有使用 <code>ansible</code> 都無所謂，因為我們會拆解裡面的步驟，去看看全部的安裝步驟</h2></li>
+</ul>
+<h2 id="環境安裝"><a href="#環境安裝" class="headerlink" title="環境安裝"></a>環境安裝</h2><p>環境的部分只有包括 <code>containerd</code> 的相依套件，並不包含 <code>kubernetes</code> 叢集本身，但是有包含 <code>kubeadm</code>, <code>kubectl</code>, <code>kubelet</code> 相關套件。</p>
+<h3 id="Ansible-版本"><a href="#Ansible-版本" class="headerlink" title="Ansible 版本"></a>Ansible 版本</h3><p>基本上官方文件已經將相關的步驟都建置完畢，本身只需要準備 <code>hosts</code> 的檔案即可，該 <code>ansible playbook</code> 支援 <code>Ubuntu</code> 以及 <code>CentOS</code> 兩套發行版本。</p>
+<p>首先在 <code>ansible host</code> 執行下列指令抓取相關的 <code>ansible-playbook</code></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">git <span class="built_in">clone</span> https://github.com/containerd/cri</span><br><span class="line"><span class="built_in">cd</span> ./cri/contrib/ansible</span><br></pre></td></tr></table></figure>
+
+<p>接下來根據需求產生對應的 <code>hosts</code> 檔案，裡面放置要被安裝的機器，或是直接採用 <code>localhost</code> 的方式再本機運行該 <code>playbook</code> 即可。<br>這部分比較屬於 <code>ansible</code> 的方式，不熟悉的讀者可以自行尋找資源看看如何運行，或是放棄採用 <code>ansible</code>, 而是逐條逐條的自行安裝</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ansible-playbook -i hosts cri-containerd.yaml</span><br></pre></td></tr></table></figure>
+
+<p>順利跑完應該會看到類似下圖的結果</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">TASK [Create a directory <span class="keyword">for</span> cni binary] ***********************************************************************************************************************************$</span><br><span class="line">changed: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [Create a directory <span class="keyword">for</span> cni config files] *****************************************************************************************************************************$</span><br><span class="line">changed: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [Create a directory <span class="keyword">for</span> containerd config] ****************************************************************************************************************************$</span><br><span class="line">changed: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [Start Containerd] ****************************************************************************************************************************************************<span class="variable">$changed</span>: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [Load br_netfilter kernel module] *************************************************************************************************************************************$</span><br><span class="line">changed: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [Set bridge-nf-call-iptables] *****************************************************************************************************************************************$</span><br><span class="line">changed: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [Set ip_forward] ******************************************************************************************************************************************************$</span><br><span class="line">changed: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [Check kubelet args <span class="keyword">in</span> kubelet config] ********************************************************************************************************************************$</span><br><span class="line">changed: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [Add runtime args <span class="keyword">in</span> kubelet conf] ************************************************************************************************************************************$</span><br><span class="line">skipping: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [Start Kubelet] *******************************************************************************************************************************************************$</span><br><span class="line">changed: [localhost]</span><br><span class="line"></span><br><span class="line">TASK [Pre-pull pause container image] **************************************************************************************************************************************$</span><br><span class="line">changed: [localhost]</span><br><span class="line"></span><br><span class="line">PLAY RECAP ******************************************************************************************************************************************************************</span><br><span class="line">...</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<h3 id="手動安裝版本"><a href="#手動安裝版本" class="headerlink" title="手動安裝版本"></a>手動安裝版本</h3><p>如果不想透過 <code>ansible</code> 一鍵安裝完畢，接下來透過拆解該 <code>ansible playbook</code> 就可以知道實際上要做哪些步驟來建置 <code>containerd</code> 的環境。</p>
+<ol>
+<li>讀取下列變數 <code>var/vars.yaml</code><ul>
+<li>containerd_release_version: 1.1.0-rc.0</li>
+<li>cni_bin_dir: &#x2F;opt&#x2F;cni&#x2F;bin&#x2F;</li>
+<li>cni_conf_dir: &#x2F;etc&#x2F;cni&#x2F;net.d&#x2F;<br>第一個指明 <code>containerd</code> 的版本後，後續兩個變數則是 <code>CNI (Container Network Interface)</code> 會用到的路徑，之後的文章會細部探討 <code>CNI</code> 的設計與使用。</li>
+</ul>
+</li>
+<li>根據發行版本讀取不同的檔案來安裝相關套件 (Ubuntu 為範例)<ul>
+<li>unzip</li>
+<li>tar</li>
+<li>apt-transport-https</li>
+<li>btrfs-tools</li>
+<li>libseccomp2</li>
+<li>socat</li>
+<li>util-linux</li>
+</ul>
+</li>
+<li>安裝 <code>kubernetes</code> 會用到的相關工具<ul>
+<li>kubelet</li>
+<li>kubeadm</li>
+<li>kubectl</li>
+</ul>
+</li>
+<li>安裝 <code>containerd</code> 會用到的相關工具<ul>
+<li>cri-containerd</li>
+<li>來源網址是 <a target="_blank" rel="noopener" href="https://storage.googleapis.com/cri-containerd-release">https://storage.googleapis.com/cri-containerd-release</a>, 點進去可以看到各種不同版本的 <code>cri-containerd</code>.</li>
+<li>解壓縮該安裝檔案後可以看到有下列內容，包含了 <code>systemd</code> 的設定，相關的執行檔案。<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">./</span><br><span class="line">./opt/</span><br><span class="line">./opt/containerd/</span><br><span class="line">./opt/containerd/cluster/</span><br><span class="line">./opt/containerd/cluster/gce/</span><br><span class="line">./opt/containerd/cluster/gce/cloud-init/</span><br><span class="line">./opt/containerd/cluster/gce/cloud-init/node.yaml</span><br><span class="line">./opt/containerd/cluster/gce/cloud-init/master.yaml</span><br><span class="line">./opt/containerd/cluster/gce/configure.sh</span><br><span class="line">./opt/containerd/cluster/gce/env</span><br><span class="line">./opt/containerd/cluster/version</span><br><span class="line">./opt/containerd/cluster/health-monitor.sh</span><br><span class="line">./usr/</span><br><span class="line">./usr/local/</span><br><span class="line">./usr/local/sbin/</span><br><span class="line">./usr/local/sbin/runc</span><br><span class="line">./usr/local/bin/</span><br><span class="line">./usr/local/bin/crictl</span><br><span class="line">./usr/local/bin/containerd</span><br><span class="line">./usr/local/bin/containerd-stress</span><br><span class="line">./usr/local/bin/critest</span><br><span class="line">./usr/local/bin/containerd-release</span><br><span class="line">./usr/local/bin/containerd-shim</span><br><span class="line">./usr/local/bin/ctr</span><br><span class="line">./etc/</span><br><span class="line">./etc/systemd/</span><br><span class="line">./etc/systemd/system/</span><br><span class="line">./etc/systemd/system/containerd.service</span><br><span class="line">./etc/crictl.yaml</span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+<li>透過 <code>systemd</code> 啟動 <code>containerd</code></li>
+<li>設定 <code>netfilter</code> 相關設定，讓 <code>kernel</code> 啟動相關功能<ul>
+<li>br_netfilter -&gt; bridge 層級啟動 netfilter (ebtables)</li>
+<li>bridge-nf-call-iptables -&gt; bridge 層級也會去呼叫 iptables 處理</li>
+<li>ip_forward -&gt; 轉發 ip 封包<br>這些功能基本上以前安裝 <code>docker</code> 的時候都會幫忙處理，所以基本上都不會特別注意到</li>
+</ul>
+</li>
+<li>接下來就是重頭戲了，如何讓 <code>kubernetes</code> 知道要使用 <code>containerd</code> 作為其 <code>Container Runtime</code> 而非使用 <code>dockershim</code> 來銜接 <code>docker</code>.<br>根據 <a target="_blank" rel="noopener" href="https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet/">官方文件</a>， <code>kubelet</code> 裡面有下列的參數可以設定<blockquote>
+<p>–container-runtime string<br>The container runtime to use. Possible values: ‘docker’, ‘remote’, ‘rkt(deprecated)’. (default “docker”)<br>  –container-runtime-endpoint string<br>[Experimental] The endpoint of remote runtime service. Currently unix socket is supported on Linux, and tcp is supported on windows.</p>
+</blockquote>
+</li>
+</ol>
+<p>其中 <code>container-runtime</code> 可以使用三種來處理，分別是內建的 <code>docker</code>, <code>rkt</code> 以及客製化的 <code>remote</code>.<br>當上述選擇了 <code>remote</code> 後，也必須要一起設定 <code>container-runtime-endpoint</code> 告訴 <code>kubelet</code> 這時候要怎麼跟非內建的 <code>container runtime</code> 溝通。</p>
+<p>因此安裝過程中，該 <code>ansible playbook</code> 就會嘗試修改 <code>kubelet</code> 的啟動參數，這部分因為整個安裝過程都是透過 <code>kubeadm</code> 去架設 <code>kubernetes cluster</code>, 所以最後是修改 <code>/etc/systemd/system/kubelet.service.d/10-kubeadm.conf</code> 這個檔案. 關於 <code>kubeadm</code> 與 <code>kubelet</code> 彼此之間的設定過程可以參考下列文章 <a target="_blank" rel="noopener" href="https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/kubelet-integration/#the-kubelet-drop-in-file-for-systemd">kubeadm&#x2F;kubelet-integration</a></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo <span class="built_in">cat</span> /etc/systemd/system/kubelet.service.d/10-kubeadm.conf</span><br><span class="line"><span class="comment"># Note: This dropin only works with kubeadm and kubelet v1.11+</span></span><br><span class="line">[Service]</span><br><span class="line">Environment=<span class="string">&quot;KUBELET_EXTRA_ARGS= --runtime-cgroups=/system.slice/containerd.service --container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock&quot;</span></span><br><span class="line">Environment=<span class="string">&quot;KUBELET_KUBECONFIG_ARGS=--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf&quot;</span></span><br><span class="line">Environment=<span class="string">&quot;KUBELET_CONFIG_ARGS=--config=/var/lib/kubelet/config.yaml&quot;</span></span><br><span class="line"><span class="comment"># This is a file that &quot;kubeadm init&quot; and &quot;kubeadm join&quot; generates at runtime, populating the KUBELET_KUBEADM_ARGS variable dynamically</span></span><br><span class="line">EnvironmentFile=-/var/lib/kubelet/kubeadm-flags.env</span><br><span class="line"><span class="comment"># This is a file that the user can use for overrides of the kubelet args as a last resort. Preferably, the user should use</span></span><br><span class="line"><span class="comment"># the .NodeRegistration.KubeletExtraArgs object in the configuration files instead. KUBELET_EXTRA_ARGS should be sourced from this file.</span></span><br><span class="line">EnvironmentFile=-/etc/default/kubelet</span><br><span class="line">ExecStart=</span><br><span class="line">ExecStart=/usr/bin/kubelet <span class="variable">$KUBELET_KUBECONFIG_ARGS</span> <span class="variable">$KUBELET_CONFIG_ARGS</span> <span class="variable">$KUBELET_KUBEADM_ARGS</span> <span class="variable">$KUBELET_EXTRA_ARGS</span></span><br></pre></td></tr></table></figure>
+
+<p>當我們實際觀察這個檔案，可以發現裡面關於環境變數的部分加入了下列選項，這時候我們就明瞭到底 <code>kubernetes</code> 之後是如何跟 <code>containerd</code> 溝通的<br><code>--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock&quot;</code></p>
+<ol start="10">
+<li>最後就是啟動 <code>kubelet</code> 將基本的服務起來</li>
+</ol>
+<h2 id="Kubernetes-Cluster"><a href="#Kubernetes-Cluster" class="headerlink" title="Kubernetes Cluster"></a>Kubernetes Cluster</h2><p>一切都準備就緒後，接下來非常簡單的透過 <code>kubeadm</code> 的方式來創建 <code>kubernetes cluster</code>.<br>這個範例中我採用 <code>flannel</code> 作為 CNI, 之後也會有文章詳細介紹 <code>Flannel</code> 的運作原理。</p>
+<p>依序執行下列指令將 <code>kubernetes cluster</code> 給建立起來，並安裝 <code>CNI</code> 同時也打開<br><code>taint</code> 讓 <code>master node</code> 也可以部署 <code>Pod</code>.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">sudo swapoff -a &amp;&amp; sudo sysctl -w vm.swappiness=0</span><br><span class="line">sudo kubeadm init --pod-network-cidr=10.244.0.0/16</span><br><span class="line"><span class="built_in">mkdir</span> -p <span class="variable">$HOME</span>/.kube</span><br><span class="line">sudo <span class="built_in">cp</span> -i /etc/kubernetes/admin.conf <span class="variable">$HOME</span>/.kube/config</span><br><span class="line">sudo <span class="built_in">chown</span> $(<span class="built_in">id</span> -u):$(<span class="built_in">id</span> -g) <span class="variable">$HOME</span>/.kube/config</span><br><span class="line">kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/a70459be0084506e4ec919aa1c114638878db11b/Documentation/kube-flannel.yml</span><br><span class="line">kubectl taint nodes --all node-role.kubernetes.io/master-</span><br></pre></td></tr></table></figure>
+
+<p>這時候使用簡單的工具確認 <code>kubernetes</code> 有正常起來即可</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~/cri/contrib/ansible$ kubectl get pods --all-namespaces</span><br><span class="line">NAMESPACE     NAME                          READY   STATUS    RESTARTS   AGE</span><br><span class="line">kube-system   coredns-5c98db65d4-ghzpl      0/1     Running   0          26s</span><br><span class="line">kube-system   coredns-5c98db65d4-thsdq      0/1     Running   0          26s</span><br><span class="line">kube-system   kube-flannel-ds-amd64-ztqgs   1/1     Running   0          14s</span><br><span class="line">kube-system   kube-proxy-jfs66              1/1     Running   0          26s</span><br></pre></td></tr></table></figure>
+
+<h1 id="觀察"><a href="#觀察" class="headerlink" title="觀察"></a>觀察</h1><h2 id="Containerd"><a href="#Containerd" class="headerlink" title="Containerd"></a>Containerd</h2><p>接下來我們要透過不同的工具來觀察當使用 <code>containerd</code> 作為部署時有什麼不同</p>
+<p>由於此時我們不是透過 <code>docker</code> 來管理整個 <code>kubernetes</code> 底層需要的 <code>container</code>，而是透過 <code>kubelet &amp; CRI &amp; containerd</code> 來管理。<br>所以這時候就不能透過 <code>docker ps</code> 或是 <code>docker images</code> 等指令來看相關的 <code>container</code> 資源，取而代之的是 <code>crictl</code> 這個在前面步驟伴隨 <code>containerd</code> 一起安裝到系統內的工具。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~/cri/contrib/ansible$ crictl</span><br><span class="line">NAME:</span><br><span class="line">   crictl - client <span class="keyword">for</span> CRI</span><br><span class="line"></span><br><span class="line">USAGE:</span><br><span class="line">   crictl [global options] <span class="built_in">command</span> [<span class="built_in">command</span> options] [arguments...]</span><br><span class="line"></span><br><span class="line">VERSION:</span><br><span class="line">   1.0.0-beta.0</span><br><span class="line"></span><br><span class="line">COMMANDS:</span><br><span class="line">     attach        Attach to a running container</span><br><span class="line">     create        Create a new container</span><br><span class="line">     <span class="built_in">exec</span>          Run a <span class="built_in">command</span> <span class="keyword">in</span> a running container</span><br><span class="line">     version       Display runtime version information</span><br><span class="line">     images        List images</span><br><span class="line">     inspect       Display the status of one or more containers</span><br><span class="line">     inspecti      Return the status of one ore more images</span><br><span class="line">     inspectp      Display the status of one or more pod sandboxes</span><br><span class="line">     logs          Fetch the logs of a container</span><br><span class="line">     port-forward  Forward <span class="built_in">local</span> port to a pod sandbox</span><br><span class="line">     ps            List containers</span><br><span class="line">     pull          Pull an image from a registry</span><br><span class="line">     runp          Run a new pod sandbox</span><br><span class="line">     <span class="built_in">rm</span>            Remove one or more containers</span><br><span class="line">     rmi           Remove one or more images</span><br><span class="line">     rmp           Remove one or more pod sandboxes</span><br><span class="line">     pods          List pod sandboxes</span><br><span class="line">     start         Start one or more created containers</span><br><span class="line">     info          Display information of the container runtime</span><br><span class="line">     stop          Stop one or more running containers</span><br><span class="line">     stopp         Stop one or more running pod sandboxes</span><br><span class="line">     update        Update one or more running containers</span><br><span class="line">     config        Get and <span class="built_in">set</span> crictl options</span><br><span class="line">     stats         List container(s) resource usage statistics</span><br><span class="line">     completion    Output bash shell completion code</span><br><span class="line">     <span class="built_in">help</span>, h       Shows a list of commands or <span class="built_in">help</span> <span class="keyword">for</span> one <span class="built_in">command</span></span><br><span class="line"></span><br><span class="line">GLOBAL OPTIONS:</span><br><span class="line">   --config value, -c value            Location of the client config file (default: <span class="string">&quot;/etc/crictl.yaml&quot;</span>) [<span class="variable">$CRI_CONFIG_FILE</span>]</span><br><span class="line">   --debug, -D                         Enable debug mode</span><br><span class="line">   --image-endpoint value, -i value    Endpoint of CRI image manager service [<span class="variable">$IMAGE_SERVICE_ENDPOINT</span>]</span><br><span class="line">   --runtime-endpoint value, -r value  Endpoint of CRI container runtime service (default: <span class="string">&quot;unix:///var/run/dockershim.sock&quot;</span>) [<span class="variable">$CONTAINER_RUNTIME_ENDPOINT</span>]</span><br><span class="line">   --<span class="built_in">timeout</span> value, -t value           Timeout of connecting to the server (default: 10s)</span><br><span class="line">   --<span class="built_in">help</span>, -h                          show <span class="built_in">help</span></span><br><span class="line">   --version, -v                       <span class="built_in">print</span> the version</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>說明非常簡單，就是 <code>CRI</code> 命令列，其預設的設定檔案位於 <code>/etc/crictl.yaml</code></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~/cri/contrib/ansible$ <span class="built_in">cat</span> /etc/crictl.yaml</span><br><span class="line">runtime-endpoint: /run/containerd/containerd.sock</span><br></pre></td></tr></table></figure>
+
+<p>所以接下來呼叫的任何 <code>crictl</code> 指令都會跟 <code>containerd</code> 互動來取得回應，我們就根據上面的提示來試試看各種指令</p>
+<p>基於 <code>kubernetes POD</code> 概念的資源顯示</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~/cri/contrib/ansible$ sudo crictl pods                                                                                                PODSANDBOX ID       CREATED             STATE               NAME                              NAMESPACE           ATTEMPT</span><br><span class="line">4ed054a456e96       17 minutes ago      SANDBOX_READY       coredns-5c98db65d4-ghzpl          kube-system         0                                    c5209a01e0936       17 minutes ago      SANDBOX_READY       coredns-5c98db65d4-thsdq          kube-system         0</span><br><span class="line">0a771e9912232       18 minutes ago      SANDBOX_READY       kube-flannel-ds-amd64-ztqgs       kube-system         0</span><br><span class="line">0642c904298c8       18 minutes ago      SANDBOX_READY       kube-proxy-jfs66                  kube-system         0</span><br><span class="line">46039553a0fcc       18 minutes ago      SANDBOX_READY       kube-scheduler-k8s-dev            kube-system         0</span><br><span class="line">ec6d7cde198cc       18 minutes ago      SANDBOX_READY       kube-controller-manager-k8s-dev   kube-system         0</span><br><span class="line">be0bc17da244d       18 minutes ago      SANDBOX_READY       etcd-k8s-dev                      kube-system         0</span><br><span class="line">490d8b240d8ca       18 minutes ago      SANDBOX_READY       kube-apiserver-k8s-dev            kube-system         0</span><br></pre></td></tr></table></figure>
+
+<p>相關的 <code>container images</code>, 這些 <code>images</code> 再之前都是透過 <code>docker pull</code> 等方式安裝，如今我們系統內完全不裝 <code>docker</code> 也是可以使用，這一切都是仰賴 <code>OCI</code> 標準的制定外加 <code>containerd</code> 的幫忙。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~/cri/contrib/ansible$ sudo crictl images</span><br><span class="line">IMAGE                                TAG                 IMAGE ID            SIZE</span><br><span class="line">k8s.gcr.io/coredns                   1.3.1               eb516548c180f       12.3MB</span><br><span class="line">k8s.gcr.io/etcd                      3.3.10              2c4adeb21b4ff       76.2MB</span><br><span class="line">k8s.gcr.io/kube-apiserver            v1.15.3             5eb2d3fc7a44e       49.3MB</span><br><span class="line">k8s.gcr.io/kube-controller-manager   v1.15.3             e77c31de55475       47.8MB</span><br><span class="line">k8s.gcr.io/kube-proxy                v1.15.3             232b5c7931462       30.1MB</span><br><span class="line">k8s.gcr.io/kube-scheduler            v1.15.3             703f9c69a5d57       29.9MB</span><br><span class="line">k8s.gcr.io/pause                     3.1                 da86e6ba6ca19       317kB</span><br><span class="line">quay.io/coreos/flannel               v0.11.0-amd64       8a9c4ced3ff92       16.9MB</span><br><span class="line">vagrant@k8s-dev:~/cri/contrib/ansible$ sudo crictl ps</span><br></pre></td></tr></table></figure>
+
+<p>接下來看看運行的 <code>container</code>, 其結果跟 <code>docker ps</code> 非常相似，使用起來幾乎沒有任何違和感，我覺得設定 <code>alias docker=crictl</code> 都不會有什麼錯覺?</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~/cri/contrib/ansible$ sudo crictl ps</span><br><span class="line">CONTAINER ID        IMAGE                                                                     CREATED             STATE               NAME</span><br><span class="line">         ATTEMPT</span><br><span class="line">1cf00f473d03a       sha256:eb516548c180f8a6e0235034ccee2428027896af16a509786da13022fe95fe8c   19 minutes ago      CONTAINER_RUNNING   coredns</span><br><span class="line">         0</span><br><span class="line">221b815ca1f56       sha256:eb516548c180f8a6e0235034ccee2428027896af16a509786da13022fe95fe8c   19 minutes ago      CONTAINER_RUNNING   coredns</span><br><span class="line">         0</span><br><span class="line">f35552b98abc1       sha256:8a9c4ced3ff92c63c446d55c2353c42410c78b497a0483d4048e8d30ebe37058   19 minutes ago      CONTAINER_RUNNING   kube-flannel</span><br><span class="line">         0</span><br><span class="line">8eafd7980b1d3       sha256:232b5c79314628fbc788319e2dff191f4d08e38962e42ebd31b55b52fecd70ec   19 minutes ago      CONTAINER_RUNNING   kube-proxy</span><br><span class="line">         0</span><br><span class="line">feb2ed1caa423       sha256:2c4adeb21b4ff8ed3309d0e42b6b4ae39872399f7b37e0856e673b13c4aba13d   20 minutes ago      CONTAINER_RUNNING   etcd</span><br><span class="line">         0</span><br><span class="line">00be90f2a7ac0       sha256:703f9c69a5d578378a022dc75d0c242d599422a1b7cc9cf5279b49d39dc7ca08   20 minutes ago      CONTAINER_RUNNING   kube-scheduler</span><br><span class="line">         0</span><br><span class="line">e16c5a24ff09d       sha256:e77c31de554758f3f03e78e124a914b7d86de7d7cf3d677c9b720efb90a833f9   20 minutes ago      CONTAINER_RUNNING   kube-controller-m</span><br><span class="line">anager   0</span><br><span class="line">fbe374eb60712       sha256:5eb2d3fc7a44e3a8399256d4b60153a1a59165e70334a1c290fcbd33a9a9d8a7   20 minutes ago      CONTAINER_RUNNING   kube-apiserver</span><br><span class="line">         0</span><br></pre></td></tr></table></figure>
+
+<p>除了 <code>container</code> 本身的管理外，我們來看一下系統內運行的應用程式, 可以觀察到系統上有一個 <code>containerd</code> 正在運行，同時 <code>kuberlet</code> 內關於 <code>container-runtime</code> 的參數有被修改。</p>
+<p>此外對於每個運作的 <code>container</code>, <code>containetd</code> 都會產生一個 <code>containerd-shim</code> 來運作。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~/cri/contrib/ansible$ ps -axo <span class="built_in">command</span> | grep containerd</span><br><span class="line">/usr/local/bin/containerd</span><br><span class="line"></span><br><span class="line">/usr/bin/kubelet --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf --config=/var/lib/kubelet/conf</span><br><span class="line">ig.yaml --container-runtime=remote --container-runtime-endpoint=/run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service --co</span><br><span class="line">ntainer-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock</span><br><span class="line"></span><br><span class="line">containerd-shim -namespace k8s.io -workdir /var/lib/containerd/io.containerd.runtime.v1.linux/k8s.io/490d8b240d8ca4c0df7d8440c5002ca795bddb989fb8bc6de2</span><br><span class="line">0da78394eb8ce6 -address /run/containerd/containerd.sock -containerd-binary /usr/local/bin/containerd</span><br><span class="line">...</span><br><span class="line">.....</span><br></pre></td></tr></table></figure>
+
+<h2 id="Docker"><a href="#Docker" class="headerlink" title="Docker"></a>Docker</h2><p>為了驗證之前說明是否 <code>dockerd</code> 與 <code>kubelet</code> 共用 <code>containerd</code> 但是彼此資源是互相隔離的，這時候我們來安裝一下 <code>docker</code> 並且於背景運行一個 <code>container</code> 試試看</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo docker run -d hwchiu/netutils</span><br></pre></td></tr></table></figure>
+<p>接下來我們使用 <code>docker</code> 指令針對上述的操作都進行一次，來比較看看</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo docker images</span><br><span class="line">REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE</span><br><span class="line">hwchiu/netutils     latest              a0d1dad34d58        13 months ago       222MB</span><br><span class="line">vagrant@k8s-dev:~$ sudo docker ps</span><br><span class="line">CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES</span><br><span class="line">320b653e39d8        hwchiu/netutils     <span class="string">&quot;/bin/bash ./entrypo…&quot;</span>   15 minutes ago      Up 15 minutes                           inspiring_haslett</span><br></pre></td></tr></table></figure>
+<p>非常乾淨簡單，完全看不到任何 <code>kubernetes</code> 用到的容器資源，此外我們再度透過 ｀<code>ps</code> 觀察</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock</span><br><span class="line"></span><br><span class="line">containerd-shim -namespace moby -workdir /var/lib/containerd/io.containerd.runtime.v1.linux/moby/320b653e39d8164e3033f1eec079c7772a10e703d24bb7f39f7bdf26fe084fe5 -address /run/containerd/containerd.sock -containerd-binary /usr/local/bin/containerd -runtime-root /var/run/docker/runtime-runc</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>首先，可以看到 <code>dockerd</code> 這時候也透過參數的方式去連接 <code>containerd</code>, 另外可以看到針對我上述的 <code>docker image</code> 所產生的 <code>containerd-shim</code> 與 <code>kubernetes</code> 產生的 <code>containerd-shim</code> 有明顯的參數不同</p>
+<ol>
+<li>-namespace moby v.s k8s.io</li>
+<li>workdir 不同</li>
+<li>-runtime-root &#x2F;var&#x2F;run&#x2F;docker&#x2F;runtime-runc</li>
+</ol>
+<p>此外我們也可以透過 <code>containerd cli(ctr) and containerd</code> 來觀察更多有趣的資訊</p>
+<p>首先可以看到對於 <code>containerd</code> 的確有不同的 <code>namespace</code>，也的確如上面所觀察到的是 <code>moby</code> 與 <code>k8s.io</code></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo ctr namespaces <span class="built_in">ls</span></span><br><span class="line">NAME   LABELS</span><br><span class="line">k8s.io</span><br><span class="line">moby</span><br></pre></td></tr></table></figure>
+
+<p>此外我們也可以看到不少關於 containerd 預設的設定，預設情況下 <code>linux</code> 環境中都是採用 <code>runc</code> 作為 <code>OCI Runtime Spec</code> 的解決方案。<br>而 <code>kubelet</code> 透過 <code>CRI</code> 與 <code>docker</code> 最後選擇都是會採取 <code>plugin.linux</code> 的設定，所以兩者背後最後都是透過 <code>runc</code> 來創建 <code>Container</code>。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">sudo containerd config default</span><br><span class="line">...</span><br><span class="line">  [plugins.cri]</span><br><span class="line">    stream_server_address = <span class="string">&quot;&quot;</span></span><br><span class="line">    stream_server_port = <span class="string">&quot;10010&quot;</span></span><br><span class="line">    enable_selinux = <span class="literal">false</span></span><br><span class="line">    sandbox_image = <span class="string">&quot;k8s.gcr.io/pause:3.1&quot;</span></span><br><span class="line">    stats_collect_period = 10</span><br><span class="line">    systemd_cgroup = <span class="literal">false</span></span><br><span class="line">    [plugins.cri.containerd]</span><br><span class="line">      snapshotter = <span class="string">&quot;overlayfs&quot;</span></span><br><span class="line">      [plugins.cri.containerd.default_runtime]</span><br><span class="line">        runtime_type = <span class="string">&quot;io.containerd.runtime.v1.linux&quot;</span></span><br><span class="line">        runtime_engine = <span class="string">&quot;&quot;</span></span><br><span class="line">        runtime_root = <span class="string">&quot;&quot;</span></span><br><span class="line">      [plugins.cri.containerd.untrusted_workload_runtime]</span><br><span class="line">        runtime_type = <span class="string">&quot;&quot;</span></span><br><span class="line">        runtime_engine = <span class="string">&quot;&quot;</span></span><br><span class="line">        runtime_root = <span class="string">&quot;&quot;</span></span><br><span class="line">...</span><br><span class="line">  [plugins.linux]</span><br><span class="line">    shim = <span class="string">&quot;containerd-shim&quot;</span></span><br><span class="line">    runtime = <span class="string">&quot;runc&quot;</span></span><br><span class="line">    runtime_root = <span class="string">&quot;&quot;</span></span><br><span class="line">    no_shim = <span class="literal">false</span></span><br><span class="line">    shim_debug = <span class="literal">false</span></span><br><span class="line">...</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>本文中我們簡述了如何建置一套基於 <code>containerd</code> 而非 <code>docker</code> 的 <code>kubernetes cluster</code>, 並且透過相關指令與工具來觀察在此設定下，<code>kubernetes</code>,<code>containerd</code>, <code>dockerd</code> 等彼此的交互關係，可以更加深對於 <code>CRI, OCI</code> 等概念的理解。</p>
+<p>kubelet -&gt; containerd -&gt; containetrd-shin(k8s.io) -&gt; runc</p>
+<p>docker client -&gt; docker enginer -&gt; containerd -&gt; containerd-shim(moby) -&gt; runc</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/containerd/cri/tree/master/contrib/ansible">https://github.com/containerd/cri/tree/master/contrib/ansible</a></li>
+<li><a target="_blank" rel="noopener" href="https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#installing-runtime">https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#installing-runtime</a></li>
+<li><a target="_blank" rel="noopener" href="https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/kubelet-integration/#the-kubelet-drop-in-file-for-systemd">https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/kubelet-integration/#the-kubelet-drop-in-file-for-systemd</a></li>
+<li><a target="_blank" rel="noopener" href="https://gist.github.com/mcastelino/35c221a81c70afc12f8b0929774b60a3">https://gist.github.com/mcastelino/35c221a81c70afc12f8b0929774b60a3</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+              <a href="/tags/Container/" rel="tag"># Container</a>
+              <a href="/tags/CRI/" rel="tag"># CRI</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/kubernetes-cri-i.html" rel="prev" title="Kubernetes & CRI (I)">
+                  <i class="fa fa-chevron-left"></i> Kubernetes & CRI (I)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/kubernetes-runtime-crio.html" rel="next" title="Container Runtime - CRI-O">
+                  Container Runtime - CRI-O <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

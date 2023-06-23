@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本文基於 SDN Controller Floodlight 的原始碼進行了一次簡單的分析，藉由分析這些原始碼更可以瞭解每個開放出來的 Restful API 該怎麼使用。相對於文件的更新速度，程式碼本身的迭代速度更為敏捷，因此常常會發生文件跟不上實際運行功能的案例。藉由學習閱讀原始碼，我們可以更快也更清楚的掌握當前這些開源軟體的發展狀態，甚至也能夠貢獻社群幫忙補齊文件。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Floodlight Core RestAPI - part1">
+<meta property="og:url" content="https://www.hwchiu.com/floodlight-core-restapi.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文基於 SDN Controller Floodlight 的原始碼進行了一次簡單的分析，藉由分析這些原始碼更可以瞭解每個開放出來的 Restful API 該怎麼使用。相對於文件的更新速度，程式碼本身的迭代速度更為敏捷，因此常常會發生文件跟不上實際運行功能的案例。藉由學習閱讀原始碼，我們可以更快也更清楚的掌握當前這些開源軟體的發展狀態，甚至也能夠貢獻社群幫忙補齊文件。">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2013-11-23T21:58:00.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.613Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="SDN">
+<meta property="article:tag" content="Floodlight">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="SourceCode">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/floodlight-core-restapi.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/floodlight-core-restapi.html","path":"floodlight-core-restapi.html","title":"Floodlight Core RestAPI - part1"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Floodlight Core RestAPI - part1 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Usage"><span class="nav-number">2.</span> <span class="nav-text">Usage</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Implement"><span class="nav-number">3.</span> <span class="nav-text">Implement</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%89%B9%E5%AE%9Aswitch-id"><span class="nav-number">3.1.</span> <span class="nav-text">特定switch id</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%89%80%E6%9C%89switch"><span class="nav-number">3.2.</span> <span class="nav-text">所有switch</span></a></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/floodlight-core-restapi.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Floodlight Core RestAPI - part1 | Hwchiu Learning Note">
+      <meta itemprop="description" content="本文基於 SDN Controller Floodlight 的原始碼進行了一次簡單的分析，藉由分析這些原始碼更可以瞭解每個開放出來的 Restful API 該怎麼使用。相對於文件的更新速度，程式碼本身的迭代速度更為敏捷，因此常常會發生文件跟不上實際運行功能的案例。藉由學習閱讀原始碼，我們可以更快也更清楚的掌握當前這些開源軟體的發展狀態，甚至也能夠貢獻社群幫忙補齊文件。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Floodlight Core RestAPI - part1
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2013-11-24 05:58:00" itemprop="dateCreated datePublished" datetime="2013-11-24T05:58:00+08:00">2013-11-24</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本文基於 SDN Controller Floodlight 的原始碼進行了一次簡單的分析，藉由分析這些原始碼更可以瞭解每個開放出來的 Restful API 該怎麼使用。相對於文件的更新速度，程式碼本身的迭代速度更為敏捷，因此常常會發生文件跟不上實際運行功能的案例。藉由學習閱讀原始碼，我們可以更快也更清楚的掌握當前這些開源軟體的發展狀態，甚至也能夠貢獻社群幫忙補齊文件。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>Floodlight Openflow Controller 預設就有Rest Server 並且提供對應的Rest API供使用者呼叫使用</p>
+<p>再core module這邊，目前提供了8種restAPI使用</p>
+<ul>
+<li>&#x2F;wm&#x2F;core&#x2F;switch&#x2F;all&#x2F;$statType&#x2F;json</li>
+<li>&#x2F;wm&#x2F;core&#x2F;swtich&#x2F;$switchi&gt;&#x2F;$statType$&#x2F;json</li>
+<li>&#x2F;wm&#x2F;core&#x2F;controller&#x2F;switches&#x2F;json</li>
+<li>&#x2F;wm&#x2F;core&#x2F;role&#x2F;json</li>
+<li>&#x2F;wm&#x2F;core&#x2F;counter&#x2F;$counterTitle&#x2F;json</li>
+<li>&#x2F;wm&#x2F;core&#x2F;counter&#x2F;$switchId&#x2F;$counterName$&#x2F;json</li>
+<li>&#x2F;wm&#x2F;core&#x2F;memory&#x2F;json</li>
+<li>&#x2F;wm&#x2F;core&#x2F;module&#x2F;{all}&#x2F;json</li>
+</ul>
+<p>第一篇主要講前面兩個，關於switch information方面。</p>
+<h1 id="Usage"><a href="#Usage" class="headerlink" title="Usage"></a>Usage</h1><p>這兩個RestAPI做的事情就是對switch 發送 Openflow status request的封包去詢問相關的訊息<br>發送的種類就是 <strong>statType</strong>。以下是目前的類型</p>
+<ul>
+<li>port</li>
+<li>queue</li>
+<li>flow</li>
+<li>aggregate</li>
+<li>desc</li>
+<li>table</li>
+<li>features</li>
+<li>host</li>
+</ul>
+<p>兩個API的差別只有再於一個是針對所有的swtich去發送請求，另一個是針對特定的switch去請求。</p>
+<h1 id="Implement"><a href="#Implement" class="headerlink" title="Implement"></a>Implement</h1><ol>
+<li><code>core/web/CoreWebRoutable.java</code> 裡面可以發現core像IRestApiService註冊了下列事件<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">router.attach(&quot;/switch/all/&#123;statType&#125;/json&quot;, AllSwitchStatisticsResource.class);</span><br><span class="line">router.attach(&quot;/switch/&#123;switchId&#125;/&#123;statType&#125;/json&quot;, SwitchStatisticsResource.class);</span><br></pre></td></tr></table></figure>
+這邊可以看到，<br>當使用者透過  <code>/wm/core/switch/all/&#123;statType&#125;/json</code>時最後會透過<code>AllSwitchStatisticsResource</code>去處理<br>如果透過的指定swtich id的方式，則會透過 <code>SwitchStatisticsResource</code>這個物件來處理。</li>
+</ol>
+<h2 id="特定switch-id"><a href="#特定switch-id" class="headerlink" title="特定switch id"></a>特定switch id</h2><ol start="2">
+<li><code>core/web/SwitchStatisticsResource.java</code> 可以看到下列的程式碼<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Get(&quot;json&quot;)</span></span><br><span class="line"><span class="keyword">public</span> Map&lt;String, Object&gt; <span class="title function_">retrieve</span><span class="params">()</span> &#123;</span><br><span class="line">    HashMap&lt;String,Object&gt; result = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;String,Object&gt;();</span><br><span class="line">    <span class="type">Object</span> <span class="variable">values</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"></span><br><span class="line">    <span class="type">String</span> <span class="variable">switchId</span> <span class="operator">=</span> (String) getRequestAttributes().get(<span class="string">&quot;switchId&quot;</span>);</span><br><span class="line">    <span class="type">String</span> <span class="variable">statType</span> <span class="operator">=</span> (String) getRequestAttributes().get(<span class="string">&quot;statType&quot;</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (statType.equals(<span class="string">&quot;port&quot;</span>)) &#123;</span><br><span class="line">        values = getSwitchStatistics(switchId, OFStatisticsType.PORT);</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (statType.equals(<span class="string">&quot;queue&quot;</span>)) &#123;</span><br><span class="line">        values = getSwitchStatistics(switchId, OFStatisticsType.QUEUE);</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (statType.equals(<span class="string">&quot;flow&quot;</span>)) &#123;</span><br><span class="line">        values = getSwitchStatistics(switchId, OFStatisticsType.FLOW);</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (statType.equals(<span class="string">&quot;aggregate&quot;</span>)) &#123;</span><br><span class="line">        values = getSwitchStatistics(switchId, OFStatisticsType.AGGREGATE);</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (statType.equals(<span class="string">&quot;desc&quot;</span>)) &#123;</span><br><span class="line">        values = getSwitchStatistics(switchId, OFStatisticsType.DESC);</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (statType.equals(<span class="string">&quot;table&quot;</span>)) &#123;</span><br><span class="line">        values = getSwitchStatistics(switchId, OFStatisticsType.TABLE);</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (statType.equals(<span class="string">&quot;features&quot;</span>)) &#123;</span><br><span class="line">        values = getSwitchFeaturesReply(switchId);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    result.put(switchId, values);</span><br><span class="line">    <span class="keyword">return</span> result;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ol>
+<p>這邊可以看到<code>retrieve</code>會先取得使用者輸入的swtichId以及對應的statType.<br>接者透過 <code>getSwitchStatistics</code> 這個function去取得資料<br>最後透過 <code>result.put(switchId, values)</code> 把該資料跟該dpid綁在一起，方便JSON的格式回傳</p>
+<ol start="3">
+<li><code>core/web/SwitchResourceBase.java</code> 中可以看到關於 <code>getSwitchStatistics</code>的定義</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> List&lt;OFStatistics&gt; <span class="title function_">getSwitchStatistics</span><span class="params">(<span class="type">long</span> switchId,</span></span><br><span class="line"><span class="params">                                                 OFStatisticsType statType)</span> &#123;</span><br><span class="line">    <span class="type">IFloodlightProviderService</span> <span class="variable">floodlightProvider</span> <span class="operator">=</span></span><br><span class="line">            (IFloodlightProviderService)getContext().getAttributes().</span><br><span class="line">                get(IFloodlightProviderService.class.getCanonicalName());</span><br><span class="line"></span><br><span class="line">    <span class="type">IOFSwitch</span> <span class="variable">sw</span> <span class="operator">=</span> floodlightProvider.getSwitch(switchId);</span><br><span class="line">    Future&lt;List&lt;OFStatistics&gt;&gt; future;</span><br><span class="line">    List&lt;OFStatistics&gt; values = <span class="literal">null</span>;</span><br><span class="line">    <span class="keyword">if</span> (sw != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="type">OFStatisticsRequest</span> <span class="variable">req</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">OFStatisticsRequest</span>();</span><br><span class="line">        req.setStatisticType(statType);</span><br><span class="line">        <span class="type">int</span> <span class="variable">requestLength</span> <span class="operator">=</span> req.getLengthU();</span><br></pre></td></tr></table></figure>
+<ul>
+<li>先透過floodlightProvider 取得該<code>switchId</code>所對應IOFSitch object.</li>
+<li>初始化查詢結果以及需要的容器 <code>future</code>, <code>values</code></li>
+<li>如果該dpid對應的switch存在，則先產生一個<code>OFStatisticsRequest</code>的物件，等等就要透過這個物件去發送請求。</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (statType == OFStatisticsType.FLOW) &#123;</span><br><span class="line">    <span class="type">OFFlowStatisticsRequest</span> <span class="variable">specificReq</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">OFFlowStatisticsRequest</span>();</span><br><span class="line">    <span class="type">OFMatch</span> <span class="variable">match</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">OFMatch</span>();</span><br><span class="line">    match.setWildcards(<span class="number">0xffffffff</span>);</span><br><span class="line">    specificReq.setMatch(match);</span><br><span class="line">    specificReq.setOutPort(OFPort.OFPP_NONE.getValue());</span><br><span class="line">    specificReq.setTableId((<span class="type">byte</span>) <span class="number">0xff</span>);</span><br><span class="line">    req.setStatistics(Collections.singletonList((OFStatistics)specificReq));</span><br><span class="line">    requestLength += specificReq.getLength();</span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (statType == OFStatisticsType.AGGREGATE) &#123;</span><br><span class="line">    <span class="type">OFAggregateStatisticsRequest</span> <span class="variable">specificReq</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">OFAggregateStatisticsRequest</span>();</span><br><span class="line">    <span class="type">OFMatch</span> <span class="variable">match</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">OFMatch</span>();</span><br><span class="line">    match.setWildcards(<span class="number">0xffffffff</span>);</span><br><span class="line">    specificReq.setMatch(match);</span><br><span class="line">    specificReq.setOutPort(OFPort.OFPP_NONE.getValue());</span><br><span class="line">    specificReq.setTableId((<span class="type">byte</span>) <span class="number">0xff</span>);</span><br><span class="line">    req.setStatistics(Collections.singletonList((OFStatistics)specificReq));</span><br><span class="line">    requestLength += specificReq.getLength();</span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (statType == OFStatisticsType.PORT) &#123;</span><br><span class="line">    <span class="type">OFPortStatisticsRequest</span> <span class="variable">specificReq</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">OFPortStatisticsRequest</span>();</span><br><span class="line">    specificReq.setPortNumber(OFPort.OFPP_NONE.getValue());</span><br><span class="line">    req.setStatistics(Collections.singletonList((OFStatistics)specificReq));</span><br><span class="line">    requestLength += specificReq.getLength();</span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (statType == OFStatisticsType.QUEUE) &#123;</span><br><span class="line">    <span class="type">OFQueueStatisticsRequest</span> <span class="variable">specificReq</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">OFQueueStatisticsRequest</span>();</span><br><span class="line">    specificReq.setPortNumber(OFPort.OFPP_ALL.getValue());</span><br><span class="line">    <span class="comment">// LOOK! openflowj does not define OFPQ_ALL! pulled this from openflow.h</span></span><br><span class="line">    <span class="comment">// note that I haven&#x27;t seen this work yet though...</span></span><br><span class="line">    specificReq.setQueueId(<span class="number">0xffffffff</span>);</span><br><span class="line">    req.setStatistics(Collections.singletonList((OFStatistics)specificReq));</span><br><span class="line">    requestLength += specificReq.getLength();</span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (statType == OFStatisticsType.DESC ||</span><br><span class="line">           statType == OFStatisticsType.TABLE) &#123;</span><br><span class="line">    <span class="comment">// pass - nothing todo besides set the type above</span></span><br><span class="line">&#125;</span><br><span class="line">req.setLengthU(requestLength);</span><br></pre></td></tr></table></figure>
+<ul>
+<li><p>這邊就是針對type的請求，使用不同格式的封包。</p>
+</li>
+<li><p>以flow為例子， flow request 會使用<code>OFMatch</code>去尋找所有match的flow,有mathc的flow才會回傳狀態資訊</p>
+<ul>
+<li><code>setWildcards(0xffffffff)</code>: 這樣就能夠match 所有的flow</li>
+<li><code>specificReq.setOutPort(OFPort.OFPP_NONE.getValue())</code>: 這邊使用OFPP_NONE就是代表在match flow的時候，不會去看該flow entry的output port.</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li><code>specificReq.setTableId((byte) 0xff)</code>: 把tableId設定成0xff就是代表對所有的table都去詢問。</li>
+<li>最後設定一些相關資訊，並且更新整個request的長度</li>
+<li><code>req.setLengthU(requestLength)</code>設定整個request packet的最後長度</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            future = sw.queryStatistics(req);</span><br><span class="line">            values = future.get(<span class="number">10</span>, TimeUnit.SECONDS);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">            log.error(<span class="string">&quot;Failure retrieving statistics from switch &quot;</span> + sw, e);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> values;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>接下來把該 request的封包送給switch,然後使用一個<code>future</code>的物件來取得回傳結果,透過future去發送一個非同步的要求，如果10秒內沒有辦法把該任務給完成，就會發出例外直接停止。</li>
+<li>最後把結果給回傳回去。</li>
+</ul>
+<h2 id="所有switch"><a href="#所有switch" class="headerlink" title="所有switch"></a>所有switch</h2><ul>
+<li><code>core/web/AllSwitchStatisticsResource.java</code> 中可以觀察倒整個code</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Get(&quot;json&quot;)</span></span><br><span class="line"><span class="keyword">public</span> Map&lt;String, Object&gt; <span class="title function_">retrieve</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">statType</span> <span class="operator">=</span> (String) getRequestAttributes().get(<span class="string">&quot;statType&quot;</span>);</span><br><span class="line">    <span class="keyword">return</span> retrieveInternal(statType);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>這邊可以看到，會先從statType中取得使用者要求的type,接者再呼叫<code>retrieveInternal()</code>來取得結果並回傳給使用者</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> Map&lt;String, Object&gt; <span class="title function_">retrieveInternal</span><span class="params">(String statType)</span> &#123;</span><br><span class="line">    HashMap&lt;String, Object&gt; model = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;String, Object&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="type">OFStatisticsType</span> <span class="variable">type</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">    <span class="type">REQUESTTYPE</span> <span class="variable">rType</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (statType.equals(<span class="string">&quot;port&quot;</span>)) &#123;</span><br><span class="line">        type = OFStatisticsType.PORT;</span><br><span class="line">        rType = REQUESTTYPE.OFSTATS;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (statType.equals(<span class="string">&quot;queue&quot;</span>)) &#123;</span><br><span class="line">        type = OFStatisticsType.QUEUE;</span><br><span class="line">        rType = REQUESTTYPE.OFSTATS;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (statType.equals(<span class="string">&quot;flow&quot;</span>)) &#123;</span><br><span class="line">        type = OFStatisticsType.FLOW;</span><br><span class="line">        rType = REQUESTTYPE.OFSTATS;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (statType.equals(<span class="string">&quot;aggregate&quot;</span>)) &#123;</span><br><span class="line">        type = OFStatisticsType.AGGREGATE;</span><br><span class="line">        rType = REQUESTTYPE.OFSTATS;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (statType.equals(<span class="string">&quot;desc&quot;</span>)) &#123;</span><br><span class="line">        type = OFStatisticsType.DESC;</span><br><span class="line">        rType = REQUESTTYPE.OFSTATS;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (statType.equals(<span class="string">&quot;table&quot;</span>)) &#123;</span><br><span class="line">        type = OFStatisticsType.TABLE;</span><br><span class="line">        rType = REQUESTTYPE.OFSTATS;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (statType.equals(<span class="string">&quot;features&quot;</span>)) &#123;</span><br><span class="line">        rType = REQUESTTYPE.OFFEATURES;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> model;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>根據使用者的type, 設定 <code>type</code>跟 <code>rType</code>兩種變數， 其中rType是用來做<code>features request</code>的。</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">IFloodlightProviderService</span> <span class="variable">floodlightProvider</span> <span class="operator">=</span></span><br><span class="line">        (IFloodlightProviderService)getContext().getAttributes().</span><br><span class="line">            get(IFloodlightProviderService.class.getCanonicalName());</span><br><span class="line">Set&lt;Long&gt; switchDpids = floodlightProvider.getAllSwitchDpids();</span><br><span class="line">List&lt;GetConcurrentStatsThread&gt; activeThreads = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;GetConcurrentStatsThread&gt;(switchDpids.size());</span><br><span class="line">List&lt;GetConcurrentStatsThread&gt; pendingRemovalThreads = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;GetConcurrentStatsThread&gt;();</span><br><span class="line">GetConcurrentStatsThread t;</span><br><span class="line"><span class="keyword">for</span> (Long l : switchDpids) &#123;</span><br><span class="line">    t = <span class="keyword">new</span> <span class="title class_">GetConcurrentStatsThread</span>(l, rType, type);</span><br><span class="line">    activeThreads.add(t);</span><br><span class="line">    t.start();</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<ul>
+<li>這邊會先透過<code>floodlightProvider</code> 取得所有的swtich dpid</li>
+<li>然後跑一個for迴圈，針對每個switch都去發送一個request,這邊採用了thread的方式來發送，並且把這個thread給記錄下來。</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">iSleepCycles</span> <span class="operator">=</span> <span class="number">0</span>; iSleepCycles &lt; <span class="number">12</span>; iSleepCycles++) &#123;</span><br><span class="line">        <span class="keyword">for</span> (GetConcurrentStatsThread curThread : activeThreads) &#123;</span><br><span class="line">            <span class="keyword">if</span> (curThread.getState() == State.TERMINATED) &#123;</span><br><span class="line">                <span class="keyword">if</span> (rType == REQUESTTYPE.OFSTATS) &#123;</span><br><span class="line">                    model.put(HexString.toHexString(curThread.getSwitchId()), curThread.getStatisticsReply());</span><br><span class="line">                &#125; <span class="keyword">else</span> <span class="keyword">if</span> (rType == REQUESTTYPE.OFFEATURES) &#123;</span><br><span class="line">                    model.put(HexString.toHexString(curThread.getSwitchId()), curThread.getFeaturesReply());</span><br><span class="line">                &#125;</span><br><span class="line">                pendingRemovalThreads.add(curThread);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// remove the threads that have completed the queries to the switches</span></span><br><span class="line">        <span class="keyword">for</span> (GetConcurrentStatsThread curThread : pendingRemovalThreads) &#123;</span><br><span class="line">            activeThreads.remove(curThread);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// clear the list so we don&#x27;t try to double remove them</span></span><br><span class="line">        pendingRemovalThreads.clear();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// if we are done finish early so we don&#x27;t always get the worst case</span></span><br><span class="line">        <span class="keyword">if</span> (activeThreads.isEmpty()) &#123;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// sleep for 1 s here</span></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            Thread.sleep(<span class="number">1000</span>);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</span><br><span class="line">            log.error(<span class="string">&quot;Interrupted while waiting for statistics&quot;</span>, e);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> model;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>這邊是用來收集所有thread的結果，並且統合後把結果回傳的地方</li>
+<li>最外圈是一個12秒的迴圈，然後裡面會針對之前記錄的所有thread去跑，如果該thread任務已經結束，狀態是<code>TERMINATED</code><br>就會把該thread記錄倒一個 <strong>記錄要被移除thread</strong>pendingRemovalThreads,然後從該thread取回請求結果，並記錄下來。</li>
+<li>從pendingRemovalThreads拿出所有thread，並且把對應於activeThread中的那份給刪除掉</li>
+<li>如果最後<code>activeThread</code>已經是空的，就代表所有結果都會來了，提前結束。</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">    <span class="keyword">protected</span> <span class="keyword">class</span> <span class="title class_">GetConcurrentStatsThread</span> <span class="keyword">extends</span> <span class="title class_">Thread</span> &#123;</span><br><span class="line">...</span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">            <span class="keyword">if</span> ((requestType == REQUESTTYPE.OFSTATS) &amp;&amp; (statType != <span class="literal">null</span>)) &#123;</span><br><span class="line">                switchReply = getSwitchStatistics(switchId, statType);</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (requestType == REQUESTTYPE.OFFEATURES) &#123;</span><br><span class="line">                featuresReply = getSwitchFeaturesReply(switchId);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br><span class="line">- 這個thread 會根據前面傳進來的type,去呼叫`SwitchResourceBase.java`中的`getSwitchStatistics`來取得結果。</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/SDN/" rel="tag"># SDN</a>
+              <a href="/tags/Floodlight/" rel="tag"># Floodlight</a>
+              <a href="/tags/Java/" rel="tag"># Java</a>
+              <a href="/tags/SourceCode/" rel="tag"># SourceCode</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/adapter-pattern.html" rel="prev" title="Adapter Pattern">
+                  <i class="fa fa-chevron-left"></i> Adapter Pattern
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/shell-script.html" rel="next" title="Shell Script 筆記">
+                  Shell Script 筆記 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

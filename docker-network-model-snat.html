@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本篇文章探討 Docker Bridge 網路模型的運作過程，透過一系列步驟去拆解到底容器是如何對外上網">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker 網路入門篇(三) - 網路存取分析">
+<meta property="og:url" content="https://www.hwchiu.com/docker-network-model-snat.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本篇文章探討 Docker Bridge 網路模型的運作過程，透過一系列步驟去拆解到底容器是如何對外上網">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/XhNnxAq.jpg">
+<meta property="og:image" content="https://i.imgur.com/YxMBsYX.jpg">
+<meta property="og:image" content="https://i.imgur.com/Cns14pD.jpg">
+<meta property="og:image" content="https://i.imgur.com/b1veY6Z.jpg">
+<meta property="og:image" content="https://i.imgur.com/PtgBuvH.jpg">
+<meta property="og:image" content="https://i.imgur.com/POi2cVr.jpg">
+<meta property="og:image" content="https://i.imgur.com/tBBZIn7.jpg">
+<meta property="og:image" content="https://i.imgur.com/ZyOxFzc.jpg">
+<meta property="article:published_time" content="2020-11-07T05:25:21.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.612Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="Docker">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/XhNnxAq.jpg">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/docker-network-model-snat.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/docker-network-model-snat.html","path":"docker-network-model-snat.html","title":"Docker 網路入門篇(三) - 網路存取分析"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Docker 網路入門篇(三) - 網路存取分析 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%9C%AC%E6%96%87"><span class="nav-number">2.</span> <span class="nav-text">本文</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%92%B0%E5%A2%83"><span class="nav-number">3.</span> <span class="nav-text">環境</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%AE%B9%E5%99%A8%E9%96%93%E5%A6%82%E4%BD%95%E5%AD%98%E5%8F%96"><span class="nav-number">4.</span> <span class="nav-text">容器間如何存取</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%81%E5%8C%85%E8%A6%81%E9%80%81%E7%B5%A6%E8%AA%B0"><span class="nav-number">4.1.</span> <span class="nav-text">封包要送給誰</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%AA%B0%E4%BE%86%E8%99%95%E7%90%86%E5%B0%81%E5%8C%85"><span class="nav-number">4.2.</span> <span class="nav-text">誰來處理封包</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%AA%B0%E4%BE%86%E9%81%8E%E6%BF%BE%E5%B0%81%E5%8C%85"><span class="nav-number">4.3.</span> <span class="nav-text">誰來過濾封包</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%B5%90%E8%AB%96"><span class="nav-number">4.4.</span> <span class="nav-text">結論</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%AE%B9%E5%99%A8%E5%A6%82%E4%BD%95%E4%B8%BB%E5%8B%95%E5%AD%98%E5%8F%96%E5%A4%96%E9%83%A8%E6%9C%8D%E5%8B%99"><span class="nav-number">5.</span> <span class="nav-text">容器如何主動存取外部服務</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%81%E5%8C%85%E8%A6%81%E9%80%81%E7%B5%A6%E8%AA%B0-1"><span class="nav-number">5.1.</span> <span class="nav-text">封包要送給誰</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%AA%B0%E4%BE%86%E8%99%95%E7%90%86%E5%B0%81%E5%8C%85-1"><span class="nav-number">5.2.</span> <span class="nav-text">誰來處理封包</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%AA%B0%E4%BE%86%E9%81%8E%E6%BF%BE%E5%B0%81%E5%8C%85-1"><span class="nav-number">5.3.</span> <span class="nav-text">誰來過濾封包</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%B8%BD%E7%B5%90"><span class="nav-number">5.4.</span> <span class="nav-text">總結</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%B8%BD%E7%B5%90-1"><span class="nav-number">6.</span> <span class="nav-text">總結</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">7.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/docker-network-model-snat.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Docker 網路入門篇(三) - 網路存取分析 | Hwchiu Learning Note">
+      <meta itemprop="description" content="本篇文章探討 Docker Bridge 網路模型的運作過程，透過一系列步驟去拆解到底容器是如何對外上網">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Docker 網路入門篇(三) - 網路存取分析
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2020-11-07 13:25:21" itemprop="dateCreated datePublished" datetime="2020-11-07T13:25:21+08:00">2020-11-07</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本篇文章探討 Docker Bridge 網路模型的運作過程，透過一系列步驟去拆解到底容器是如何對外上網</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>本篇文章是 Docker 網路入門篇系列文第三篇，閱讀本文前要先有前面兩篇文章的基本概念，因此還不夠熟悉的讀者可以再次閱讀前面兩篇文章</p>
+<p><a href="https://www.hwchiu.com/docker-network-model.html">Docker Network - 網路模型</a><br><a href="https://www.hwchiu.com/docker-network-model-lab.html">Docker 網路入門篇(二) - Bridge 網路模型</a></p>
+<blockquote>
+<p>這系列的文章都會用比較使用者的角度來探討網路概念，比較不會去深度探討底層實作細節</p>
+</blockquote>
+<h1 id="本文"><a href="#本文" class="headerlink" title="本文"></a>本文</h1><p>前篇文章中，我們透過指令的方式一步一步的打造一個 Bridge 網路模型，最後成功的讓兩個容器可以透過  ping 指令來互相存取，然而該環境中這兩個容器都沒有辦法對外上網，而且最後的過程中我們還留下了一個 iptables 指令的未解之謎，因此本篇文章要來將這些資訊給釐清作為一個完結篇</p>
+<p>這篇文章會從三個面向，配上三個主軸來進行探討，分別是</p>
+<ol>
+<li>容器間如何互相存取</li>
+<li>容器如何主動存取外部服務</li>
+<li>外部網路如何主動存取容器</li>
+</ol>
+<p>其中第三點的功能就是 <strong>docker -p</strong> 這功能的意思，因此範例中也會仔細介紹如何使用</p>
+<p>每個面向裡面都由三個主軸來探討，分別是</p>
+<ol>
+<li>封包要送給誰</li>
+<li>誰來處理封包</li>
+<li>誰來過濾封包</li>
+</ol>
+<p>用技術層面來講上面三個概念的話，大概是下列這些內容，不過本文不會太細究每個元件的內容</p>
+<ol>
+<li>routing table + forwrding table</li>
+<li>kernel + iptables + conntrack</li>
+<li>iptables</li>
+</ol>
+<h1 id="環境"><a href="#環境" class="headerlink" title="環境"></a>環境</h1><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ lsb_release -a</span><br><span class="line">No LSB modules are available.</span><br><span class="line">Distributor ID: Ubuntu</span><br><span class="line">Description:    Ubuntu 18.04.3 LTS</span><br><span class="line">Release:        18.04</span><br><span class="line">Codename:       bionic</span><br><span class="line"></span><br><span class="line">$ uname -a</span><br><span class="line">Linux k8s-dev 4.15.0-72-generic #81-Ubuntu SMP Tue Nov 26 12:20:02 UTC 2019 x86_64 x86_64 x86_64 GNU/Linux</span><br><span class="line"></span><br><span class="line">$ docker --version</span><br><span class="line">Docker version 19.03.13, build 4484c46d9d</span><br></pre></td></tr></table></figure>
+
+<p>實驗所有步驟都可以於 <a target="_blank" rel="noopener" href="https://github.com/technologynoteniu/bloglab">GitHub Repo</a> 中找到</p>
+<h1 id="容器間如何存取"><a href="#容器間如何存取" class="headerlink" title="容器間如何存取"></a>容器間如何存取</h1><p>本實驗是基於上次環境來進行後續觀察，到底一個簡單的 ICMP 封包可以通實際上系統中到底做了什麼事情。</p>
+<p>可以直接執行範例 Repo 中的 <strong>docker_network_basic_3&#x2F;lab1.sh</strong> 來打造上次的環境</p>
+<p>首先，我們的環境中，特別設定了同網段的封包，所以這個環境中的存取就會相對簡單</p>
+<p>整個環境架構圖如下<br>架構中兩個容器 C1 &amp; C2 透過我們自行創造的 Linux Bridge(hwchiu0) 以及相關的 <strong>veth</strong> 虛擬網卡來串間彼此。</p>
+<p><img src="https://i.imgur.com/XhNnxAq.jpg"></p>
+<h2 id="封包要送給誰"><a href="#封包要送給誰" class="headerlink" title="封包要送給誰"></a>封包要送給誰</h2><p>之前我們透過 <strong>ifconfig</strong> 幫 <strong>eth0</strong> 設定 IP 後，Kernel 會針對該網卡設定一個 Routing 規則，告訴系統說，什麼樣的封包，往什麼樣的網卡送出去</p>
+<p>我們來看一下當前兩個容器 C1 &amp; C2 分別的狀態長怎樣</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">○ → docker <span class="built_in">exec</span> c1 route -n</span><br><span class="line">Kernel IP routing table</span><br><span class="line">Destination     Gateway         Genmask         Flags Metric Ref    Use Iface</span><br><span class="line">10.55.66.0      0.0.0.0         255.255.255.0   U     0      0        0 eth0</span><br><span class="line"></span><br><span class="line">○ → docker <span class="built_in">exec</span> c2 route -n</span><br><span class="line">Kernel IP routing table</span><br><span class="line">Destination     Gateway         Genmask         Flags Metric Ref    Use Iface</span><br><span class="line">10.55.66.0      0.0.0.0         255.255.255.0   U     0      0        0 eth0</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>這兩個訊息的概念都很簡單，就是告訴系統，當未來看到 <strong>10.55.66.0&#x2F;24</strong> 的封包，就往 eth0 這張網卡送出去，但是因為 eth0 網卡是由 <strong>veth</strong> 組成的， <strong>veth</strong> 就如同水管一樣，從左邊進去，右邊就會出來，因此送到 <strong>eth0</strong> 的封包就會馬上從另一端的 <strong>veth0&#x2F;veth1</strong> 跑出來。</p>
+<p>概念如下圖<br>根據上述觀念，當前兩個容器往 <strong>10.55.66.0&#x2F;24</strong> 的封包最後都會從宿主機身上的 <strong>veth0&#x2F;veth1</strong> 上出現。</p>
+<p><img src="https://i.imgur.com/YxMBsYX.jpg"></p>
+<h2 id="誰來處理封包"><a href="#誰來處理封包" class="headerlink" title="誰來處理封包"></a>誰來處理封包</h2><p>當封包進入 eth0 網卡，之後從 veth0&#x2F;veth1 出現後，因為 <strong>veth0&#x2F;veth1</strong> 本身是掛在 Linux Bridge (hwchiu0) 身上，因此封包就會交由 <strong>Linux Bridge</strong> 來處理！</p>
+<p>這邊的處理分成兩個部分(這邊不談實際封包處理順序)</p>
+<ol>
+<li>Linux Bridge 內部會有一個機制用來決定如何轉送封包</li>
+<li>ebtables (本文忽略這個概念)</li>
+</ol>
+<p>Linux Bridge 的轉送機制是基於 <strong>MAC Address</strong> 來決定封包怎麼轉送，而這份轉換表可以稱為 Forwarding Table，根據 <strong>MAC Address</strong> 來轉發封包</p>
+<p>下圖為一個範例，當封包進入到 Linux Bridge 後，其會根據封包的目標 <strong>MAC Address</strong> 是誰，來決定從哪個 <strong>Port</strong> 送出去。</p>
+<p>因此我們的範例中，C1&#x2F;C2 容器之間的封包就是透過這種機制來處理轉發。<br><img src="https://i.imgur.com/Cns14pD.jpg"></p>
+<h2 id="誰來過濾封包"><a href="#誰來過濾封包" class="headerlink" title="誰來過濾封包"></a>誰來過濾封包</h2><p>有了上述的規則後，C1&#x2F;C2 容器之間要可以互相傳輸封包了，但是實務上卻發現會有問題，我們的 PING 不會通，原因是因為 <strong>iptables</strong> 偷偷介入來進行處理，並且將不符合規則的封包都丟棄。</p>
+<p>這邊有兩個議題</p>
+<ol>
+<li>iptables 為什麼偷偷介入來處理</li>
+<li>為什麼不符合規則的封包要丟棄，而不是符合規則的封包才丟棄</li>
+</ol>
+<p><strong>iptables</strong> 預設不會干擾任何 <strong>Linux Bridge</strong> 轉發的封包，這邊是有個開關要打開，也是 <strong>docker</strong> 安裝後會幫忙打開的開關</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">→ <span class="built_in">cat</span> /proc/sys/net/bridge/bridge-nf-call-iptables</span><br><span class="line">1</span><br></pre></td></tr></table></figure>
+
+<p>這邊我們可以做個實驗，步驟是</p>
+<ol>
+<li>確認當前網路不通</li>
+<li>將上述開關關閉，讓 iptables 不要干涉</li>
+<li>重新發送 ping</li>
+</ol>
+<p>這時候就會發現容器之間可以透過 ICMP 傳送封包了</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">$ docker <span class="built_in">exec</span> -it c1 ping 10.55.66.3 -c1 -W1</span><br><span class="line">PING 10.55.66.3 (10.55.66.3) 56(84) bytes of data.</span><br><span class="line"></span><br><span class="line">--- 10.55.66.3 ping statistics ---</span><br><span class="line">1 packets transmitted, 0 received, 100% packet loss, time 0ms</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">$ <span class="built_in">echo</span> <span class="string">&quot;0&quot;</span> | sudo <span class="built_in">tee</span> /proc/sys/net/bridge/bridge-nf-call-iptables</span><br><span class="line">0</span><br><span class="line"></span><br><span class="line">$ docker <span class="built_in">exec</span> -it c1 ping 10.55.66.3 -c1 -W1</span><br><span class="line">PING 10.55.66.3 (10.55.66.3) 56(84) bytes of data.</span><br><span class="line">64 bytes from 10.55.66.3: icmp_seq=1 ttl=64 time=0.025 ms</span><br><span class="line"></span><br><span class="line">--- 10.55.66.3 ping statistics ---</span><br><span class="line">1 packets transmitted, 1 received, 0% packet loss, time 0ms</span><br><span class="line">rtt min/avg/max/mdev = 0.025/0.025/0.025/0.000 ms</span><br><span class="line"></span><br><span class="line">$ <span class="built_in">echo</span> <span class="string">&quot;1&quot;</span> | sudo <span class="built_in">tee</span> /proc/sys/net/bridge/bridge-nf-call-iptables</span><br><span class="line">1</span><br></pre></td></tr></table></figure>
+
+<p>當 <strong>iptables</strong> 被告知要干涉 <strong>Linux Bridge</strong> 的封包管理後，所有經過的封包都會讓 <strong>iptables</strong> 來進行檢查</p>
+<p>Docker 的環境之中，採取的是白名單機制，若沒有告知要通過，則將該封包給丟棄，所以這也是為什麼我們的封包不會通過。<br>這邊有兩種解決方法</p>
+<ol>
+<li>修改成黑名單的概念，預設通過封包</li>
+<li>加入相關規則，讓我們的封包可以通過</li>
+</ol>
+<p>前一篇文章的實驗就是針對 (1) 進行操作,這邊透過 <strong>iptables -P FORWARD ACCEPT</strong> 去說明，對於 <strong>FORAWRD</strong> 封包的處理，預設就是 <strong>ACCEPT</strong> 去接納他們</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">$ docker <span class="built_in">exec</span> -it c1 ping 10.55.66.3 -c1 -W1</span><br><span class="line">PING 10.55.66.3 (10.55.66.3) 56(84) bytes of data.</span><br><span class="line"></span><br><span class="line">--- 10.55.66.3 ping statistics ---</span><br><span class="line">1 packets transmitted, 0 received, 100% packet loss, time 0ms</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">$ sudo iptables -P FORWARD ACCEPT</span><br><span class="line"></span><br><span class="line">$ docker <span class="built_in">exec</span> -it c1 ping 10.55.66.3 -c1 -W1</span><br><span class="line">PING 10.55.66.3 (10.55.66.3) 56(84) bytes of data.</span><br><span class="line">64 bytes from 10.55.66.3: icmp_seq=1 ttl=64 time=0.039 ms</span><br><span class="line"></span><br><span class="line">--- 10.55.66.3 ping statistics ---</span><br><span class="line">1 packets transmitted, 1 received, 0% packet loss, time 0ms</span><br><span class="line">rtt min/avg/max/mdev = 0.039/0.039/0.039/0.000 ms</span><br><span class="line"></span><br><span class="line"><span class="comment"># recover</span></span><br><span class="line">$ sudo iptables -P FORWARD DROP</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+<h2 id="結論"><a href="#結論" class="headerlink" title="結論"></a>結論</h2><p>針對同節點上不同容器之間的傳輸，基本上都是依靠 <strong>Linux Bridge</strong> 來幫忙處理，藉由 <strong>Forwarding Table</strong> 來決定該怎麼傳輸封包，透過 <strong>iptables</strong> 來決定封包能不能通行。</p>
+<p>Docker 預設的情況下會讓 <strong>iptables</strong> 介入 <strong>Linux Bridge</strong> 的處理，同時採由白名單機制，沒有符合規則的就一律丟棄，而 Docker 這邊的作法則是會加入相關的規則來打通封包連接。</p>
+<p><img src="https://i.imgur.com/b1veY6Z.jpg"></p>
+<h1 id="容器如何主動存取外部服務"><a href="#容器如何主動存取外部服務" class="headerlink" title="容器如何主動存取外部服務"></a>容器如何主動存取外部服務</h1><p>上述討論了容器間的基本存取方式，有了上述的概念之後，我們接下來可以往下邁進去探討，如果容器想要存取外部服務，譬如 8.8.8.8 之類的外部網站時，到底該怎麼處理，這也是容器服務中最常使用的類型，畢竟沒有對外上網能力，很多事情都沒辦法完成。</p>
+<p>這個範例中將探討如何讓一個容器作為我們的 Client 端，能夠透過 PING 這個指令來存取外部 8.8.8.8 服務器</p>
+<p>架構圖如下方，最終目標是容器 C1 能夠用 ping 存取 8.8.8.8<br><img src="https://i.imgur.com/PtgBuvH.jpg"></p>
+<h2 id="封包要送給誰-1"><a href="#封包要送給誰-1" class="headerlink" title="封包要送給誰"></a>封包要送給誰</h2><p>封包的轉送我們一開始都需要先決定，到底送給誰，這邊我們再次回顧一下當前容器 c1 內的路由表</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ docker <span class="built_in">exec</span> -it c1 route -n</span><br><span class="line">Kernel IP routing table</span><br><span class="line">Destination     Gateway         Genmask         Flags Metric Ref    Use Iface</span><br><span class="line">10.55.66.0      0.0.0.0         255.255.255.0   U     0      0        0 eth0</span><br></pre></td></tr></table></figure>
+
+<p>這時候如果我們強行連接 8.8.8.8 的話，會得到相關錯誤,因為系統中根本不知道要怎麼轉送 8.8.8.8 的封包，完全沒有可以符合的規則使用</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ docker <span class="built_in">exec</span> -it c1 ping 8.8.8.8</span><br><span class="line">connect: Network is unreachable</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>網路除錯時要格外小心與謹慎，我建議所有網路除錯都是先畫出架構圖，然後思考一下你認為封包該怎麼運作，對於所有關鍵點你有沒有辦法舉證他是對或是錯，藉由這個過程縮小可能出錯的範圍。</p>
+</blockquote>
+<p>為了解決這個問題，我們可以 <strong>明確告訴系統，看到 8.8.8.8 的封包該怎麼送</strong><br>但是這種思路造成的問題就是如果今天你想要存取 <strong>1.1.1.1</strong>，你就要額外的新規則，所以我們可以透過另外一種作法。</p>
+<p><strong>沒有符合任何規則的話，就走預設走法吧！</strong><br>這也是系統實務上常見的作法，因為沒有人有辦法預料到你會想要連哪個網站，針對每個網站都寫一條規則實在是不太合理</p>
+<p>有了這個想法後，我們下一個問題就是，那我要送給誰幫忙處理，這邊因為牽扯到 L3 路由的概念相對複雜，直接講結論就是<br>我們希望透過 <strong>宿主機</strong> 幫我們處理，如果宿主機本身就有能力存取外部網路，我們是不是能夠依賴宿主機幫我們處理，我們只要想辦法將封包送給宿主機，讓宿主機知道有封包要處理，請繼續往下弄</p>
+<p>為了達成這個條件，我們需要進行下列設定</p>
+<ol>
+<li>給 Linux Bridge (hwchiu0) 一個 IP 地址</li>
+<li>告訴容器說，預設走法就是將封包送給 <strong>Linux Bridge (hwchiu0)</strong></li>
+</ol>
+<p>上述兩個概念轉換成系統指令如下</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ sudo ifconfig hwchiu0 10.55.66.1 netmask 255.255.255.0</span><br><span class="line">$ sudo docker <span class="built_in">exec</span> -it c1 ip route add default via 10.55.66.1</span><br><span class="line">$ sudo docker <span class="built_in">exec</span> -it c1 ip route show</span><br><span class="line">default via 10.55.66.1 dev eth0</span><br><span class="line">10.55.66.0/24 dev eth0  proto kernel  scope <span class="built_in">link</span>  src 10.55.66.2</span><br></pre></td></tr></table></figure>
+
+<p>設定完畢後，我們容器現在多了一個規則，預設情況下，就將封包透過 <strong>eth0</strong> 送出去，並且將其 閘道(Gateway) 設定成 <strong>10.55.66.1</strong>。</p>
+<blockquote>
+<p>這邊不解釋 Gateway 的概念，想成我們想要透過 Linux Bridge 幫我們轉發，封包送給他就對了！</p>
+</blockquote>
+<p>接下來針對系統上的 <strong>eth0</strong> 去監聽封包，看看這時候從 <strong>container c1</strong> 發送封包到 8.8.8.8 會怎麼樣</p>
+<p><strong>為了避免 iptables 又來干擾過濾功能，我們先修改成預設封包都會通</strong></p>
+<p><strong>開兩個視窗執行</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ sudo iptables -P FORWARD ACCEPT</span><br><span class="line">$ sudo docker <span class="built_in">exec</span> -it c1 ping 8.8.8.8</span><br><span class="line">PING 8.8.8.8 (8.8.8.8) 56(84) bytes of data.</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">$ sudo tcpdump -vvvnn -i eth0 icmp</span><br><span class="line">tcpdump: listening on eth0, link-type EN10MB (Ethernet), capture size 262144 bytes</span><br><span class="line">19:01:20.425931 IP (tos 0x0, ttl 63, <span class="built_in">id</span> 60779, offset 0, flags [DF], proto ICMP (1), length 84)</span><br><span class="line">    10.55.66.2 &gt; 8.8.8.8: ICMP <span class="built_in">echo</span> request, <span class="built_in">id</span> 16700, <span class="built_in">seq</span> 1, length 64</span><br><span class="line">19:01:21.445051 IP (tos 0x0, ttl 63, <span class="built_in">id</span> 60899, offset 0, flags [DF], proto ICMP (1), length 84)</span><br><span class="line">    10.55.66.2 &gt; 8.8.8.8: ICMP <span class="built_in">echo</span> request, <span class="built_in">id</span> 16700, <span class="built_in">seq</span> 2, length 64</span><br></pre></td></tr></table></figure>
+
+<p>透過上述指令可以觀察到，封包還是不通，沒有辦法得到正確的 ICMP 回應，但是我們可以從宿主機上面的 <strong>eth0</strong> 觀察到相關封包了，這些封包標示 <strong>10.55.66.2</strong> 想要送給 <strong>8.8.8.8</strong>。</p>
+<p>只是目前都只有看到 <strong>ICMP</strong> 的請求，而沒有回應。</p>
+<p>上述的所有流程我們用下列流程圖再次解釋</p>
+<p>該圖片怎麼觀看</p>
+<ol>
+<li>上面白色框框代表不同元件，若元件上方有IP，則代表該元件的 IP 地址</li>
+<li>每個元件之間透過箭頭來描述封包流向，並且表明該流向中，封包內的 <strong>IP</strong> 地址是什麼，<strong>由誰送給誰</strong></li>
+<li>封包流向下方描述的則是當前過程中，有哪些元件涉入進行處理</li>
+</ol>
+<p><img src="https://i.imgur.com/POi2cVr.jpg"></p>
+<p>重新整理目前已知流程與思路</p>
+<ol>
+<li>當容器內發出一個送往 <strong>8.8.8.8</strong> 的封包，因為規則的關係，該封包會透過 <strong>eth0</strong> 送出去</li>
+<li>當封包從 <strong>eth0</strong> 送出去後，因為 <strong>veth</strong> 的特性，封包會到達系統上的 <strong>veth0</strong> 虛擬網卡</li>
+<li>從 <strong>veth0</strong> 進入到 <strong>Linux Bridge</strong> 的世界，這時候透過 <strong>Forwarding Table</strong> 的概念，最終該封包會進入到 Linux Bridge(hwchiu0) 本身。</li>
+<li>hwchiu0 收到封包後，接下來都是 <strong>kernel</strong> 內的事情了，這邊太複雜，我們忽略</li>
+<li>Kernel 最後透過本身的 <strong>routing talbe</strong> 去查詢，該怎麼轉送 <strong>8.8.8.8</strong> 的封包，然後根據規則送往宿主機上的 <strong>eth0</strong> 網卡</li>
+<li>封包送了出去，但是我們沒有辦法監聽到回來的封包</li>
+</ol>
+<h2 id="誰來處理封包-1"><a href="#誰來處理封包-1" class="headerlink" title="誰來處理封包"></a>誰來處理封包</h2><p>為什麼收不到封包，理由很簡單<br>我們送出去的封包來源是 <strong>10.55.66.2</strong>，大部分情況下我們這個網段都是 <strong>private</strong>，也就是私有網段，世界上可能有很多人都會使用 <strong>10.55.66.2</strong>，那這種情況下， <strong>8.8.8.8</strong> 根本不知道要怎麼把封包送回給 <strong>10.55.66.2</strong></p>
+<p>這時候我們要來思考，我們的宿主機是不是可以上網，是不是他的封包都回得來？<br>如果是的話，我們能不能叫宿主機幫忙好人作到底，把封包的來源也變成宿主機的 <strong>IP</strong> ? 然後宿主機再想辦法把封包轉送回給我們後面的容器即可</p>
+<p>這個概念就是所謂的 Network Address Translation (NAT)，這個範例中我們想要修改封包的來源 <strong>IP</strong> 地址，因此這個行為我們會稱為 Source NAT (SNAT)。</p>
+<p>為了達成這個目的，我們要透過 <strong>iptables</strong> 的規則來幫我們做，而 <strong>iptables</strong> 有多種用法可以滿足這個需求，我們決定採用最簡單的也是最常用的方式, <strong>MASQUERADE</strong>，這種動態 SNAT 的功能來處理</p>
+<blockquote>
+<p>工商我的其他文章，從 Linux Kernel Source Code 來探討這個行為，不適合初學者看 <a href="https://www.hwchiu.com/iptables-masquerade.html">Linux NAT Masquerade 研究(上)
+</a></p>
+</blockquote>
+<p>我們使用下列規則，告訴 <strong>iptables</strong> 說，以後你只要看到 <strong>10.55.66.2&#x2F;32</strong> 的封包，而且要從宿主機上面的 <strong>eth0</strong> 送出去的，請你順便幫忙修改封包來源，改成自己</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">$ sudo iptables -t nat -I POSTROUTING -s 10.55.66.2/32 -o eth0 -j MASQUERADE</span><br><span class="line">$ sudo docker <span class="built_in">exec</span> -it c1 ping 8.8.8.8</span><br><span class="line">PING 8.8.8.8 (8.8.8.8) 56(84) bytes of data.</span><br><span class="line">64 bytes from 8.8.8.8: icmp_seq=1 ttl=61 time=18.2 ms</span><br><span class="line">64 bytes from 8.8.8.8: icmp_seq=2 ttl=61 time=15.0 ms</span><br><span class="line">^C</span><br></pre></td></tr></table></figure>
+
+<p>這時候我們再透過 <strong>tcpdump</strong> 來監聽封包，就會觀察到一切都不同了!</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">$ sudo tcpdump -vvvnn -i eth0 icmp</span><br><span class="line">tcpdump: listening on eth0, link-type EN10MB (Ethernet), capture size 262144 bytes</span><br><span class="line">19:40:52.893673 IP (tos 0x0, ttl 63, <span class="built_in">id</span> 39804, offset 0, flags [DF], proto ICMP (1), length 84)</span><br><span class="line">    10.0.2.15 &gt; 8.8.8.8: ICMP <span class="built_in">echo</span> request, <span class="built_in">id</span> 19069, <span class="built_in">seq</span> 3, length 64</span><br><span class="line">19:40:52.906130 IP (tos 0x0, ttl 62, <span class="built_in">id</span> 11543, offset 0, flags [DF], proto ICMP (1), length 84)</span><br><span class="line">    8.8.8.8 &gt; 10.0.2.15: ICMP <span class="built_in">echo</span> reply, <span class="built_in">id</span> 19069, <span class="built_in">seq</span> 3, length 64</span><br><span class="line">19:40:54.962322 IP (tos 0x0, ttl 63, <span class="built_in">id</span> 40179, offset 0, flags [DF], proto ICMP (1), length 84)</span><br><span class="line">    10.0.2.15 &gt; 8.8.8.8: ICMP <span class="built_in">echo</span> request, <span class="built_in">id</span> 19079, <span class="built_in">seq</span> 1, length 64</span><br><span class="line">19:40:54.977470 IP (tos 0x0, ttl 62, <span class="built_in">id</span> 11559, offset 0, flags [DF], proto ICMP (1), length 84)</span><br><span class="line">    8.8.8.8 &gt; 10.0.2.15: ICMP <span class="built_in">echo</span> reply, <span class="built_in">id</span> 19079, <span class="built_in">seq</span> 1, length 64</span><br></pre></td></tr></table></figure>
+
+<p>裡面的內容我們分成兩筆來看</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">19:40:52.893673 IP (tos 0x0, ttl 63, id 39804, offset 0, flags [DF], proto ICMP (1), length 84)</span><br><span class="line">    10.0.2.15 &gt; 8.8.8.8: ICMP echo request, id 19069, seq 3, length 64</span><br></pre></td></tr></table></figure>
+<p>我們可以看到出去的封包 <strong>IP</strong> 再也不是 <strong>10.55.66.2</strong> 了，而是宿主機本身的 <strong>10.0.2.15</strong>，你可能會想說 <strong>10.0.2.15</strong> 也是私有 IP，為什麼 <strong>8.8.8.8</strong> 本身可以回應，這是因為我的系統環境外面還有一層 <strong>SNAT</strong>，一個封包經歷過多次 SNAT 是滿正常且合理的，但是整個運作邏輯都是一致的</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[DF], proto ICMP (1), length 84)</span><br><span class="line">    8.8.8.8 &gt; 10.0.2.15: ICMP <span class="built_in">echo</span> reply, <span class="built_in">id</span> 19069, <span class="built_in">seq</span> 3, length 64</span><br></pre></td></tr></table></figure>
+<p>這個情況下我們也可以看到封包順利回來了，同時從容器中也可以看到 <strong>ICMP</strong> 有正常回應。</p>
+<p>這邊補充一下，如果我們針對 <strong>hwchiu0</strong> 這張 Linux Bridge 的網卡去監聽封包，會得到下列資訊</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">$ sudo tcpdump -vvvnn -i hwchiu0 icmp</span><br><span class="line">tcpdump: listening on hwchiu0, link-type EN10MB (Ethernet), capture size 262144 bytes</span><br><span class="line">19:47:55.128471 IP (tos 0x0, ttl 64, <span class="built_in">id</span> 18861, offset 0, flags [DF], proto ICMP (1), length 84)</span><br><span class="line">    10.55.66.2 &gt; 8.8.8.8: ICMP <span class="built_in">echo</span> request, <span class="built_in">id</span> 19515, <span class="built_in">seq</span> 1, length 64</span><br><span class="line">19:47:55.146004 IP (tos 0x0, ttl 61, <span class="built_in">id</span> 11872, offset 0, flags [DF], proto ICMP (1), length 84)</span><br><span class="line">    8.8.8.8 &gt; 10.55.66.2: ICMP <span class="built_in">echo</span> reply, <span class="built_in">id</span> 19515, <span class="built_in">seq</span> 1, length 64</span><br></pre></td></tr></table></figure>
+
+<p>從 <strong>hwchiu0</strong> 的角度來看，他看到的封包都是 <strong>10.55.66.2</strong>，跟宿主機上面的 IP 沒有任何關係。</p>
+<p>所以上述的概念我們用一樣的流程圖來看，這時候會變成怎麼樣</p>
+<p>這份圖中，我們可以順利接收封包，所以多了回來封包的路線，其中 <strong>IP</strong> 特別用紅色底標示代表的是該封包是有被改過的。</p>
+<p><img src="https://i.imgur.com/tBBZIn7.jpg"></p>
+<p>這邊重新整理所有思路，將其條列下來</p>
+<ol>
+<li>封包按照前面所有概念，一路送到 Linux Kernel</li>
+<li>Linux Kernel 這時候查詢完 Routing Table 後，確認封包要送給 <strong>eth0</strong></li>
+<li>iptables 這時候會介入，透過 <strong>MASQUERADE</strong> 的功能來修改封包的來源 ip 地址</li>
+<li>封包的來源被修改成 <strong>10.0.2.15</strong>，最後 <strong>8.8.8.8</strong> 收到這些封包後一路送回來</li>
+<li>回應的封包到達 <strong>eth0</strong> 之後，<strong>iptables</strong> 再度介入，畢竟誰幫你轉換封包，誰就要幫你轉回來，幫你把封包的目標從 <strong>10.0.2.15</strong> 轉回最初的 <strong>10.55.66.2</strong><blockquote>
+<p>其實更精準的說這邊還有 conntrack 的介入來處理，但是過於複雜，因此這邊忽略，我們懂大概念就好</p>
+</blockquote>
+</li>
+<li>封包一路透過 Linux Bridge + Forwardnig Table + Veth 等元件回到容器手上</li>
+</ol>
+<h2 id="誰來過濾封包-1"><a href="#誰來過濾封包-1" class="headerlink" title="誰來過濾封包"></a>誰來過濾封包</h2><p>到這邊為止，基本上我們的容器已經可以對外存取了，但是這邊有個前提是，我們事先修改 <strong>iptables</strong> 的規則，讓他預設是轉送封包，而不是丟棄</p>
+<blockquote>
+<p>Docker 安裝完畢後，會讓 iptables <strong>FORWARD</strong> 預設丟棄封包，所以 docker 會針對這一塊去撰寫規則讓你的容器可以對外上網</p>
+</blockquote>
+<p>因此這個小節我們就來看看，要如何透過 iptables 來允許我們的封包通過</p>
+<p>根據我們前面的流程加上最初的運作，其實 iptables 運作的地方有兩個</p>
+<ol>
+<li>Linux Bridge 這邊會偷偷請 iptables 處理一次</li>
+<li>Linux Kernel 往宿主機 eth0 這邊發送時也會有一次</li>
+</ol>
+<p>這兩個環節於這個情境下，概念完全不同。<br>對於 Linux Bridge(hwchiu0) 來說，容器的封包會到達他身上，這邊是”到達”他身上，因此 <strong>iptables</strong> 內的規則就不是 <strong>FORWARD</strong> 這種轉發概念來處理，而是 <strong>INPUT</strong> 來處理。因此這邊我們就不需要特別處理</p>
+<blockquote>
+<p>INPUT chain 本身沒有被改成預設丟棄，因此都會通</p>
+</blockquote>
+<p>相反的，第二個流程是 <strong>LINUX KERNEL</strong> 轉發封包，從 <strong>eth0</strong> 出發，因此這邊 <strong>iptables</strong> 的 <strong>FORWARD</strong> 規則表就要被考慮，所以我們要處理的就是這一段過程</p>
+<p>首先我們將 <strong>iptables</strong> 中的 <strong>FORWARD</strong> 修改回預設丟棄封包，回歸到安裝好 <strong>docker</strong> 的設定。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ sudo iptables -P FORWARD DROP</span><br><span class="line">$ sudo docker <span class="built_in">exec</span> -it c1 ping 8.8.8.8</span><br></pre></td></tr></table></figure>
+
+<p>這時候你會發現封包不會通，透過 <strong>tcpdump</strong> 去監聽 <strong>eth0</strong> 的封包也沒有任何訊息，不過若是監聽 <strong>hwchiu0</strong> 則是會有封包</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">$ sudo tcpdump -vvvnn -i eth0 icmp</span><br><span class="line">tcpdump: listening on eth0, link-type EN10MB (Ethernet), capture size 262144 bytes</span><br><span class="line">^C</span><br><span class="line">0 packets captured</span><br><span class="line">0 packets received by filter</span><br><span class="line">0 packets dropped by kernel</span><br><span class="line"></span><br><span class="line">$ sudo tcpdump -vvvnn -i hwchiu0 icmp</span><br><span class="line">tcpdump: listening on hwchiu0, link-type EN10MB (Ethernet), capture size 262144 bytes</span><br><span class="line">20:16:28.313865 IP (tos 0x0, ttl 64, <span class="built_in">id</span> 60164, offset 0, flags [DF], proto ICMP (1), length 84)</span><br><span class="line">    10.55.66.2 &gt; 8.8.8.8: ICMP <span class="built_in">echo</span> request, <span class="built_in">id</span> 21202, <span class="built_in">seq</span> 33, length 64</span><br></pre></td></tr></table></figure>
+
+<p>所以我們要透過 <strong>iptables</strong> 告訴系統，請允許我們的封包通過，這邊有非常多種思路</p>
+<ol>
+<li>針對來源與目的 IP 去處理</li>
+<li>針對來源與目的 網卡 去處理</li>
+</ol>
+<p>用網卡會簡單很多，這部份沒有一定，完全看你設計， <strong>docker</strong> 會使用網卡來處理，這樣規則數量不會因為容器過多而變多。</p>
+<p>以下是我們使用的規則，我們告訴 <strong>iptables</strong> 說</p>
+<ol>
+<li>從 hwchiu0 到 eth0 的封包，給他過！</li>
+<li>從 eth0 到 hwchiu0 的封包，給他過 !<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">$ sudo iptables -t filter -I FORWARD -i hwchiu0 -o eth0 -j ACCEPT</span><br><span class="line">$ sudo iptables -t filter -I FORWARD -i eth0 -o hwchiu0 -j ACCEPT</span><br><span class="line">$ sudo docker <span class="built_in">exec</span> -it c1 ping 8.8.8.8</span><br><span class="line">PING 8.8.8.8 (8.8.8.8) 56(84) bytes of data.</span><br><span class="line">64 bytes from 8.8.8.8: icmp_seq=1 ttl=61 time=16.3 ms</span><br><span class="line">64 bytes from 8.8.8.8: icmp_seq=2 ttl=61 time=15.8 ms</span><br></pre></td></tr></table></figure></li>
+</ol>
+<p>這時後來看架構圖，這個範例中， iptables 會有兩個地方干涉，分別是進入到 hwchiu0 以及宿主機 eth0 兩個地方。<br>但是兩個地方因為概念不同，使用的是 iptables 下不同的表，而我們這邊針對 FORWARD 表去處理，因為其預設是丟棄封包<br><img src="https://i.imgur.com/ZyOxFzc.jpg"></p>
+<h2 id="總結"><a href="#總結" class="headerlink" title="總結"></a>總結</h2><p>到這邊為止，我盡可能的用簡單的方式去描述，到底一個容器要對外上網中間會發生什麼事情，而這些事情平常我們都沒有感覺，是因為 <strong>docker</strong> 本身都幫我們處理完畢了，整體思路都完全一樣，不過對於 <strong>iptables</strong> 的規則會因為細度不同，所以下法也不太一樣。</p>
+<h1 id="總結-1"><a href="#總結-1" class="headerlink" title="總結"></a>總結</h1><p>由於本篇文章已經過長，因此如何從外部存取容器就留到下篇文章再來分享</p>
+<p>綜合本文與前文，這邊幫大家整理一下，基於 <strong>Bridge</strong> 網路模型下， Docker 容器是如何對外上網</p>
+<ol>
+<li>擁有 Linux Bridge，並且設定一個 IP</li>
+<li>創造容器，透過 veth 將容器與宿主機的 Linux Bridge 連接</li>
+<li>對容器內的網卡設定 IP，並且設定一個預設路由規則，讓 Linux Bridge 幫忙轉發對外封包</li>
+<li>設定相關 iptables 規則，讓系統轉發時，封包不會被丟棄</li>
+<li>設定 iptables SNAT 規則，讓我們往外的封包能夠有機會回來，最後輾轉回到容器手上</li>
+</ol>
+<p>這一系列的規則看起來很多，但是其實整體都圍繞再 TCP&#x2F;IP 的網路規則下，簡單的說就是<br>封包該怎麼走，誰幫忙處理封包，會不會有人攔截封包<br>將這三個思路整理下來，就可以很清晰的去分析封包的走向與除錯</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/Docker/" rel="tag"># Docker</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-5.html" rel="prev" title="鐵人賽系列文章- Day 5 淺談本地部署 Kubernetes 的各類選擇">
+                  <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day 5 淺談本地部署 Kubernetes 的各類選擇
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-6.html" rel="next" title="鐵人賽系列文章- Day 6 K3D 與KIND 的部署示範">
+                  鐵人賽系列文章- Day 6 K3D 與KIND 的部署示範 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

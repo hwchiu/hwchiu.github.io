@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本篇文章首先跟大家分享一個常見的 Schema 設計，在此情境下，為了讀取一連串的資料，我們有不同種方式可以辦到。其中一種就是本文的主角, Aggregate 的概念。為了解釋 Aggregate 如何運作以及如何實現，本文採用 Golang 作為基本的程式語言，並且使用 mgo 作為與 mongo 進行處理的第三方函式庫。此外也採用了最原始的讀取方式，並且將此方式從撰寫方式以及效能兩方面直接與">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Golang] aggregate in mongo">
+<meta property="og:url" content="https://www.hwchiu.com/mgo-aggregate.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本篇文章首先跟大家分享一個常見的 Schema 設計，在此情境下，為了讀取一連串的資料，我們有不同種方式可以辦到。其中一種就是本文的主角, Aggregate 的概念。為了解釋 Aggregate 如何運作以及如何實現，本文採用 Golang 作為基本的程式語言，並且使用 mgo 作為與 mongo 進行處理的第三方函式庫。此外也採用了最原始的讀取方式，並且將此方式從撰寫方式以及效能兩方面直接與">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/rFmSBdw.png">
+<meta property="article:published_time" content="2018-08-31T06:09:05.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.631Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Golang">
+<meta property="article:tag" content="Mongo">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/rFmSBdw.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/mgo-aggregate.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/mgo-aggregate.html","path":"mgo-aggregate.html","title":"[Golang] aggregate in mongo"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>[Golang] aggregate in mongo | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Structure"><span class="nav-number">1.</span> <span class="nav-text">Structure</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Find"><span class="nav-number">2.</span> <span class="nav-text">Find</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Aggregate"><span class="nav-number">3.</span> <span class="nav-text">Aggregate</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Performance"><span class="nav-number">4.</span> <span class="nav-text">Performance</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Summary"><span class="nav-number">5.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Reference"><span class="nav-number">6.</span> <span class="nav-text">Reference</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number"></span> <span class="nav-text">個人資訊</span></a></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/mgo-aggregate.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="[Golang] aggregate in mongo | Hwchiu Learning Note">
+      <meta itemprop="description" content="本篇文章首先跟大家分享一個常見的 Schema 設計，在此情境下，為了讀取一連串的資料，我們有不同種方式可以辦到。其中一種就是本文的主角, Aggregate 的概念。為了解釋 Aggregate 如何運作以及如何實現，本文採用 Golang 作為基本的程式語言，並且使用 mgo 作為與 mongo 進行處理的第三方函式庫。此外也採用了最原始的讀取方式，並且將此方式從撰寫方式以及效能兩方面直接與 Aggregate 進行比較。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          [Golang] aggregate in mongo
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-08-31 14:09:05" itemprop="dateCreated datePublished" datetime="2018-08-31T14:09:05+08:00">2018-08-31</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本篇文章首先跟大家分享一個常見的 Schema 設計，在此情境下，為了讀取一連串的資料，我們有不同種方式可以辦到。其中一種就是本文的主角, Aggregate 的概念。為了解釋 Aggregate 如何運作以及如何實現，本文採用 Golang 作為基本的程式語言，並且使用 mgo 作為與 mongo 進行處理的第三方函式庫。此外也採用了最原始的讀取方式，並且將此方式從撰寫方式以及效能兩方面直接與 Aggregate 進行比較。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>在探討整個主題之前，我們先設計一個簡單的 <code>schema</code> 來符合這次<br>假設今天在資料庫內有主要結構，分別是 <code>User</code> 跟 <code>Pod</code><br><code>User</code> 非常簡單，就是描述一個使用者<br><code>Pod</code> 這邊不用在意他是什麼東西，他是一個資源，然後透過 <code>User</code> 創立的，所以每個 <code>Pod</code> 裡面都會有一個欄位去記錄是哪個 <code>User</code> 創立的。</p>
+<p>有了前述的假設之後，接下來想像一個實際需求</p>
+<ol>
+<li>有一個 <code>UserA</code> 創造了數百個 <code>Pod</code> 資源。</li>
+<li>想要 Query 該 <code>UserA</code> 並且列出該<code>User</code>創造的所有<code>Pod</code>資源的細部資料</li>
+</ol>
+<p><img src="https://i.imgur.com/rFmSBdw.png" alt="Imgur"></p>
+<p>在以前 SQL 的時候，我們可能會透過 <code>SELECT</code> 搭配 <code>JOIN</code> 的方式來存取，那今天假如在 <code>mongoDB</code> 的環境下，我們可以怎麼處理?</p>
+<p>本文章的所有範例程式碼都可以在<a target="_blank" rel="noopener" href="https://github.com/hwchiu/GolangPratice/blob/master/mgoAggregate/main.go">mgo Aggregate Example</a>找到</p>
+<p>必須要注意， mongodb 的版本至少要 &gt; 3.0 之後才支援本文描述的 <code>Aggregate</code></p>
+<h2 id="Structure"><a href="#Structure" class="headerlink" title="Structure"></a>Structure</h2><p>這邊就採用 <code>golang</code> 簡單的描述一下我們的結構，這些結構會用在 <code>mongodb</code> 裡面</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> User <span class="keyword">struct</span> &#123;</span><br><span class="line">	ID   bson.ObjectId <span class="string">`bson:&quot;_id&quot;`</span></span><br><span class="line">	Name <span class="type">string</span>        <span class="string">`bson:&quot;name&quot;`</span></span><br><span class="line">	Pods []Pod         <span class="string">`bson:&quot;pods&quot;`</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> Pod <span class="keyword">struct</span> &#123;</span><br><span class="line">	ID        bson.ObjectId <span class="string">`bson:&quot;_id&quot;`</span></span><br><span class="line">	CreatedBy bson.ObjectId <span class="string">`bson:&quot;createdBy&quot;`</span></span><br><span class="line">	Name      <span class="type">string</span>        <span class="string">`bson:&quot;name&quot;`</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="Find"><a href="#Find" class="headerlink" title="Find"></a>Find</h2><p>第一種方法其實非常直覺</p>
+<ol>
+<li>就是先取得該 <code>User</code> 的實例</li>
+<li>去 <code>Pod</code> 的 <code>Collection</code> 內進行搜尋，找出所有的 <code>Pod</code> 其記錄的<code>User</code>是<code> UserA</code>.</li>
+</ol>
+<p>假設我們已經有該 <code>User</code> 的物件了，接下來很簡單透過 <code>find</code> 的方式找出所有由該 <code>User</code> 所創造的 <code>Pod</code>.<br>並且把找到的結果都放到 <code>User</code>  物件裡面的 <code>Pods</code> 變數</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">c := db.C(<span class="string">&quot;pods&quot;</span>)</span><br><span class="line">c.Find(bson.M&#123;<span class="string">&quot;createdBy&quot;</span>: user.ID&#125;).All(&amp;user.Pods)</span><br></pre></td></tr></table></figure>
+
+<h2 id="Aggregate"><a href="#Aggregate" class="headerlink" title="Aggregate"></a>Aggregate</h2><p>在 <code>mgo</code>裡面，如果想要做到 <code>Aaggregate</code> 類似這種 <code>Join</code> 的方式，其實可以透過一個叫做 <code>pipeline</code> 的函式來完成</p>
+<p>為了使用 <code>pipeline</code> 的，我們必須要先描述我們想要如何去尋找這些資料，這些資料是由<code>bson.M&#123;&#125;</code> 陣列組成的。<br>該陣列內，至少要提供兩種不同的查詢方式</p>
+<ol>
+<li>$match: 這邊用來描述我們要如何查詢 <code>User</code> 物件，在此範例中我們使用特定的<code>User.ID</code>來描述該 <code>User</code></li>
+<li>$lookup: 用來描述要如何 <code>Aggregate</code>, 其中有四個欄位要填寫<ul>
+<li>from: 用來進行 <code>Aggregate</code> 的 <code>collection</code>  名稱，此範例中我們設定為 <code>pods</code> 這個 <code>collection</code>.</li>
+<li>localField: 在該 <code>pipeline</code> 要使用的 <code>collection</code> 內要使用的欄位，這邊我們會使用 <code>User</code> 裡面的 <code>_id</code>.</li>
+<li>foreignField: 在 <code>from</code> 這個 <code>collection</code> 裡面要使用的欄位，此範例就是 <code>Pods</code> 裡面的 <code>createdBy</code>.</li>
+<li>as: 這個是用來存放查詢後的資料，首先其本身必須是個<code>Array</code>，同時該欄位必須定義在 <code>User</code> 結構裡面。</li>
+</ul>
+</li>
+</ol>
+<p>程式碼如下，該程式碼的意思很簡單，我們對 <code>users</code> 這個 <code>collection</code> 裡面透過 <code>$match</code> 去尋找特定的 <code>User</code>，同時透過 <code>$lookup</code> 的方式到 <code>pods</code> 該 <code>collection</code> 裡面去把 <code>User.ID == Pods.CreatedBy</code> 相同的 <code>pods</code> 都找出來，最後放到 <code>user.pods</code> 裡面</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">c := db.C(<span class="string">&quot;users&quot;</span>)</span><br><span class="line">pipeline := []bson.M&#123;</span><br><span class="line">    &#123;<span class="string">&quot;$lookup&quot;</span>: bson.M&#123;<span class="string">&quot;from&quot;</span>: <span class="string">&quot;pods&quot;</span>, <span class="string">&quot;localField&quot;</span>: <span class="string">&quot;_id&quot;</span>, <span class="string">&quot;foreignField&quot;</span>: <span class="string">&quot;createdBy&quot;</span>, <span class="string">&quot;as&quot;</span>: <span class="string">&quot;pods&quot;</span>&#125;&#125;,</span><br><span class="line">    &#123;<span class="string">&quot;$match&quot;</span>: bson.M&#123;<span class="string">&quot;_id&quot;</span>: user.ID&#125;&#125;,</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> resp User</span><br><span class="line">err := c.Pipe(pipeline).One(&amp;resp)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">    fmt.Println(err)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="Performance"><a href="#Performance" class="headerlink" title="Performance"></a>Performance</h2><p>因為這次的範例非常簡單，所以並不能用來代表在所有的使用情境下的結果，只能用來表示如本文的情境下的效率問題。</p>
+<p>在上述的範例專案內，一開始會先隨機產生一個使用者，並且隨機產生<code>30000</code> 筆 <code>Pod</code> 資料，並且嘗試比較不同數量的情況下，透過 <code>Find</code> 以及 <code>Aggregate</code> 實際上的效能問題。</p>
+<p>下列的時間都是 <strong>(ms)</strong></p>
+<table>
+<thead>
+<tr>
+<th>Methond\Numbers</th>
+<th>1000</th>
+<th>5000</th>
+<th>10000</th>
+<th>30000</th>
+<th>50000</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Find</td>
+<td>5.7</td>
+<td>18</td>
+<td>35</td>
+<td>111</td>
+<td>250</td>
+</tr>
+<tr>
+<td>Aggregate</td>
+<td>7.4</td>
+<td>22</td>
+<td>77</td>
+<td>180</td>
+<td>NaN</td>
+</tr>
+</tbody></table>
+<p>這邊要特別注意的是，當 <code>Pods</code> 的數量過高的時候，使用 <code>pipeline</code> 來處理就會得到下列的錯誤訊息</p>
+<p><code>Total size of documents in pods matching &#123; $match: &#123; $and: [ &#123; createdBy: &#123; $eq: ObjectId(&#39;5b86dac74807c532d70bea52&#39;) &#125; &#125;, &#123;&#125; ] &#125; &#125; exceeds maximum document size </code></p>
+<p>根據官網描述，預設的情況下，只能存放 <code>16MB</code> 的資料。<br>這意味者資料過多的情況下，使用者要注意這個現象，避免資料存取失敗。</p>
+<h2 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h2><p>本文假設的情境非常簡單，基本上兩種方法都可以完成，但是在資料多寡的情況下，花費的時間就有所區別。<br>若是有更複雜的需求，在 <code>pipeline</code> 裡面還可以設定除了 <code>$lookup</code> 以及 <code>$match</code> 以外的用法，透過一次的呼叫就把資料給查詢完畢。<br>至少如果只是本文這種很簡單的情境，其實自己額外查詢即可，不論在簡潔性跟效率上我認為都更高。</p>
+<p>所以還是一樣，不同情境下，每個功能都會有不同的使用方法跟考量點。<br>這邊就讓各位自己去評估囉</p>
+<h2 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://docs.mongodb.com/manual/aggregation/">https://docs.mongodb.com/manual/aggregation/</a></li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Golang/" rel="tag"># Golang</a>
+              <a href="/tags/Mongo/" rel="tag"># Mongo</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/kubernetes-service-iiii.html" rel="prev" title="[Kubernetes] How to Implement Kubernetes Service - SessionAffinity">
+                  <i class="fa fa-chevron-left"></i> [Kubernetes] How to Implement Kubernetes Service - SessionAffinity
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/travisci-step-job-stage.html" rel="next" title="[DevOps] Travis CI - Step/Job/Stage">
+                  [DevOps] Travis CI - Step/Job/Stage <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

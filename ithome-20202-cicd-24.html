@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="ITHOME-2020 系列文章">
+<meta property="og:type" content="article">
+<meta property="og:title" content="鐵人賽系列文章- Day 24 - Secret 的部署問題與參考解法(下)">
+<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-24.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="ITHOME-2020 系列文章">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/3tDZr43.jpg">
+<meta property="og:image" content="https://i.imgur.com/JTgHac7.jpg">
+<meta property="og:image" content="https://i.imgur.com/Vwcbn37.jpg">
+<meta property="article:published_time" content="2021-01-31T10:00:31.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.621Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="DevOps">
+<meta property="article:tag" content="ITHOME">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/3tDZr43.jpg">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-24.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/ithome-20202-cicd-24.html","path":"ithome-20202-cicd-24.html","title":"鐵人賽系列文章- Day 24 - Secret 的部署問題與參考解法(下)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>鐵人賽系列文章- Day 24 - Secret 的部署問題與參考解法(下) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Centralized-Management"><span class="nav-number">1.</span> <span class="nav-text">Centralized Management</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Helm"><span class="nav-number">1.0.1.</span> <span class="nav-text">Helm</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Kustomize-x2F-Yaml"><span class="nav-number">1.0.2.</span> <span class="nav-text">Kustomize&#x2F;Yaml</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Centralized-Management-ii"><span class="nav-number">2.</span> <span class="nav-text">Centralized Management(ii)</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Encrption-x2F-Decryption"><span class="nav-number">3.</span> <span class="nav-text">Encrption&#x2F;Decryption</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Helm-1"><span class="nav-number">3.0.1.</span> <span class="nav-text">Helm</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Kustomize-x2F-Yaml-1"><span class="nav-number">3.0.2.</span> <span class="nav-text">Kustomize&#x2F;Yaml</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">4.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-24.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="鐵人賽系列文章- Day 24 - Secret 的部署問題與參考解法(下) | Hwchiu Learning Note">
+      <meta itemprop="description" content="ITHOME-2020 系列文章">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          鐵人賽系列文章- Day 24 - Secret 的部署問題與參考解法(下)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2021-01-31 18:00:31" itemprop="dateCreated datePublished" datetime="2021-01-31T18:00:31+08:00">2021-01-31</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">ITHOME-2020 系列文章</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>前篇文章中我們探討了 CI&#x2F;CD 自動化部屬中機密資訊的保存與使用議題，介紹了第一種透過 Pipeline 架構本身來處理問題，同時也探討了潛在的隱憂，而今天這篇我們將繼續從不同的架構下繼續探討解決方案</p>
+<p>開始之前，我們先複習一下，我們會有三個使用情境， <code>Helm</code>, <code>原生 Yaml</code> 以及 <code>Kustomize</code></p>
+<h1 id="Centralized-Management"><a href="#Centralized-Management" class="headerlink" title="Centralized Management"></a>Centralized Management</h1><p>這種架構會有一個 Secret 的管理者，這個管理者所在的位置影響不太大，主要問題是取決於什麼時間點使用這個管理者。</p>
+<p>相較於上一篇的架構，將這個 secret 管理者從 pipeline 系統抽離的一個好處就是我們把存取機密資訊的用法與 pipeline 系統脫離，因此未來如果需要轉換到不同平台，所花費的時間與成本會少很多，因為大部分的東西都可以共用。</p>
+<p>今天這個架構的重點是，我們將產生 secret 的發生地點往後延遲，從本來的 pipeline 系統推遲到 kubernetes 內部，當應用程式真正要部署的時候才會去動態產生這些 secret 的檔案。</p>
+<p>上述是一個概念，但是實作上可以有不同做法，舉一個範例就是，Pod 本身先賦予相關的權限能力，讓其有能力跟 Secret 管理者溝通，然後部署 Pod 的時候要去描述說 <code>資料庫的密碼放在什麼地方，什麼路徑</code>，接下來 Pod 把這些資訊拿去問給 Secret 管理者，然後管理者回覆這些資訊。</p>
+<p>也可以有不同做法是 Pod 本身其實不知道後面是接什麼系統，總之他相信會有人給他一些設定檔案，然後我們有額外的其他應用程式，或是 sidecar container 會幫忙去問 secret 管理者，問完後就產生出最後的設定檔案給應用程式使用。</p>
+<p>後者的做法比前者更好，因為對於應用程式來說，我們隱藏了背後的運作細節，這使得開發者比較容易本地端開發，用一個簡單的設定檔案就可以建立環境，同時未來要遷移到不同系統時，要改變的只有維護團隊以及那些 sidecar 的運作模式，應用程式本身邏輯都不需要更動。</p>
+<p>接下來我們嘗試將上述三種情境套入到這個架構中，看看會怎麼執行</p>
+<h3 id="Helm"><a href="#Helm" class="headerlink" title="Helm"></a>Helm</h3><ol>
+<li>一開始 Helm 裡面就要準備好相關的設定檔案，包含帳號密碼要用什麼東西問等，這部分取決於實作的需求</li>
+<li>CI&#x2F;CD pipeline 運行到後面階段後，沒有什麼事情要特別處理，因此直接透過 <code>helm upgrade --install ...</code> 的方式部署到 kubernetes內部</li>
+<li>當應用程式部署進去後，應用程式或是 sidecar 就會根據當前的設定去詢問需要的機密資訊，最後產生相對應的檔案給應用程式讀取</li>
+</ol>
+<h3 id="Kustomize-x2F-Yaml"><a href="#Kustomize-x2F-Yaml" class="headerlink" title="Kustomize&#x2F;Yaml"></a>Kustomize&#x2F;Yaml</h3><ol>
+<li>基本上這兩者的做法一樣，其實也跟 Helm 差不多，因為不需要於 pipeline 系統中動態取得這些機密資訊，所以這個步驟也不太需要客製化。</li>
+<li>一切的運作邏輯跟 Helm 一樣，只要確保部署進去的資源能夠與 secret 管理者溝通即可。</li>
+</ol>
+<p>這種架構下帶來的好處有</p>
+<ol>
+<li>因為與 pipeline 的部分都抽離了，所以 GItOps 就有機會實現</li>
+<li>大部分機密資訊的保存與管理都跟 pipeline 系統無關，要抽換容易</li>
+<li>這類型 secret 管理者的介面跟操作能力都比 pipeline 系統提供的介面強超級多，用起來相對彈性</li>
+<li>使用上與設計上稍嫌複雜，同時 secret 管理者的存活要自己負責，如果要設計 HA 的架構就要花一些心思去探索</li>
+</ol>
+<p><img src="https://i.imgur.com/3tDZr43.jpg"></p>
+<h1 id="Centralized-Management-ii"><a href="#Centralized-Management-ii" class="headerlink" title="Centralized Management(ii)"></a>Centralized Management(ii)</h1><p>這種架構是上一種的不同實作方式，就如同所說的其實 secret manager 位置放在哪邊不是重點，重點是什麼時間點去呼叫來取得資訊。</p>
+<p>如果今天我們依然還是在 Pipeline 系統中去取得這些資訊，那基本上我們還是會得到跟第一篇架構一樣的結果。</p>
+<p>由於這類型的服務本身也需要一些 token&#x2F;key 才可以存取，而現在存取的時間點是 pipeline 系統上，所以我們只要利用 pipeline 系統本</p>
+<p>身的管理機制去管理這些 token&#x2F;key 即可。剩下應用程式所需要的機密資訊就跟遠方的 secret manager 去獲取即可。</p>
+<p>但是這邊有一個要特別注意的地方，因為我們的 secret 管理者現在已經搬移到系統外面，所以 pipeline 系統對於你的各種操作都沒有辦</p>
+<p>法辨認哪些東西是機密，哪些不是機密，因此 log 檔案會有機會將你的操作內容全部記錄下來，包含你的帳號與密碼。 這部分要特別小</p>
+<p>心，避免這些資訊遺漏否則可能會釀成大禍。</p>
+<p>之前提到的三個情境再這個架構下的實作方法大同小異，這邊就不再贅述，相關的隱憂基本上也都存在，只有搬移平台部分會是相對順</p>
+<p>利，因為所有的存取方式與內容都與 pipeline 系統抽離。</p>
+<p><img src="https://i.imgur.com/JTgHac7.jpg"></p>
+<h1 id="Encrption-x2F-Decryption"><a href="#Encrption-x2F-Decryption" class="headerlink" title="Encrption&#x2F;Decryption"></a>Encrption&#x2F;Decryption</h1><p>最後一個架構的做法是透過加解密的方式來記錄這些資訊，過往我們會擔心 Kubernetes Secret 的資訊是因為其本身只有 base64 編碼，並不是加密，因此實際上就是沒有安全性可言。</p>
+<p>那如果我們有辦法把它變成加密後的結果，是否就會更有信心的放到 Yaml 上面，直接使用 Git 保存?</p>
+<p>這個架構就是基於這樣的想法，其運作流程如下(概念，實作不一定)</p>
+<ol>
+<li>Kubernetes 中要安裝一個 Controller，這個 Controller 會準備 key，這把 key 會用來加密跟解密</li>
+<li>Kubernetes 中新增一個全新的物件，譬如叫做 Encrypted Secret，代表被加密後的 secret 資料。</li>
+<li>叢集管理者使用那把 key 將機密資料加密，得到加密後的結果，並且把這個結果寫到 EncryptedSecret 的 Yaml 中</li>
+<li>當未來這個 EncryptedSecret 被部署到叢集之中，該 Controller 就會偵測到，並且使用 key 去解密</li>
+<li>解密成功後就會把解密的內容產生一個 Secret ，這時候應用程式就可以去讀取來使用</li>
+</ol>
+<p>簡單來說，上述的流程也是把取得機密內容的時間點延後到 Kubernetes 內部，只是他的做法是一開始加密，直到進入 Kubernetes 後就將其解密，最後得到真正資訊。</p>
+<p>接下來我們嘗試將上述三種情境套入到這個架構中，看看會怎麼執行</p>
+<h3 id="Helm-1"><a href="#Helm-1" class="headerlink" title="Helm"></a>Helm</h3><ol>
+<li>一開始 Helm 裡面就要先透過 key 去加密，準備好一個 Encrypted Secret 的物件</li>
+<li>CI&#x2F;CD pipeline 運行到後面階段後，沒有什麼事情要特別處理，因此直接透過 <code>helm upgrade --install ...</code> 的方式部署到 kubernetes內部</li>
+<li>當應用程式部署進去後，該 controller 偵測到 Encrypted Secret 的出現，就會幫其解密，解密後產生對應的 secret 物件，然後應用程式去讀取</li>
+</ol>
+<h3 id="Kustomize-x2F-Yaml-1"><a href="#Kustomize-x2F-Yaml-1" class="headerlink" title="Kustomize&#x2F;Yaml"></a>Kustomize&#x2F;Yaml</h3><ol>
+<li>基本上這兩者的做法一樣，其實也跟 Helm 差不多，因為不需要於 pipeline 系統中動態取得這些機密資訊，所以這個步驟也不太需要客製化。</li>
+<li>一切的運作邏輯跟 Helm 一樣，只要確保部署進去的資源能夠與 secret 管理者溝通即可。</li>
+</ol>
+<p>這種架構帶來的好壞處有</p>
+<ol>
+<li>本身也不需要 CD pipeline 的參與，所以 GitOps 的概念可以實現</li>
+<li>如同上述架構一樣， Controller 的生命尤為重要，要保護好他的生命以及相關的 key</li>
+<li>機密資訊都直接存放到 Git 上面，每次要修改都要有對應權限的人去產生加密後的結果，有可能會讓工作效率比較低，但是安全性更高</li>
+</ol>
+<p><img src="https://i.imgur.com/Vwcbn37.jpg"></p>
+<p>到這邊為止我們探討了數種可能的解決方式與架構，下一篇我們將實際操作一個範例來展示其用法</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>詳細可以參閱<br>矽谷牛線上學院<br><a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-23.html" rel="prev" title="鐵人賽系列文章- Day 23 - Secret 的部署問題與參考解法(上)">
+                  <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day 23 - Secret 的部署問題與參考解法(上)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-25.html" rel="next" title="鐵人賽系列文章- Day 25 - Secret 使用範例: sealed-secrets">
+                  鐵人賽系列文章- Day 25 - Secret 使用範例: sealed-secrets <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

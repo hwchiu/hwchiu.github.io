@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="IntroductionAsync 希望在與底層kernel socket進行I&#x2F;O處理時是以 Async 的方式去運行，而不是像 Simple 一樣每條 connetion 都要開兩個 threads 來負責處理 read 跟 write。而現在普遍人在撰寫 Network Programming 時，幾乎都會採用 event-driven 類型的方式來處理，如 select. 在 A">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Ceph Network Architecture 研究(三)">
+<meta property="og:url" content="https://www.hwchiu.com/ceph-network-iii.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="IntroductionAsync 希望在與底層kernel socket進行I&#x2F;O處理時是以 Async 的方式去運行，而不是像 Simple 一樣每條 connetion 都要開兩個 threads 來負責處理 read 跟 write。而現在普遍人在撰寫 Network Programming 時，幾乎都會採用 event-driven 類型的方式來處理，如 select. 在 A">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2017-05-25T02:15:24.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.602Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="SourceCode">
+<meta property="article:tag" content="Ceph">
+<meta property="article:tag" content="SDS">
+<meta property="article:tag" content="SOS">
+<meta property="article:tag" content="ScaleOut">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/ceph-network-iii.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/ceph-network-iii.html","path":"ceph-network-iii.html","title":"Ceph Network Architecture 研究(三)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Ceph Network Architecture 研究(三) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Introduction"><span class="nav-number">1.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Architecture"><span class="nav-number">2.</span> <span class="nav-text">Architecture</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#EventCallBack"><span class="nav-number">2.1.</span> <span class="nav-text">EventCallBack</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#EventDriver"><span class="nav-number">2.2.</span> <span class="nav-text">EventDriver</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#init"><span class="nav-number">2.2.1.</span> <span class="nav-text">init</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#add-event"><span class="nav-number">2.2.2.</span> <span class="nav-text">add_event</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#del-event"><span class="nav-number">2.2.3.</span> <span class="nav-text">del_event</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#event-wait"><span class="nav-number">2.2.4.</span> <span class="nav-text">event_wait</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#resize-event"><span class="nav-number">2.2.5.</span> <span class="nav-text">resize_event</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#need-wakup"><span class="nav-number">2.2.6.</span> <span class="nav-text">need_wakup</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#EventCenter"><span class="nav-number">2.3.</span> <span class="nav-text">EventCenter</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#init-1"><span class="nav-number">2.3.1.</span> <span class="nav-text">init</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#destructor"><span class="nav-number">2.3.2.</span> <span class="nav-text">destructor</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#set-owner"><span class="nav-number">2.3.3.</span> <span class="nav-text">set_owner</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#create-file-event"><span class="nav-number">2.3.4.</span> <span class="nav-text">create_file_event</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#delete-file-event"><span class="nav-number">2.3.5.</span> <span class="nav-text">delete_file_event</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#create-time-event"><span class="nav-number">2.3.6.</span> <span class="nav-text">create_time_event</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9C%80%E5%BE%8C%E7%94%A8%E4%B8%80%E5%80%8B-map-%E8%A8%98%E4%BD%8F%E7%95%B6%E5%89%8D-id-%E5%B0%8D%E6%87%89%E4%B8%8A%E8%BF%B0-multimap-%E7%B4%80%E9%8C%84-id-%E5%89%87%E6%98%AF%E7%94%A8%E4%B8%80%E5%80%8B-global-%E7%9A%84-time-event-next-%E4%BE%86%E8%A8%98%E4%BD%8F"><span class="nav-number">2.4.</span> <span class="nav-text">最後用一個 map  記住當前 id　對應上述 multimap 紀錄  - id 則是用一個 global 的 time_event_next 來記住</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#delete-time-event"><span class="nav-number">2.4.1.</span> <span class="nav-text">delete_time_event</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#wakeup"><span class="nav-number">2.4.2.</span> <span class="nav-text">wakeup</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#process-time-events"><span class="nav-number">2.4.3.</span> <span class="nav-text">process_time_events</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%8D%E6%96%BC%E6%89%80%E6%9C%89%E7%9A%84-time-event%EF%BC%8C%E5%A6%82%E6%9E%9C%E7%95%B6%E5%89%8D%E7%9A%84%E6%99%82%E9%96%93%E8%B6%85%E9%81%8E%E8%A9%B2-time-event-%E7%9A%84-expire-time-%E5%B0%87%E8%A9%B2-event-%E5%BE%9E%E7%B5%90%E6%A7%8B%E4%B8%AD%E7%A7%BB%E9%99%A4-%E5%91%BC%E5%8F%AB%E8%A9%B2-event-%E7%9A%84-call-back-function-%E9%80%99%E9%82%8A%E5%82%B3%E5%85%A5%E7%9A%84%E6%98%AF-ID%EF%BC%8C%E8%B7%9F-FD-%E7%84%A1%E9%97%9C"><span class="nav-number">2.5.</span> <span class="nav-text">對於所有的 time event，如果當前的時間超過該 time event 的 expire time  - 將該 event 從結構中移除  - 呼叫該 event 的 call back function  - 這邊傳入的是 ID，跟 FD 無關</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#process-events"><span class="nav-number">2.5.1.</span> <span class="nav-text">process_events</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#dispatch-event-external"><span class="nav-number">2.5.2.</span> <span class="nav-text">dispatch_event_external</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#submit-to"><span class="nav-number">2.5.3.</span> <span class="nav-text">submit_to</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">3.</span> <span class="nav-text">Summary</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ceph-network-iii.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Ceph Network Architecture 研究(三) | Hwchiu Learning Note">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Ceph Network Architecture 研究(三)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2017-05-25 10:15:24" itemprop="dateCreated datePublished" datetime="2017-05-25T10:15:24+08:00">2017-05-25</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h1><p><strong>Async</strong> 希望在與底層kernel socket進行I&#x2F;O處理時是以 <strong>Async</strong> 的方式去運行，而不是像 <strong>Simple</strong> 一樣每條 connetion 都要開兩個 <strong>threads</strong> 來負責處理 read 跟 write。<br>而現在普遍人在撰寫 <strong>Network Programming</strong> 時，幾乎都會採用 event-driven 類型的方式來處理，如 select.</p>
+<p>在 <strong>Async</strong> 中負責進行上述這類型 <strong>event-driven I&#x2F;O</strong> 處理的就是 <strong>Event</strong> 物件<br><strong>Event</strong> 是一個抽象的介面，提供API給上層的 <strong>Worker</strong> 使用，而各種不同的類型的 <strong>I&#x2F;O</strong>  都必須要繼承<strong>Event</strong>物件，並且實作所有的API。<br>目前的Event物件中有提供下列實作</p>
+<ul>
+<li>DPDK</li>
+<li>EPOLL</li>
+<li>KQUEUE</li>
+<li>SELECT</li>
+</ul>
+<span id="more"></span>
+
+<p>在程式碼內，習慣以<strong>driver</strong>的字眼來稱呼這些方法，如 <strong>SelectDriver</strong>。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0110</span>   <span class="keyword">if</span> (t == <span class="string">&quot;dpdk&quot;</span>) &#123;</span><br><span class="line"><span class="number">0111</span> <span class="meta">#<span class="keyword">ifdef</span> HAVE_DPDK</span></span><br><span class="line"><span class="number">0112</span>     driver = <span class="keyword">new</span> <span class="built_in">DPDKDriver</span>(cct);</span><br><span class="line"><span class="number">0113</span> <span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"><span class="number">0114</span>   &#125; <span class="keyword">else</span> &#123;</span><br><span class="line"><span class="number">0115</span> <span class="meta">#<span class="keyword">ifdef</span> HAVE_EPOLL</span></span><br><span class="line"><span class="number">0116</span>   driver = <span class="keyword">new</span> <span class="built_in">EpollDriver</span>(cct);</span><br><span class="line"><span class="number">0117</span> <span class="meta">#<span class="keyword">else</span></span></span><br><span class="line"><span class="number">0118</span> <span class="meta">#<span class="keyword">ifdef</span> HAVE_KQUEUE</span></span><br><span class="line"><span class="number">0119</span>   driver = <span class="keyword">new</span> <span class="built_in">KqueueDriver</span>(cct);</span><br><span class="line"><span class="number">0120</span> <span class="meta">#<span class="keyword">else</span></span></span><br><span class="line"><span class="number">0121</span>   driver = <span class="keyword">new</span> <span class="built_in">SelectDriver</span>(cct);</span><br><span class="line"><span class="number">0122</span> <span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"><span class="number">0123</span> <span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"><span class="number">0124</span>   &#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="Architecture"><a href="#Architecture" class="headerlink" title="Architecture"></a>Architecture</h1><p>整個 <strong>Event</strong> 由下列物件組成</p>
+<ul>
+<li>EventCallback</li>
+<li>EventCenter</li>
+<li>EventDriver</li>
+</ul>
+<p>接下來分別介紹這三個物件在整個運作中扮演的角色。</p>
+<h2 id="EventCallBack"><a href="#EventCallBack" class="headerlink" title="EventCallBack"></a>EventCallBack</h2><ul>
+<li>當事件發生時，要怎處理的介面雛形，所有的 CallBack 都必須要繼承此介面同時實作 <code>do_request</code>， 此 function 會得到一個 input，告知哪一個 fd 有事件發生了，然後實作對應的事情即可</li>
+<li>該 fd 到底是 read 還是 write 被呼叫，這個 <strong>EventCallBack</strong> 本身不處理，此邏輯交給 EventCenter 去處理，所以若你的 CallBack 要依據 read&#x2F;write 有不同處理，請註冊兩種不同的 callBack 來使用<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0054</span> <span class="keyword">class</span> <span class="title class_">EventCallback</span> &#123;</span><br><span class="line"><span class="number">0055</span></span><br><span class="line"><span class="number">0056</span>  <span class="keyword">public</span>:</span><br><span class="line"><span class="number">0057</span>   <span class="function"><span class="keyword">virtual</span> <span class="type">void</span> <span class="title">do_request</span><span class="params">(<span class="type">int</span> fd_or_id)</span> </span>= <span class="number">0</span>;</span><br><span class="line"><span class="number">0058</span>   <span class="keyword">virtual</span> ~<span class="built_in">EventCallback</span>() &#123;&#125;       <span class="comment">// we want a virtual destructor!!!</span></span><br><span class="line"><span class="number">0059</span> &#125;;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="EventDriver"><a href="#EventDriver" class="headerlink" title="EventDriver"></a>EventDriver</h2><ul>
+<li>此物件是底層每個方法都需要實現的介面，基本上跟<strong>Event</strong>有關的操作都在這邊完成，譬如哪些<strong>fd</strong>要監聽，哪些不用，然後監聽結果為何等。</li>
+</ul>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0068</span> <span class="comment">/*</span></span><br><span class="line"><span class="comment">0069  * EventDriver is a wrap of event mechanisms depends on different OS.</span></span><br><span class="line"><span class="comment">0070  * For example, Linux will use epoll(2), BSD will use kqueue(2) and select will</span></span><br><span class="line"><span class="comment">0071  * be used for worst condition.</span></span><br><span class="line"><span class="comment">0072  */</span></span><br><span class="line"><span class="number">0073</span> <span class="keyword">class</span> <span class="title class_">EventDriver</span> &#123;</span><br><span class="line"><span class="number">0074</span>  <span class="keyword">public</span>:</span><br><span class="line"><span class="number">0075</span>   <span class="keyword">virtual</span> ~<span class="built_in">EventDriver</span>() &#123;&#125;       <span class="comment">// we want a virtual destructor!!!</span></span><br><span class="line"><span class="number">0076</span>   <span class="function"><span class="keyword">virtual</span> <span class="type">int</span> <span class="title">init</span><span class="params">(EventCenter *center, <span class="type">int</span> nevent)</span> </span>= <span class="number">0</span>;</span><br><span class="line"><span class="number">0077</span>   <span class="function"><span class="keyword">virtual</span> <span class="type">int</span> <span class="title">add_event</span><span class="params">(<span class="type">int</span> fd, <span class="type">int</span> cur_mask, <span class="type">int</span> mask)</span> </span>= <span class="number">0</span>;</span><br><span class="line"><span class="number">0078</span>   <span class="function"><span class="keyword">virtual</span> <span class="type">int</span> <span class="title">del_event</span><span class="params">(<span class="type">int</span> fd, <span class="type">int</span> cur_mask, <span class="type">int</span> del_mask)</span> </span>= <span class="number">0</span>;</span><br><span class="line"><span class="number">0079</span>   <span class="function"><span class="keyword">virtual</span> <span class="type">int</span> <span class="title">event_wait</span><span class="params">(vector&lt;FiredFileEvent&gt; &amp;fired_events, <span class="keyword">struct</span> timeval *tp)</span> </span>= <span class="number">0</span>;</span><br><span class="line"><span class="number">0080</span>   <span class="function"><span class="keyword">virtual</span> <span class="type">int</span> <span class="title">resize_events</span><span class="params">(<span class="type">int</span> newsize)</span> </span>= <span class="number">0</span>;</span><br><span class="line"><span class="number">0081</span>   <span class="function"><span class="keyword">virtual</span> <span class="type">bool</span> <span class="title">need_wakeup</span><span class="params">()</span> </span>&#123; <span class="keyword">return</span> <span class="literal">true</span>; &#125;</span><br><span class="line"><span class="number">0082</span> &#125;;</span><br></pre></td></tr></table></figure>
+<h3 id="init"><a href="#init" class="headerlink" title="init"></a>init</h3><ul>
+<li>進行一些初始化的動作，以 <strong>select</strong> 為範例，就會將 read&#x2F;write 的 FD 都初始化</li>
+</ul>
+<h3 id="add-event"><a href="#add-event" class="headerlink" title="add_event"></a>add_event</h3><ul>
+<li>加入一個新的 <strong>fd</strong> 到需要觀察的清單中，而 <strong>mask</strong> 則有三種類型，分別是初始化&#x2F;可讀&#x2F;可寫。</li>
+</ul>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0048</span> <span class="meta">#<span class="keyword">define</span> EVENT_NONE 0</span></span><br><span class="line"><span class="number">0049</span> <span class="meta">#<span class="keyword">define</span> EVENT_READABLE 1</span></span><br><span class="line"><span class="number">0050</span> <span class="meta">#<span class="keyword">define</span> EVENT_WRITABLE 2</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>以 <strong>select</strong> 為範例，此 function 就是將該 fd 加入到 <strong>fd set</strong> 中，同時更新當前最大 fd 數值</li>
+</ul>
+<h3 id="del-event"><a href="#del-event" class="headerlink" title="del_event"></a>del_event</h3><ul>
+<li>將一個目標 fd 從觀察清單中移除，譬如當連線斷線後，就不需要在監聽此事件。</li>
+<li>以 <strong>select</strong> 為範例，就是使用 <code>FD_CLR</code> 將該 fd 清除</li>
+</ul>
+<h3 id="event-wait"><a href="#event-wait" class="headerlink" title="event_wait"></a>event_wait</h3><ul>
+<li>這邊是真正重要的地方，此 function 會必須要真正去得到有哪些<strong>fd</strong>有對應的 event 產生，然後將這些 event收集起來。</li>
+<li>呼叫此 function 時，必須要傳入一個含有 <strong>FiredFileEvent</strong> 的 vector以及 timeout 的時間</li>
+<li>若這次等待中，有任何 <strong>event</strong> 被觸發，就將該 fd 放到該 vector 中即可。<br>FiredFileEvent 包含兩個成員，一個是發生事件的 fd，以及其對應的 mask (read&#x2F;write)</li>
+</ul>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0063</span> <span class="keyword">struct</span> <span class="title class_">FiredFileEvent</span> &#123;</span><br><span class="line"><span class="number">0064</span>   <span class="type">int</span> fd;</span><br><span class="line"><span class="number">0065</span>   <span class="type">int</span> mask;</span><br><span class="line"><span class="number">0066</span> &#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="resize-event"><a href="#resize-event" class="headerlink" title="resize_event"></a>resize_event</h3><ul>
+<li>目前只有 kqueue 在使用，當加入新的 fd 超過當前容納數量，會透過此 function 去更新</li>
+</ul>
+<h3 id="need-wakup"><a href="#need-wakup" class="headerlink" title="need_wakup"></a>need_wakup</h3><ul>
+<li>預設是回傳 True，目前只有 DPDK 有重新定義，原因是因為 DPDK 跟其他三者 event-based 的模式不相同，主要是一直依賴 polling 的方式去問。<br> -這邊比較有趣的是，DPDK 這種 polling-based 的也一併放到<strong>event</strong>的架構中實作，不過因為還沒有看完<strong>DPDK</strong>的實作，還沒看清他是如何轉換這兩邊概念的。</li>
+</ul>
+<h2 id="EventCenter"><a href="#EventCenter" class="headerlink" title="EventCenter"></a>EventCenter</h2><p>此介面是用來給上層使用的，在這邊將<strong>Event</strong>分成三大類，分別是</p>
+<ul>
+<li>read&#x2F;write call-back event</li>
+<li>time event (多少ms後執行）</li>
+<li>external event (馬上執行，可以想成時間為 0 的 time event)</li>
+</ul>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0087</span> <span class="keyword">class</span> <span class="title class_">EventCenter</span> &#123;</span><br><span class="line"><span class="number">0088</span>  <span class="keyword">public</span>:</span><br><span class="line">......</span><br><span class="line"><span class="number">0102</span>   <span class="keyword">struct</span> <span class="title class_">FileEvent</span> &#123;</span><br><span class="line"><span class="number">0103</span>     <span class="type">int</span> mask;</span><br><span class="line"><span class="number">0104</span>     EventCallbackRef read_cb;</span><br><span class="line"><span class="number">0105</span>     EventCallbackRef write_cb;</span><br><span class="line"><span class="number">0106</span>     <span class="built_in">FileEvent</span>(): <span class="built_in">mask</span>(<span class="number">0</span>), <span class="built_in">read_cb</span>(<span class="literal">NULL</span>), <span class="built_in">write_cb</span>(<span class="literal">NULL</span>) &#123;&#125;</span><br><span class="line"><span class="number">0107</span>   &#125;;</span><br><span class="line"><span class="number">0108</span></span><br><span class="line"><span class="number">0109</span>   <span class="keyword">struct</span> <span class="title class_">TimeEvent</span> &#123;</span><br><span class="line"><span class="number">0110</span>     <span class="type">uint64_t</span> id;</span><br><span class="line"><span class="number">0111</span>     EventCallbackRef time_cb;</span><br><span class="line"><span class="number">0112</span></span><br><span class="line"><span class="number">0113</span>     <span class="built_in">TimeEvent</span>(): <span class="built_in">id</span>(<span class="number">0</span>), <span class="built_in">time_cb</span>(<span class="literal">NULL</span>) &#123;&#125;</span><br><span class="line"><span class="number">0114</span>   &#125;;</span><br><span class="line"><span class="number">0115</span></span><br><span class="line">.....</span><br><span class="line"><span class="number">0178</span>   <span class="function"><span class="type">int</span> <span class="title">process_time_events</span><span class="params">()</span></span>;</span><br><span class="line">.....</span><br><span class="line"><span class="number">0201</span>   <span class="comment">// Used by internal thread</span></span><br><span class="line"><span class="number">0202</span>   <span class="function"><span class="type">int</span> <span class="title">create_file_event</span><span class="params">(<span class="type">int</span> fd, <span class="type">int</span> mask, EventCallbackRef ctxt)</span></span>;</span><br><span class="line"><span class="number">0203</span>   <span class="function"><span class="type">uint64_t</span> <span class="title">create_time_event</span><span class="params">(<span class="type">uint64_t</span> milliseconds, EventCallbackRef ctxt)</span></span>;</span><br><span class="line"><span class="number">0204</span>   <span class="function"><span class="type">void</span> <span class="title">delete_file_event</span><span class="params">(<span class="type">int</span> fd, <span class="type">int</span> mask)</span></span>;</span><br><span class="line"><span class="number">0205</span>   <span class="function"><span class="type">void</span> <span class="title">delete_time_event</span><span class="params">(<span class="type">uint64_t</span> id)</span></span>;</span><br><span class="line"><span class="number">0206</span>   <span class="function"><span class="type">int</span> <span class="title">process_events</span><span class="params">(<span class="type">int</span> timeout_microseconds)</span></span>;</span><br><span class="line"><span class="number">0207</span>   <span class="function"><span class="type">void</span> <span class="title">wakeup</span><span class="params">()</span></span>;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>此物件內部還有在包含一個 <strong>Poller</strong> 的物件，主要是給DPDK使用</li>
+<li>此外，針對非DPDK需要 wakeup 類型的 driver，如 EPOLL&#x2F;KQUEUE&#x2F;SELECT，實作了一個 read&#x2F;write 的通知事件，為了避免 <strong>driver</strong> 卡在 <strong>wait</strong> 事件中，會透過 <code>pipe</code> 於本地創立一個專用的 FD，針對其 read fd 創造一個簡單的 read handler，單純讀取而已。</li>
+<li>之後就透過一個只會寫入特定字元的 write event 使得該 driver 能夠從 wait 事件中出來。</li>
+</ul>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0038</span> <span class="keyword">class</span> <span class="title class_">C_handle_notify</span> : <span class="keyword">public</span> EventCallback &#123;</span><br><span class="line"><span class="number">0039</span>   EventCenter *center;</span><br><span class="line"><span class="number">0040</span>   CephContext *cct;</span><br><span class="line"><span class="number">0041</span></span><br><span class="line"><span class="number">0042</span>  <span class="keyword">public</span>:</span><br><span class="line"><span class="number">0043</span>   <span class="built_in">C_handle_notify</span>(EventCenter *c, CephContext *cc): <span class="built_in">center</span>(c), <span class="built_in">cct</span>(cc) &#123;&#125;</span><br><span class="line"><span class="number">0044</span>   <span class="function"><span class="type">void</span> <span class="title">do_request</span><span class="params">(<span class="type">int</span> fd_or_id)</span> <span class="keyword">override</span> </span>&#123;</span><br><span class="line"><span class="number">0045</span>     <span class="type">char</span> c[<span class="number">256</span>];</span><br><span class="line"><span class="number">0046</span>     <span class="type">int</span> r = <span class="number">0</span>;</span><br><span class="line"><span class="number">0047</span>     <span class="keyword">do</span> &#123;</span><br><span class="line"><span class="number">0048</span>       r = <span class="built_in">read</span>(fd_or_id, c, <span class="built_in">sizeof</span>(c));</span><br><span class="line"><span class="number">0049</span>       <span class="keyword">if</span> (r &lt; <span class="number">0</span>) &#123;</span><br><span class="line"><span class="number">0050</span>         <span class="keyword">if</span> (errno != EAGAIN)</span><br><span class="line"><span class="number">0051</span>           <span class="built_in">ldout</span>(cct, <span class="number">1</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot; read notify pipe failed: &quot;</span> &lt;&lt; <span class="built_in">cpp_strerror</span>(errno) &lt;&lt; dendl;</span><br><span class="line"><span class="number">0052</span>       &#125;</span><br><span class="line"><span class="number">0053</span>     &#125; <span class="keyword">while</span> (r &gt; <span class="number">0</span>);</span><br><span class="line"><span class="number">0054</span>   &#125;</span><br><span class="line"><span class="number">0055</span> &#125;;</span><br></pre></td></tr></table></figure>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0315</span> <span class="function"><span class="type">void</span> <span class="title">EventCenter::wakeup</span><span class="params">()</span></span></span><br><span class="line"><span class="function">0316 </span>&#123;</span><br><span class="line"><span class="number">0317</span>   <span class="comment">// No need to wake up since we never sleep</span></span><br><span class="line"><span class="number">0318</span>   <span class="keyword">if</span> (!pollers.<span class="built_in">empty</span>() || !driver-&gt;<span class="built_in">need_wakeup</span>())</span><br><span class="line"><span class="number">0319</span>     <span class="keyword">return</span> ;</span><br><span class="line"><span class="number">0320</span></span><br><span class="line"><span class="number">0321</span>   <span class="built_in">ldout</span>(cct, <span class="number">2</span>) &lt;&lt; __func__ &lt;&lt; dendl;</span><br><span class="line"><span class="number">0322</span>   <span class="type">char</span> buf = <span class="string">&#x27;c&#x27;</span>;</span><br><span class="line"><span class="number">0323</span>   <span class="comment">// wake up &quot;event_wait&quot;</span></span><br><span class="line"><span class="number">0324</span>   <span class="type">int</span> n = <span class="built_in">write</span>(notify_send_fd, &amp;buf, <span class="built_in">sizeof</span>(buf));</span><br><span class="line"><span class="number">0325</span>   <span class="keyword">if</span> (n &lt; <span class="number">0</span>) &#123;</span><br><span class="line"><span class="number">0326</span>     <span class="keyword">if</span> (errno != EAGAIN) &#123;</span><br><span class="line"><span class="number">0327</span>       <span class="built_in">ldout</span>(cct, <span class="number">1</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot; write notify pipe failed: &quot;</span> &lt;&lt; <span class="built_in">cpp_strerror</span>(errno) &lt;&lt; dendl;</span><br><span class="line"><span class="number">0328</span>       <span class="built_in">ceph_abort</span>();</span><br><span class="line"><span class="number">0329</span>     &#125;</span><br><span class="line"><span class="number">0330</span>   &#125;</span><br><span class="line"><span class="number">0331</span> &#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="init-1"><a href="#init-1" class="headerlink" title="init"></a>init</h3><p>此 function 會決定底層要跑哪種<strong>driver</strong>，主要會基於參數<strong>type</strong>以及當前系統的平台，Linux優先走<strong>Epoll</strong>,<br>FreeBSD則是<strong>Kqueue</strong>,兩種都不符合的話就走<strong>select</strong>。<br>接下來呼叫該 <strong>driver</strong>的 init。<br>如果該 dirver 需要 wakeup (目前是除了DPDK以外)</p>
+<ul>
+<li>透過 pipe 創建一對 local fd並且設定為 non-blocking</li>
+<li>之後的 read&#x2F;write notifier 會透過這對 fd 來傳輸。</li>
+</ul>
+<h3 id="destructor"><a href="#destructor" class="headerlink" title="destructor"></a>destructor</h3><ul>
+<li>執行所有的 external events  並且從 queue 中移除。</li>
+<li>若之前有透過 pipe 創立 local fd，將其關閉</li>
+<li>移除 driver 以及供 wakup 使用的 notify_handler</li>
+</ul>
+<h3 id="set-owner"><a href="#set-owner" class="headerlink" title="set_owner"></a>set_owner</h3><ul>
+<li>讓該 <strong>eventCenter</strong> 記住擁有的 <strong>thread</strong> 是誰<ul>
+<li>此變數主要會給 <code>in_thread</code> 這隻 function 來比較當前呼叫 event 的人是否是其owner。</li>
+</ul>
+</li>
+<li>創立一個(或是回傳已經存在的)全域的 event center<ul>
+<li>此 global_cenets 是 <code>AssociatedCenters</code> 的物件</li>
+<li>裡面會存放 id 與 thread 的 mapping 關係</li>
+<li>主要是搭配 <code>submit_to</code> 使用，可以讓任意的人使用 <code>submit_to</code> 搭配特定的 id 馬上塞入一個 event 到對應的 thread 中<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0095</span>   <span class="keyword">struct</span> <span class="title class_">AssociatedCenters</span> &#123;</span><br><span class="line"><span class="number">0096</span>     EventCenter *centers[MAX_EVENTCENTER];</span><br><span class="line"><span class="number">0097</span>     <span class="built_in">AssociatedCenters</span>(CephContext *c) &#123;</span><br><span class="line"><span class="number">0098</span>       <span class="built_in">memset</span>(centers, <span class="number">0</span>, MAX_EVENTCENTER * <span class="built_in">sizeof</span>(EventCenter*));</span><br><span class="line"><span class="number">0099</span>     &#125;</span><br><span class="line"><span class="number">0100</span>   &#125;;</span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+<li>若當前 driver 需要 wakeup，則創立一個 read evnet handler<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0196</span>     <span class="keyword">if</span> (driver-&gt;<span class="built_in">need_wakeup</span>()) &#123;</span><br><span class="line"><span class="number">0197</span>       notify_handler = <span class="keyword">new</span> <span class="built_in">C_handle_notify</span>(<span class="keyword">this</span>, cct);</span><br><span class="line"><span class="number">0198</span>       <span class="type">int</span> r = <span class="built_in">create_file_event</span>(notify_receive_fd, EVENT_READABLE, notify_handler);</span><br><span class="line"><span class="number">0199</span>       <span class="built_in">assert</span>(r == <span class="number">0</span>);</span><br><span class="line"><span class="number">0200</span>     &#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="create-file-event"><a href="#create-file-event" class="headerlink" title="create_file_event"></a>create_file_event</h3><ul>
+<li>必須是同個 thread 才能夠透過此 function 來加入 event。</li>
+<li>若傳入的 fd 大小超過當前的 fd上限，則透過 driver-&gt;resize_events 來調整</li>
+<li>透過 <code>_get_file_event(fd)</code> 取得當前 FD 對應的 FileEvent<ul>
+<li>此物件主要記錄當前 FD 對應的 mask<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0063</span> <span class="keyword">struct</span> <span class="title class_">FiredFileEvent</span> &#123;</span><br><span class="line"><span class="number">0064</span>   <span class="type">int</span> fd;</span><br><span class="line"><span class="number">0065</span>   <span class="type">int</span> mask;</span><br><span class="line"><span class="number">0066</span> &#125;;</span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+<li>若該 fd 以前就有 event，且其 mask 跟這次要加入的 mask 相同，那代表沒有任何改變，沒有必要繼續往下執行，故直接跳掉</li>
+<li>接下來透過 driver-&gt;add_event 去創立該 event<ul>
+<li>也有可能是修改已經存在 event 的 mask (read&#x2F;write)</li>
+</ul>
+</li>
+<li>最後透過 mask 的數值設定其 read_cb&#x2F;write_cb 對應的 event handler<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0237</span>   event-&gt;mask |= mask;</span><br><span class="line"><span class="number">0238</span>   <span class="keyword">if</span> (mask &amp; EVENT_READABLE) &#123;</span><br><span class="line"><span class="number">0239</span>     event-&gt;read_cb = ctxt;</span><br><span class="line"><span class="number">0240</span>   &#125;</span><br><span class="line"><span class="number">0241</span>   <span class="keyword">if</span> (mask &amp; EVENT_WRITABLE) &#123;</span><br><span class="line"><span class="number">0242</span>     event-&gt;write_cb = ctxt;</span><br><span class="line"><span class="number">0243</span>   &#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="delete-file-event"><a href="#delete-file-event" class="headerlink" title="delete_file_event"></a>delete_file_event</h3><ul>
+<li>跟 <code>create_file_event</code> 類似</li>
+<li>若該 fd 超過目前已知FD的上限，代表有問題，輸出 log 並離開</li>
+<li>透過 <code>_get_file_event(fd)</code> 取得該 fd 對應的 FileEvent</li>
+<li>若對應的 mask 是0，代表此 fd 還沒有設定過任何的 event handler，所以不需要刪除，可以直接離開</li>
+<li>呼叫 <code>driver-&gt;del_event</code> 刪除該 evnet</li>
+<li>移除對應的 call back，並且修改該 event 的 mask<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0269</span>   <span class="keyword">if</span> (mask &amp; EVENT_READABLE &amp;&amp; event-&gt;read_cb) &#123;</span><br><span class="line"><span class="number">0270</span>     event-&gt;read_cb = <span class="literal">nullptr</span>;</span><br><span class="line"><span class="number">0271</span>   &#125;</span><br><span class="line"><span class="number">0272</span>   <span class="keyword">if</span> (mask &amp; EVENT_WRITABLE &amp;&amp; event-&gt;write_cb) &#123;</span><br><span class="line"><span class="number">0273</span>     event-&gt;write_cb = <span class="literal">nullptr</span>;</span><br><span class="line"><span class="number">0274</span>   &#125;</span><br><span class="line"><span class="number">0275</span></span><br><span class="line"><span class="number">0276</span>   event-&gt;mask = event-&gt;mask &amp; (~mask);</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="create-time-event"><a href="#create-time-event" class="headerlink" title="create_time_event"></a>create_time_event</h3><ul>
+<li>透過 <code>clock_type::now()</code> 加上傳入的 <strong>microseconds</strong> 計算出 <strong>expire</strong> 的時間點<ul>
+<li>使用 clock_type::time_point 當作該 event 要 expire 的時間點</li>
+</ul>
+</li>
+<li>透過 multimap 記住每個 time_point 對應的 event Handler<ul>
+<li><code>std::multimap&lt;clock_type::time_point, TimeEvent&gt; time_events</code></li>
+</ul>
+</li>
+<li><h2 id="最後用一個-map-記住當前-id-對應上述-multimap-紀錄-id-則是用一個-global-的-time-event-next-來記住"><a href="#最後用一個-map-記住當前-id-對應上述-multimap-紀錄-id-則是用一個-global-的-time-event-next-來記住" class="headerlink" title="最後用一個 map  記住當前 id　對應上述 multimap 紀錄  - id 則是用一個 global 的 time_event_next 來記住"></a>最後用一個 map  記住當前 id　對應上述 multimap 紀錄<br>  - id 則是用一個 global 的 time_event_next 來記住</h2><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0288</span>   clock_type::time_point expire = clock_type::<span class="built_in">now</span>() + std::chrono::<span class="built_in">microseconds</span>(microseconds);</span><br><span class="line"><span class="number">0289</span>   event.id = id;</span><br><span class="line"><span class="number">0290</span>   event.time_cb = ctxt;</span><br><span class="line"><span class="number">0291</span>   std::multimap&lt;clock_type::time_point, TimeEvent&gt;::<span class="function">value_type <span class="title">s_val</span><span class="params">(expire, event)</span></span>;</span><br><span class="line"><span class="number">0292</span>   <span class="keyword">auto</span> it = time_events.<span class="built_in">insert</span>(std::<span class="built_in">move</span>(s_val));</span><br><span class="line"><span class="number">0293</span>   event_map[id] = it;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="delete-time-event"><a href="#delete-time-event" class="headerlink" title="delete_time_event"></a>delete_time_event</h3><ul>
+<li>這邊是根據 id 來刪除對應的 time event<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0305</span>   <span class="keyword">auto</span> it = event_map.<span class="built_in">find</span>(id);</span><br><span class="line"><span class="number">0306</span>   <span class="keyword">if</span> (it == event_map.<span class="built_in">end</span>()) &#123;</span><br><span class="line"><span class="number">0307</span>     <span class="built_in">ldout</span>(cct, <span class="number">10</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot; id=&quot;</span> &lt;&lt; id &lt;&lt; <span class="string">&quot; not found&quot;</span> &lt;&lt; dendl;</span><br><span class="line"><span class="number">0308</span>     <span class="keyword">return</span> ;</span><br><span class="line"><span class="number">0309</span>   &#125;</span><br><span class="line"><span class="number">0310</span></span><br><span class="line"><span class="number">0311</span>   time_events.<span class="built_in">erase</span>(it-&gt;second);</span><br><span class="line"><span class="number">0312</span>   event_map.<span class="built_in">erase</span>(it);</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="wakeup"><a href="#wakeup" class="headerlink" title="wakeup"></a>wakeup</h3><ul>
+<li>判斷需不需要 wakeup<ul>
+<li>若走DPDK，則需要看 pollers 是否空的，若非空則往下走</li>
+<li>其餘總類都必須要 wakeup</li>
+</ul>
+</li>
+<li>藉由寫入之前的 <code>notify_send_fd</code> 來叫起整 <code>event_wait</code></li>
+<li>DPDK 的部分必須要再研究，私以為DPDK不應該下來，因為其 <code>notify_send_fd</code> 應該不會被初始化。</li>
+</ul>
+<h3 id="process-time-events"><a href="#process-time-events" class="headerlink" title="process_time_events"></a>process_time_events</h3><ul>
+<li>處理所有的 time events</li>
+<li><h2 id="對於所有的-time-event，如果當前的時間超過該-time-event-的-expire-time-將該-event-從結構中移除-呼叫該-event-的-call-back-function-這邊傳入的是-ID，跟-FD-無關"><a href="#對於所有的-time-event，如果當前的時間超過該-time-event-的-expire-time-將該-event-從結構中移除-呼叫該-event-的-call-back-function-這邊傳入的是-ID，跟-FD-無關" class="headerlink" title="對於所有的 time event，如果當前的時間超過該 time event 的 expire time  - 將該 event 從結構中移除  - 呼叫該 event 的 call back function  - 這邊傳入的是 ID，跟 FD 無關"></a>對於所有的 time event，如果當前的時間超過該 time event 的 expire time<br>  - 將該 event 從結構中移除<br>  - 呼叫該 event 的 call back function<br>  - 這邊傳入的是 ID，跟 FD 無關</h2></li>
+<li>回傳這次總共處理了多少個 event</li>
+</ul>
+<h3 id="process-events"><a href="#process-events" class="headerlink" title="process_events"></a>process_events</h3><ul>
+<li>該 function 會傳入一個變數<code>timeout_microseconds</code>，這是給 driver 用的 timeout</li>
+<li>符合下列情況，將 timeout 設定為0，這會讓 driver 變成 non-blocking<ul>
+<li>存在外部 event</li>
+<li>存在 poller</li>
+</ul>
+</li>
+<li>否則，計算一下 timeout 的時候，讓 driver 會 block 一段時間</li>
+<li>透過 driver-&gt;evnet_wait 去詢問當前有哪些 event ready 了<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0394</span>   vector&lt;FiredFileEvent&gt; fired_events;</span><br><span class="line"><span class="number">0395</span>   numevents = driver-&gt;<span class="built_in">event_wait</span>(fired_events, &amp;tv);</span><br><span class="line"><span class="number">0396</span>   <span class="keyword">for</span> (<span class="type">int</span> j = <span class="number">0</span>; j &lt; numevents; j++) &#123;</span><br><span class="line">        ....</span><br><span class="line"><span class="number">0419</span>   &#125;</span><br></pre></td></tr></table></figure></li>
+<li>對於所有被觸發的 event, 呼叫對應的 read&#x2F;write handler<ul>
+<li>若某個 FD同時可以進行 read&#x2F;write  且對應的 call back handler 是相同的，則執行完 read 後，就不執行 write了 (不確定原因)</li>
+<li>“可能”是避免重複執行相同內容，因為 function 沒有辦法知道當前被叫起是 read or write event ready。<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0405</span>     <span class="keyword">if</span> (event-&gt;mask &amp; fired_events[j].mask &amp; EVENT_READABLE) &#123;</span><br><span class="line"><span class="number">0406</span>       rfired = <span class="number">1</span>;</span><br><span class="line"><span class="number">0407</span>       cb = event-&gt;read_cb;</span><br><span class="line"><span class="number">0408</span>       cb-&gt;<span class="built_in">do_request</span>(fired_events[j].fd);</span><br><span class="line"><span class="number">0409</span>     &#125;</span><br><span class="line"><span class="number">0410</span></span><br><span class="line"><span class="number">0411</span>     <span class="keyword">if</span> (event-&gt;mask &amp; fired_events[j].mask &amp; EVENT_WRITABLE) &#123;</span><br><span class="line"><span class="number">0412</span>       <span class="keyword">if</span> (!rfired || event-&gt;read_cb != event-&gt;write_cb) &#123;</span><br><span class="line"><span class="number">0413</span>         cb = event-&gt;write_cb;</span><br><span class="line"><span class="number">0414</span>         cb-&gt;<span class="built_in">do_request</span>(fired_events[j].fd);</span><br><span class="line"><span class="number">0415</span>       &#125;</span><br><span class="line"><span class="number">0416</span>     &#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+<li>嘗試執行 time_events，並且繼續記錄總共處理的 event 數量</li>
+<li>若當前 external queue 內有東西，則將全部都執行完畢</li>
+<li>若到現在都還沒有執行任何 event 且也不是 blocking mode，則呼叫 pollers去 polling 對應的 event，並且記錄下來總數</li>
+<li>最後回傳總數量<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0421</span>   <span class="keyword">if</span> (trigger_time)</span><br><span class="line"><span class="number">0422</span>     numevents += <span class="built_in">process_time_events</span>();</span><br><span class="line"><span class="number">0423</span></span><br><span class="line"><span class="number">0424</span>   <span class="keyword">if</span> (external_num_events.<span class="built_in">load</span>()) &#123;</span><br><span class="line"><span class="number">0425</span>     external_lock.<span class="built_in">lock</span>();</span><br><span class="line"><span class="number">0426</span>     deque&lt;EventCallbackRef&gt; cur_process;</span><br><span class="line"><span class="number">0427</span>     cur_process.<span class="built_in">swap</span>(external_events);</span><br><span class="line"><span class="number">0428</span>     external_num_events.<span class="built_in">store</span>(<span class="number">0</span>);</span><br><span class="line"><span class="number">0429</span>     external_lock.<span class="built_in">unlock</span>();</span><br><span class="line"><span class="number">0430</span>     <span class="keyword">while</span> (!cur_process.<span class="built_in">empty</span>()) &#123;</span><br><span class="line"><span class="number">0431</span>       EventCallbackRef e = cur_process.<span class="built_in">front</span>();</span><br><span class="line"><span class="number">0432</span>       <span class="built_in">ldout</span>(cct, <span class="number">20</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot; do &quot;</span> &lt;&lt; e &lt;&lt; dendl;</span><br><span class="line"><span class="number">0433</span>       e-&gt;<span class="built_in">do_request</span>(<span class="number">0</span>);</span><br><span class="line"><span class="number">0434</span>       cur_process.<span class="built_in">pop_front</span>();</span><br><span class="line"><span class="number">0435</span>       numevents++;</span><br><span class="line"><span class="number">0436</span>     &#125;</span><br><span class="line"><span class="number">0437</span>   &#125;</span><br><span class="line"><span class="number">0438</span></span><br><span class="line"><span class="number">0439</span>   <span class="keyword">if</span> (!numevents &amp;&amp; !blocking) &#123;</span><br><span class="line"><span class="number">0440</span>     <span class="keyword">for</span> (<span class="type">uint32_t</span> i = <span class="number">0</span>; i &lt; pollers.<span class="built_in">size</span>(); i++)</span><br><span class="line"><span class="number">0441</span>       numevents += pollers[i]-&gt;<span class="built_in">poll</span>();</span><br><span class="line"><span class="number">0442</span>   &#125;</span><br><span class="line"><span class="number">0443</span></span><br><span class="line"><span class="number">0444</span>   <span class="keyword">return</span> numevents;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h3 id="dispatch-event-external"><a href="#dispatch-event-external" class="headerlink" title="dispatch_event_external"></a>dispatch_event_external</h3><ul>
+<li>將 event 存放到 <code>external_events</code> 內</li>
+<li>看看 <code>external_num_events</code> 這個變數是不是0，若是0則代表可以 wake<ul>
+<li>external_num_events 是個 atomic 類型的變數</li>
+<li>用此變數來控管當前是否正在清除 external_queue 內的 event</li>
+</ul>
+</li>
+<li>若符合下列條件，則呼叫 <code>wake</code> 將 event 叫起來<ul>
+<li>caller 的 thread 跟真正擁有此 eventCenter 的 thread 是相同</li>
+<li>前述的 <code>external_num_events</code> 決定當前需要<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0450</span>   external_events.<span class="built_in">push_back</span>(e);</span><br><span class="line"><span class="number">0451</span>   <span class="type">bool</span> wake = !external_num_events.<span class="built_in">load</span>();</span><br><span class="line"><span class="number">0452</span>   <span class="type">uint64_t</span> num = ++external_num_events;</span><br><span class="line"><span class="number">0453</span>   external_lock.<span class="built_in">unlock</span>();</span><br><span class="line"><span class="number">0454</span>   <span class="keyword">if</span> (!<span class="built_in">in_thread</span>() &amp;&amp; wake)</span><br><span class="line"><span class="number">0455</span>     <span class="built_in">wakeup</span>();</span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+</ul>
+<h3 id="submit-to"><a href="#submit-to" class="headerlink" title="submit_to"></a>submit_to</h3><ul>
+<li>此 function 可以將特定的 function 傳入給特定的 eventCenter，走 external event 的方式去執行</li>
+<li>這邊的 event 會被包裝成 <strong>C_submit_event</strong><ul>
+<li>這邊 <strong>do_eqeust</strong> 會透過 condition_variable 與 <strong>wait</strong>來溝通<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0217</span>   <span class="keyword">class</span> <span class="title class_">C_submit_event</span> : <span class="keyword">public</span> EventCallback &#123;</span><br><span class="line"><span class="number">0218</span>     std::mutex lock;</span><br><span class="line"><span class="number">0219</span>     std::condition_variable cond;</span><br><span class="line"><span class="number">0220</span>     <span class="type">bool</span> done = <span class="literal">false</span>;</span><br><span class="line"><span class="number">0221</span>     func f;</span><br><span class="line"><span class="number">0222</span>     <span class="type">bool</span> nonwait;</span><br><span class="line"><span class="number">0223</span>    <span class="keyword">public</span>:</span><br><span class="line"><span class="number">0224</span>     <span class="built_in">C_submit_event</span>(func &amp;&amp;_f, <span class="type">bool</span> nw)</span><br><span class="line"><span class="number">0225</span>       : <span class="built_in">f</span>(std::<span class="built_in">move</span>(_f)), <span class="built_in">nonwait</span>(nw) &#123;&#125;</span><br><span class="line"><span class="number">0226</span>     <span class="function"><span class="type">void</span> <span class="title">do_request</span><span class="params">(<span class="type">int</span> id)</span> <span class="keyword">override</span> </span>&#123;</span><br><span class="line"><span class="number">0227</span>       <span class="built_in">f</span>();</span><br><span class="line"><span class="number">0228</span>       lock.<span class="built_in">lock</span>();</span><br><span class="line"><span class="number">0229</span>       cond.<span class="built_in">notify_all</span>();</span><br><span class="line"><span class="number">0230</span>       done = <span class="literal">true</span>;</span><br><span class="line"><span class="number">0231</span>       <span class="type">bool</span> del = nonwait;</span><br><span class="line"><span class="number">0232</span>       lock.<span class="built_in">unlock</span>();</span><br><span class="line"><span class="number">0233</span>       <span class="keyword">if</span> (del)</span><br><span class="line"><span class="number">0234</span>         <span class="keyword">delete</span> <span class="keyword">this</span>;</span><br><span class="line"><span class="number">0235</span>     &#125;</span><br><span class="line"><span class="number">0236</span>     <span class="function"><span class="type">void</span> <span class="title">wait</span><span class="params">()</span> </span>&#123;</span><br><span class="line"><span class="number">0237</span>       <span class="built_in">assert</span>(!nonwait);</span><br><span class="line"><span class="number">0238</span>       <span class="function">std::unique_lock&lt;std::mutex&gt; <span class="title">l</span><span class="params">(lock)</span></span>;</span><br><span class="line"><span class="number">0239</span>       <span class="keyword">while</span> (!done)</span><br><span class="line"><span class="number">0240</span>         cond.<span class="built_in">wait</span>(l);</span><br><span class="line"><span class="number">0241</span>     &#125;</span><br><span class="line"><span class="number">0242</span>   &#125;;</span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+<li>若 caller 跟該 EventCenter 屬於同個 thread，就直接執行了，不再塞到 exterbnl_queue</li>
+<li>接下來根據變數中的 <strong>no_wait</strong>來決定要不要等待該 function 執行完畢</li>
+<li>假如是 no_wait，則丟到 external_queue 後就直接離開</li>
+<li>假如是 wait,則丟到 external_queue 後，**馬上呼叫 wait()**，等待 **do_request()**執行完畢後，會使得 <strong>wait</strong> 結束，然後離開此 function。</li>
+</ul>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>整個 Event 系列的檔案其實不會太困難，除了 <strong>DPDK</strong> 本身還有額外的實作外，其餘 <strong>POSIX</strong> 系列的三種只要熟悉本身的用法，來看這些程式碼就不會覺得太陌生，所有的運作都可以想像的到，同時也在預料之中。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/SourceCode/" rel="tag"># SourceCode</a>
+              <a href="/tags/Ceph/" rel="tag"># Ceph</a>
+              <a href="/tags/SDS/" rel="tag"># SDS</a>
+              <a href="/tags/SOS/" rel="tag"># SOS</a>
+              <a href="/tags/ScaleOut/" rel="tag"># ScaleOut</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/ceph-network-ii.html" rel="prev" title="Ceph Network Architecture 研究(二)">
+                  <i class="fa fa-chevron-left"></i> Ceph Network Architecture 研究(二)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/docker-hexo-ii.html" rel="next" title="Docker image for Hexo (二)">
+                  Docker image for Hexo (二) <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

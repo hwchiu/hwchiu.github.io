@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="CNI 的選擇一直以來都是個探討的議題，各式各樣的 CNI 有者不同的特色與效果，使用者要怎麼選擇往往不知所措。老實說對於大部分的使用情況來說，其實 CNI 的選擇影響也不太大，畢竟很多情境只是要求網路可以通暢即可，沒有其他的需求。 而本文則針對一個常見的 CNI, Flannel 進行探討，來研究該 CNI 到底怎麼安裝的，安裝的過程怎麼處理設定檔案的問題。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CNI - Flannel - 安裝設定篇">
+<meta property="og:url" content="https://www.hwchiu.com/cni-flannel-i.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="CNI 的選擇一直以來都是個探討的議題，各式各樣的 CNI 有者不同的特色與效果，使用者要怎麼選擇往往不知所措。老實說對於大部分的使用情況來說，其實 CNI 的選擇影響也不太大，畢竟很多情境只是要求網路可以通暢即可，沒有其他的需求。 而本文則針對一個常見的 CNI, Flannel 進行探討，來研究該 CNI 到底怎麼安裝的，安裝的過程怎麼處理設定檔案的問題。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/DlbQ55O.png">
+<meta property="article:published_time" content="2019-09-28T19:25:06.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.605Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="CNI">
+<meta property="article:tag" content="Flannel">
+<meta property="article:tag" content="ITHOME">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/DlbQ55O.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/cni-flannel-i.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/cni-flannel-i.html","path":"cni-flannel-i.html","title":"CNI - Flannel - 安裝設定篇"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>CNI - Flannel - 安裝設定篇 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%92%B0%E5%A2%83%E5%BB%BA%E7%BD%AE"><span class="nav-number">2.</span> <span class="nav-text">環境建置</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%9B%AE%E6%A8%99"><span class="nav-number">3.</span> <span class="nav-text">目標</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%89%E8%A3%9D%E9%81%8E%E7%A8%8B%E7%90%86%E8%A7%A3"><span class="nav-number">3.1.</span> <span class="nav-text">安裝過程理解</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#PodSecurityPolicy"><span class="nav-number">3.1.1.</span> <span class="nav-text">PodSecurityPolicy</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ClusterRole"><span class="nav-number">3.1.2.</span> <span class="nav-text">ClusterRole</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ClusterRoleBinding-x2F-Service-Account"><span class="nav-number">3.1.3.</span> <span class="nav-text">ClusterRoleBinding&#x2F;Service Account</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ConfigMap"><span class="nav-number">3.1.4.</span> <span class="nav-text">ConfigMap</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Portmap-CNI"><span class="nav-number">3.1.4.1.</span> <span class="nav-text">Portmap CNI</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#DaemonSet"><span class="nav-number">3.2.</span> <span class="nav-text">DaemonSet</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Configuration"><span class="nav-number">3.2.1.</span> <span class="nav-text">Configuration</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">4.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">5.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/cni-flannel-i.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="CNI - Flannel - 安裝設定篇 | Hwchiu Learning Note">
+      <meta itemprop="description" content="CNI 的選擇一直以來都是個探討的議題，各式各樣的 CNI 有者不同的特色與效果，使用者要怎麼選擇往往不知所措。老實說對於大部分的使用情況來說，其實 CNI 的選擇影響也不太大，畢竟很多情境只是要求網路可以通暢即可，沒有其他的需求。 而本文則針對一個常見的 CNI, Flannel 進行探討，來研究該 CNI 到底怎麼安裝的，安裝的過程怎麼處理設定檔案的問題。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          CNI - Flannel - 安裝設定篇
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-09-29 03:25:06" itemprop="dateCreated datePublished" datetime="2019-09-29T03:25:06+08:00">2019-09-29</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">CNI 的選擇一直以來都是個探討的議題，各式各樣的 CNI 有者不同的特色與效果，使用者要怎麼選擇往往不知所措。老實說對於大部分的使用情況來說，其實 CNI 的選擇影響也不太大，畢竟很多情境只是要求網路可以通暢即可，沒有其他的需求。 而本文則針對一個常見的 CNI, Flannel 進行探討，來研究該 CNI 到底怎麼安裝的，安裝的過程怎麼處理設定檔案的問題。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>藉由前面四篇文章，我們對於 <strong>CNI</strong> 已經有了一些基本個概念，包含了</p>
+<ol>
+<li>CNI 的標準規範以及使用範例</li>
+<li>CNI 與 kubernetes 的整合與設定</li>
+<li>透過實際操作開發一個基於 Linux Bridge 的 CNI，並且知道如何透過設定檔與之互動</li>
+<li>研究三個官方維護的 IPAM 解決方案，理解 IP 分配的問題以及可能的解決辦法</li>
+</ol>
+<p>接下來我們將實戰進行分析，直接對大家最常用也是最知名的 <strong>CNI</strong> 之一， <strong>flannel</strong></p>
+<h1 id="環境建置"><a href="#環境建置" class="headerlink" title="環境建置"></a>環境建置</h1><p>為了搭建一個擁有三個節點的 kubernetes cluster，我認為直接使用 <strong>kubernetes-dind-cluster</strong> 是個滿不錯的選擇，可以快速搭建環境，又有多節點。</p>
+<p>或是也可以土法煉鋼繼續使用 <strong>kubeadm</strong> 的方式創建多節點的 kubernetes cluster， 這部分並沒有特別規定，總之能搭建起來即可。</p>
+<p>此外相關的版本資訊方面</p>
+<ul>
+<li>kubernetes version:v1.15.4</li>
+<li>flannel: 使用<a target="_blank" rel="noopener" href="https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml">官方安裝 Yaml</a></li>
+<li>kubeadm 安裝過程使用的參數 <strong>–pod-network-cidr&#x3D;10.244.0.0&#x2F;16</strong></li>
+</ul>
+<h1 id="目標"><a href="#目標" class="headerlink" title="目標"></a>目標</h1><p>基於前述的觀察，針對 Flannel 這套 CNI 解決方案，我想要觀察並討論的重點有</p>
+<ol>
+<li>理解 <a target="_blank" rel="noopener" href="https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml">官方安裝 Yaml</a> 實際上安裝了什麼元件到 kubernetes cluster 中，同時這些元件又各自扮演什麼角色</li>
+<li>flannel 使用的 CNI config 有什麼特色以及用到什麼功能</li>
+<li>IP 管理的問題 flannel 是怎麼解決的</li>
+<li>flannel 是如何提供網路能力，單一 Pod 是如何存取外網的</li>
+<li>跨節點的 Pod 是如何互相存取彼此的</li>
+</ol>
+<h2 id="安裝過程理解"><a href="#安裝過程理解" class="headerlink" title="安裝過程理解"></a>安裝過程理解</h2><p>官方的 <a target="_blank" rel="noopener" href="https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml">安裝yaml</a> 非常的長，這裡面包含了六種 kubernetes 的資源，分別如下。</p>
+<ul>
+<li>PodSecurityPolicy</li>
+<li>ClusterRole</li>
+<li>ClusterRoleBinding</li>
+<li>ServiceAccount</li>
+<li>ConfigMap</li>
+<li>DaemonSet</li>
+</ul>
+<p>雖然這邊有六個資源，但是基於使用類別來看，我個人認為其實就是分成兩大類別，前面四個類別是相互依賴一起運作的，目的就是創造一個可控管且權利被限制的 <strong>kubernetes service account</strong>，而後面兩個則算是整個邏輯處理的核心，所有上述的問題都在這兩個資源內處理。</p>
+<h3 id="PodSecurityPolicy"><a href="#PodSecurityPolicy" class="headerlink" title="PodSecurityPolicy"></a>PodSecurityPolicy</h3><p>用來限制每個被創造 <strong>Pod</strong> 的定義，一旦 <strong>Pod</strong> 本身資源的定義沒有滿足 <strong>PodSecurityPolicy</strong> 的規範，該 <strong>Pod</strong> 就不會被拒絕建立。</p>
+<p>這些規範與限制都是希望能夠加強 <strong>Pod</strong> 本身的安全性，基於沒有用到的部分就不要打開，針對有需求的部分才去使用。</p>
+<p>這個功能目前預設沒有開啟，若要開啟的話需要對 <strong>admission controller</strong> 設定參數，同時要注意的是一但開啟這個功能，但是卻沒有任何相關的 <strong>PodSecuirtyPolicy</strong> 設定的話，預設情況下所有的 <strong>Pod</strong> 都不能被創造，算是一個白名單的機制</p>
+<blockquote>
+<p>Pod security policy control is implemented as an optional (but recommended) admission controller. PodSecurityPolicies are enforced by enabling the admission controller, but doing so without authorizing any policies will prevent any pods from being created in the cluster.</p>
+</blockquote>
+<p>此功能沒有辦法單獨使用，需要搭配 Service Account 一併使用，所以接下來的 RBAC 等都是串連再一起使用的。</p>
+<p>對於 <strong>flannel</strong> 來說，其規範了下列安全設定來確保其創建的 <strong>Pod</strong> 的能力是被限制的</p>
+<ol>
+<li>privileged</li>
+<li>volumes</li>
+<li>allowedHostPaths<br>這邊可以看到一個跟 <strong>cni</strong> 相關的地址，代表 <strong>flannel</strong> 的 <strong>pod</strong> 勢必會對該資料夾進行一些手腳</li>
+<li>Users&#x2F;Groups</li>
+<li>Capabilities<br>這邊特別允許了只能給 <strong>NET_ADMIN</strong> 這個選項，這個意味 <strong>flannel</strong> 會想要針對 <strong>Pod</strong> 上的網路部分做些設定，這些設定跟其網路連接有很大的關係。</li>
+<li>Host namespaces<br>之前 <strong>CNI</strong> 章節忘了提到的就是所謂的 <strong>hostnetwork</strong> 的設定，如果 <strong>pod</strong> 裡面有設定 <strong>hostnetwork:true</strong> 就意味該 <strong>pod</strong> 所屬的 <strong>infrastructure container: Pause</strong> 其實不會創建新的 <strong>network namespace</strong>，而是會跟 <strong>host</strong> 也就是 <strong>kubernetes node</strong> 共用相同的網路空間。<br>這個功能相對危險，只要該 <strong>Pod</strong> 也有其他的能力，譬如 <strong>NET_ADMIN</strong>，其實該 <strong>Pod</strong> 是有能力摧毀整個 <strong>kubernetes cluster</strong> 的連線能力的，譬如亂修改 <strong>route table</strong>, <strong>ip address</strong> 等</li>
+</ol>
+<p>更多關於這個資源的介紹可以參考 <a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/policy/pod-security-policy/">PodSecurityPolicy</a>。</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line">apiVersion<span class="punctuation">:</span> policy/v1beta1</span><br><span class="line">kind<span class="punctuation">:</span> PodSecurityPolicy</span><br><span class="line">metadata<span class="punctuation">:</span></span><br><span class="line">  name<span class="punctuation">:</span> psp.flannel.unprivileged</span><br><span class="line">  annotations<span class="punctuation">:</span></span><br><span class="line">    seccomp.security.alpha.kubernetes.io/allowedProfileNames<span class="punctuation">:</span> docker/default</span><br><span class="line">    seccomp.security.alpha.kubernetes.io/defaultProfileName<span class="punctuation">:</span> docker/default</span><br><span class="line">    apparmor.security.beta.kubernetes.io/allowedProfileNames<span class="punctuation">:</span> runtime/default</span><br><span class="line">    apparmor.security.beta.kubernetes.io/defaultProfileName<span class="punctuation">:</span> runtime/default</span><br><span class="line">spec<span class="punctuation">:</span></span><br><span class="line">  privileged<span class="punctuation">:</span> <span class="literal"><span class="keyword">false</span></span></span><br><span class="line">  volumes<span class="punctuation">:</span></span><br><span class="line">    - configMap</span><br><span class="line">    - secret</span><br><span class="line">    - emptyDir</span><br><span class="line">    - hostPath</span><br><span class="line">  allowedHostPaths<span class="punctuation">:</span></span><br><span class="line">    - pathPrefix<span class="punctuation">:</span> <span class="string">&quot;/etc/cni/net.d&quot;</span></span><br><span class="line">    - pathPrefix<span class="punctuation">:</span> <span class="string">&quot;/etc/kube-flannel&quot;</span></span><br><span class="line">    - pathPrefix<span class="punctuation">:</span> <span class="string">&quot;/run/flannel&quot;</span></span><br><span class="line">  readOnlyRootFilesystem<span class="punctuation">:</span> <span class="literal"><span class="keyword">false</span></span></span><br><span class="line">  # Users and groups</span><br><span class="line">  runAsUser<span class="punctuation">:</span></span><br><span class="line">    rule<span class="punctuation">:</span> RunAsAny</span><br><span class="line">  supplementalGroups<span class="punctuation">:</span></span><br><span class="line">    rule<span class="punctuation">:</span> RunAsAny</span><br><span class="line">  fsGroup<span class="punctuation">:</span></span><br><span class="line">    rule<span class="punctuation">:</span> RunAsAny</span><br><span class="line">  # Privilege Escalation</span><br><span class="line">  allowPrivilegeEscalation<span class="punctuation">:</span> <span class="literal"><span class="keyword">false</span></span></span><br><span class="line">  defaultAllowPrivilegeEscalation<span class="punctuation">:</span> <span class="literal"><span class="keyword">false</span></span></span><br><span class="line">  # Capabilities</span><br><span class="line">  allowedCapabilities<span class="punctuation">:</span> <span class="punctuation">[</span>&#x27;NET_ADMIN&#x27;<span class="punctuation">]</span></span><br><span class="line">  defaultAddCapabilities<span class="punctuation">:</span> <span class="punctuation">[</span><span class="punctuation">]</span></span><br><span class="line">  requiredDropCapabilities<span class="punctuation">:</span> <span class="punctuation">[</span><span class="punctuation">]</span></span><br><span class="line">  # Host namespaces</span><br><span class="line">  hostPID<span class="punctuation">:</span> <span class="literal"><span class="keyword">false</span></span></span><br><span class="line">  hostIPC<span class="punctuation">:</span> <span class="literal"><span class="keyword">false</span></span></span><br><span class="line">  hostNetwork<span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span></span><br><span class="line">  hostPorts<span class="punctuation">:</span></span><br><span class="line">  - min<span class="punctuation">:</span> <span class="number">0</span></span><br><span class="line">    max<span class="punctuation">:</span> <span class="number">65535</span></span><br><span class="line">  # SELinux</span><br><span class="line">  seLinux<span class="punctuation">:</span></span><br><span class="line">    # SELinux is unsed in CaaSP</span><br><span class="line">    rule<span class="punctuation">:</span> &#x27;RunAsAny&#x27;</span><br><span class="line">---</span><br></pre></td></tr></table></figure>
+
+<p>這邊定義了 <strong>ClusterRole</strong> 的資源，其中會透過 <strong>use</strong> 這個動作與上述的 <strong>PodSecurityPolicy</strong> 給綁定，此外也可以看到其他相關的能力，譬如</p>
+<ol>
+<li>對 pod 的取得</li>
+<li>對 node 本身要可以 list 以及 watch</li>
+<li>對 nodes&#x2F;status 執行 patch</li>
+</ol>
+<p>有 <strong>Patch</strong> 就可以期待 <strong>flannel</strong> 會對 <strong>node</strong> 本身添加什麼樣的資訊，之後會再討論。</p>
+<h3 id="ClusterRole"><a href="#ClusterRole" class="headerlink" title="ClusterRole"></a>ClusterRole</h3><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">kind<span class="punctuation">:</span> ClusterRole</span><br><span class="line">apiVersion<span class="punctuation">:</span> rbac.authorization.k8s.io/v1beta1</span><br><span class="line">metadata<span class="punctuation">:</span></span><br><span class="line">  name<span class="punctuation">:</span> flannel</span><br><span class="line">rules<span class="punctuation">:</span></span><br><span class="line">  - apiGroups<span class="punctuation">:</span> <span class="punctuation">[</span>&#x27;extensions&#x27;<span class="punctuation">]</span></span><br><span class="line">    resources<span class="punctuation">:</span> <span class="punctuation">[</span>&#x27;podsecuritypolicies&#x27;<span class="punctuation">]</span></span><br><span class="line">    verbs<span class="punctuation">:</span> <span class="punctuation">[</span>&#x27;use&#x27;<span class="punctuation">]</span></span><br><span class="line">    resourceNames<span class="punctuation">:</span> <span class="punctuation">[</span>&#x27;psp.flannel.unprivileged&#x27;<span class="punctuation">]</span></span><br><span class="line">  - apiGroups<span class="punctuation">:</span></span><br><span class="line">      - <span class="string">&quot;&quot;</span></span><br><span class="line">    resources<span class="punctuation">:</span></span><br><span class="line">      - pods</span><br><span class="line">    verbs<span class="punctuation">:</span></span><br><span class="line">      - get</span><br><span class="line">  - apiGroups<span class="punctuation">:</span></span><br><span class="line">      - <span class="string">&quot;&quot;</span></span><br><span class="line">    resources<span class="punctuation">:</span></span><br><span class="line">      - nodes</span><br><span class="line">    verbs<span class="punctuation">:</span></span><br><span class="line">      - list</span><br><span class="line">      - watch</span><br><span class="line">  - apiGroups<span class="punctuation">:</span></span><br><span class="line">      - <span class="string">&quot;&quot;</span></span><br><span class="line">    resources<span class="punctuation">:</span></span><br><span class="line">      - nodes/status</span><br><span class="line">    verbs<span class="punctuation">:</span></span><br><span class="line">      - patch</span><br></pre></td></tr></table></figure>
+
+
+<h3 id="ClusterRoleBinding-x2F-Service-Account"><a href="#ClusterRoleBinding-x2F-Service-Account" class="headerlink" title="ClusterRoleBinding&#x2F;Service Account"></a>ClusterRoleBinding&#x2F;Service Account</h3><p>最後就是透過 <strong>Service Account</strong> 以及 <strong>ClusterRoleBinding</strong> 這兩個資源將上述的資源全部整合起來，創造出一個名為 <strong>flannel</strong>  的 <strong>service account</strong>。</p>
+<p>可以預期之後看到 <strong>daemonset</strong> 的時候會使用這個 <strong>service account</strong> 來作為創建的使用者。</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">kind<span class="punctuation">:</span> ClusterRoleBinding</span><br><span class="line">apiVersion<span class="punctuation">:</span> rbac.authorization.k8s.io/v1beta1</span><br><span class="line">metadata<span class="punctuation">:</span></span><br><span class="line">  name<span class="punctuation">:</span> flannel</span><br><span class="line">roleRef<span class="punctuation">:</span></span><br><span class="line">  apiGroup<span class="punctuation">:</span> rbac.authorization.k8s.io</span><br><span class="line">  kind<span class="punctuation">:</span> ClusterRole</span><br><span class="line">  name<span class="punctuation">:</span> flannel</span><br><span class="line">subjects<span class="punctuation">:</span></span><br><span class="line">- kind<span class="punctuation">:</span> ServiceAccount</span><br><span class="line">  name<span class="punctuation">:</span> flannel</span><br><span class="line">  namespace<span class="punctuation">:</span> kube-system</span><br><span class="line">----</span><br><span class="line">apiVersion<span class="punctuation">:</span> v1</span><br><span class="line">kind<span class="punctuation">:</span> ServiceAccount</span><br><span class="line">metadata<span class="punctuation">:</span></span><br><span class="line">  name<span class="punctuation">:</span> flannel</span><br><span class="line">  namespace<span class="punctuation">:</span> kube-system</span><br></pre></td></tr></table></figure>
+
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl -n kube-system get sa,clusterrole,clusterrolebinding,psp | grep flannel</span><br><span class="line">serviceaccount/flannel                              1         14h</span><br><span class="line">clusterrole.rbac.authorization.k8s.io/flannel                                                                14h</span><br><span class="line">clusterrolebinding.rbac.authorization.k8s.io/flannel                                                14h</span><br><span class="line">podsecuritypolicy.extensions/psp.flannel.unprivileged   <span class="literal">false</span>   NET_ADMIN   RunAsAny   RunAsAny    RunAsAny   RunAsAny   <span class="literal">false</span>            configMap,secret,emptyDir,hostPath</span><br></pre></td></tr></table></figure>
+
+<h3 id="ConfigMap"><a href="#ConfigMap" class="headerlink" title="ConfigMap"></a>ConfigMap</h3><p>下一個要研究的資源就是牽扯到檔案的 <strong>configmap</strong>， <strong>flannel</strong> 這邊設定了兩個檔案，分別是 <strong>cni-conf.json</strong> 以及 <strong>net-conf.json</strong>。</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">kind<span class="punctuation">:</span> ConfigMap</span><br><span class="line">apiVersion<span class="punctuation">:</span> v1</span><br><span class="line">metadata<span class="punctuation">:</span></span><br><span class="line">  name<span class="punctuation">:</span> kube-flannel-cfg</span><br><span class="line">  namespace<span class="punctuation">:</span> kube-system</span><br><span class="line">  labels<span class="punctuation">:</span></span><br><span class="line">    tier<span class="punctuation">:</span> node</span><br><span class="line">    app<span class="punctuation">:</span> flannel</span><br><span class="line">data<span class="punctuation">:</span></span><br><span class="line">  cni-conf.json<span class="punctuation">:</span> |</span><br><span class="line">    <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;name&quot;</span><span class="punctuation">:</span> <span class="string">&quot;cbr0&quot;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;plugins&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">        <span class="punctuation">&#123;</span></span><br><span class="line">          <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;flannel&quot;</span><span class="punctuation">,</span></span><br><span class="line">          <span class="attr">&quot;delegate&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">            <span class="attr">&quot;hairpinMode&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span><span class="punctuation">,</span></span><br><span class="line">            <span class="attr">&quot;isDefaultGateway&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span></span><br><span class="line">          <span class="punctuation">&#125;</span></span><br><span class="line">        <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="punctuation">&#123;</span></span><br><span class="line">          <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;portmap&quot;</span><span class="punctuation">,</span></span><br><span class="line">          <span class="attr">&quot;capabilities&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">            <span class="attr">&quot;portMappings&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span></span><br><span class="line">          <span class="punctuation">&#125;</span></span><br><span class="line">        <span class="punctuation">&#125;</span></span><br><span class="line">      <span class="punctuation">]</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  net-conf.json<span class="punctuation">:</span> |</span><br><span class="line">    <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;Network&quot;</span><span class="punctuation">:</span> <span class="string">&quot;10.244.0.0/16&quot;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;Backend&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;Type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;vxlan&quot;</span></span><br><span class="line">      <span class="punctuation">&#125;</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>cni-conf</strong> 如其名稱，就是給 <strong>CNI</strong> 使用的設定檔案，我們可以觀察到其使用了 <strong>plugins</strong> 的關鍵字，其格式則是 <strong>Network Configuration List</strong>，而裡面包含了兩個 <strong>CNI</strong>，分別是 <strong>flannel</strong> 以及 <strong>portmap</strong>。</p>
+<h4 id="Portmap-CNI"><a href="#Portmap-CNI" class="headerlink" title="Portmap CNI"></a>Portmap CNI</h4><p><strong>portmap</strong> 這個 <strong>CNI</strong> 則是<a target="_blank" rel="noopener" href="https://github.com/containernetworking/plugins/tree/master/plugins/meta/portmap">官方維護</a>的，其功能是類似提供 <strong>docker -p host_port:container_port</strong> 的功用，能夠幫忙在 <strong>host</strong> 也提供一個路口幫忙轉發封包到 <strong>container</strong> 裡面。 基本上我覺得有使用 <strong>kubernetes service</strong> 的話就不需要這個功能了。</p>
+<p>若要開啟這個功能除了 <strong>CNI</strong> 有要支援之外，也必須要在 <strong>pod</strong> 裡面去描述 <strong>hostPort</strong>，這樣 <strong>CRI</strong> 創建的時候就會把這些資訊包裝起來一併傳給 <strong>CNI</strong> 去處理。</p>
+<p>以下是一個範例，創建該資源後可以在有部署該 <strong>Pod</strong> 的節點上發現一些由 <strong>CNI</strong> 創建的 <strong>iptables</strong> 規則，這種情況下可以達到類似 <strong>NodePort</strong> 的效果。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cat</span> server.yaml</span><br><span class="line">apiVersion: apps/v1</span><br><span class="line">kind: Deployment</span><br><span class="line">metadata:</span><br><span class="line">  name: k8s-udpserver</span><br><span class="line">spec:</span><br><span class="line">  selector:</span><br><span class="line">    matchLabels:</span><br><span class="line">      run: k8s-udpserver</span><br><span class="line">  replicas: 6</span><br><span class="line">  template:</span><br><span class="line">    metadata:</span><br><span class="line">      labels:</span><br><span class="line">        run: k8s-udpserver</span><br><span class="line">    spec:</span><br><span class="line">      containers:</span><br><span class="line">      - name: k8s-udpserver</span><br><span class="line">        imagePullPolicy: IfNotPresent</span><br><span class="line">        image: hwchiu/pythontest</span><br><span class="line">        ports:</span><br><span class="line">        - containerPort: 20001</span><br><span class="line">          hostPort: 20001</span><br><span class="line">          protocol: UDP</span><br><span class="line"></span><br><span class="line">$ sudo iptables-save -t nat | grep 20001</span><br><span class="line">-A CNI-DN-eb9116f984fef9374c9e2 -s 10.244.0.6/32 -p udp -m udp --dport 20001 -j CNI-HOSTPORT-SETMARK</span><br><span class="line">-A CNI-DN-eb9116f984fef9374c9e2 -s 127.0.0.1/32 -p udp -m udp --dport 20001 -j CNI-HOSTPORT-SETMARK</span><br><span class="line">-A CNI-DN-eb9116f984fef9374c9e2 -p udp -m udp --dport 20001 -j DNAT --to-destination 10.244.0.6:20001</span><br><span class="line">-A CNI-HOSTPORT-DNAT -p udp -m comment --comment <span class="string">&quot;dnat name: \&quot;cbr0\&quot; id: \&quot;c55a611c4b8e8a4bef86ac05a3328258a858165b3bf4a3982997f9662bd82916\&quot;&quot;</span> -m mult</span><br><span class="line">iport --dports 20001 -j CNI-DN-eb9116f984fef9374c9e2</span><br><span class="line">vagrant@k8s-dev:~$</span><br></pre></td></tr></table></figure>
+
+<p>但是使用這個最大的問題是 <strong>host port</strong> 是獨佔的，所以如果今天 <strong>pod</strong> 的數量超過 <strong>node</strong> 的數量，就會發生很多 <strong>pod</strong> 創建不起來，譬如下圖</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl get pods</span><br><span class="line">NAME                             READY   STATUS    RESTARTS   AGE</span><br><span class="line">k8s-udpserver-5b989865bf-8jlwv   1/1     Running   0          15m</span><br><span class="line">k8s-udpserver-5b989865bf-jmljc   0/1     Pending   0          15m</span><br><span class="line">k8s-udpserver-5b989865bf-l25f4   1/1     Running   0          15m</span><br><span class="line">k8s-udpserver-5b989865bf-ps2wx   1/1     Running   0          15m</span><br><span class="line">k8s-udpserver-5b989865bf-t9glv   0/1     Pending   0          15m</span><br><span class="line">k8s-udpserver-5b989865bf-zvw6r   0/1     Pending   0          15m</span><br><span class="line"></span><br><span class="line">$ kubectl describe pod k8s-udpserver-5b989865bf-jmljc</span><br><span class="line">...</span><br><span class="line">Events:</span><br><span class="line">  Type     Reason            Age                 From               Message</span><br><span class="line">  ----     ------            ----                ----               -------</span><br><span class="line">  Warning  FailedScheduling  74s (x16 over 15m)  default-scheduler  0/3 nodes are available: 3 node(s) didn<span class="string">&#x27;t have free ports for the requested pod ports.</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>CNI</strong>這邊除了 <strong>portmapping</strong> 之外還有各式各樣的組合，譬如可以限速的 <strong>bandwidth</strong>，調整 <strong>MAC</strong> 地址的，一時之間難以講完，就有遇到再來分享吧</p>
+<p>除了 <strong>CNI</strong> 設定外，另外一個檔案 <strong>net-conf.json</strong> 則是給 <strong>flannel</strong> 程式使用的設定檔案。<br>這邊會設定 <strong>flannel</strong> 的相關資訊，特別要注意的是如果使用的是 <strong>kubeadm</strong> 來安裝 <strong>kubernetes</strong> 的話，要確認 <strong>net-conf.json</strong> 裡面關於 <strong>network</strong> 的資訊需要與 <strong>kubeadm init –pod-network-cidr&#x3D;xxxx</strong> 一致。</p>
+<p>如果沒有使用 <strong>kubeadm</strong> 的話，該參數則會被用來分配 <strong>ip</strong> 地址給所有的 <strong>Pod</strong>。</p>
+<p>根據<a target="_blank" rel="noopener" href="https://github.com/coreos/flannel/blob/443d773037ac0f3b8a996a6de018b903b6a58c62/Documentation/kubernetes.md">官方文件</a></p>
+<blockquote>
+<p>A ConfigMap containing both a CNI configuration and a flannel configuration. The network in the flannel configuration should match the pod network CIDR. The choice of backend is also made here and defaults to VXLAN.</p>
+</blockquote>
+<h2 id="DaemonSet"><a href="#DaemonSet" class="headerlink" title="DaemonSet"></a>DaemonSet</h2><p>接下來就要來看最大的重點 <strong>DaemonSet</strong>，首先 <strong>flannel</strong> 準備了非常多的 <strong>daemonset</strong> 檔案，分別針對不同的系統架構，譬如 <strong>amd64</strong>, <strong>arm</strong>, <strong>ppc</strong> 之類的，由於內容大同小異，差別於 <strong>node selector</strong>  而已，因此這邊我們就針對 <strong>amd64</strong> 這個範例來看</p>
+<h3 id="Configuration"><a href="#Configuration" class="headerlink" title="Configuration"></a>Configuration</h3><p>前述文章都有探討到， <strong>CNI</strong> 本身是一個以節點為單位的設定檔案，每個節點都需要一份獨立的設定檔案，這意味者所有新加入的節點也都要有該設定檔案，不單純只是現在有的節點需要維護而已。<br>這個情況下最常用的方式就是透過 <strong>daemonset</strong> 的方式，讓每一台機器上都跑一個特定的 <strong>Pod</strong>，該 <strong>Pod</strong> 會透過</p>
+<ol>
+<li>configmap 的方式安裝相關設定檔案到 kubernetes 中</li>
+<li>啟動一個 <strong>Pod</strong>，並且將相關資料夾掛載到 <strong>Pod</strong> 裡面</li>
+<li>透過 <strong>cp</strong> 的方式將檔案安裝到各節點中</li>
+</ol>
+<p><strong>flannel</strong> 就是採用這樣的方式，並且把這個動作放到 <strong>init container</strong> 去執行，因為這類型的指令其實不太算是 <strong>daemon</strong>，比較類似 <strong>job</strong>，執行完就結束離開的應用程式，放到 <strong>Container</strong> 這邊則會使得該 <strong>Container</strong> 必須要一直利用 <strong>pause&#x2F;sleep</strong> 等方式來運作得像一個 <strong>daemon</strong>，反而搞得複雜。</p>
+<p>此外也可以觀察到該 <strong>DaemonSet</strong> 有特別指定 <strong>serviceAccountName: flannel</strong>， 算是把上述的資源跟這邊給接起來。更重要的是基於安全性方面的設定完全與上面的 <strong>PodSecutityPolicy</strong> 一致。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">securityContext:</span><br><span class="line">    privileged: false</span><br><span class="line">    capabilities:</span><br><span class="line">        add: [&quot;NET_ADMIN&quot;]</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">DaemonSet</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">kube-flannel-ds-amd64</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">kube-system</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">tier:</span> <span class="string">node</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">flannel</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">flannel</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">tier:</span> <span class="string">node</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">flannel</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">hostNetwork:</span> <span class="literal">true</span></span><br><span class="line">      <span class="attr">nodeSelector:</span></span><br><span class="line">        <span class="attr">beta.kubernetes.io/arch:</span> <span class="string">amd64</span></span><br><span class="line">      <span class="attr">tolerations:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">operator:</span> <span class="string">Exists</span></span><br><span class="line">        <span class="attr">effect:</span> <span class="string">NoSchedule</span></span><br><span class="line">      <span class="attr">serviceAccountName:</span> <span class="string">flannel</span></span><br><span class="line">      <span class="attr">initContainers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">install-cni</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">quay.io/coreos/flannel:v0.11.0-amd64</span></span><br><span class="line">        <span class="attr">command:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">cp</span></span><br><span class="line">        <span class="attr">args:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">-f</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">/etc/kube-flannel/cni-conf.json</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">/etc/cni/net.d/10-flannel.conflist</span></span><br><span class="line">        <span class="attr">volumeMounts:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">cni</span></span><br><span class="line">          <span class="attr">mountPath:</span> <span class="string">/etc/cni/net.d</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">flannel-cfg</span></span><br><span class="line">          <span class="attr">mountPath:</span> <span class="string">/etc/kube-flannel/</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">kube-flannel</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">quay.io/coreos/flannel:v0.11.0-amd64</span></span><br><span class="line">        <span class="attr">command:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">/opt/bin/flanneld</span></span><br><span class="line">        <span class="attr">args:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">--ip-masq</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">--kube-subnet-mgr</span></span><br><span class="line">        <span class="attr">resources:</span></span><br><span class="line">          <span class="attr">requests:</span></span><br><span class="line">            <span class="attr">cpu:</span> <span class="string">&quot;100m&quot;</span></span><br><span class="line">            <span class="attr">memory:</span> <span class="string">&quot;50Mi&quot;</span></span><br><span class="line">          <span class="attr">limits:</span></span><br><span class="line">            <span class="attr">cpu:</span> <span class="string">&quot;100m&quot;</span></span><br><span class="line">            <span class="attr">memory:</span> <span class="string">&quot;50Mi&quot;</span></span><br><span class="line">        <span class="attr">securityContext:</span></span><br><span class="line">          <span class="attr">privileged:</span> <span class="literal">false</span></span><br><span class="line">          <span class="attr">capabilities:</span></span><br><span class="line">             <span class="attr">add:</span> [<span class="string">&quot;NET_ADMIN&quot;</span>]</span><br><span class="line">        <span class="attr">env:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">POD_NAME</span></span><br><span class="line">          <span class="attr">valueFrom:</span></span><br><span class="line">            <span class="attr">fieldRef:</span></span><br><span class="line">              <span class="attr">fieldPath:</span> <span class="string">metadata.name</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">POD_NAMESPACE</span></span><br><span class="line">          <span class="attr">valueFrom:</span></span><br><span class="line">            <span class="attr">fieldRef:</span></span><br><span class="line">              <span class="attr">fieldPath:</span> <span class="string">metadata.namespace</span></span><br><span class="line">        <span class="attr">volumeMounts:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">run</span></span><br><span class="line">          <span class="attr">mountPath:</span> <span class="string">/run/flannel</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">flannel-cfg</span></span><br><span class="line">          <span class="attr">mountPath:</span> <span class="string">/etc/kube-flannel/</span></span><br><span class="line">      <span class="attr">volumes:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">run</span></span><br><span class="line">          <span class="attr">hostPath:</span></span><br><span class="line">            <span class="attr">path:</span> <span class="string">/run/flannel</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">cni</span></span><br><span class="line">          <span class="attr">hostPath:</span></span><br><span class="line">            <span class="attr">path:</span> <span class="string">/etc/cni/net.d</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">flannel-cfg</span></span><br><span class="line">          <span class="attr">configMap:</span></span><br><span class="line">            <span class="attr">name:</span> <span class="string">kube-flannel-cfg</span></span><br></pre></td></tr></table></figure>
+
+<p>接下來看看主要的 <strong>Container</strong>，這個 <strong>Container</strong> 是一個額外的應用程式，會幫忙處理 <strong>CNI</strong> 當下不方便處理的事情。</p>
+<p>目前官方預設的安裝檔案內只有設定兩個變數，分別是</p>
+<ol>
+<li>–ip-masq<br>會透過 <code>masquerade</code> 的功能幫往外送出的封包進行 SNAT，譬如下列這些規則就是 <strong>flannel</strong> 幫忙下的<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">-A POSTROUTING -s 10.244.0.0/16 -d 10.244.0.0/16 -j RETURN</span><br><span class="line">-A POSTROUTING -s 10.244.0.0/16 ! -d 224.0.0.0/4 -j MASQUERADE</span><br><span class="line">-A POSTROUTING ! -s 10.244.0.0/16 -d 10.244.0.0/24 -j RETURN</span><br><span class="line">-A POSTROUTING ! -s 10.244.0.0/16 -d 10.244.0.0/16 -j MASQUERADE</span><br></pre></td></tr></table></figure></li>
+<li>–kube-subnet-mgr<br>這個主要是用來告訴 <strong>flannel</strong> 如何處理 <strong>IP Subnet</strong>，目前有兩種模式，如果有特別開啟 <strong>kube-subnet-mgr</strong> 的話就會使用 <strong>kubernetes</strong> API 來處理，同時相關的設定檔案也會從 <strong>net-conf.json</strong> 來讀取，反之就全部都從 <strong>etcd</strong> 來儲存與處理。</li>
+</ol>
+<p>此外我們還可以看一下相關的 <strong>Volume</strong> 到底有哪些，除了上述的 <strong>configMap</strong> 之外，我們發現該 <strong>Pod</strong> 也掛載了下列的位置</p>
+<ol>
+<li>&#x2F;run&#x2F;flannel</li>
+</ol>
+<p>接下來我們就實際看一下這個位置的檔案</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">$ sudo <span class="built_in">ls</span> /run/flannel/</span><br><span class="line">subnet.env</span><br><span class="line"></span><br><span class="line">$ sudo <span class="built_in">cat</span> /run/flannel/subnet.env</span><br><span class="line">FLANNEL_NETWORK=10.244.0.0/16</span><br><span class="line">FLANNEL_SUBNET=10.244.0.1/24</span><br><span class="line">FLANNEL_MTU=1450</span><br><span class="line">FLANNEL_IPMASQ=<span class="literal">true</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>看到跟 <strong>IP</strong> 有關的設定，決定看一下另外幾台機器</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ sudo <span class="built_in">cat</span> /run/flannel/subnet.env</span><br><span class="line">FLANNEL_NETWORK=10.244.0.0/16</span><br><span class="line">FLANNEL_SUBNET=10.244.2.1/24</span><br><span class="line">FLANNEL_MTU=1450</span><br><span class="line">FLANNEL_IPMASQ=<span class="literal">true</span></span><br></pre></td></tr></table></figure>
+
+<p>可以看到不同機器上面的 <strong>SUBNET</strong> 欄位不同，同時 <strong>Pod</strong> 得到的 <strong>IP</strong> 去觀察</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">$ kubectl get pods -o wide</span><br><span class="line">NAME                             READY   STATUS    RESTARTS   AGE   IP           NODE        NOMINATED NODE   READINESS GATES</span><br><span class="line">k8s-udpserver-6576555bcb-7h8jh   1/1     Running   0          13m   10.244.0.8   k8s-dev     &lt;none&gt;           &lt;none&gt;</span><br><span class="line">k8s-udpserver-6576555bcb-c52rk   1/1     Running   0          13m   10.244.1.7   k8s-dev-1   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">k8s-udpserver-6576555bcb-dxm8h   1/1     Running   0          13m   10.244.1.6   k8s-dev-1   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">k8s-udpserver-6576555bcb-f49m4   1/1     Running   0          13m   10.244.2.7   k8s-dev-2   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">k8s-udpserver-6576555bcb-hfhw2   1/1     Running   0          13m   10.244.2.8   k8s-dev-2   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">k8s-udpserver-6576555bcb-hswhn   1/1     Running   0          13m   10.244.2.6   k8s-dev-2   &lt;none&gt;           &lt;none&gt;</span><br></pre></td></tr></table></figure>
+
+<p>很巧的是每個 <strong>Node</strong> 上面該檔案的 <strong>SUBNET</strong> 都與運行 <strong>POD</strong> 的 <strong>IP</strong> 網段符合，看起來這個檔案勢必有動了一些手腳。</p>
+<p>對於整體 <strong>IP</strong> 分配的過程我們將到下篇文章再來分析</p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>本篇文章探討了的 <strong>Flannel</strong> 的安裝過程，從官方提供的 <strong>yaml</strong> 過程中來一一探討每個資源的用途，同時也觀察到了其利用 <strong>DaemonSet</strong> 配上 <strong>init container</strong> 來幫每個節點安裝 <strong>CNI</strong> 以及本身運行的設定檔案，確保未來任何新加入的節點都能夠順利的擁有這些檔案並正常運作。</p>
+<p>用下圖幫本章節做個總結<br><img src="https://i.imgur.com/DlbQ55O.png"></p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/coreos/flannel/blob/443d773037ac0f3b8a996a6de018b903b6a58c62/Documentation/kubernetes.md">https://github.com/coreos/flannel/blob/443d773037ac0f3b8a996a6de018b903b6a58c62/Documentation/kubernetes.md</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes">https://github.com/kubernetes/kubernetes</a></li>
+<li><a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/policy/pod-security-policy/">https://kubernetes.io/docs/concepts/policy/pod-security-policy/</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/coreos/flannel/blob/ba49cd4c1e49d566da4a08b370384ce8ced0c0e3/Documentation/troubleshooting.md">https://github.com/coreos/flannel/blob/ba49cd4c1e49d566da4a08b370384ce8ced0c0e3/Documentation/troubleshooting.md</a>?</li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/CNI/" rel="tag"># CNI</a>
+              <a href="/tags/Flannel/" rel="tag"># Flannel</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/cni-ipam.html" rel="prev" title="初探 CNI 的 IP 分配問題 (IPAM)">
+                  <i class="fa fa-chevron-left"></i> 初探 CNI 的 IP 分配問題 (IPAM)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/cni-flannel-ii.html" rel="next" title="CNI - Flannel - IP 管理篇">
+                  CNI - Flannel - IP 管理篇 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

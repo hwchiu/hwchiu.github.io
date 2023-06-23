@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="Introduction本文主要分析 drbd 在 kernel space 中關於 networking 這一部分用到的所有資料結構，這些資料結構主要分成兩個部分，一部分是通用的，一部分則是 TCP 連線專用的 通用 struct drbd_resource struct drbd_connection struct drbd_path struct drbd_listener struct d">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Drbd Networking Structure Introduction">
+<meta property="og:url" content="https://www.hwchiu.com/DRBD-networking-structure.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="Introduction本文主要分析 drbd 在 kernel space 中關於 networking 這一部分用到的所有資料結構，這些資料結構主要分成兩個部分，一部分是通用的，一部分則是 TCP 連線專用的 通用 struct drbd_resource struct drbd_connection struct drbd_path struct drbd_listener struct d">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://i.imgur.com/udR9bVq.jpg">
+<meta property="og:image" content="http://i.imgur.com/CZuF7on.jpg">
+<meta property="og:image" content="http://i.imgur.com/QVQ3D2B.jpg">
+<meta property="article:published_time" content="2017-05-16T09:16:15.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.597Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="System">
+<meta property="article:tag" content="SourceCode">
+<meta property="article:tag" content="Kernel">
+<meta property="article:tag" content="DRBD">
+<meta property="article:tag" content="Networking">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://i.imgur.com/udR9bVq.jpg">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/DRBD-networking-structure.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/DRBD-networking-structure.html","path":"DRBD-networking-structure.html","title":"Drbd Networking Structure Introduction"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Drbd Networking Structure Introduction | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#Introduction"><span class="nav-number">1.</span> <span class="nav-text">Introduction</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%80%9A%E7%94%A8"><span class="nav-number">1.1.</span> <span class="nav-text">通用</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#TCP%E5%B0%88%E7%94%A8"><span class="nav-number">1.2.</span> <span class="nav-text">TCP專用</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Environment"><span class="nav-number">2.</span> <span class="nav-text">Environment</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%86%E6%9E%90"><span class="nav-number">3.</span> <span class="nav-text">分析</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%9E%B6%E6%A7%8B%E8%A7%A3%E9%87%8B"><span class="nav-number">3.1.</span> <span class="nav-text">架構解釋</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#drbd-transport-class"><span class="nav-number">3.1.1.</span> <span class="nav-text">drbd_transport_class</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#drbd-transport-ops"><span class="nav-number">3.1.2.</span> <span class="nav-text">drbd_transport_ops</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#drbd-transport"><span class="nav-number">3.1.3.</span> <span class="nav-text">drbd_transport</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#drbd-listener"><span class="nav-number">3.1.4.</span> <span class="nav-text">drbd_listener</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#drbd-path"><span class="nav-number">3.1.5.</span> <span class="nav-text">drbd_path</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#drbd-connection"><span class="nav-number">3.1.6.</span> <span class="nav-text">drbd_connection</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#struct-dtt-path"><span class="nav-number">3.1.7.</span> <span class="nav-text">struct dtt_path</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#struct-dtt-socket-container"><span class="nav-number">3.1.8.</span> <span class="nav-text">struct dtt_socket_container</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#struct-dtt-listener"><span class="nav-number">3.1.9.</span> <span class="nav-text">struct dtt_listener</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#struct-drbd-tcp-transport"><span class="nav-number">3.1.10.</span> <span class="nav-text">struct drbd_tcp_transport</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#drbd-resource"><span class="nav-number">3.1.11.</span> <span class="nav-text">drbd_resource</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%9E%B6%E6%A7%8B%E5%9C%96"><span class="nav-number">3.2.</span> <span class="nav-text">架構圖</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#Connection-and-Path"><span class="nav-number">3.2.1.</span> <span class="nav-text">Connection and Path</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Listener-and-Path"><span class="nav-number">3.2.2.</span> <span class="nav-text">Listener and Path</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Resource-and-Conection-x2F-Listener"><span class="nav-number">3.2.3.</span> <span class="nav-text">Resource and Conection&#x2F;Listener</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%B5%90%E8%AB%96"><span class="nav-number">4.</span> <span class="nav-text">結論</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/DRBD-networking-structure.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Drbd Networking Structure Introduction | Hwchiu Learning Note">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Drbd Networking Structure Introduction
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2017-05-16 17:16:15" itemprop="dateCreated datePublished" datetime="2017-05-16T17:16:15+08:00">2017-05-16</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h3 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h3><p>本文主要分析 <strong>drbd</strong> 在 <strong>kernel space</strong> 中關於 <strong>networking</strong> 這一部分用到的所有資料結構，這些資料結構主要分成兩個部分，一部分是通用的，一部分則是 <strong>TCP</strong> 連線專用的</p>
+<h4 id="通用"><a href="#通用" class="headerlink" title="通用"></a>通用</h4><ul>
+<li>struct drbd_resource</li>
+<li>struct drbd_connection</li>
+<li>struct drbd_path</li>
+<li>struct drbd_listener</li>
+<li>struct drbd_transport</li>
+<li>struct drbd_transport_ops</li>
+<li>struct drbd_transport_class</li>
+</ul>
+<h4 id="TCP專用"><a href="#TCP專用" class="headerlink" title="TCP專用"></a>TCP專用</h4><ul>
+<li>struct drbd_tcp_transport</li>
+<li>struct dtt_listener</li>
+<li>struct dtt_socket_container</li>
+<li>struct dtt_path</li>
+</ul>
+<h3 id="Environment"><a href="#Environment" class="headerlink" title="Environment"></a>Environment</h3><ul>
+<li>Drbd 9.0</li>
+<li>Using TCP as DRBD Transport</li>
+</ul>
+<span id="more"></span>
+
+
+<p>接下來為了比較好理解整個過程，會先介紹每個結構在做什麼事情，然後在闡述這些結構之間的關係。</p>
+<h3 id="分析"><a href="#分析" class="headerlink" title="分析"></a>分析</h3><h4 id="架構解釋"><a href="#架構解釋" class="headerlink" title="架構解釋"></a>架構解釋</h4><h5 id="drbd-transport-class"><a href="#drbd-transport-class" class="headerlink" title="drbd_transport_class"></a>drbd_transport_class</h5><p><strong>drbd_transport_class</strong> 用來紀錄 networking module 相關資訊，譬如該 module 的名稱， 該 <strong>kernel module</strong>的 init function，其中 <strong>instance_size</strong> 以及 <strong>path_instance_size</strong> 則是用來記錄該網路實作過程中，繼承自 <strong>drbd_tanasport_class</strong>以及<strong>drbd_path</strong> 那些物件真正的大小。<br>以 TCP 舉例來說，他設計了一個物件 <strong>drbd_tcp_transport</strong>，裡面包含了 <strong>drbd_transport_class</strong> 以及一些 TCP 會用到的變數，這些零零總總加起來的總大小就是此 TCP module 真正要用到的大小。<br>這邊會這樣設計的原因是因為在更上層要透過 <strong>kmalloc</strong> 去要空間的時候，需要計算真正用到的大小，如下列應用</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">3308</span>     size = <span class="keyword">sizeof</span>(*connection) - <span class="keyword">sizeof</span>(connection-&gt;transport) + tc-&gt;instance_size;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0194</span> <span class="class"><span class="keyword">struct</span> <span class="title">drbd_transport_class</span> &#123;</span></span><br><span class="line"><span class="number">0195</span>     <span class="type">const</span> <span class="type">char</span> *name;</span><br><span class="line"><span class="number">0196</span>     <span class="type">const</span> <span class="type">int</span> instance_size;</span><br><span class="line"><span class="number">0197</span>     <span class="type">const</span> <span class="type">int</span> path_instance_size;</span><br><span class="line"><span class="number">0198</span>     <span class="class"><span class="keyword">struct</span> <span class="title">module</span> *<span class="title">module</span>;</span></span><br><span class="line"><span class="number">0199</span>     <span class="type">int</span> (*init)(<span class="keyword">struct</span> drbd_transport *);</span><br><span class="line"><span class="number">0200</span>     <span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">list</span>;</span></span><br><span class="line"><span class="number">0201</span> &#125;;</span><br></pre></td></tr></table></figure>
+
+<h5 id="drbd-transport-ops"><a href="#drbd-transport-ops" class="headerlink" title="drbd_transport_ops"></a>drbd_transport_ops</h5><p>這個結構用來定義所有跟網路相關的操作，如 <strong>connect</strong>, <strong>send</strong> 等。<br>每個要實作Networking Module的 <strong>kernel module</strong>都必須要實做這些功能，並且設定好對應的 <strong>function pointer</strong>。<br>在 <strong>drbd.ko</strong>中，就會透過 <strong>drbd_transport</strong> 的方式去存取到這些對應的操作來使用，譬如</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0686</span>     err = transport-&gt;ops-&gt;connect(transport);</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0130</span> <span class="class"><span class="keyword">struct</span> <span class="title">drbd_transport_ops</span> &#123;</span></span><br><span class="line"><span class="number">0131</span>     <span class="type">void</span> (*<span class="built_in">free</span>)(<span class="keyword">struct</span> drbd_transport *, <span class="keyword">enum</span> drbd_tr_free_op free_op);</span><br><span class="line"><span class="number">0132</span>     <span class="type">int</span> (*connect)(<span class="keyword">struct</span> drbd_transport *);</span><br><span class="line"><span class="number">0133</span></span><br><span class="line">.........</span><br><span class="line"><span class="number">0165</span>     <span class="type">int</span> (*recv)(<span class="keyword">struct</span> drbd_transport *, <span class="keyword">enum</span> drbd_stream, <span class="type">void</span> **buf, <span class="type">size_t</span> size, <span class="type">int</span> flags);</span><br><span class="line">........</span><br><span class="line"><span class="number">0179</span>     <span class="type">int</span> (*recv_pages)(<span class="keyword">struct</span> drbd_transport *, <span class="keyword">struct</span> drbd_page_chain_head *, <span class="type">size_t</span> size);</span><br><span class="line"><span class="number">0180</span></span><br><span class="line"><span class="number">0181</span>     <span class="type">void</span> (*stats)(<span class="keyword">struct</span> drbd_transport *, <span class="keyword">struct</span> drbd_transport_stats *stats);</span><br><span class="line"><span class="number">0182</span>     <span class="type">void</span> (*set_rcvtimeo)(<span class="keyword">struct</span> drbd_transport *, <span class="keyword">enum</span> drbd_stream, <span class="type">long</span> timeout);</span><br><span class="line"><span class="number">0183</span>     <span class="type">long</span> (*get_rcvtimeo)(<span class="keyword">struct</span> drbd_transport *, <span class="keyword">enum</span> drbd_stream);</span><br><span class="line"><span class="number">0184</span>     <span class="type">int</span> (*send_page)(<span class="keyword">struct</span> drbd_transport *, <span class="keyword">enum</span> drbd_stream, <span class="keyword">struct</span> page *,</span><br><span class="line"><span class="number">0185</span>              <span class="type">int</span> offset, <span class="type">size_t</span> size, <span class="type">unsigned</span> msg_flags);</span><br><span class="line"><span class="number">0186</span>     <span class="type">int</span> (*send_zc_bio)(<span class="keyword">struct</span> drbd_transport *, <span class="keyword">struct</span> bio *bio);</span><br><span class="line"><span class="number">0187</span>     <span class="type">bool</span> (*stream_ok)(<span class="keyword">struct</span> drbd_transport *, <span class="keyword">enum</span> drbd_stream);</span><br><span class="line"><span class="number">0188</span>     <span class="type">bool</span> (*hint)(<span class="keyword">struct</span> drbd_transport *, <span class="keyword">enum</span> drbd_stream, <span class="keyword">enum</span> drbd_tr_hints hint);</span><br><span class="line"><span class="number">0189</span>     <span class="type">void</span> (*debugfs_show)(<span class="keyword">struct</span> drbd_transport *, <span class="keyword">struct</span> seq_file *m);</span><br><span class="line"><span class="number">0190</span>     <span class="type">int</span> (*add_path)(<span class="keyword">struct</span> drbd_transport *, <span class="keyword">struct</span> drbd_path *path);</span><br><span class="line"><span class="number">0191</span>     <span class="type">int</span> (*remove_path)(<span class="keyword">struct</span> drbd_transport *, <span class="keyword">struct</span> drbd_path *path);</span><br><span class="line"><span class="number">0192</span> &#125;;</span><br></pre></td></tr></table></figure>
+
+<h5 id="drbd-transport"><a href="#drbd-transport" class="headerlink" title="drbd_transport"></a>drbd_transport</h5><p>真正用來抽象整個 networking module 的結構，將上面提到的 <strong>drbd_transport_ops</strong> 以及 <strong>drbd_transport_class</strong> 收錄到此結構中，最外層的 drbd 透過此物件可以呼叫到當前 networking 的實作方法。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0103</span> <span class="class"><span class="keyword">struct</span> <span class="title">drbd_transport</span> &#123;</span></span><br><span class="line"><span class="number">0104</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_transport_ops</span> *<span class="title">ops</span>;</span></span><br><span class="line"><span class="number">0105</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_transport_class</span> *<span class="keyword">class</span>;</span></span><br><span class="line"><span class="number">0106</span></span><br><span class="line"><span class="number">0107</span>     <span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">paths</span>;</span></span><br><span class="line"><span class="number">0108</span></span><br><span class="line"><span class="number">0109</span>     <span class="type">const</span> <span class="type">char</span> *log_prefix;     <span class="comment">/* resource name */</span></span><br><span class="line"><span class="number">0110</span>     <span class="class"><span class="keyword">struct</span> <span class="title">net_conf</span> *<span class="title">net_conf</span>;</span>  <span class="comment">/* content protected by rcu */</span></span><br><span class="line"><span class="number">0111</span></span><br><span class="line"><span class="number">0112</span>     <span class="comment">/* These members are intended to be updated by the transport: */</span></span><br><span class="line"><span class="number">0113</span>     <span class="type">unsigned</span> <span class="type">int</span> ko_count;</span><br><span class="line"><span class="number">0114</span>     <span class="type">unsigned</span> <span class="type">long</span> flags;</span><br><span class="line"><span class="number">0115</span> &#125;;</span><br></pre></td></tr></table></figure>
+
+<h5 id="drbd-listener"><a href="#drbd-listener" class="headerlink" title="drbd_listener"></a>drbd_listener</h5><p>接下來看到 <strong>drbd_listener</strong>，由於 <strong>DRBD</strong> 是分散式的架構，每個 <strong>host</strong> 同時是<strong>clinet</strong>也是 <strong>server</strong>，在扮演 <strong>server</strong> 的過程中，需要在本地上開啟一個 <strong>socket</strong> 並且透過 <code>listen</code>去處理該 socket 以接受之後的連線，這邊就用這個結構來儲存這相關的資訊。<br>就如同註解所說，這只是一個抽象概念而已，真正的實作則是依賴每個 networking model來處理，舉例來說， TCP module 則是包了一層 <strong>dtt_listener</strong>，裡面除了有最原始的 <strong>drbd_listener</strong> 之外，還放了 <strong>TCP server</strong> 使用的 <strong>listen socket</strong>。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0059</span> <span class="class"><span class="keyword">struct</span> <span class="title">dtt_listener</span> &#123;</span></span><br><span class="line"><span class="number">0060</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_listener</span> <span class="title">listener</span>;</span></span><br><span class="line"><span class="number">0061</span>     <span class="type">void</span> (*original_sk_state_change)(<span class="keyword">struct</span> sock *sk);</span><br><span class="line"><span class="number">0062</span>     <span class="class"><span class="keyword">struct</span> <span class="title">socket</span> *<span class="title">s_listen</span>;</span></span><br><span class="line"><span class="number">0063</span></span><br><span class="line"><span class="number">0064</span>     <span class="type">wait_queue_head_t</span> wait; <span class="comment">/* woken if a connection came in */</span></span><br><span class="line"><span class="number">0065</span> &#125;;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0204</span> <span class="comment">/* An &quot;abstract base class&quot; for transport implementations. I.e. it</span></span><br><span class="line"><span class="comment">0205    should be embedded into a transport specific representation of a</span></span><br><span class="line"><span class="comment">0206    listening &quot;socket&quot; */</span></span><br><span class="line"><span class="number">0207</span> <span class="class"><span class="keyword">struct</span> <span class="title">drbd_listener</span> &#123;</span></span><br><span class="line"><span class="number">0208</span>     <span class="class"><span class="keyword">struct</span> <span class="title">kref</span> <span class="title">kref</span>;</span></span><br><span class="line"><span class="number">0209</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_resource</span> *<span class="title">resource</span>;</span></span><br><span class="line"><span class="number">0210</span>     <span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">list</span>;</span> <span class="comment">/* link for resource-&gt;listeners */</span></span><br><span class="line"><span class="number">0211</span>     <span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">waiters</span>;</span> <span class="comment">/* list head for paths */</span></span><br><span class="line"><span class="number">0212</span>     <span class="type">spinlock_t</span> waiters_lock;</span><br><span class="line"><span class="number">0213</span>     <span class="type">int</span> pending_accepts;</span><br><span class="line"><span class="number">0214</span>     <span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_storage</span> <span class="title">listen_addr</span>;</span></span><br><span class="line"><span class="number">0215</span>     <span class="type">void</span> (*destroy)(<span class="keyword">struct</span> drbd_listener *);</span><br><span class="line"><span class="number">0216</span> &#125;;</span><br></pre></td></tr></table></figure>
+<h5 id="drbd-path"><a href="#drbd-path" class="headerlink" title="drbd_path"></a>drbd_path</h5><p><strong>drbd_path</strong>的概念與 <strong>drbd.conf</strong> 中設定檔的概念相同，用來描述兩個 host 之間的連線，主要內容是 <strong>ip(v4&#x2F;v6):port</strong>，所以結構中會有 <strong>my_addr</strong> 以及 <strong>peer_addr</strong>，用來紀錄兩端點的位址。<br>由於每個 <strong>path</strong> 中，本地端不但要當 client 連過去，同時也要當 server 等待對方連線，因此 <strong>my_addr</strong> 就會拿來當作 <strong>listener</strong> 使用，所以可以看到該成員有一個指向 <strong>drbd_listener</strong> 的指標 <strong>listener</strong>。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0085</span> <span class="class"><span class="keyword">struct</span> <span class="title">drbd_path</span> &#123;</span></span><br><span class="line"><span class="number">0086</span>     <span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_storage</span> <span class="title">my_addr</span>;</span></span><br><span class="line"><span class="number">0087</span>     <span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_storage</span> <span class="title">peer_addr</span>;</span></span><br><span class="line"><span class="number">0088</span></span><br><span class="line"><span class="number">0089</span>     <span class="class"><span class="keyword">struct</span> <span class="title">kref</span> <span class="title">kref</span>;</span></span><br><span class="line"><span class="number">0090</span></span><br><span class="line"><span class="number">0091</span>     <span class="type">int</span> my_addr_len;</span><br><span class="line"><span class="number">0092</span>     <span class="type">int</span> peer_addr_len;</span><br><span class="line"><span class="number">0093</span>     <span class="type">bool</span> established; <span class="comment">/* updated by the transport */</span></span><br><span class="line"><span class="number">0094</span></span><br><span class="line"><span class="number">0095</span>     <span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">list</span>;</span> <span class="comment">/* paths of a connection */</span></span><br><span class="line"><span class="number">0096</span>     <span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">listener_link</span>;</span> <span class="comment">/* paths waiting for an incomming connection,</span></span><br><span class="line"><span class="comment">0097                        head is in a drbd_listener */</span></span><br><span class="line"><span class="number">0098</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_listener</span> *<span class="title">listener</span>;</span></span><br><span class="line"><span class="number">0099</span> &#125;;</span><br></pre></td></tr></table></figure>
+
+<h5 id="drbd-connection"><a href="#drbd-connection" class="headerlink" title="drbd_connection"></a>drbd_connection</h5><p><strong>drbd_connection</strong> 的概念與 <strong>drbd.conf</strong> 中 <strong>connection</strong>的描述相同，相對於 <strong>path</strong> 來說是個更高一等的抽象概念，描述兩個 host 之間的連線，<br>這些連線是由很多個 <strong>path</strong> 所組成的所以一個 <strong>connection</strong> 可以有很多條 <strong>path</strong> 而<strong>connection</strong> 中間的傳輸會透過其中一條 <strong>path</strong> 來交換，對 <strong>connection</strong> 來說，同時只會使用一條 <strong>path</strong> 傳輸，並沒有辦法達到 <strong>link aggregation</strong>的功效。</p>
+<p>下圖結構中可以觀察到有一個 <strong>transport</strong>，每條 <strong>connection</strong> 都會綁定一個 <strong>transport</strong> 的物件，該條 connection 的所有操作都依照該物件內容去執行，所以在此架構下，是可以做到每條 <strong>connection</strong> 使用不同的傳輸方法，譬如原生TCP或是自行實作的物件。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0904</span> <span class="class"><span class="keyword">struct</span> <span class="title">drbd_connection</span> &#123;</span></span><br><span class="line"><span class="number">0905</span>     <span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">connections</span>;</span></span><br><span class="line">..................</span><br><span class="line"><span class="number">1047</span></span><br><span class="line"><span class="number">1048</span>     <span class="type">unsigned</span> <span class="type">int</span> peer_node_id;</span><br><span class="line"><span class="number">1049</span>     <span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">twopc_parent_list</span>;</span></span><br><span class="line"><span class="number">1050</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_transport</span> <span class="title">transport</span>;</span> <span class="comment">/* The transport needs to be the last member. The acutal</span></span><br><span class="line"><span class="comment">1051                         implementation might have more members than the</span></span><br><span class="line"><span class="comment">1052                         abstract one. */</span></span><br><span class="line"><span class="number">1053</span> &#125;;</span><br></pre></td></tr></table></figure>
+
+<h5 id="struct-dtt-path"><a href="#struct-dtt-path" class="headerlink" title="struct dtt_path"></a>struct dtt_path</h5><p>這邊除了將本來的 <strong>drbd_path</strong> 包起來外，還多了一個list來處理上述 <strong>dtt_socket_container</strong> 的物件，這邊目前沒有辦法理解為什麼需要用list來保存，我以為只需要用一個 socket 的物件就可以了。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0076</span> <span class="class"><span class="keyword">struct</span> <span class="title">dtt_path</span> &#123;</span></span><br><span class="line"><span class="number">0077</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_path</span> <span class="title">path</span>;</span></span><br><span class="line"><span class="number">0078</span></span><br><span class="line"><span class="number">0079</span>     <span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">sockets</span>;</span> <span class="comment">/* sockets passed to me by other receiver threads */</span></span><br><span class="line"><span class="number">0080</span> &#125;;</span><br></pre></td></tr></table></figure>
+<h5 id="struct-dtt-socket-container"><a href="#struct-dtt-socket-container" class="headerlink" title="struct dtt_socket_container"></a>struct dtt_socket_container</h5><p>此物件還令人滿納悶的，目前還沒有想到什麼情況下會需要這個東西…，待之後突然領悟了再回來補足。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0071</span> <span class="class"><span class="keyword">struct</span> <span class="title">dtt_socket_container</span> &#123;</span></span><br><span class="line"><span class="number">0072</span>     <span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">list</span>;</span></span><br><span class="line"><span class="number">0073</span>     <span class="class"><span class="keyword">struct</span> <span class="title">socket</span> *<span class="title">socket</span>;</span></span><br><span class="line"><span class="number">0074</span> &#125;;</span><br></pre></td></tr></table></figure>
+
+<h5 id="struct-dtt-listener"><a href="#struct-dtt-listener" class="headerlink" title="struct dtt_listener"></a>struct dtt_listener</h5><p>真正實作 <strong>drbd_listener</strong> 的物件，由於是走 TCP 的架構，所以需要一個 <strong>socket</strong> 來進行 listen 的動作。<br>其餘的成員 <strong>original_sk_state_change</strong>以及 <strong>wait</strong> 待詳細分析 tcp 程式碼時再說明。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0059</span> <span class="class"><span class="keyword">struct</span> <span class="title">dtt_listener</span> &#123;</span></span><br><span class="line"><span class="number">0060</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_listener</span> <span class="title">listener</span>;</span></span><br><span class="line"><span class="number">0061</span>     <span class="type">void</span> (*original_sk_state_change)(<span class="keyword">struct</span> sock *sk);</span><br><span class="line"><span class="number">0062</span>     <span class="class"><span class="keyword">struct</span> <span class="title">socket</span> *<span class="title">s_listen</span>;</span></span><br><span class="line"><span class="number">0063</span></span><br><span class="line"><span class="number">0064</span>     <span class="type">wait_queue_head_t</span> wait; <span class="comment">/* woken if a connection came in */</span></span><br><span class="line"><span class="number">0065</span> &#125;;</span><br></pre></td></tr></table></figure>
+
+<h5 id="struct-drbd-tcp-transport"><a href="#struct-drbd-tcp-transport" class="headerlink" title="struct drbd_tcp_transport"></a>struct drbd_tcp_transport</h5><p>這邊則是 TCP 方面對於 <strong>drbd_transport</strong> 的實現，由於要支援 <strong>DATA_STREAM</strong> 以及 <strong>CONTROL_STREAM</strong>，所以這邊每個 tcp_transport 則是會使用兩個 <strong>sockets</strong> 的物件來保存。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0051</span> <span class="class"><span class="keyword">struct</span> <span class="title">drbd_tcp_transport</span> &#123;</span></span><br><span class="line"><span class="number">0052</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_transport</span> <span class="title">transport</span>;</span> <span class="comment">/* Must be first! */</span></span><br><span class="line"><span class="number">0053</span>     <span class="type">spinlock_t</span> paths_lock;</span><br><span class="line"><span class="number">0054</span>     <span class="type">unsigned</span> <span class="type">long</span> flags;</span><br><span class="line"><span class="number">0055</span>     <span class="class"><span class="keyword">struct</span> <span class="title">socket</span> *<span class="title">stream</span>[2];</span></span><br><span class="line"><span class="number">0056</span>     <span class="class"><span class="keyword">struct</span> <span class="title">buffer</span> <span class="title">rbuf</span>[2];</span></span><br><span class="line"><span class="number">0057</span> &#125;;</span><br></pre></td></tr></table></figure>
+
+<h5 id="drbd-resource"><a href="#drbd-resource" class="headerlink" title="drbd_resource"></a>drbd_resource</h5><p>在 kernel 層級這邊，最主要的管理者是 <strong>drbd_resource</strong>，他控管所有的資源，包含了 listener, connections等與網路相關的資訊。</p>
+<p>可以看到 <strong>struct drbd_resource</strong> 中的成員有兩個 <strong>list_head</strong> 的成員，分別用來將 <strong>connection</strong> 以及 <strong>listener</strong> 給串起來。<br>connection(<strong>drbd_connection</strong>) 代表的就是每一對 host 的 connection，如同在 <strong>user-space</strong> 中 <strong>drbd.conf</strong> 中設定的那樣，</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0820</span> <span class="class"><span class="keyword">struct</span> <span class="title">drbd_resource</span> &#123;</span></span><br><span class="line">...</span><br><span class="line"><span class="number">0832</span>     <span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">connections</span>;</span></span><br><span class="line">....</span><br><span class="line"><span class="number">0893</span>     <span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">listeners</span>;</span></span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<h4 id="架構圖"><a href="#架構圖" class="headerlink" title="架構圖"></a>架構圖</h4><h5 id="Connection-and-Path"><a href="#Connection-and-Path" class="headerlink" title="Connection and Path"></a>Connection and Path</h5><p>抽象來說，每個 <strong>connection</strong>會擁有多條 <strong>path</strong>，但是實際上其實是每條 <strong>connection</strong>內的 <strong>drbd_transport</strong> 擁有多條 <strong>path</strong>。<br>為了容易理解，所以底下都使用 <strong>connection</strong> 取代 <strong>connection</strong>內部的 <strong>drbd_transport</strong>。</p>
+<p>每一個 <strong>connection</strong> 會使用 <strong>double link list</strong> 的方式來維護多條 <strong>path</strong>，所以在 <strong>connetion</strong> 中會有一個 <strong>list head</strong>的物件來指向該 <strong>link list</strong>的第一個。<br>如下圖<br><img src="http://i.imgur.com/udR9bVq.jpg"></p>
+<h5 id="Listener-and-Path"><a href="#Listener-and-Path" class="headerlink" title="Listener and Path"></a>Listener and Path</h5><p>每一個 <strong>listener</strong> 都代表一個 listen socket，而不同的 <strong>path</strong> 則可以擁有相同的 <strong>listen socket</strong>，因為只會有其中一個真正被使用到，所以在架構上每個 <strong>listener</strong> 也會有一個 <strong>double link list</strong> 串起用到本身的 <strong>path</strong>。<br>如下圖<br><img src="http://i.imgur.com/CZuF7on.jpg"></p>
+<h5 id="Resource-and-Conection-x2F-Listener"><a href="#Resource-and-Conection-x2F-Listener" class="headerlink" title="Resource and Conection&#x2F;Listener"></a>Resource and Conection&#x2F;Listener</h5><p>Resource是最上層的物件，掌管所有的 connection，因此也會使用 <strong>double link list</strong>去掌管所有的 connections。<br>此外，為了在某些步驟能夠更快速的查找所有的 listener， resource 本身也用了一個 <strong>double link list</strong> 串起所有的 resource。<br>將上述這些所有結果都繪成圖片，並且將所有的 <strong>double link</strong> 都簡化成 <strong>single link</strong> 且透過不同的箭頭符號表現不同的 <strong>link type</strong>。則結果會如下圖。</p>
+<p><img src="http://i.imgur.com/QVQ3D2B.jpg" alt="relation"></p>
+<h3 id="結論"><a href="#結論" class="headerlink" title="結論"></a>結論</h3><ul>
+<li>drbd 9.0 之後為了支援 <a target="_blank" rel="noopener" href="http://lists.linbit.com/pipermail/drbd-announce/2016-February/000218.html">multiple path</a>，在架構上有不小的改動，所以整個 path 相關的結構就變得複雜許多。</li>
+<li>本篇主要著重在抽象層的概念上，實作上還有許多小細節沒有提起，這些必須要到分析 TCP 模組實際上是怎麼運作時才有更深的理解與體悟。</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/System/" rel="tag"># System</a>
+              <a href="/tags/SourceCode/" rel="tag"># SourceCode</a>
+              <a href="/tags/Kernel/" rel="tag"># Kernel</a>
+              <a href="/tags/DRBD/" rel="tag"># DRBD</a>
+              <a href="/tags/Networking/" rel="tag"># Networking</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/DRBD-v9-0-Network-Work-Flow-ii.html" rel="prev" title="DRBD v9.0 Network Work Flow(ii)">
+                  <i class="fa fa-chevron-left"></i> DRBD v9.0 Network Work Flow(ii)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/drbd-9-0-install-on-ubuntu-16-04.html" rel="next" title="Install DRBD v9.0 on Ubuntu 16.04">
+                  Install DRBD v9.0 on Ubuntu 16.04 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

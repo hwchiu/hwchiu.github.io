@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="這篇要來跟大家介紹什麼是 Remote Directly Memory Access(RDMA)，從這個裝置的概念介紹來學習該裝置的使用情境，並且套用到 kubernetes device plugin 的框架中可以怎麼使用。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kubernetes - Device Plugin - RDMA">
+<meta property="og:url" content="https://www.hwchiu.com/k8s-device-plugin-rdma.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="這篇要來跟大家介紹什麼是 Remote Directly Memory Access(RDMA)，從這個裝置的概念介紹來學習該裝置的使用情境，並且套用到 kubernetes device plugin 的框架中可以怎麼使用。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/i4mXe2R.png">
+<meta property="og:image" content="https://i.imgur.com/tVcb5Sd.png">
+<meta property="og:image" content="https://i.imgur.com/a4X8NGA.png">
+<meta property="og:image" content="https://i.imgur.com/mTLCjyh.png">
+<meta property="og:image" content="https://i.imgur.com/R80AQVx.png">
+<meta property="article:published_time" content="2019-10-09T22:22:14.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.625Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="RDMA">
+<meta property="article:tag" content="ITHOME">
+<meta property="article:tag" content="DevicePlugin">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/i4mXe2R.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/k8s-device-plugin-rdma.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/k8s-device-plugin-rdma.html","path":"k8s-device-plugin-rdma.html","title":"Kubernetes - Device Plugin - RDMA"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Kubernetes - Device Plugin - RDMA | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%A6%82%E5%BF%B5%E4%BB%8B%E7%B4%B9"><span class="nav-number">2.</span> <span class="nav-text">概念介紹</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%89%B9%E6%80%A7"><span class="nav-number">3.</span> <span class="nav-text">特性</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Zero-Copy"><span class="nav-number">3.1.</span> <span class="nav-text">Zero Copy</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Kernel-Bypass"><span class="nav-number">3.2.</span> <span class="nav-text">Kernel Bypass</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#No-CPU-Involvement"><span class="nav-number">3.3.</span> <span class="nav-text">No CPU Involvement</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Message-Based-Transactions"><span class="nav-number">3.4.</span> <span class="nav-text">Message Based Transactions</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Scatter-x2F-Gather-Entries-Support"><span class="nav-number">3.5.</span> <span class="nav-text">Scatter&#x2F;Gather Entries Support</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%84%AA%E5%8B%A2"><span class="nav-number">4.</span> <span class="nav-text">優勢</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%95%88%E8%83%BD"><span class="nav-number">5.</span> <span class="nav-text">效能</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%9E%B6%E6%A7%8B"><span class="nav-number">6.</span> <span class="nav-text">架構</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%8A%E5%8D%8A%E9%83%A8%E5%88%86"><span class="nav-number">6.1.</span> <span class="nav-text">上半部分</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%8B%E5%8D%8A%E9%83%A8%E5%88%86"><span class="nav-number">6.2.</span> <span class="nav-text">下半部分</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#lossless-network"><span class="nav-number">6.2.1.</span> <span class="nav-text">lossless network</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#kubernetes"><span class="nav-number">7.</span> <span class="nav-text">kubernetes</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Deployment"><span class="nav-number">7.1.</span> <span class="nav-text">Deployment</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Usage"><span class="nav-number">7.1.1.</span> <span class="nav-text">Usage</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">8.</span> <span class="nav-text">個人資訊</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%83%E8%80%83"><span class="nav-number">9.</span> <span class="nav-text">參考</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/k8s-device-plugin-rdma.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Kubernetes - Device Plugin - RDMA | Hwchiu Learning Note">
+      <meta itemprop="description" content="這篇要來跟大家介紹什麼是 Remote Directly Memory Access(RDMA)，從這個裝置的概念介紹來學習該裝置的使用情境，並且套用到 kubernetes device plugin 的框架中可以怎麼使用。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Kubernetes - Device Plugin - RDMA
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-10-10 06:22:14" itemprop="dateCreated datePublished" datetime="2019-10-10T06:22:14+08:00">2019-10-10</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">這篇要來跟大家介紹什麼是 Remote Directly Memory Access(RDMA)，從這個裝置的概念介紹來學習該裝置的使用情境，並且套用到 kubernetes device plugin 的框架中可以怎麼使用。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前述兩篇探討了 <strong>Device Plugin</strong> 的理念以及其框架的架構，接下來會探討幾個 <strong>device plugin</strong> 的案例。<br>相對於怎麼使用這些 <strong>device plugin</strong>，我覺得更有趣的是去探討這些 <strong>device</strong> 到底是什麼，能夠提供什麼功能，為什麼會被發展出來以及其應用場景長什麼樣？</p>
+<p>而本篇要介紹的 <strong>deivce plugin</strong> 則是一個名為 <strong>RDMA</strong> 的裝置，接下來就來好好的探討這個裝置</p>
+<h1 id="概念介紹"><a href="#概念介紹" class="headerlink" title="概念介紹"></a>概念介紹</h1><p>RDMA (Remote Directly Memory Access)，期望透過記憶體存取技術的改變來大幅提升遠端機器之間溝通的效率。</p>
+<p>按照其字面解釋的意思就是<strong>遠端記憶體直接存取</strong>，仔細看其實就是 <strong>DMA</strong> 記憶體直接存取的加強版，但是其實際影響範圍擴大到遠端機器。<br>簡單來說就是再不牽扯到 <strong>CPU</strong> 運算資源的前提下直接存取遠端機器上的記憶體，其架構可以參考下圖</p>
+<p><img src="https://i.imgur.com/i4mXe2R.png"><br>該圖節錄自<a target="_blank" rel="noopener" href="https://linuxcluster.files.wordpress.com/2012/10/tcp_bypass_overview.pdf">TCP BYPASS</a></p>
+<p>預先配置好相關的記憶體於系統中，接下來透過這項技術希望可以做到兩台機器可以直接存取這些記憶體。舉例來說，如果這兩台雞器本身是一個網路連線的程式，平常一些要交換的資訊透過其框架將這些資訊放置到特定的記憶體中，接下來要存取的時候就可以直接存取對方機器上的記憶體而不需要經過 <strong>CPU</strong> 去進行運算處理，對於整個效能提升期盼帶來成長</p>
+<h1 id="特性"><a href="#特性" class="headerlink" title="特性"></a>特性</h1><p>RDMA 這項技術到底能夠帶來什麼優點? 常見的特色有</p>
+<ol>
+<li>Zero Copy</li>
+<li>Kernel bypass</li>
+<li>No CPU involvement</li>
+<li>Message based transactions</li>
+<li>Scatter&#x2F;Gather entries support</li>
+</ol>
+<h2 id="Zero-Copy"><a href="#Zero-Copy" class="headerlink" title="Zero Copy"></a>Zero Copy</h2><p>此特色源自於 <strong>DMA</strong>，目標就是希望能夠減少 <strong>記憶體</strong> 的複製，這邊先思考一個情境，任何的資料想要於 <strong>User Space</strong> 與 <strong>Kernel Space</strong> 中交換的話，並沒有辦法直接交換，因為其使用的記憶體位置是完全切割的，所以才會有一些 <strong>copy_from_user</strong> 之類的函式用來處理。<br>一個常見的 <strong>Zero Copy</strong> 的範例是，假設今天想要讀取一個檔案，讀取完畢後什麼都不處理就直接輸出，這種情況下其實該筆資料的內容根本沒有再 <strong>User Space</strong> 被處理，實際上可以一直放在 <strong>kernel</strong> 後直接輸出，所以就可以減少資料複製的行為藉此提高整個運算速度。</p>
+<p>將這個檔案處理的邏輯套用到網路運算上就是網路應用程式封包的傳輸，能否減少必要的複製行為來降低延遲性。</p>
+<h2 id="Kernel-Bypass"><a href="#Kernel-Bypass" class="headerlink" title="Kernel Bypass"></a>Kernel Bypass</h2><p>另外一個重要的特色就是跳過 Kernel，目前已經有不少的網路技術專案再探討如何透過跳過 <strong>Kenrel</strong> 來達到更快的處理速度，譬如讓 <strong>User Space</strong> 的應用程式直接跟網卡對街，直接處理封包，畢竟 <strong>Kernel</strong> 要處理的事情又多又複雜，並沒有辦法針對網路應用程式最佳化，因此跳過 <strong>kernel</strong> 儼然成為一個可考慮的解決方案之一。</p>
+<h2 id="No-CPU-Involvement"><a href="#No-CPU-Involvement" class="headerlink" title="No CPU Involvement"></a>No CPU Involvement</h2><p>除了上述的兩個特性外，還有一個有趣的特色就是可以再不使用遠端 <strong>CPU</strong> 的情況下直接讀取遠方的記憶體，這部分要仰賴網卡本身的幫忙以及協定的互助，此外對於 <strong>CPU</strong>來說根本不知道有任何記憶體被讀取，因此對於快取的部分也都不會有任何影響</p>
+<h2 id="Message-Based-Transactions"><a href="#Message-Based-Transactions" class="headerlink" title="Message Based Transactions"></a>Message Based Transactions</h2><p>基於 RDMA 封裝後的封包傳輸都是基於message 為單位，是一個已經定義好的的格式來處理，想對於單純直接使用 TCP 這種 streaming 的傳輸格式來說，開發者就不需要自己不停的拆解封包來判斷當前的格式與內容</p>
+<h2 id="Scatter-x2F-Gather-Entries-Support"><a href="#Scatter-x2F-Gather-Entries-Support" class="headerlink" title="Scatter&#x2F;Gather Entries Support"></a>Scatter&#x2F;Gather Entries Support</h2><p>此功能是提供一次性處理多個 message 的能力，不論是發送封包，接受封包，都可以一次性處理多個 <strong>message</strong> 的封包。此特色並不是類似迴圈般呼叫多次，而是一次的呼叫可處理多筆的資料。</p>
+<h1 id="優勢"><a href="#優勢" class="headerlink" title="優勢"></a>優勢</h1><p>看了上述的各種特色後，組合起來能夠為 <strong>RDMA</strong> 這項技術帶來什麼樣的優勢</p>
+<ol>
+<li>低延遲性</li>
+<li>高傳輸量</li>
+<li>低 CPU 使用量</li>
+</ol>
+<p>但是世界通常沒有這麼美好，實際上上述的三個優勢並不是同時存在的，會需要根據需求台調整不同的設計以及用法來達成，這部分可以看看 <a target="_blank" rel="noopener" href="http://www.rdmamojo.com/2013/06/08/tips-and-tricks-to-optimize-your-rdma-code/">Tips and tricks to optimize your RDMA code</a> 這篇文章裡面的描述來如何最佳化你的應用程式</p>
+<p>稍微節錄一下裡面的四大章節</p>
+<ol>
+<li>Improving the Bandwidth</li>
+<li>Reducing the latency</li>
+<li>Reducing memory consumption</li>
+<li>Reducing CPU consumption</li>
+</ol>
+<p>根據不同的需求都有不同的方法去設定，甚至包含程式碼撰寫的方式都會影響最後的效能，也因此 <strong>RDMA</strong> 的撰寫難度頗高，整個框架完全不同且使用情境也會影響寫法。</p>
+<h1 id="效能"><a href="#效能" class="headerlink" title="效能"></a>效能</h1><p>這邊擷取自 <strong>Mellanox</strong> 關於 <strong>NFS</strong> 進行 TCP&#x2F;RDMA 兩者的<a target="_blank" rel="noopener" href="https://blog.mellanox.com/2018/06/double-your-network-file-system-performance-rdma-networking/">效能比較</a>，有興趣的可以自行閱讀看看比較說明，以結果論來說大致上都有兩倍左右的提升，不論是傳輸速度，或是每秒可執行的操作數</p>
+<p><img src="https://i.imgur.com/tVcb5Sd.png"><br>以上圖片節錄自<a target="_blank" rel="noopener" href="https://blog.mellanox.com/2018/06/double-your-network-file-system-performance-rdma-networking/">Double Your Network File System (NFS) Performance with RDMA-Enabled Networking
+</a></p>
+<p><img src="https://i.imgur.com/a4X8NGA.png"><br>以上圖片節錄自<a target="_blank" rel="noopener" href="https://blog.mellanox.com/2018/06/double-your-network-file-system-performance-rdma-networking/">Double Your Network File System (NFS) Performance with RDMA-Enabled Networking
+</a></p>
+<p><img src="https://i.imgur.com/mTLCjyh.png"></p>
+<p>以上圖片節錄自<a target="_blank" rel="noopener" href="https://blog.mellanox.com/2018/06/double-your-network-file-system-performance-rdma-networking/">Double Your Network File System (NFS) Performance with RDMA-Enabled Networking
+</a></p>
+<h1 id="架構"><a href="#架構" class="headerlink" title="架構"></a>架構</h1><p>接下來使用下列這張圖片來解釋一下 <strong>RDMA</strong> 的架構。</p>
+<p><img src="https://i.imgur.com/R80AQVx.png"><br>該圖節錄自<a target="_blank" rel="noopener" href="https://www.slideshare.net/yitzhakbg/5th-generation-cellular-d2d-space-with-clusters">Mobile D2D RDMA CAAP, Cluster As Application Platforma</a></p>
+<p>首先該圖片上半部分成三層，分別是 <strong>Application</strong>, <strong>User Space</strong>, <strong>Kernel Space</strong>，並且透過這三層次的比對來介紹 <strong>RDMA</strong> 與傳統 <strong>TCP&#x2F;IP</strong> 運作的差異。</p>
+<p>下半部分則是介紹當 <strong>RDMA</strong> 的封包離開網路卡後，要如何跟外網的裝置進行溝通，有什麼樣的協定可以採用。</p>
+<h2 id="上半部分"><a href="#上半部分" class="headerlink" title="上半部分"></a>上半部分</h2><p>首先，圖片左半部分則是傳統的 <strong>TCP&#x2F;IP</strong> 運作流程，網路應用程式會透過 <strong>systel call</strong> 的方式創建一個 <strong>socket</strong>，並且透過這個 <strong>socket</strong> 來進行連線，傳輸，接收等相關操作。</p>
+<p>而 <strong>kernel</strong> 部分則是會有一個與上述 <strong>socket</strong> 對應的接口，一旦該接口接收到封包後，就會進行網路相關的處理，從 <strong>TCP</strong> 一路處理到 <strong>ETH</strong> 最後透過相關的驅動程式與網卡對接，讓封包順利送出。</p>
+<p>對於 <strong>RDMA</strong> 來說整個運作模式完全不同，首先其使用的介面完全不同於傳統的 <strong>BSD Socket API</strong>，所以程式撰寫的部分是需要完全重寫，可以看到圖上使用的是 <strong>RDMA Verbs API</strong>。</p>
+<p>接下來由於 <strong>Kernel Bypass</strong> 的緣故，應用程式會透過 <strong>API</strong> 直接與相關的驅動程式溝通，封包不會經過的 <strong>Kernel Network Stack</strong> 的處理，所以比對起來就會發現其走過的路徑相對較簡單。</p>
+<h2 id="下半部分"><a href="#下半部分" class="headerlink" title="下半部分"></a>下半部分</h2><p>接下來封包到達網卡後若要往外移動，這時候就有不同的選擇可以處理<br>若今天部署的環境是基於 <strong>InfiniBand</strong> 的環境，這種情況下環境內的 <strong>Swtich</strong> 都要是 <strong>InfiniBand</strong> 的交換機才能夠處理這種格式的封包。</p>
+<p>提到右邊的 <strong>iWARP</strong> 以及 <strong>RoCE</strong> 前要先有一些背景介紹，上述提到的 <strong>RDMA</strong> 除了網卡本身支援外，其封包傳遞的格式也就跟 <strong>TCP&#x2F;IP</strong> 不相容，因此如果沒有特別處理的話，對於採用 <strong>Ethernet</strong> 的網路架構中，是不能用這種應用程式的。</p>
+<p>為了解決這個問題，有兩個不同相容於 <strong>Ethernet</strong> 的協議被發展出，分別是 <strong>iWRAP</strong> 以及 <strong>RoCE</strong>。</p>
+<p>其中 <strong>iWARP</strong> 基於 <strong>TCP</strong> 去實作，而 <strong>RoCE</strong> 則是基於 <strong>UDP</strong>，所以看到圖<br>中這兩個協議最後都接上了 <strong>Ethernet</strong> 交換機。</p>
+<h3 id="lossless-network"><a href="#lossless-network" class="headerlink" title="lossless network"></a>lossless network</h3><p>這邊額外提一下 <strong>RoCE</strong> 的架構下，會希望整個網路是所謂的 <strong>lossless network</strong>，因為其協定是基於<strong>UDP</strong>的，所以掉了任何一個封包其實都很麻煩，如果可以讓網路架構本身去確保不會掉封包，這樣整個 <strong>RoCE</strong> 這邊就可以用更少的事情在處理重送之類的機制，反而可以更專注於效能的發送</p>
+<p>這篇<a target="_blank" rel="noopener" href="https://blog.mellanox.com/2016/07/resilient-roce-relaxes-rdma-requirements/">文章</a>中提到了三種達到 <strong>lossless network</strong> 的方法，有興趣可以再研究<br>Ethernet Flow Control (802.3x)<br>PFC (Priority Flow Control)<br>ECN (Explicit Congestion Notification)</p>
+<h1 id="kubernetes"><a href="#kubernetes" class="headerlink" title="kubernetes"></a>kubernetes</h1><p>前面探討了關於 <strong>RDMA</strong> 的基本介紹，基本上就是一個希望講求高效率網路傳輸的技術，使用上需要安裝相關的 <strong>driver</strong> 以及支援的網卡來處理。</p>
+<p>接下來看一下 <strong>kubernetes</strong> 關於 <strong>RDMA</strong> 的 <strong>device plugin</strong></p>
+<h2 id="Deployment"><a href="#Deployment" class="headerlink" title="Deployment"></a>Deployment</h2><p>其安裝的方式非常簡單，幾乎所有的 <strong>device plugin</strong> 都一樣，畢竟是一個要跟每個節點的 <strong>kubelet</strong> 溝通的 <strong>gRPC server</strong>，引此採用 <strong>DaemonSet</strong> 的方式來安裝也是合情合理。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">extensions/v1beta1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">DaemonSet</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">rdma-device-plugin-daemonset</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">kube-system</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="comment"># Mark this pod as a critical add-on; when enabled, the critical add-on scheduler</span></span><br><span class="line">      <span class="comment"># reserves resources for critical add-on pods so that they can be rescheduled after</span></span><br><span class="line">      <span class="comment"># a failure.  This annotation works in tandem with the toleration below.</span></span><br><span class="line">      <span class="attr">annotations:</span></span><br><span class="line">        <span class="attr">scheduler.alpha.kubernetes.io/critical-pod:</span> <span class="string">&quot;&quot;</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">name:</span> <span class="string">rdma-device-plugin-ds</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">tolerations:</span></span><br><span class="line">      <span class="comment"># Allow this pod to be rescheduled while the node is in &quot;critical add-ons only&quot; mode.</span></span><br><span class="line">      <span class="comment"># This, along with the annotation above marks this pod as a critical add-on.</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">CriticalAddonsOnly</span></span><br><span class="line">        <span class="attr">operator:</span> <span class="string">Exists</span></span><br><span class="line">      <span class="attr">hostNetwork:</span> <span class="literal">true</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">image:</span> <span class="string">carmark/k8s-rdma-device-plugin:latest</span></span><br><span class="line">        <span class="attr">name:</span> <span class="string">rdma-device-plugin-ctr</span></span><br><span class="line">        <span class="attr">args:</span> [<span class="string">&quot;-log-level&quot;</span>, <span class="string">&quot;debug&quot;</span>]</span><br><span class="line">        <span class="attr">securityContext:</span></span><br><span class="line">          <span class="attr">allowPrivilegeEscalation:</span> <span class="literal">false</span></span><br><span class="line">          <span class="attr">capabilities:</span></span><br><span class="line">            <span class="attr">drop:</span> [<span class="string">&quot;ALL&quot;</span>]</span><br><span class="line">        <span class="attr">volumeMounts:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">device-plugin</span></span><br><span class="line">            <span class="attr">mountPath:</span> <span class="string">/var/lib/kubelet/device-plugins</span></span><br><span class="line">      <span class="attr">volumes:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">device-plugin</span></span><br><span class="line">          <span class="attr">hostPath:</span></span><br><span class="line">            <span class="attr">path:</span> <span class="string">/var/lib/kubelet/device-plugins</span></span><br></pre></td></tr></table></figure>
+
+
+<p>使用上非常簡單，但是前述提到必續要有相關的應用程式才可以使用這種裝置，並不是任何一個目前使用 <strong>TCP&#x2F;IP</strong> 的應用程式都可以輕鬆轉換過去，因此為了測試可以使用 <strong>Mellanox</strong> 提供的容器來測試。</p>
+<h3 id="Usage"><a href="#Usage" class="headerlink" title="Usage"></a>Usage</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">rdma-pod</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">rdma-container</span></span><br><span class="line">      <span class="attr">image:</span> <span class="string">mellanox/mofed421_docker:noop</span></span><br><span class="line">      <span class="attr">securityContext:</span></span><br><span class="line">        <span class="attr">capabilities:</span></span><br><span class="line">          <span class="attr">add:</span> [<span class="string">&quot;ALL&quot;</span>]</span><br><span class="line">      <span class="attr">resources:</span></span><br><span class="line">        <span class="attr">limits:</span></span><br><span class="line">          <span class="attr">tencent.com/rdma:</span> <span class="number">1</span> <span class="comment"># requesting 1 RDMA device</span></span><br></pre></td></tr></table></figure>
+
+<p>使用 <strong>device plugin</strong> 就是這樣簡單，能夠讓容器內部的應用程式看起來跟在實體機器使用上沒有差異，而最大的問題反而是使用情境以及相關的應用程式要如何搭配這些高速的網路設備來使用。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/hustcat/k8s-rdma-device-plugin">https://github.com/hustcat/k8s-rdma-device-plugin</a></li>
+<li><a target="_blank" rel="noopener" href="https://linuxcluster.files.wordpress.com/2012/10/tcp_bypass_overview.pdf">https://linuxcluster.files.wordpress.com/2012/10/tcp_bypass_overview.pdf</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.rdmamojo.com/2013/06/08/tips-and-tricks-to-optimize-your-rdma-code/">http://www.rdmamojo.com/2013/06/08/tips-and-tricks-to-optimize-your-rdma-code/</a></li>
+<li><a target="_blank" rel="noopener" href="https://community.mellanox.com/s/article/docker-rdma-sriov-networking-with-connectx4-connectx5">https://community.mellanox.com/s/article/docker-rdma-sriov-networking-with-connectx4-connectx5</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.mellanox.com/2016/07/resilient-roce-relaxes-rdma-requirements/">https://blog.mellanox.com/2016/07/resilient-roce-relaxes-rdma-requirements/</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.mellanox.com/2018/06/double-your-network-file-system-performance-rdma-networking/">https://blog.mellanox.com/2018/06/double-your-network-file-system-performance-rdma-networking/</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/RDMA/" rel="tag"># RDMA</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+              <a href="/tags/DevicePlugin/" rel="tag"># DevicePlugin</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/k8s-device-plugin-implement.html" rel="prev" title="Device Plugin - Implementation">
+                  <i class="fa fa-chevron-left"></i> Device Plugin - Implementation
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/k8s-device-plugin-sriov.html" rel="next" title="Kubernetes - Device Plugin - SRIOV">
+                  Kubernetes - Device Plugin - SRIOV <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

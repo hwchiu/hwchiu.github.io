@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="此篇文章主要研究目前很熱門的 scale out storage 軟體 ceph 的網路架構。由於 scale-out 的特性，不同節點彼此之間需要透過網路來交換資料，所以 ceph這邊提供了 public network 以及 cluster network 兩種不同的用途的網路架構。 其中 cluster network 是用來傳輸資料用的，當各節點有資料要同步時，流量都是走這個網路來交換，而">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Ceph Network Architecture 研究(一)">
+<meta property="og:url" content="https://www.hwchiu.com/ceph-network-i.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="此篇文章主要研究目前很熱門的 scale out storage 軟體 ceph 的網路架構。由於 scale-out 的特性，不同節點彼此之間需要透過網路來交換資料，所以 ceph這邊提供了 public network 以及 cluster network 兩種不同的用途的網路架構。 其中 cluster network 是用來傳輸資料用的，當各節點有資料要同步時，流量都是走這個網路來交換，而">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://i.imgur.com/viZA6UG.jpg">
+<meta property="og:image" content="http://i.imgur.com/fpXuDmD.jpg">
+<meta property="og:image" content="http://i.imgur.com/cvot2Ow.jpg[">
+<meta property="article:published_time" content="2017-05-23T00:12:45.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.602Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="SourceCode">
+<meta property="article:tag" content="Ceph">
+<meta property="article:tag" content="SDS">
+<meta property="article:tag" content="SOS">
+<meta property="article:tag" content="ScaleOut">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://i.imgur.com/viZA6UG.jpg">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/ceph-network-i.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/ceph-network-i.html","path":"ceph-network-i.html","title":"Ceph Network Architecture 研究(一)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Ceph Network Architecture 研究(一) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#Environment"><span class="nav-number">1.</span> <span class="nav-text">Environment</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Introduction"><span class="nav-number">2.</span> <span class="nav-text">Introduction</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Simple"><span class="nav-number">2.1.</span> <span class="nav-text">Simple</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Xio"><span class="nav-number">2.2.</span> <span class="nav-text">Xio</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Async"><span class="nav-number">2.3.</span> <span class="nav-text">Async</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#POSIX"><span class="nav-number">2.3.1.</span> <span class="nav-text">POSIX</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#DPDK"><span class="nav-number">2.3.2.</span> <span class="nav-text">DPDK</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#RDMA"><span class="nav-number">2.3.3.</span> <span class="nav-text">RDMA</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Architecture"><span class="nav-number">3.</span> <span class="nav-text">Architecture</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Messege"><span class="nav-number">3.1.</span> <span class="nav-text">Messege</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Connection"><span class="nav-number">3.2.</span> <span class="nav-text">Connection</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Messenger"><span class="nav-number">3.3.</span> <span class="nav-text">Messenger</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Dispatcher"><span class="nav-number">3.4.</span> <span class="nav-text">Dispatcher</span></a></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ceph-network-i.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Ceph Network Architecture 研究(一) | Hwchiu Learning Note">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Ceph Network Architecture 研究(一)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2017-05-23 08:12:45" itemprop="dateCreated datePublished" datetime="2017-05-23T08:12:45+08:00">2017-05-23</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>此篇文章主要研究目前很熱門的 <strong>scale out storage</strong> 軟體 <strong>ceph</strong> 的網路架構。<br>由於 scale-out 的特性，不同節點彼此之間需要透過網路來交換資料，所以 <strong>ceph</strong><br>這邊提供了 <strong>public network</strong> 以及 <strong>cluster network</strong> 兩種不同的用途的網路架構。</p>
+<p>其中 <strong>cluster network</strong> 是用來傳輸資料用的，當各節點有資料要同步時，流量都是走這個網路來交換，<br>而 <strong>public network</strong>則是處理剩下的流量，譬如外面的資料讀取(read&#x2F;write)等。</p>
+<p>因此接下來將針對 <strong>Ceph</strong> 內部的網路架構進行研究，並且最後選擇一種類型進行更進一步的研究。</p>
+<span id="more"></span>
+
+<h3 id="Environment"><a href="#Environment" class="headerlink" title="Environment"></a>Environment</h3><ul>
+<li>本文所觀看的架構以及程式碼都基於 <a target="_blank" rel="noopener" href="https://github.com/ceph/ceph/tree/v12.0.0">ceph 12.0.0</a></li>
+<li>所有網路的程式碼都放在 <strong>&#x2F;src&#x2F;msg&#x2F;</strong> 內部資料夾內。</li>
+<li>可以透過修改 <strong>ceph.conf</strong>中的 <strong>ms_type</strong> 來改變當前 ceph 要使用何種網路架構來連線。</li>
+</ul>
+<h3 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h3><p>在此版本中， <strong>ceph</strong> 內部的網路架構大致上可以分成三種來使用</p>
+<ul>
+<li>Simple</li>
+<li>Async</li>
+<li>Xio</li>
+</ul>
+<p>若要更細微去分的話，則 <strong>Async</strong> 又可以細分成三成類型，分別是</p>
+<ul>
+<li>Posix</li>
+<li>DPDK</li>
+<li>RDMA</li>
+</ul>
+<p>接下來會介紹一下這些類型的概念。</p>
+<h4 id="Simple"><a href="#Simple" class="headerlink" title="Simple"></a>Simple</h4><p>Simple顧名思義就是簡單，其網路架構也是非常的簡單，是 <strong>ceph</strong> 最早期的設計<br>每一對節點之間都會有一條 connection，而每一條 connection 又會產生兩個 thread，分別負責send&#x2F;write的行為。<br>所以當 connection 數量一多的時候，會產生非常多的 thread，然後每個 thread 都各自在自己的迴圈內去處理自己的事情。這種網路程式設計的方法到現今幾乎都被 <strong>event-based</strong> 的方法給取代，當有事件發生時再來處理，而不是開一個 <strong>thread</strong> 在那邊癡癡的等待封包處理。<br>若要使用這種架構，則將 <strong>ms_type</strong> 修改為 <strong>simple</strong> 即可。</p>
+<h4 id="Xio"><a href="#Xio" class="headerlink" title="Xio"></a>Xio</h4><p>Xio比較不算是原生的功能，其用到了第三方的library <a target="_blank" rel="noopener" href="https://github.com/accelio/accelio">Accelio XIO</a>。<br><strong>Accelio XIO</strong>是一套提供穩定，高速網路資料交換的函式庫，除了支援常見的 <strong>Ethernet Network</strong> 外，也有支援 <strong>RDMA</strong>, 所以現在網路上看到很多 <strong>ceph</strong> 關於RDMA的效能測量都是基於使用 <strong>Xio</strong>作為其網路傳輸的實現。<br>然而 <strong>ceph</strong> 後來也沒有在維護使用<strong>xio</strong>作為其網路傳輸的一部份，主要還是因為要引入第三方函式庫，不是直接使用 <strong>ceph</strong>本身的架構，同時若有任何bug出現，除非等待<strong>xio</strong>修復，否則開發人員還要再花時間理解一套第三方函式庫，並且嘗試解決問題，這在整理維護成本上是不容忽視的。<br>若要使用這種架構，則將 <strong>ms_type</strong> 修改為 <strong>xio</strong> 即可。</p>
+<h4 id="Async"><a href="#Async" class="headerlink" title="Async"></a>Async</h4><p>相對於 <strong>simple</strong> 採用兩條 <strong>thread</strong> 專門負責收送動作的做法，<strong>Async</strong>則是採用 <strong>event-driven</strong>的方式來處理請求，整體設計上會有一個<strong>thread pool</strong>，會有一個固定數量（還是可透過API動態調整)的 <strong>thread</strong>。<br>然後將每一條 connection 分配到一個 thread 身上，然後透過監聽該<strong>connection</strong>的狀況，當底層觸發了<strong>收</strong>或是<strong>送</strong>的事件時，更精準的應該是講 <strong>read</strong>&#x2F;<strong>write</strong>，就會呼叫對應的函式來處理相關的行為。<br>此種設計可大大減少系統上開啟的 <strong>thread</strong> 數量，減少系統的消耗。<br>在此設計下， <strong>ceph</strong> 又提供了三種模式，分別是 <strong>POSIX</strong>, <strong>DPDK</strong> 以及 <strong>RDMA</strong>。<br>這三者的切換方式分別是將<strong>ms_type</strong>修改為</p>
+<ul>
+<li>async</li>
+<li>async+dpdk</li>
+<li>async+rmda</li>
+</ul>
+<h5 id="POSIX"><a href="#POSIX" class="headerlink" title="POSIX"></a>POSIX</h5><p>POSIX代表的就是走 <strong>kernel</strong> 大家熟悉的<strong>event</strong>機制，譬如<strong>select</strong>, <strong>epoll</strong> 以及 <strong>kqueue</strong>.<br>同時此類型也是 <strong>async</strong>的預設類型，因為此類型完全不需要任何硬體的幫忙，完全是靠<strong>software</strong>的方式就可以完成的，主要是看 <strong>kernel</strong> 本身的支援程度來決定實際上會呼叫出哪一種實現方式來使用。</p>
+<h5 id="DPDK"><a href="#DPDK" class="headerlink" title="DPDK"></a>DPDK</h5><p>Data Plane Development Kit(DPDK)是一套 <strong>intel</strong>所主導的技術，基本上就是使用<strong>CPU</strong>換取<strong>效能</strong>的機制，藉由此機制，<strong>user-space</strong>的程式可以略過 <strong>kernel</strong> 直接跟硬體溝通，這部分採用的是<strong>polling</strong>的方式，藉由不停地詢問來加強整理的效能，然而也會因為一直不停的<strong>polling</strong>使得<strong>cpu</strong>使用率提升。<br>然而此技術只要是<strong>x86</strong>的 CPU 基本上都支援，所以在使用上其實可以說是非常的廣泛，很容易被支援，不太會有被特定硬體綁住限制的機會。</p>
+<h5 id="RDMA"><a href="#RDMA" class="headerlink" title="RDMA"></a>RDMA</h5><p>RDMA代表的是遠方記憶體存取，是一種擁有<strong>low latency</strong>, <strong>low cpu consumption</strong>, <strong>kernel by pass</strong>等特性的傳輸方法，藉由跳過<strong>kernel-space</strong>的方式，讓整體資料流量直接透過網卡去處理，同時也可以直接針對遠方的記憶體進行修改而不會讓遠方的<strong>CPU</strong>察覺這件事情。<br>一般來說支援的網路底層有 <strong>Infiniband</strong> 以及 <strong>Ethernet</strong>，這部分由於封包會忽略 <strong>kernel space</strong>，因此資料在 <strong>internet</strong> 上傳遞勢必要符合當前廣泛的格式，譬如 <strong>Ethernet</strong>，因此這邊會採用 <strong>ROCE</strong> 的方式來處理封包之間的標頭問題。<br>目前 <code>ceph</code> 上面已經可以運行 <strong>RDMA</strong>，不過根據開發者在 <strong>Mail</strong> 中的說法，目前還是在尋求穩定性為主，效能上還沒有達到最佳化的部分，因此使用起來與 <strong>POSIX w&#x2F; TCP&#x2F;IP</strong> 在各方面都不會有太明顯的提升。</p>
+<p>在看完這些網路底層的實現後，接下來要來探討<strong>Network</strong>是如何提供介面給其他元件，如<strong>OSD</strong>,<strong>Mon</strong>等使用的。</p>
+<h3 id="Architecture"><a href="#Architecture" class="headerlink" title="Architecture"></a>Architecture</h3><p>整個網路最基礎的架構程式碼都放在 <strong>&#x2F;src&#x2F;msg&#x2F;</strong> 裡面，排除三種類型的資料夾外，大致上就是下列四種類型</p>
+<ul>
+<li>Message</li>
+<li>Connection</li>
+<li>Messenger</li>
+<li>Dispatcher</li>
+</ul>
+<p>而剛剛上述提到的那些種類，其實就是繼承這些基本架構，並且實現了每個介面的功能而已。<br>因此接下來會比較偏向概念性的去分析這四種概念的用途。</p>
+<h4 id="Messege"><a href="#Messege" class="headerlink" title="Messege"></a>Messege</h4><p>此物件主要用來定義封包的格式，所有 <strong>ceph node</strong>之間的封包傳送都必須要參照此格式，不過對於應用層(osd,mon等)不需要擔心這邊，這邊是由網路層去負責包裝跟解析的</p>
+<h4 id="Connection"><a href="#Connection" class="headerlink" title="Connection"></a>Connection</h4><p>代表任意兩個 <strong>ceph node</strong> 之間的連線，彼此之間可以傳送&#x2F;接收封包。</p>
+<h4 id="Messenger"><a href="#Messenger" class="headerlink" title="Messenger"></a>Messenger</h4><p>此物件用來管理連線，一種Messenger可以管理多條連線，目前在 osd 的使用中，是採用<strong>一種</strong>類型的連線使用一個 <strong>Messenger</strong>，而底下可以有很多條<strong>connection</strong>。<br>舉例來說，今天有兩種連線類型分別代表 <strong>heartbeat public</strong> 以及 <strong>heartbeat cluster</strong>，且環境中有 三台<strong>osd</strong>，所以於 <strong>mesh</strong> 的架構中，總共會有六條連線，(每台 osd 彼此互連，且都有兩種類型的連線)。<br>在<strong>heartbeat public</strong>的 <strong>messenger</strong> 會採用 <strong>public network</strong>去建立 connection，而在 <strong>heartbeat cluster</strong> 的 <strong>messenger</strong> 則是會採用 <strong>cluster network</strong> 去建立 connection。<br>這邊的範例剛好是使用不同網路類型的 *messenger**，實際上也可以是不同用途的，譬如用來傳遞 <strong>heartbeat</strong>，用來傳送 <strong>control message</strong> 或是用來傳送 <strong>data message</strong>之類的。<br>這邊的架構如附圖</p>
+<p><img src="http://i.imgur.com/viZA6UG.jpg"></p>
+<p>可參考 <strong>OSD</strong> 實際創造這些 <strong>messenger</strong> 的程式碼</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">Messenger *ms_public = Messenger::<span class="built_in">create</span>(g_ceph_context, public_msgr_type,</span><br><span class="line">			   <span class="type">entity_name_t</span>::<span class="built_in">OSD</span>(whoami), <span class="string">&quot;client&quot;</span>,</span><br><span class="line">			   <span class="built_in">getpid</span>(),</span><br><span class="line">			   Messenger::HAS_HEAVY_TRAFFIC |</span><br><span class="line">			   Messenger::HAS_MANY_CONNECTIONS);</span><br><span class="line">Messenger *ms_cluster = Messenger::<span class="built_in">create</span>(g_ceph_context, cluster_msgr_type,</span><br><span class="line">			    <span class="type">entity_name_t</span>::<span class="built_in">OSD</span>(whoami), <span class="string">&quot;cluster&quot;</span>,</span><br><span class="line">			    <span class="built_in">getpid</span>(),</span><br><span class="line">			    Messenger::HAS_HEAVY_TRAFFIC |</span><br><span class="line">			    Messenger::HAS_MANY_CONNECTIONS);</span><br><span class="line">Messenger *ms_hb_back_client = Messenger::<span class="built_in">create</span>(g_ceph_context, cluster_msgr_type,</span><br><span class="line">			     <span class="type">entity_name_t</span>::<span class="built_in">OSD</span>(whoami), <span class="string">&quot;hb_back_client&quot;</span>,</span><br><span class="line">			     <span class="built_in">getpid</span>(), Messenger::HEARTBEAT);</span><br><span class="line">Messenger *ms_hb_front_client = Messenger::<span class="built_in">create</span>(g_ceph_context, public_msgr_type,</span><br><span class="line">			     <span class="type">entity_name_t</span>::<span class="built_in">OSD</span>(whoami), <span class="string">&quot;hb_front_client&quot;</span>,</span><br><span class="line">			     <span class="built_in">getpid</span>(), Messenger::HEARTBEAT);</span><br><span class="line">Messenger *ms_hb_back_server = Messenger::<span class="built_in">create</span>(g_ceph_context, cluster_msgr_type,</span><br><span class="line">				   <span class="type">entity_name_t</span>::<span class="built_in">OSD</span>(whoami), <span class="string">&quot;hb_back_server&quot;</span>,</span><br><span class="line">				   <span class="built_in">getpid</span>(), Messenger::HEARTBEAT);</span><br><span class="line">Messenger *ms_hb_front_server = Messenger::<span class="built_in">create</span>(g_ceph_context, public_msgr_type,</span><br><span class="line">				    <span class="type">entity_name_t</span>::<span class="built_in">OSD</span>(whoami), <span class="string">&quot;hb_front_server&quot;</span>,</span><br><span class="line">				    <span class="built_in">getpid</span>(), Messenger::HEARTBEAT);</span><br><span class="line">Messenger *ms_objecter = Messenger::<span class="built_in">create</span>(g_ceph_context, public_msgr_type,</span><br><span class="line">			     <span class="type">entity_name_t</span>::<span class="built_in">OSD</span>(whoami), <span class="string">&quot;ms_objecter&quot;</span>,</span><br><span class="line">			     <span class="built_in">getpid</span>(), <span class="number">0</span>);</span><br></pre></td></tr></table></figure>
+
+
+<h4 id="Dispatcher"><a href="#Dispatcher" class="headerlink" title="Dispatcher"></a>Dispatcher</h4><p>Dispatcher 這邊的概念簡單來說就是<strong>當接收到封包後，要怎麼處理</strong>，每個應用層(OSD&#x2F;MON.等)創建 <strong>Messenger</strong> 後，要向其註冊 <strong>dispatcher</strong>，這行為解讀成，當該 <strong>messenger</strong> 內的 <strong>connection</strong> 有從對方收到訊息後，所要執行的對應 <strong>function</strong>。<br>該 <strong>function</strong> 原型內可以判別是由哪一條 <strong>connection</strong>所觸發的。<br> <img src="http://i.imgur.com/fpXuDmD.jpg"><br>a若要註冊該 <strong>dispatcher</strong>，可參考 <strong>OSD</strong> 實際程式碼如下</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">client_messenger-&gt;<span class="built_in">add_dispatcher_head</span>(<span class="keyword">this</span>);</span><br><span class="line">cluster_messenger-&gt;<span class="built_in">add_dispatcher_head</span>(<span class="keyword">this</span>);</span><br><span class="line"></span><br><span class="line">hb_front_client_messenger-&gt;<span class="built_in">add_dispatcher_head</span>(&amp;heartbeat_dispatcher);</span><br><span class="line">hb_back_client_messenger-&gt;<span class="built_in">add_dispatcher_head</span>(&amp;heartbeat_dispatcher);</span><br><span class="line">hb_front_server_messenger-&gt;<span class="built_in">add_dispatcher_head</span>(&amp;heartbeat_dispatcher);</span><br><span class="line">hb_back_server_messenger-&gt;<span class="built_in">add_dispatcher_head</span>(&amp;heartbeat_dispatcher);</span><br></pre></td></tr></table></figure>
+
+
+
+<p>最後做一個簡單總結，每個應用層可以自由創建 <strong>messenger</strong>，並且向其註冊對應的 <strong>dispatcher</strong>，同時使用該 <strong>messenger</strong>去管理該類型的多條連線。</p>
+<p><img src="http://i.imgur.com/cvot2Ow.jpg["><br>至於底層是如何連線，封包如何收送，訊息如何解析、封裝，都些都是 Networking 本身的事情，就是本文開頭提到的那幾種方式去實作。</p>
+<p>因此接下來的文章，將探討 <strong>Async</strong> 這類型的傳輸方式是如何將上述的概念給實作的。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/SourceCode/" rel="tag"># SourceCode</a>
+              <a href="/tags/Ceph/" rel="tag"># Ceph</a>
+              <a href="/tags/SDS/" rel="tag"># SDS</a>
+              <a href="/tags/SOS/" rel="tag"># SOS</a>
+              <a href="/tags/ScaleOut/" rel="tag"># ScaleOut</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/perf-for-drbd-9-0.html" rel="prev" title="perf_for_drbd_9.0">
+                  <i class="fa fa-chevron-left"></i> perf_for_drbd_9.0
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/docker-build-image.html" rel="next" title="Docker image for Hexo (一)">
+                  Docker image for Hexo (一) <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

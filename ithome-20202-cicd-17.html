@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="ITHOME-2020 系列文章">
+<meta property="og:type" content="article">
+<meta property="og:title" content="鐵人賽系列文章- Day 17 - GitOps 與 Kubernetes 的整合">
+<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-17.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="ITHOME-2020 系列文章">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/KbYGBqd.jpg">
+<meta property="og:image" content="https://i.imgur.com/baa65WB.jpg">
+<meta property="article:published_time" content="2020-12-19T04:36:13.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.620Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="DevOps">
+<meta property="article:tag" content="ITHOME">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/KbYGBqd.jpg">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-17.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/ithome-20202-cicd-17.html","path":"ithome-20202-cicd-17.html","title":"鐵人賽系列文章- Day 17 - GitOps 與 Kubernetes 的整合"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>鐵人賽系列文章- Day 17 - GitOps 與 Kubernetes 的整合 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%A8%8B%E5%BC%8F%E7%A2%BC%E6%9E%B6%E6%A7%8B"><span class="nav-number">1.</span> <span class="nav-text">程式碼架構</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%9E%B6%E6%A7%8B%E4%B8%80"><span class="nav-number">2.</span> <span class="nav-text">架構一</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%9E%B6%E6%A7%8B%E4%BA%8C"><span class="nav-number">3.</span> <span class="nav-text">架構二</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">4.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-17.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="鐵人賽系列文章- Day 17 - GitOps 與 Kubernetes 的整合 | Hwchiu Learning Note">
+      <meta itemprop="description" content="ITHOME-2020 系列文章">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          鐵人賽系列文章- Day 17 - GitOps 與 Kubernetes 的整合
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2020-12-19 12:36:13" itemprop="dateCreated datePublished" datetime="2020-12-19T12:36:13+08:00">2020-12-19</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">ITHOME-2020 系列文章</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>上篇文章我們探討了 GitOps 的概念，但是概念歸概念，實作歸實作，有時候實作出來的結果跟概念不會完全一致，因此最後的使用方式與優缺點還是要看實作的細節。</p>
+<p>今天我們就來看看 GItOps 這個概念要怎麼與 Kubernetes 整合。</p>
+<p>首先，前述 GitOps 的概念中，我們提到一個代理人程式，這個程式要能夠管理左看 Git Repo, 右看 Kubernetes ，那由於這個程式本身要能夠有能力去讀取 Kubernetes 內的資源狀態，同時也要有能力對其修改，勢必要獲得一些操控權限。</p>
+<p>設想一個情境，如果今天這個代理人程式其座落於 Kubernetes 外，我們終究還是要為他準備一份 KUBECONFIG，這樣其實也是會增加安全性的風險，但是如果把這個程式放到 Kubernetes 裡面，讓其擁有存取 Kubernetes 能力的部分就相對好解決，這樣可以減少一些安全性的風險。</p>
+<h1 id="程式碼架構"><a href="#程式碼架構" class="headerlink" title="程式碼架構"></a>程式碼架構</h1><p>GitOps 的架構下，因為都會把資源的狀態檔案都放在 Git，所以這時候就會有一些不同的做法，舉例來說</p>
+<ol>
+<li>應用程式原始碼以及相關的 Yaml 放一起</li>
+<li>應用程式原始碼以及相關的 Yaml 分開到不同的 Repo 去放</li>
+</ol>
+<p>GitOps 的原則我認為採用 (2) 是比較好實現的，因為我們可以很明確地將應用程式與部署資源給分開，這兩個 Repo 所維護跟控管的團隊也有所不同。同時 Yaml Repo 內的所有更動跟只會跟部署資源的狀態有關，這樣對於維護，追蹤任何變動，甚至要退版等需求都比較好實現。</p>
+<p>如果將程式碼跟相關 Yaml 放在同樣一個 Repo 內，那想要針對部署狀況進行退版，就有可能也會導致程式碼本身功能也一併被退版，這就不是期望的結果。</p>
+<p>不過這邊所提的都只是一些各自的特性與優缺點，沒有一個絕對的解決方案跟絕對的正確與否，還是要根據 GitOps 的實作方式以及團隊的習慣方式去選擇。</p>
+<p>接下來的架構圖都會基於 (2) 的方式去介紹</p>
+<h1 id="架構一"><a href="#架構一" class="headerlink" title="架構一"></a>架構一</h1><p>我們用下面的架構圖來看一下一個 GitOps 與 Kubernetes 整合範例一</p>
+<p>這個架構下，我們會在 Kubernetes 內安裝一個 Controller，也就是前文所提的代理人程式，這個程式本身要有辦法與遠方的 Git(Yaml) Repo 溝通。</p>
+<p>接下來其運作流程可能是</p>
+<ol>
+<li>開發者對 Git(Application) Repo 產生修改，這份修改觸發了相關的 CI Pipeline ，這過程中經歷過測試等階段，最後將相關的 Image 給推到遠方的 Container Registry。</li>
+<li>系統管理者針對 Git(Yaml) Repo 產生修改，這份修改觸發了相關的 CI Pipeline, 這過程中會針對 Yaml 本身的格式與內容進行測試，確保沒有任何出錯。</li>
+<li>當 Git(Yaml) Repo 通過 CI Pipeline 而合併程式碼後，接下來 Kubernetes 內的 Controller 會知道 Git(Yaml) Repo 有更新<ol>
+<li>一種是 Git 那邊透過 Webhook 的方式告訴 Controller</li>
+<li>一種是 Controller 定期輪詢後得到這個結果</li>
+</ol>
+</li>
+<li>同步 Git(Yaml) Repo 裡面的狀態描述檔案與 Kubernetes 叢集內的狀態，確保目前運行狀態與 Git 內的檔案描述一致</li>
+<li>如果今天不想要 (3) 這個步驟的自動化，也可以由管理員經過確認後，手動要求 Controller 去同步 Git 並更新</li>
+</ol>
+<p><img src="https://i.imgur.com/KbYGBqd.jpg"></p>
+<p>上述的架構聽起來運作起來都滿順暢，但是對於開發者的叢集來說(假設開發者會有一個遠方的 Kubernetes 用來測試功能)可能會不便利，只要這些更新非常頻繁，那就意味者要一直不停的去修改 Git Yaml Repo 的內容，雖然一切都按照概念在運行，但是操作起來可能會覺得效率不一定更好。</p>
+<p>因此也會有人將上述的一些架構整合，譬如當 Image 推向到遠方 Container Registry 後，利用程式化的功能於 CI Pipeline 的最後階段自動的對 <code>Git(Yaml) Code Changed</code> 去送一筆 Commit 並自動觸發後面的 Controller 同步行為。</p>
+<p>GitOps 的概念很活，很多種做法都可以，並沒有要求一定要怎麼實作才可以稱為 GitOps，最重要的是你們的工作流程是否可以達到如同 GitOps 所宣稱的效果，就算不走 GitOps，只要可以增加開發跟部署的效率，減少問題就是一個適合的架構。</p>
+<h1 id="架構二"><a href="#架構二" class="headerlink" title="架構二"></a>架構二</h1><p>接下來我們來看一下另外一種參考架構，這種架構希望可以解決 Contaienr Image 頻繁更新的問題，因此 Controller 本身又會多了監聽 Container Registry 的能力。</p>
+<p>當 Controller 發現有新的版本的時候，只要這個版本號碼有符合規則，就會把新的版本資訊給套用到 Kubernetes 裡面。</p>
+<p>但是因為 GitOps 的原則是希望以 Git 作為單一檔案來源，如果這樣做就會破壞這個規則，因此這時候 Controller 就要根據當前 Image Tag 的變化，把變化內容給寫回到 Git(Yaml) Repo 之中。</p>
+<p>這也是為什麼下圖中 Controller 要對 Git(Yaml) Repo 進行更新與撰寫新 Commit 的原因。</p>
+<p>也因為這個原因，我們的 Controller 也必須要對該 Git(Yaml) Repo 擁有讀寫的能力，這方面對於系統又會增加一些設定要處理</p>
+<p><img src="https://i.imgur.com/baa65WB.jpg"></p>
+<p>以上兩種架構並不是互斥，是可以同時存在的，功能面方面就讓各位自己取捨，哪種功能我們需要，帶來的利弊誰比較大。</p>
+<p>下一篇我們將帶來其中一個開源專案 ArgoCD 的介紹，看看 ArgoCD 如何實踐 GitOps 的原則</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-16.html" rel="prev" title="鐵人賽系列文章- Day 16 - GitOps 的介紹">
+                  <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day 16 - GitOps 的介紹
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-18.html" rel="next" title="鐵人賽系列文章- Day 18 - GitOps - ArgoCD 介紹">
+                  鐵人賽系列文章- Day 18 - GitOps - ArgoCD 介紹 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

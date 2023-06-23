@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="ITHOME-2020 系列文章">
+<meta property="og:type" content="article">
+<meta property="og:title" content="鐵人賽系列文章- Day 14 - CD 與 Kubernetes 的整合">
+<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-14.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="ITHOME-2020 系列文章">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/Qup5mjg.jpg">
+<meta property="og:image" content="https://i.imgur.com/GMzaUxw.jpg">
+<meta property="og:image" content="https://i.imgur.com/BTyDW7b.jpg">
+<meta property="og:image" content="https://i.imgur.com/b5l63Om.jpg">
+<meta property="article:published_time" content="2020-12-11T12:50:32.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.619Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="DevOps">
+<meta property="article:tag" content="ITHOME">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/Qup5mjg.jpg">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-14.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/ithome-20202-cicd-14.html","path":"ithome-20202-cicd-14.html","title":"鐵人賽系列文章- Day 14 - CD 與 Kubernetes 的整合"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>鐵人賽系列文章- Day 14 - CD 與 Kubernetes 的整合 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#CI-x2F-CD-pipeline-Push"><span class="nav-number">1.</span> <span class="nav-text">CI&#x2F;CD pipeline (Push)</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BA%BA%E5%93%A1%E8%A7%B8%E7%99%BC-Push"><span class="nav-number">2.</span> <span class="nav-text">人員觸發 (Push)</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Container-Image-%E8%A7%B8%E7%99%BC-Push"><span class="nav-number">3.</span> <span class="nav-text">Container Image 觸發 (Push)</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Pull-Mode"><span class="nav-number">4.</span> <span class="nav-text">Pull Mode</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">5.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-14.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="鐵人賽系列文章- Day 14 - CD 與 Kubernetes 的整合 | Hwchiu Learning Note">
+      <meta itemprop="description" content="ITHOME-2020 系列文章">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          鐵人賽系列文章- Day 14 - CD 與 Kubernetes 的整合
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2020-12-11 20:50:32" itemprop="dateCreated datePublished" datetime="2020-12-11T20:50:32+08:00">2020-12-11</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">ITHOME-2020 系列文章</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>上篇文章中我們探討了 CD 過程的各種議題，而本篇文章則會開始探討 CD 與 Kubernetes 的部署整合</p>
+<p>這邊要特別強調的是 CI 跟 CD 兩件事情本來就不需要一定在一起，最簡單的情況下就是將 CI 與 CD 兩個步驟整合到同一個 pipeline 系統</p>
+<p>上。但是有時候會希望透過手動部署，但是部署中間的過程希望自動化，所以會透過手動觸發 CD 的流程來達成自動部署。</p>
+<p>此外， CI 與 CD 使用的流水線系統也不一定要用同一套系統，就如同前一篇文章提到專門針對 CD 這個步驟去列出相關的工具。</p>
+<p>以下將會列出四種用法，這四種用法可以分成兩大類</p>
+<ol>
+<li>Push Mode</li>
+<li>Pull Mode</li>
+</ol>
+<p>其中 Push Mode 的概念是由我們的 CD Pipeline 主動將新的應用程式推到遠方的 Kubernetes Cluster 內</p>
+<p>然而 Pull Mode 的概念是由 Kuberentes 主動去更新，藉由監聽遠方目標的變化來確保是否要自動更新版本</p>
+<h1 id="CI-x2F-CD-pipeline-Push"><a href="#CI-x2F-CD-pipeline-Push" class="headerlink" title="CI&#x2F;CD pipeline (Push)"></a>CI&#x2F;CD pipeline (Push)</h1><p><img src="https://i.imgur.com/Qup5mjg.jpg"></p>
+<p>第一個是我認為最直接且直觀，我們把 CI&#x2F;CD 兩個流程都放到同一個 Pipeline 系統內，其設計上也相對簡單</p>
+<ol>
+<li>當 CI 流程結束後，接下來就跑下個步驟，這個步驟包含<br>a. 準備相關執行檔案<br>b. 透過相關工具部署到遠方的 Kubernetes</li>
+<li>這種架構下，因為要存取遠方的 kubernetes，也是會需要將 KUBECONFIG 這個檔案放到 Pipeline 系統中，所以使用上要特別注意<br>安全性的問題，避免別人存取到這個 KUBECONFIG，否則攻擊者可以控制你的 Kubernetes 叢集</li>
+</ol>
+<h1 id="人員觸發-Push"><a href="#人員觸發-Push" class="headerlink" title="人員觸發 (Push)"></a>人員觸發 (Push)</h1><p><img src="https://i.imgur.com/GMzaUxw.jpg"></p>
+<p>這種架構下，我們將 CI pipeline 與 CD pipeline 給分開執行，這兩套 pipeline 要不要使用同一套系統無所謂，至少 Job 是分開的。</p>
+<p>叢集管理員或是其他有權限的人可以透過直接執行當前的 <code>CD pipeline</code> 來觸發自動化部屬。這種的好處在於，對於一些正式的生產環境</p>
+<p>下，太過於自動的部署不一定是完全好的，有時候會需要一些人為介入的確認，確認一切都沒有問題後才會繼續執行自動部署。</p>
+<p>因此這個架構下可能的一個流程是</p>
+<ol>
+<li>透過 CI pipeline 通過測試以及產生出最後要使用的 Image 檔案</li>
+<li>部署團隊與 PM 等經過確認，公告更新時間後在手動觸發自動部署的工作來完成部署</li>
+<li>如同前面部署，這邊也會需要將 Kubernetes 存取所需要的 KUBECONFIG 放到 CD pipeline 內，所以也是有安全性的問題需要注意</li>
+</ol>
+<h1 id="Container-Image-觸發-Push"><a href="#Container-Image-觸發-Push" class="headerlink" title="Container Image 觸發 (Push)"></a>Container Image 觸發 (Push)</h1><p><img src="https://i.imgur.com/BTyDW7b.jpg"></p>
+<p>這是另外一種不同的架構，我們將人為觸發的部分提供了一個新的選擇，當 Container Registry 本身發現有新版本的 Container Image 更新時，會透過不同的方式通知遠方的 CD pipeline 去觸發自動更新。</p>
+<p>這個使用方法會依賴你使用的 Container Registry 是否有支援這種的架構，譬如 Harbor 這個開源專案就有支援，當 image 更新後可以透過 webhook 的方式將訊息打到遠方。而遠方的 CD pipeline 如果也有這種機制可以透過 webhook 來觸發的話，就可以實作上面的機制。</p>
+<p>由於是透過 container registry 所觸發的工作，所以這種架構可以支援更多的觸發方式，譬如管理員今天緊急需求，手動推動新版的 Container Image 到遠方 Registry，這樣也能夠觸發</p>
+<p>因為跟前述架構完全類似，所以 KUBECONFIG 也是會放到環境之中，必須要有安全性的考量。</p>
+<h1 id="Pull-Mode"><a href="#Pull-Mode" class="headerlink" title="Pull Mode"></a>Pull Mode</h1><p><img src="https://i.imgur.com/b5l63Om.jpg"></p>
+<p>最後我們來看另外一種不同的架構，這種架構下我們就不會從 Pipeline 系統中主動地將新版應用程式推到 Kubernetes 中，相反的是我們的 Kubernetes 內會有一個 Controller，這個 Controller 會自己去判斷是否要更新這些應用程式，譬如說當遠方的 Contaienr Image 有新版更新時，就會自動抓取新的 Image 並且更新到系統之中。</p>
+<p>這種架構下，我們不需要一個 CD Piepline 來維護這些事情，此外，因為沒有主動與 Kubernetes 溝通的需求，所以也不需要把 KUBECONFIG 給放到外部系統 (CD Pipeline) 中，算是減少了一個可能的安全性隱憂。</p>
+<p>當然這種架構下，整個部署的流程都必須依賴 Controller 的邏輯來處理，如果今天有任何客製化的需求就變成全部都讓 Controller 來處理，可能要自行修改開源軟體，或是依賴對方更新，相較於完全使用 CD Pipeline 處理來說，彈性會比較低，擴充性也比較低，同時整個架構的極限都會被侷限在 Controller 本身的能力。</p>
+<p>最後要說的是，以上介紹的架構沒有一個是完美的，都只是一個參考架構，真正適合的架構還是取決於使用者團隊，透過理解不同部署方</p>
+<p>式所帶來的優缺點，評估哪些優勢我團隊需要，哪些缺點是團隊可以接受，不可以接受，最後綜合評量後取捨出一套適合團隊工作的方式。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-13.html" rel="prev" title="鐵人賽系列文章- Day13 - CD 系統的選擇議題">
+                  <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day13 - CD 系統的選擇議題
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-15.html" rel="next" title="鐵人賽系列文章- Day15 - CD 之 Pull Mode 介紹: Keel">
+                  鐵人賽系列文章- Day15 - CD 之 Pull Mode 介紹: Keel <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

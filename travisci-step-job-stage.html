@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="這次要跟大家分享的是一些關於 TravisCI 的使用心得，相信有在 Github 上面維護專案的人應該都對各式各樣的 CI 系統不陌生，不論是 公有服務的 TravisCI 或是 CircleCI 或是自己透過 Jenkins 來處理。本篇想要跟大家分享的重點是在 TravisCI 上關於 Build Stage 的概念，透過 Build Stage，我們可以更有架構的去設計該專案的 CI&#x2F;CD">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[DevOps] Travis CI - Step&#x2F;Job&#x2F;Stage">
+<meta property="og:url" content="https://www.hwchiu.com/travisci-step-job-stage.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="這次要跟大家分享的是一些關於 TravisCI 的使用心得，相信有在 Github 上面維護專案的人應該都對各式各樣的 CI 系統不陌生，不論是 公有服務的 TravisCI 或是 CircleCI 或是自己透過 Jenkins 來處理。本篇想要跟大家分享的重點是在 TravisCI 上關於 Build Stage 的概念，透過 Build Stage，我們可以更有架構的去設計該專案的 CI&#x2F;CD">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/14TXbFV.png">
+<meta property="og:image" content="https://i.imgur.com/Mrb22oE.png">
+<meta property="og:image" content="https://i.imgur.com/1knugMM.png">
+<meta property="og:image" content="https://i.imgur.com/sr2xvlX.png">
+<meta property="og:image" content="https://i.imgur.com/Kr9KDi3.png">
+<meta property="og:image" content="https://i.imgur.com/PhjZheD.png">
+<meta property="og:image" content="https://i.imgur.com/YkGmTQN.png">
+<meta property="og:image" content="https://i.imgur.com/nm3COBH.png">
+<meta property="og:image" content="https://i.imgur.com/pyyloCh.png">
+<meta property="article:published_time" content="2018-09-01T01:09:13.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.646Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="DevOps">
+<meta property="article:tag" content="CI&#x2F;CD">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/14TXbFV.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/travisci-step-job-stage.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/travisci-step-job-stage.html","path":"travisci-step-job-stage.html","title":"[DevOps] Travis CI - Step/Job/Stage"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>[DevOps] Travis CI - Step/Job/Stage | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Build-Steps"><span class="nav-number">2.</span> <span class="nav-text">Build Steps</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#install-x2F-script"><span class="nav-number">2.1.</span> <span class="nav-text">install&#x2F;script</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Example"><span class="nav-number">2.2.</span> <span class="nav-text">Example</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Solution"><span class="nav-number">2.3.</span> <span class="nav-text">Solution</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Job"><span class="nav-number">3.</span> <span class="nav-text">Job</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Definition"><span class="nav-number">3.1.</span> <span class="nav-text">Definition</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Multiple-Job"><span class="nav-number">3.2.</span> <span class="nav-text">Multiple Job</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Custom-Job"><span class="nav-number">3.3.</span> <span class="nav-text">Custom Job</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Build-Stage"><span class="nav-number">4.</span> <span class="nav-text">Build Stage</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Example-1"><span class="nav-number">4.1.</span> <span class="nav-text">Example</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">5.</span> <span class="nav-text">Summary</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Reference"><span class="nav-number">5.1.</span> <span class="nav-text">Reference</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">6.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/travisci-step-job-stage.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="[DevOps] Travis CI - Step/Job/Stage | Hwchiu Learning Note">
+      <meta itemprop="description" content="這次要跟大家分享的是一些關於 TravisCI 的使用心得，相信有在 Github 上面維護專案的人應該都對各式各樣的 CI 系統不陌生，不論是 公有服務的 TravisCI 或是 CircleCI 或是自己透過 Jenkins 來處理。本篇想要跟大家分享的重點是在 TravisCI 上關於 Build Stage 的概念，透過 Build Stage，我們可以更有架構的去設計該專案的 CI/CD 流程。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          [DevOps] Travis CI - Step/Job/Stage
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-09-01 09:09:13" itemprop="dateCreated datePublished" datetime="2018-09-01T09:09:13+08:00">2018-09-01</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">這次要跟大家分享的是一些關於 TravisCI 的使用心得，相信有在 Github 上面維護專案的人應該都對各式各樣的 CI 系統不陌生，不論是 公有服務的 TravisCI 或是 CircleCI 或是自己透過 Jenkins 來處理。本篇想要跟大家分享的重點是在 TravisCI 上關於 Build Stage 的概念，透過 Build Stage，我們可以更有架構的去設計該專案的 CI/CD 流程。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>舉例來說，假設我的 <code>Github</code> 專案會希望每次<code>Release</code>時會有下列的行為</p>
+<ol>
+<li>進行 單元測試&#x2F;整合測試 等各種確保程式碼正常運作的測試</li>
+<li>建置 <code>Docker</code> 相關映像檔並且更新到相關的容器倉庫</li>
+<li>將最新的程式碼部屬到相關的環境上</li>
+</ol>
+<p>接下來會跟大家分享一下，在 <code>TravisCI</code> 的設定中，我們有什麼辦法可以滿足上述的需求</p>
+<p>本文最後用到的 <code>travisCI</code> 設定檔可以在 <a target="_blank" rel="noopener" href="https://github.com/hwchiu/Travis-MultisStage/blob/master/.travis.yml">TravisCI Example</a> 找到</p>
+<h1 id="Build-Steps"><a href="#Build-Steps" class="headerlink" title="Build Steps"></a>Build Steps</h1><p>所謂的「工欲善其事，必先利其器」，在使用 <code>TravisCI</code> 來解決我們的問題之前，我們必須要先瞭解 <code>TravisCI</code> 的基本概念，然後思考如何用這些基本概念來完成我們的需求。</p>
+<h2 id="install-x2F-script"><a href="#install-x2F-script" class="headerlink" title="install&#x2F;script"></a>install&#x2F;script</h2><p>整個 <code>TravisCI</code> 的生命週期是由兩個主要步驟來構成</p>
+<ol>
+<li>install: 用來安裝任何相依性套件的階段</li>
+<li>script: 真正用來進行 <code>CI</code> 相關測試的階段</li>
+</ol>
+<p>除了上述這兩個步驟外，也有所謂類似 <code>Environment</code> 這種<code>非必要</code>選項可以讓整個 <code>TrasivCI</code>設定更簡潔<br>譬如可以讓 <code>TravisCI</code> 幫你準備相關的環境程式語言環境與特定版本，譬如說 <code>golang 1.8, 1.9</code></p>
+<p>對於 <code>install/script</code> 這兩個執行步驟來說，本身為了讓運作邏輯更加細膩，所以又衍生出了前後步驟的概念</p>
+<ol>
+<li>before_install: 該步驟會在 <code>install</code> 前運行，主要是用來準備任何 <code>install</code> 步驟所需要的資源，譬如透過 <code>apt-get update</code> 等更新套件倉庫。</li>
+<li>before_script: 該步驟會在 <code>script</code> 前運行，如同 <code>before_install</code> 一樣，為了 <code>script</code> 進行資源準備來滿足真正測試所需，譬如資料庫的建置</li>
+<li>after_script: 當 <code>script</code> 運行完畢後會執行的步驟，實際上還有所謂的<code>after_success</code> 以及 <code>after_failure</code> 更細部的針對測試的結果來區分的步驟。</li>
+</ol>
+<p>根據相關人員在 <code>Github Issue</code> 的回答， <code>before_install</code> 以及 <code>before_script</code> 的使用時機如下</p>
+<p><strong>before_install</strong> runs before the install step, which is meant to install any required packages or dependencies. You can prepare things before you run this step, or you can e.g. run sudo apt-get update to refresh the apt indexes.</p>
+<p><strong>before_script</strong> runs before the actual test&#x2F;build script runs. It’s commonly used to run any preparation steps required to get the build running, for instance copy database configurations, set up any additional environment configuration, and so on.</p>
+<h2 id="Example"><a href="#Example" class="headerlink" title="Example"></a>Example</h2><p>以下示範一個非常簡單的 <code>.travis.yml</code> 設定檔案，在此環境中，我們要求 <code>TravisCI</code> 準備一個 <code>golang 1.8</code> 版本的環境，同時對於 <code>install</code> 以及 <code>script</code> 這兩個階段我們都執行非常簡單的指令。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">language:</span> <span class="string">go</span></span><br><span class="line"></span><br><span class="line"><span class="attr">go:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">&quot;1.8&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="attr">before_install:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">echo</span> <span class="string">&quot;before_install&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="attr">install:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">echo</span> <span class="string">&quot;install&quot;</span></span><br><span class="line">  <span class="bullet">-</span></span><br><span class="line"><span class="attr">before_script:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">echo</span> <span class="string">&quot;before_script&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="attr">script:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">echo</span> <span class="string">&quot;script&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>上述的運行結果如下圖，該圖示我們可以觀察到</p>
+<ol>
+<li>golang 版本 1.8</li>
+<li>四個步驟的結果依序輸出</li>
+</ol>
+<p><img src="https://i.imgur.com/14TXbFV.png" alt="Imgur"></p>
+<h2 id="Solution"><a href="#Solution" class="headerlink" title="Solution"></a>Solution</h2><p>有了關於 <code>TravisCI</code> 建置週期的概念後，回過頭來探討一些下最初的需求</p>
+<ol>
+<li>進行 單元測試&#x2F;整合測試 等各種確保程式碼正常運作的測試</li>
+<li>建置 <code>Docker</code> 相關映像檔並且更新到相關的容器倉庫</li>
+<li>將最新的程式碼部屬到相關的環境上</li>
+</ol>
+<p>首先，這三個要求是有依賴性的，前面的失敗，後面的就不需要運行。<br>這邊沒有一個標準答案，有非常多的實現方式，譬如說</p>
+<ol>
+<li>將所有的步驟都放在 <code>script</code> 這個步驟去依序執行</li>
+<li>使用 <code>script</code>, <code>after_script</code> 甚至是其他 <code>deploy</code> 等不同的步驟來依序完成這些事情</li>
+</ol>
+<p>譬如下面範例 (單純舉例)</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">language:</span> <span class="string">go</span></span><br><span class="line"><span class="attr">go:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">&quot;1.8&quot;</span></span><br><span class="line"><span class="attr">before_install:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">echo</span> <span class="string">&quot;before_install&quot;</span></span><br><span class="line"><span class="attr">install:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">echo</span> <span class="string">&quot;install&quot;</span></span><br><span class="line"><span class="attr">before_script:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">echo</span> <span class="string">&quot;before_script&quot;</span></span><br><span class="line"><span class="attr">script:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">go</span> <span class="string">test</span> <span class="string">-v</span> <span class="string">./...</span></span><br><span class="line"><span class="attr">after_script:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">sudo</span> <span class="string">docker</span> <span class="string">build</span> <span class="string">-t</span> <span class="string">....</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">sudo</span> <span class="string">docker</span> <span class="string">push</span> <span class="string">....</span></span><br><span class="line"><span class="attr">deploy:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">./deploy.sh</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>可以到官方網頁這邊學到更多不同的建置步驟以及彼此之間的先後關係<br><a target="_blank" rel="noopener" href="https://docs.travis-ci.com/user/customizing-the-build/">https://docs.travis-ci.com/user/customizing-the-build/</a></p>
+<p>用下列這張圖來幫這個章節做一個總結</p>
+<p><img src="https://i.imgur.com/Mrb22oE.png" alt="Imgur"></p>
+<h1 id="Job"><a href="#Job" class="headerlink" title="Job"></a>Job</h1><h2 id="Definition"><a href="#Definition" class="headerlink" title="Definition"></a>Definition</h2><p>瞭解了基本的用法後，我們要來看看一些關於 <code>TravisCI</code> 的進階用法，看看透過這些進階用法我們能夠完成什麼樣更豐富的 <code>CI</code> 流程。</p>
+<p>首先，我們先定義什麼叫做 <code>Job</code>, <code>Job</code> 就是一個歷經 <code>TravisCI</code> 生命週期所有步驟的基本單位。</p>
+<p>所以一個<code>Job</code> 簡單來說會經歷過 <code>Environment</code>, <code>before_install</code>, <code>install</code>, <code>before_script</code>, <code>script</code> 以及 <code>after_script</code> 所有步驟</p>
+<p>這邊列舉的步驟並不是<code>TravisCI</code>的所有步驟，只是舉出幾個常見的步驟</p>
+<h2 id="Multiple-Job"><a href="#Multiple-Job" class="headerlink" title="Multiple Job"></a>Multiple Job</h2><p>有了 <code>Job</code> 的基本概念後，我們就可以往下思考一些更進階的用法。</p>
+<p>假設專案本身是透過 <code>golang</code> 程式語言撰寫而成的，我們現在希望測試該專案在不同 <code>golang</code> 版本下是否都能夠正常運行。<br>舉例來說，我希望使用 <code>golang 1.8</code> 以及 <code>golang 1.9</code> 這兩個版本來進行專案的測試。</p>
+<p>問題來了，這種情況下，我們要如何透過<code>TravisCI</code>來完成呢?<br>最直覺的就是我們什麼都硬幹，自己在 <code>TravisCI</code> 內去安裝各式各樣的環境，然後撰寫腳本去分開各式各樣的測試，將所有的需求都在<strong>一個Job</strong> 內完成。<br>當然這種情況下整個環境準備&#x2F;測試等相關的邏輯就會複雜且不好維護</p>
+<p>為了讓整個測試的架構乾淨與明瞭，我們可以透過 <code>Travis</code> 平行的運行多個<code>Job</code> 來滿足我們的需求。<br>在此架構下， <code>Travis</code> 會併行的去運行這些 <code>Job</code>, 且每個 <code>Job</code> 都有自己的建置週期，所有的 <code>Job</code> 都要都要成功該次測試才算成功。</p>
+<p>使用下列圖示再次說明 <code>Multiple Job</code> 的概念<br><img src="https://i.imgur.com/1knugMM.png" alt="Imgur"></p>
+<p>上方描述的是一個簡單的 <code>Jobs</code> 概念，涵蓋了本文提及的基本建置週期。<br>下面則是為了滿足特別需求，希望多個<code>golang</code> 版本同時測試，此時我們就可以一次運行多個 <code>Job</code>, 其中只有 <code>Environemnt</code> 的部份是完全獨立，其餘則是都會採用相同的設定。</p>
+<p>在 <code>TravisCI</code> 的設定檔案 <strong>.travis.yml</strong> 裡面，我們可以用下列的方式完成這個需求</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">language:</span> <span class="string">go</span></span><br><span class="line"></span><br><span class="line"><span class="attr">go:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">&quot;1.8&quot;</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">&quot;1.9&quot;</span></span><br><span class="line"><span class="attr">before_install:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">echo</span> <span class="string">&quot;before_install&quot;</span></span><br><span class="line"><span class="attr">install:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">echo</span> <span class="string">&quot;install&quot;</span></span><br><span class="line"><span class="attr">before_script:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">echo</span> <span class="string">&quot;before_script&quot;</span></span><br><span class="line"><span class="attr">script:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">echo</span> <span class="string">&quot;script&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>最後運行的結果如下, 可以看到該次的測試同時運行了兩個 <code>Job</code>, 這兩個 <code>Job</code> 分別是不同的 <code>Golang</code> 版本。<br><img src="https://i.imgur.com/sr2xvlX.png" alt="Imgur"></p>
+<h2 id="Custom-Job"><a href="#Custom-Job" class="headerlink" title="Custom Job"></a>Custom Job</h2><p>上述我們利用個 <code>go</code> 這個由 <code>TravisCI</code> 所定義的語法來完成產生 <code>MultipleJob</code> 的功能。</p>
+<p>這時候腦筋一轉，<code>install</code>,<code>script</code> 這些建置步驟是否也都可以有類似的概念呢?</p>
+<p>舉例來說，我希望對我的專案進行不同的測試，譬如 <code>Unit Test</code>, <code>Integration test</code>。<br>而這些測試除了測試的方式不同之外，環境的準備也不同<br>此外，同時運行這些測試也能夠減少測試的時間，並且將測試結果更清楚的標示出是哪種測試出問題。</p>
+<p>將上述的需求轉換成 <code>TravisCI</code> 的概念的話<br>就是需要同時運行多個 <code>Job</code>, 每個 <code>Job</code> 裡面對於每個建置步驟都有自己客製化的需求。</p>
+<p>這個需求我們透過下圖視覺化的方式來重新檢視一次</p>
+<p><img src="https://i.imgur.com/Kr9KDi3.png" alt="Imgur"></p>
+<p>我們的需求很簡單，希望同時運行多個 <code>Job</code> 且這些 <code>Job</code> 針對不同的運行階段能夠選擇是否要使用預設的規則或是客製化自身的需求。</p>
+<p><code>TravisCI</code> 就有提供了這樣的功能供各位去使用，在其 <code>.travis.yml</code> 這個 <code>yml</code> 的檔案中，我們要透過 <code>jobs:include</code> 的概念去撰寫</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">language:</span> <span class="string">go</span></span><br><span class="line"></span><br><span class="line"><span class="attr">go:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">&quot;1.8&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="attr">before_install:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">echo</span> <span class="string">&quot;before_install&quot;</span></span><br><span class="line"><span class="attr">install:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">echo</span> <span class="string">&quot;install&quot;</span></span><br><span class="line"><span class="attr">before_script:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">echo</span> <span class="string">&quot;before_script&quot;</span></span><br><span class="line"><span class="attr">script:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">echo</span> <span class="string">&quot;script&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="attr">jobs:</span></span><br><span class="line">  <span class="attr">include:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">stage:</span> <span class="string">Custom</span> <span class="string">Testing</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">Unit-Testing</span></span><br><span class="line">      <span class="attr">go:</span> <span class="string">&quot;1.8&quot;</span></span><br><span class="line">      <span class="attr">script:</span> <span class="string">echo</span> <span class="string">&quot;unit script&quot;</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">Integration-Testing</span></span><br><span class="line">      <span class="attr">before_install:</span> <span class="string">&quot;Integration-Testing_before_install&quot;</span></span><br><span class="line">      <span class="attr">go:</span> <span class="string">&quot;1.9&quot;</span></span><br><span class="line">      <span class="attr">script:</span> <span class="string">&quot;Integration-Testing_script&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>其運行結果如下<br><img src="https://i.imgur.com/PhjZheD.png" alt="Imgur"></p>
+<p>我們可以觀察到我們的確運行了兩個 <code>Job</code>  而這兩個 <code>Job</code> 都有明確的名稱，這邊就沒有點進去看各自 <code>Job</code> 的運行結果，有興趣的人可以自行嘗試看看。</p>
+<p>這邊先不討論語法，等到所有的概念都講述完畢後，再來討論語法的撰寫。</p>
+<h1 id="Build-Stage"><a href="#Build-Stage" class="headerlink" title="Build Stage"></a>Build Stage</h1><p>有了上述的 <code>Multiple Job</code> 的概念後，我們重新審視一下最初的需求</p>
+<ol>
+<li>進行 單元測試&#x2F;整合測試 等各種確保程式碼正常運作的測試</li>
+<li>建置 <code>Docker</code> 相關映像檔並且更新到相關的容器倉庫</li>
+<li>將最新的程式碼部屬到相關的環境上</li>
+</ol>
+<p>首先，不同的測試本身可以透過同時運行多個 <code>Job</code> 來滿足，這邊好處理。</p>
+<p>那建置&#x2F;更新 <code>Docker Image</code> 這件事情，我們要讓誰來處理?</p>
+<ol>
+<li>上述的測試選一個 <code>Job</code>,  客製化其某些建置步驟來處理</li>
+<li>額外產生一個 <code>Job</code> 來專門處理這類的需求</li>
+</ol>
+<p>只是採用第一種方式可能會有一個問題<br>假設我們需要 <code>所有</code> 測試都通過才能進行 <code>Docker</code> 相關的處理，那我們就沒有辦法在任意一個測試 <code>Job</code> 內去處理這個邏輯。</p>
+<p>為了解決這個問題，除了將所有的工作重新集中回一個<code>Job</code>處理外，就只能在開啟第三個 <code>Job</code> 來處理。</p>
+<p>但是這個 <code>Job</code> 本身有相依性的問題，它必須要確認前述相關測試的所有 <code>Job</code> 都完成才能夠繼續往下運行。<br>為了解決這個問題，我們要在這邊介紹 <code>Stage</code> 這個概念。</p>
+<p><code>Stage</code> 的特色以及概念如下</p>
+<ol>
+<li>由一群 <code>Job</code> 組成</li>
+<li>只要有一個 <code>Job</code> 失敗，該 <code>Stage</code> 就會被視為失敗</li>
+<li>只有當該前 Stage 是成功的狀態，才會執行下一個 Stage</li>
+</ol>
+<p>有了 <code>Stage</code> 的概念，我們可以把上述的需求重新整理歸納成三個 <code>Stage</code></p>
+<ul>
+<li>Testing Stage<ul>
+<li>Unit Testing Job</li>
+<li>Integration Testing Job</li>
+</ul>
+</li>
+<li>Docker Build Stage</li>
+<li>Deploy Stage</li>
+</ul>
+<p>將這個概念用下圖再次檢視一次</p>
+<p><img src="https://i.imgur.com/YkGmTQN.png" alt="Imgur"></p>
+<h2 id="Example-1"><a href="#Example-1" class="headerlink" title="Example"></a>Example</h2><p>每個 <code>Stage</code> 之間彼此有依賴性，只要當其中一個 <code>Stage</code> 失敗，就不會往下執行</p>
+<p>下圖是每個 <code>Stage</code> 都順利執行的成果<br><img src="https://i.imgur.com/nm3COBH.png" alt="Imgur"></p>
+<p>下圖則是當第一個 <code>Testing Stage</code> 有任何失敗的結果<br><img src="https://i.imgur.com/pyyloCh.png" alt="Imgur"></p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">language: <span class="keyword">go</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">go</span>:</span><br><span class="line">  - <span class="string">&quot;1.8&quot;</span></span><br><span class="line"></span><br><span class="line">before_install:</span><br><span class="line">  - echo <span class="string">&quot;before_install&quot;</span></span><br><span class="line">install:</span><br><span class="line">  - echo <span class="string">&quot;install&quot;</span></span><br><span class="line"></span><br><span class="line">before_script:</span><br><span class="line">  - echo <span class="string">&quot;before_script&quot;</span></span><br><span class="line">script:</span><br><span class="line">  - echo <span class="string">&quot;script&quot;</span></span><br><span class="line"></span><br><span class="line">jobs:</span><br><span class="line">  include:</span><br><span class="line">    - stage: Custom Testing</span><br><span class="line">      name: Unit-Testing</span><br><span class="line">      script: echo <span class="string">&quot;unit script&quot;</span></span><br><span class="line">    - name: Integration-Testing</span><br><span class="line">      before_install: echo <span class="string">&quot;Integration-Testing_before_install&quot;</span></span><br><span class="line">    - stage: Build Docker Image</span><br><span class="line">      script: echo <span class="string">&quot;docker build&quot;</span></span><br><span class="line">    - stage: Deploy</span><br><span class="line">      script: echo <span class="string">&quot;release&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>首先，我們要先定義 <code>Stage</code>, 在 <code>Stage</code> 裡面可以定義多個 <code>Job</code>, 而每個 <code>Job</code> 內又可以自定義每個建置階段，若沒有特別設定的，都會採用最上層的全域設定</p>
+<p>定義 <code>Stage</code> 則採用 <code>stage</code> 這個關鍵字來幫建立，並且命名，針對每個 <code>job</code> 可以透過 <code>name</code> 的方式把對應的名稱替換掉讓整個測試報告更有閱讀性，然後接下來就可以去描述每個建置步驟，如 <code>script</code>, <code>install</code> 等各式各樣的建置週期步驟。</p>
+<p>更詳細的設定可以直接參考<a target="_blank" rel="noopener" href="https://docs.travis-ci.com/user/build-stages#how-do-build-stages-work">官網的說明</a></p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>本文跟大家分享了關於 <code>TravisCI</code> 的使用心得，從基本的使用方法到進階的 <code>Multiple Job</code> 以及 <code>Stage</code></p>
+<p>透過這些概念的組合，我們能夠將 <code>CI/CD</code> 的流程拆的更細緻，讓整個架構與流程更加清楚，同時透過平行運行的方式加快整體流程的速度 <strong>(這部份不一定，完全是看每個專案的流程)</strong>.</p>
+<h2 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/travis-ci/travis-ci/issues/1392">https://github.com/travis-ci/travis-ci/issues/1392</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.travis-ci.com/user/customizing-the-build/">https://docs.travis-ci.com/user/customizing-the-build/</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.travis-ci.com/user/build-stages">https://docs.travis-ci.com/user/build-stages</a></li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/CI-CD/" rel="tag"># CI/CD</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/mgo-aggregate.html" rel="prev" title="[Golang] aggregate in mongo">
+                  <i class="fa fa-chevron-left"></i> [Golang] aggregate in mongo
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/netfilter-eiptables-i.html" rel="next" title="[netfilter] Introduction to ebtables">
+                  [netfilter] Introduction to ebtables <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

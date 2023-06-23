@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="Rancher 系列文第六篇，探討創建 k8s 的方式">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Rancher 系列文] - Project, IaC 以及相關議題">
+<meta property="og:url" content="https://www.hwchiu.com/rancher-6.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="Rancher 系列文第六篇，探討創建 k8s 的方式">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/UICDWE8.png">
+<meta property="og:image" content="https://i.imgur.com/ydCM1So.png">
+<meta property="og:image" content="https://i.imgur.com/Yz8IOeR.png">
+<meta property="og:image" content="https://i.imgur.com/XZdJPCI.png">
+<meta property="og:image" content="https://i.imgur.com/7k81z5q.png">
+<meta property="og:image" content="https://i.imgur.com/3nrmPQM.png">
+<meta property="og:image" content="https://i.imgur.com/SrZBa1F.png">
+<meta property="og:image" content="https://i.imgur.com/PDuNUwr.png">
+<meta property="og:image" content="https://i.imgur.com/b406bS0.png">
+<meta property="og:image" content="https://i.imgur.com/g5QcsvM.png">
+<meta property="og:image" content="https://i.imgur.com/b0BWhyM.png">
+<meta property="og:image" content="https://i.imgur.com/ZeRon6T.png">
+<meta property="og:image" content="https://i.imgur.com/dGxmeOh.png">
+<meta property="og:image" content="https://i.imgur.com/UqlqrmS.png">
+<meta property="og:image" content="https://i.imgur.com/SoOUiga.png">
+<meta property="og:image" content="https://i.imgur.com/nq6X7fH.png">
+<meta property="og:image" content="https://i.imgur.com/fiihnjl.png">
+<meta property="og:image" content="https://i.imgur.com/xUGhx8X.png">
+<meta property="og:image" content="https://i.imgur.com/Jg7JvKb.png">
+<meta property="og:image" content="https://i.imgur.com/Ln1SnNw.png">
+<meta property="og:image" content="https://i.imgur.com/OOsDiOY.png">
+<meta property="og:image" content="https://i.imgur.com/5drPVJM.png">
+<meta property="og:image" content="https://i.imgur.com/K9JI1WS.png">
+<meta property="og:image" content="https://i.imgur.com/KgJ6v60.png">
+<meta property="og:image" content="https://i.imgur.com/Xip7yz6.png">
+<meta property="og:image" content="https://i.imgur.com/gBJ7sKJ.png">
+<meta property="og:image" content="https://i.imgur.com/VISDJn9.png">
+<meta property="og:image" content="https://i.imgur.com/o8W7jBz.png">
+<meta property="og:image" content="https://i.imgur.com/LUrbVVN.png">
+<meta property="article:published_time" content="2021-11-30T10:03:26.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.638Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="DevOps">
+<meta property="article:tag" content="GitOps">
+<meta property="article:tag" content="Rancher">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/UICDWE8.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/rancher-6.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/rancher-6.html","path":"rancher-6.html","title":"[Rancher 系列文] - Project, IaC 以及相關議題"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>[Rancher 系列文] - Project, IaC 以及相關議題 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Project"><span class="nav-number">2.</span> <span class="nav-text">Project</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%93%8D%E4%BD%9C"><span class="nav-number">3.</span> <span class="nav-text">操作</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%B3%87%E6%BA%90%E6%8E%A7%E7%AE%A1%E4%BB%8B%E7%B4%B9"><span class="nav-number">4.</span> <span class="nav-text">資源控管介紹</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%93%8D%E4%BD%9C-1"><span class="nav-number">5.</span> <span class="nav-text">操作</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%85%B6%E4%BB%96%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A0%85"><span class="nav-number">6.</span> <span class="nav-text">其他注意事項</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E9%9B%A2%E7%B7%9A%E5%AE%89%E8%A3%9D"><span class="nav-number">7.</span> <span class="nav-text">離線安裝</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#IaC"><span class="nav-number">8.</span> <span class="nav-text">IaC</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Terraform"><span class="nav-number">9.</span> <span class="nav-text">Terraform</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">10.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/rancher-6.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="[Rancher 系列文] - Project, IaC 以及相關議題 | Hwchiu Learning Note">
+      <meta itemprop="description" content="Rancher 系列文第六篇，探討創建 k8s 的方式">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          [Rancher 系列文] - Project, IaC 以及相關議題
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2021-11-30 18:03:26" itemprop="dateCreated datePublished" datetime="2021-11-30T18:03:26+08:00">2021-11-30</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">Rancher 系列文第六篇，探討創建 k8s 的方式</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前幾篇文章探討了如何透過 Rancher 操作與管理 Kubernetes 叢集，不論是直接抓取 Kubeconfig 或是使用網頁上的 web terminal 來操作，此外也探討了 Rancher 整合的應用程式，特別是最重要的 Monitoring 該如何使用。</p>
+<p>有了上述的概念後，使用者已經可以順利的操作 Kubernetes 來部署各種服務。<br>不過 Rancher 想做的事情可沒有這麼簡單， Rancher 希望能夠強化 Kubernetes 讓其更佳適合給多位使用者共同使用了。<br>對於這種多租戶的概念， Kubernetes 提供了 namespace 的機制來達到資源隔離，不過 namespace 普遍上被認為是個輕量級的隔離技術，畢竟 namespace 主要是邏輯層面的隔離，底層的運算與網路資源基本上還是共用的。</p>
+<p>就算是 RKE 也沒有辦法完全顛覆 namespace 讓其變成真正的隔離技術，畢竟 CPU&#x2F;Memory&#x2F;Network 等相關資源因為 Container 的關係本來就很難切割，要達到如 VM 般真正隔離還不是這麼容易。<br>不過 Rancher 還是有別的方向可以去發展與強化，就是如何讓 Kubernetes 變得更適合一個團隊使用，如果該團隊內有數個不同的專案，這些專案要如何共同的使用一套 Kubernetes 叢集同時又可以有一個清楚且清晰的管理方式。</p>
+<h1 id="Project"><a href="#Project" class="headerlink" title="Project"></a>Project</h1><p>Rancher 提出了一個名為 project 的概念，Project 是基於 Kubernetes Namespace 的實作的抽象管理概念，每個 Project 可以包含多個 namespace，同時 project 也會與 Rancher 內部的使用者權限機制整合。</p>
+<p>從架構層面來看</p>
+<ol>
+<li>Rancher 管理了多套 Kubernetes 叢集</li>
+<li>Kubernetes 叢集管理多個 Project</li>
+<li>Project 擁有多個 namespace.</li>
+</ol>
+<p>如同前面探討的, Kubernetes 原生提供的 namespace 機制是個輕量級虛擬化概念，所有 kubernetes 內的機制也都是以 namespace 為基礎去設計的，這意味者如果你今天要透過 RBAC 設定權限等操作你都需要針對 namespace 去仔細設計。但是 Rancher 認為一個產品專案可能不會只使用一個 namespace，而是會使用多個 namespace 來區隔不同的應用程式。<br>這種情況下你就必須要要針對每個 namespace 一個一個的去重複設定，從結果來說一樣可以達到效果，但是操作起來就是不停重複相同的動作。</p>
+<p>透過 Rancher Project 的整合，叢集管理者可以達到</p>
+<ol>
+<li>整合使用者群組權限，一口氣讓特定群組&#x2F;使用者的人針對多個 namespace 去設定 RBAC</li>
+<li>針對 Project 為單位去進行資源控管，一口氣設定多個 namespace 內 CPU&#x2F;Memory 的使用量</li>
+<li>套用 Pod Security Policy 到多個 namespace 中</li>
+</ol>
+<p>因此實際上管理 Kubernetes 叢集就變成有兩種方式</p>
+<ol>
+<li>完全忽略 Rancher 提供的 Project 功能，直接就如同其他 Kubernetes 版本一樣去操作</li>
+<li>使用 Rancher 所設計的 Project 來管理</li>
+</ol>
+<p>Rancher 會開發 Project 勢必有其好處，但是要不要使用就是另外一回事情，因為這個技術與概念是只有 Rancher 才有的，如果今天團隊同時擁有多套不同的 Kubernetes 叢集，有些用 Rancher 管理，有些沒有。<br>這種情況下也許不要使用 Rancher 工具而是採用盡可能原生統一的工具來管理會更好，因為可以避免團隊中使用的工具有太多的客製化行為，造成開發與維護都不容易。相反的使用所有 Kubernetes 發行版本都有的工具與管理方式反而有機會降低工具的複雜性。<br>所以到底要不要使用這類型的工具反而是見仁見智，請依據每個團隊需求去思考。</p>
+<p>接下來就來看一下到底如何使用 Rancher Project 概念。</p>
+<h1 id="操作"><a href="#操作" class="headerlink" title="操作"></a>操作</h1><p>Project 因為是用來簡化同時操作多個 namespace 的一種概念，因此管理上會跟 namespace 放在一起。<br>Rancher 畫面上方的 Projects&#x2F;Namespaces 就是用來管理這類型概念的，點選進去會看到類似下圖的版面。</p>
+<p><img src="https://i.imgur.com/UICDWE8.png"></p>
+<p>因為 Project 包含多個 namespace，所以版面中都是以 Project 為主，列出該 Project 底下有哪些 namespace，<br>Rancher 內的任何 Kubernetes 叢集預設都會有兩個 Projects，System 與 Default<br>System 內會放置任何跟 Rancher 以及 Kubernetes 有關的 namespace，譬如 cattle-system, fleet-system, kube-system, kube-public 等</p>
+<p>Default 是預設的 Project，預設對應到 default 這個 namespace。<br>任何不是透過 Rancher 創立的 namespace 都不會加入到任何已知的 project 底下，因此圖片中最上方可以看到一堆 namespace，而這些 namespace 都不屬於任何一個 project。</p>
+<p>因此要使用 project 的話就需要把這些 namespace 給搬移到對應的 project 底下。<br>圖中右上方有一個按鈕可以創立新的 Project，點下去可以看到如下畫面</p>
+<p><img src="https://i.imgur.com/ydCM1So.png"></p>
+<p>創立一個 Project 有四個資訊需要輸入，分別是</p>
+<ol>
+<li>使用者權限</li>
+<li>Project 資源控管</li>
+<li>Container 資源控管</li>
+<li>Labels&#x2F;Annotation.</li>
+</ol>
+<p>使用者權限可以控制屬於什麼樣的使用者&#x2F;群組可以對這個 Project 有什麼樣的操作。<br>Project 與 Container 的資源控管之後會有一篇來介紹<br>創立完 Project 之後就可以回到最外層的介面，將已經存在的 namespace 給掛到 project 底下</p>
+<p><img src="https://i.imgur.com/Yz8IOeR.png"></p>
+<p>譬如上述範例就將 cis-operator-system, longhorn-system 這兩個 namespace 給分配到剛剛創立的 project 底下。</p>
+<p><img src="https://i.imgur.com/XZdJPCI.png"></p>
+<p>之後重新進入到該 Project 去編輯，嘗試將 QA 使用群組加入到該 Project 底下，讓其變成 Project Owner，代表擁有完整權限。</p>
+<p><img src="https://i.imgur.com/7k81z5q.png"></p>
+<p>創造完畢後，就可以透過 UI 切換到不同的 project，如上圖所示，可以看到 ithome-dev 叢集底下有三個 Project，其中有兩個是預設的，一個是剛剛前述創立的。</p>
+<p><img src="https://i.imgur.com/3nrmPQM.png"></p>
+<p>切換到該 Project 之後，觀察當前的 URL 可以觀察到兩個有趣的ID，c-xxxx&#x2F;p-xxxxx 會分別對應到 clusterID 以及 project ID，因此之後只要看到任何 ID 是 c-xxx 開頭的，基本上都是 Rancher 所創立的，跟 Cluster 有關，而 p-xxxx 開頭的則是跟 Project 有關，每個 Project 都勢必屬於某個 Cluster。</p>
+<p>有了 ProjectID 之後，仿造之前透過 kubectl 去觀察使用者權限的方式，這次繼續觀察前述加入的 QA 群組會有什麼變化。</p>
+<p><img src="https://i.imgur.com/SrZBa1F.png"></p>
+<p>從上述指令中可以看到 QA 群組對應到一個新的 ClusterRole，叫做 p-p6xrd-namespaces-edit，其中 p-p6xrd 就是對應到前述創立的 project，而 edit 代表則是擁有 owner 般的權限，能夠去編輯任何資源。</p>
+<p>接者更詳細的去看一下該 ClusterRole 的內容</p>
+<p><img src="https://i.imgur.com/PDuNUwr.png"></p>
+<p>可以看到該 ClusterRole 針對設定的兩個 namespace 都給予了 “*” 的動詞權限，基本上就是讓該使用者能夠如管理者般去使用這兩個 namespace。</p>
+<p>除了上述的權限外，當切換到 Project 的頁面時，就可以看到從 Rancher 中去看到該 Project 底下 namespaces 內的相關 Kubernetes 物件資源，譬如下圖</p>
+<p><img src="https://i.imgur.com/b406bS0.png"></p>
+<p>Workloads 就是最基本的運算單元，譬如 Pod, Deployment, Job, DaemonSet..等<br>而 Config(ConfigMap), Secrets 可以看到整個叢集內的相關資源，此外 secret 透過網頁的可以直接看到透過 base64 解密後的結果。</p>
+<p>註: Pipelines 請忽略他， v2.5 之後 Rancher 會主推使用 GitOps 的方式來部署，因此過往 pipeline 的方式這邊就不介紹了。</p>
+<p>以 workloads 為範例，點進去後可以更詳細的去看當前系統中有哪些 workloads。</p>
+<p><img src="https://i.imgur.com/g5QcsvM.png"></p>
+<p>每個 workloads 旁邊都有一個選項可以打開，打開後會看到如上的選擇，這邊就有很多功能可以使用，譬如</p>
+<ol>
+<li>Add a Sidecar，可以幫忙加入一個 sidecar contaienr 進去</li>
+<li>Rollback 到之前版本</li>
+<li>Redeploy 重新部署</li>
+<li>取得該 Pod 的 shell (如果該 workloads 底下有多種 pod，則不建議這邊使用這個功能)</li>
+</ol>
+<p>基本上這些功能都可以透過 kubectl 來達到，網頁只是把 kubectl 要用的指令給簡化，讓他更輕鬆操作。<br>上述的範例 test 是使用 deployment 去部署的，點進去該 deployment 可以看到更詳細 pods 的資訊，如下</p>
+<p><img src="https://i.imgur.com/b0BWhyM.png"></p>
+<p>該畫面中就可以看到每個 Pod 的資訊，包含 Pod 的名稱，部署到哪個節點，同時也可以透過 UI 去執行該 Pod 的 shell 或是觀看相關 log。</p>
+<p>以上就介紹了關於 Project 的基本概念。 Project 是 Rancher 內的最基本單位，因此要透過 Rancher 的 UI 去管理叢集內的各種部署資源則必須要先準備好相關的 Project，並且設定好每個 Project 對應的 namespace 以及使用者權限。</p>
+<p>當然 Rancher Project 不是一個一定要使用的功能，因為也是有團隊單純只是依賴 Rancher 去部署 Kubernetes 叢集，而繼續使用本來的方式來管理與部署 Kubernetes 叢集，畢竟現在有很多種不同的專案可以提供 Kubernetes 內的資源狀況。一切都還是以團隊需求為主。</p>
+<h1 id="資源控管介紹"><a href="#資源控管介紹" class="headerlink" title="資源控管介紹"></a>資源控管介紹</h1><p>熟悉 Kubernetes 的讀者應該都知道資源控管是一個非常困難的問題，其根本原因是 Container 本身的實作方式導致資源控管不太容器。<br>很多人使用資源控管最常遇到的問題有</p>
+<ol>
+<li>不知道該怎麼設定 Resources Limit， CPU&#x2F;Memory 到底要用哪種? 三種內建的 QoS 型態有哪些? 有哪些影響?</li>
+<li>設定好了 Limit&#x2F;Request 後結果運作不如預期，或是某些情況下應用程式效能大幅度降低等</li>
+</ol>
+<p>第一點是最容易遇到的，畢竟要如何有效地去分配容器使用的 CPU&#x2F;Memory 是個很困難的問題，特別是第一次踏入到容器化的團隊對於這個問題會有更大的疑惑，不確定該怎麼用。<br>第二個問題則是部分的 Linux Kernel 版本實作 Container 的資源控管與限制上會有一些 bug，可能會導致你的應用程式被不預期的 throttle，導致效能變得很低。</p>
+<p>本篇文章不太探討這兩個問題，反而是探討最基本的概念，畢竟上述兩個概念跟 Rancher 沒太大關係，反而是比較進階使用與除錯的內容。</p>
+<p>Kubernetes 中針對 CPU&#x2F;Memory 等系統資源有兩種限制，稱為 Request 與 Limit。<br>Request 代表的是要求多少，而 Limit 代表的是最多可以使用多少。<br>這些資源是以 Container 為基本單位，而 Pod 本身是由多個 Container 組成的，所以 CPU&#x2F;Memory 的計算上就相對繁瑣。</p>
+<p>Kubernetes 本身有一個特別的物件稱為 ResourceQuota，透過該物件可以針對特定 namespace 去限定該 namespace 內所有 Container 的資源上限。譬如可以設定 default namespace 最多只能用 10顆 vCPU，超過的話就沒有辦法繼續部署。</p>
+<p>Rancher 的 Project 本身就是一個管理多 namespace 的抽象概念，接下來看一下 Project 中有哪些關於 Resource 的管理。</p>
+<h1 id="操作-1"><a href="#操作-1" class="headerlink" title="操作"></a>操作</h1><p>為了方便操作，先將 default namespace 給加入到之前創立的 Project 中，加進去後當前 project 中有三個 namespace，如下圖。</p>
+<p><img src="https://i.imgur.com/ZeRon6T.png"></p>
+<p>接者編輯該 Project 去設定 Resource 相關的資訊，如下圖</p>
+<p><img src="https://i.imgur.com/dGxmeOh.png"></p>
+<p>Project 中有兩種概念要設定，第一種是 Resource Quota，第二個是 Container Default Resource Limit.<br>Resource Quota 是更高階層的概念，是用來控管整個 Project 能夠使用的 CPU&#x2F;Memory 用量。<br>由於 Project 是由多個 namespaces 所組成的，所以設定上還要去設定每個 namespace 的用量，如上述範例就是設定<br>整個 Project 可以使用 100個 vCPU，而每個 namespace 最多可以使用 10 vCPU。<br>但是因為 namespace 本身就是使用 kubernetes ResourceQuota 來實作，而這個功能本身會有一個限制就是。<br>一但該 namespace 本身設定了 ResourceQuota，則所有部署到該 namespace 的容器都必須要明確的寫出 CPU&#x2F;Memory 用量。</p>
+<p>這個概念也滿容易理解的，畢竟你要去計算 namespace 的使用上限，那 namespace 內的每個 container 都需要有 CPU&#x2F;Memory 等相關設定，否則不能計算。<br>如果你的容器沒有去設定的話，你的服務會沒有辦法部署，會卡到 Scheduler 那個層級，連 Pending 都不會有。<br>但是如果要求每個容器部署的時候都要設定 CPU&#x2F;Memory 其實會有點煩人，為了讓這個操作更簡單，Project 底下還有 Container Default Resource Limit 的設定。<br>該設定只要打開，所有部署到該 namespace 內的 Container 都會自動的補上這些設定。<br>如上圖的概念就是，每個 Container 部署時就會被補上 CPU(Request): 3顆, CPU(Limit): 6顆</p>
+<p>這邊有一個東西要特別注意，Project 設定的 Container Default Resource Limit 本身有一個使用限制，如果 namespace 是再設定 Resource Quota 前就已經加入到 Project 的話，設定的數字並不會自動地套用到所有的 namespace 上。<br>反過來說，設定好這些資訊後，所有新創立的 namespace 都會自動沿用這些設定，但是設定前的 namespace 需要手動設定。</p>
+<p>所以這時候必須要回到 namespace 上去重新設定，如下圖</p>
+<p><img src="https://i.imgur.com/UqlqrmS.png"></p>
+<p>namespace 的編輯頁面就可以重新設定該 namespace 上的資訊，特別是 Container Default Resource Limit。<br>當這邊重新設定完畢後，就可以到系統中去看相關的物件</p>
+<p>首先 Project 設定好 Resource Quota 後，Kubernetes 就會針對每個 namespace 都產生一個對應的 Quota 來設定，如下</p>
+<p><img src="https://i.imgur.com/SoOUiga.png"></p>
+<p>因為設定每個 namespace 的 CPU 上限是 10顆，而該 project 總共有三個 namespace，所以系統中這三個 namespace 都產生了對應的 quota，而這些 quota 的設定都是 10顆 CPU。</p>
+<p>其中 default namespace 的標示是 5025m&#x2F;10 代表目前已經用了 5.025顆 CPU，而系統上限是 10顆。</p>
+<p><img src="https://i.imgur.com/nq6X7fH.png"></p>
+<p>這時候將 default namespace 內的 pod 都清空，接者重新再看一次該 quota 物件就會發現 used 的數值從 5025m 到 0。</p>
+<p><img src="https://i.imgur.com/fiihnjl.png"></p>
+<p>由於上述 default namespace 中設定 CPU 預設補上 0.1顆 CPU (Request&#x2F;Limit)，所以 Kubernetes 會創造相關的物件 Limits</p>
+<p><img src="https://i.imgur.com/xUGhx8X.png"><br><img src="https://i.imgur.com/Jg7JvKb.png"></p>
+<p>從上述物件可以觀察到該 LimitRange 設定了 100m 的 CPU。</p>
+<p>最後嘗試部署一個簡單的 deployment 來測試此功能看看，使用一個完全沒有標示任何 Resource 的 deployment，內容如下。</p>
+<p><img src="https://i.imgur.com/Ln1SnNw.png"><br><img src="https://i.imgur.com/OOsDiOY.png"></p>
+<p>該物件部署到叢集後，透過 kubectl describe 去查看一下這些 Pod 的狀態，可以看到其 Resource 被自動的補上 Limits&#x2F;Requests: 100m。</p>
+<p><img src="https://i.imgur.com/5drPVJM.png"></p>
+<p>Resource 的管理一直以來都不容易， Rancher 透過 Project 的管理方式讓團隊可以更容易的去管理多 namespace 之間的資源用量，同時也可以透過這個機制要求所有要部署的 container 都要去設定資源用量來確保不會有容器使用過多的資源。</p>
+<h1 id="其他注意事項"><a href="#其他注意事項" class="headerlink" title="其他注意事項"></a>其他注意事項</h1><p>之前文章探討過三種不同安裝 Kubernetes 的方式，其中一種方式是運行 docker command 在現有的節點上將該節點加入到 RKE 叢集中。</p>
+<p>但是如果今天有需求想將該節點從 RKE 中移除該怎麼辦?</p>
+<p><img src="https://i.imgur.com/K9JI1WS.png"></p>
+<p>Cluster Manager 中可以直接到 Cluster 頁面將該節點從 RKE 中移除，但是要注意的是，這邊的移除代表的只是將該節點從 RKE 移除，該節點上可能會有一些因為加入 RKE 而產生的檔案依然存在節點上。</p>
+<p>假設今天有需求又要將該節點重新加入回到 RKE 中的話，如果上次移除時沒有妥善地去刪除那些檔案的話，第二次運行 docker command 去加入 RKE 叢集有非常大的機率會失敗，因為節點中有太多之前的產物存在。</p>
+<p>官網有特別撰寫一篇文章探討如果要清除這些產物的話，有哪些資源要處理，詳細版本可以參閱 <a target="_blank" rel="noopener" href="https://rancher.com/docs/rancher/v2.5/en/cluster-admin/cleaning-cluster-nodes/">Removing Kubernetes Components from Nodes</a></p>
+<p>這邊列舉一下一個清除節點正確步驟</p>
+<ol>
+<li>從 Rancher UI 移除該節點</li>
+<li>重啟該節點，確保所有放到暫存資料夾的檔案都會消失</li>
+<li>Docker 相關資料</li>
+<li>Mount 相關資訊都要 umount</li>
+<li>移除資料夾</li>
+<li>移除多的網卡</li>
+<li>移除多的 iptables 規則</li>
+<li>再次重開機</li>
+</ol>
+<p>第三點移除 docker 相關資料，官方列出三個指令，分別移除 container, volume 以及 image。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">docker <span class="built_in">rm</span> -f $(docker ps -qa)</span><br><span class="line">docker rmi -f $(docker images -q)</span><br><span class="line">docker volume <span class="built_in">rm</span> $(docker volume <span class="built_in">ls</span> -q)</span><br></pre></td></tr></table></figure>
+
+<p>如果該節點接下來又要重新加入到 Rancher 中，建議不需要執行 docker rmi 的步驟，之前的 image 可以重新使用不需要重新抓取，這樣可以省一些時間。</p>
+<p>第四點的 mount 部分要注意的是，官文文件沒有特別使用 sudo 的指令於範例中，代表其假設你會使用 root 身份執行，因此如果不是使用 root 的話記得要在 umount 指令中補上 sudo</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> mount <span class="keyword">in</span> $(mount | grep tmpfs | grep <span class="string">&#x27;/var/lib/kubelet&#x27;</span> | awk <span class="string">&#x27;&#123; print $3 &#125;&#x27;</span>) /var/lib/kubelet /var/lib/rancher; <span class="keyword">do</span> sudo umount <span class="variable">$mount</span>; <span class="keyword">done</span></span><br></pre></td></tr></table></figure>
+
+
+<p>第五點跟第四點一樣，但是第五點非常重要，因為系統上有太多的資料夾都含有過往 RKE 叢集的資料，所以第五步一定要確保需要執行才可以將資料清除。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">sudo <span class="built_in">rm</span> -rf /etc/ceph \</span><br><span class="line">       /etc/cni \</span><br><span class="line">       /etc/kubernetes \</span><br><span class="line">       /opt/cni \</span><br><span class="line">       /opt/rke \</span><br><span class="line">       /run/secrets/kubernetes.io \</span><br><span class="line">       /run/calico \</span><br><span class="line">       /run/flannel \</span><br><span class="line">       /var/lib/calico \</span><br><span class="line">       /var/lib/etcd \</span><br><span class="line">       /var/lib/cni \</span><br><span class="line">       /var/lib/kubelet \</span><br><span class="line">       /var/lib/rancher/rke/log \</span><br><span class="line">       /var/log/containers \</span><br><span class="line">       /var/log/kube-audit \</span><br><span class="line">       /var/log/pods \</span><br><span class="line">       /var/run/calico</span><br></pre></td></tr></table></figure>
+
+
+<p>第六跟第七這兩步驟並不一定要處理，因為這些資訊都是節點加入到 Kubernetes 後被動態創建的，基本上重開機就不會有這些資訊，只要確保節點重新開機後沒有繼續成為 Kubernetes 的節點，那相關的虛擬網卡跟 iptables 規則也就不會被產生。</p>
+<p>要注意的是官方文件中的所有步驟不一定都會有東西可以刪除，主要會取決於叢集內的設定，不同的設定可能會有不同的結果，譬如採用不同的 CNI，其產生的 iptables 規則與虛擬網卡就會有所不同。</p>
+<h1 id="離線安裝"><a href="#離線安裝" class="headerlink" title="離線安裝"></a>離線安裝</h1><p>雖然雲端環境方便存取，但是很多產業與環境可能會需要於一個沒有對外網路的環境下去安裝 Kubernetes 叢集，這種情況下如果想要使用 Rancher 的話就要探討如何達到離線安裝。</p>
+<p>Rancher 講到離線安裝有兩種含義，一種是</p>
+<ol>
+<li>Rancher 本身的離線安裝</li>
+<li>Rancher 以離線安裝的方式幫忙創建 RKE 叢集</li>
+</ol>
+<p>上述兩種方式其實都還是仰賴各式各樣的 container image 來處理，所以處理的方法一致，就是要安裝一個 container registry 並且將會需要使用的 container image 都事先匯入到該 container registry 中，接者安裝時要讓系統知道去哪下載相關的 container image 即可。</p>
+<p>官網有數篇文章探討這種類型下的安裝該怎麼處理，有興趣的也可以參考 <a target="_blank" rel="noopener" href="https://rancher.com/docs/rancher/v2.5/en/installation/other-installation-methods/air-gap/">Air Gapped Helm CLI Install</a></p>
+<p>由於安裝 Rancher 本身有很多方式，譬如多節點的 RKE 或是單節的 Docker 安裝，以下簡述一下如何用 Docker 達成單節點的離線安裝。</p>
+<ol>
+<li>架設一個 Private Container Registry</li>
+<li>透過 Rancher 準備好的腳本去下載並打包 Rancher 會用到的所有 Container Image</li>
+<li>把第二步驟產生 Container Image 檔案給匯入到 Private Container Registry</li>
+<li>運行修改過後的 Docker 來安裝 Rancher.</li>
+</ol>
+<p>第一點這邊有幾點要注意<br>a. 可以使用 container registry v2 或是使用 harbor<br>b. 一定要幫該 container registry 準備好一個憑證，這樣使用上會比較方便，不用太多地方要去處理 invalid certificate 的用法。憑證的部分可以自簽 CA 或是由一個已知信任 CA 簽署的。<br>c. image 的容量大概需要 28 GB 左右，因此準備環境時要注意空間</p>
+<p>第二跟第三點直接參閱官網的方式，先到 GitHub 的 Release Page 找到目標版本，接者下載下列三個檔案</p>
+<ol>
+<li>rancher-images.txt</li>
+<li>rancher-save.images.sh</li>
+<li>rancher-load-images.sh</li>
+</ol>
+<p>第二個腳本會負責去下載 rancher-images.txt 中描述的檔案並且打包成一個 tar 檔案，系統中會同時存放 container image 以及 tar 檔，所以最好確保空間有 60GB 以上的足夠空間。<br>第三個腳本會將該 tar 檔案的內容上傳到目標 container registry。</p>
+<p>這一切都準備完畢後，就可以執行 docker 指令，可以參閱<a target="_blank" rel="noopener" href="https://rancher.com/docs/rancher/v2.5/en/installation/other-installation-methods/air-gap/install-rancher/docker-install-commands/">Docker Install Commands</a></p>
+<p>一個範例如下</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">docker run -d --restart=unless-stopped \</span><br><span class="line">    -p 80:80 -p 443:443 \</span><br><span class="line">    -v /mysite/fullchain.pem:/etc/rancher/ssl/cert.pem \</span><br><span class="line">    -v /mysite/previkey.pem&gt;:/etc/rancher/ssl/key.pem \</span><br><span class="line">    -e CATTLE_SYSTEM_DEFAULT_REGISTRY=test.hwchiu.com \ <span class="comment"># Set a default private registry to be used in Rancher</span></span><br><span class="line">    -e CATTLE_SYSTEM_CATALOG=bundled \ <span class="comment"># Use the packaged Rancher system charts</span></span><br><span class="line">    --privileged</span><br><span class="line">    registry.hwchiu.com/rancher/rancher:v2.5.9  \</span><br><span class="line">    --no-cacerts</span><br></pre></td></tr></table></figure>
+
+<p>請特別注意上述的參數，不同的憑證方式會傳入的資訊不同，自簽的方式還要額外把 CA_CERTS 給丟進去。</p>
+<h1 id="IaC"><a href="#IaC" class="headerlink" title="IaC"></a>IaC</h1><p>試想下列情境，是否會覺得某些情況還是有點卡?</p>
+<ol>
+<li>公司想要有針對不同環境有不同的 Rancher 叢集，譬如 Production 跟其他要分開</li>
+<li>希望能夠減少管理員透過 UI 管理的頻率，畢竟透過 UI 點選創建有時並不會有太完善的稽核性</li>
+<li>有快速重複部署 RKE 叢集的需求，某些情況還需要刪除重建</li>
+</ol>
+<p>上述這些要求全部都可以用之前分享的方式慢慢處理，不過會不會有更好的方式處理?<br>這幾年流行的 IaC 架構， Infrastructure as Code 的概念能不能套用到 Rancher 身上?<br>試想一下如果可以透過程式碼的方式定義 Rancher，對於開發者與管理者來說可以達到什麼樣的好處</p>
+<ol>
+<li>當 Rancher 整個損毀，需要重新安裝或是需要部署類似環境時，可以非常快的部署，不需要重新透過手動的方式去重新設定所有細節</li>
+<li>所有重大操作都以程式碼為基礎去設定，減少任何人為操作的可能性，同時有任何出錯時可以基於程式碼重新部署來修復環境。</li>
+<li>複製程式碼就可以複製環境，修改一些變數就可以創建出類似的叢集</li>
+</ol>
+<p>更重要的是，如果將這些 IaC 的概念與 CI&#x2F;CD 流程整合，還可以透過 Code Review 的方式來合作檢視所有 Rancher 上的修改，同時透過自動化的方式去維護 Rancher 服務。<br>有任何不適當的修改想要復原也可以透過 Git Revert 的方式來回復到之前的狀態。<br>這種狀況下 Rancher 會變得更加容易維護與管理。</p>
+<p>IaC 的工具非常的多，當人們講到跟 Cloud Infrastructure 有關時，大部分人都會提到 Terraform 這套解決方案，而近年 Pulumi 的聲勢也漸漸提昇，愈來愈多人嘗試使用 Pulumi 來取代 Terraform，兩者最大的差別在於撰寫方式。<br>Terraform 有自己設計一套語法，意味使用 Terraform 就要使用該語法，而 Pulumi 則是基於不同的程式語言提供不同的 API 來使用ㄓ，所以開發者可以使用自己習慣的程式語言去撰寫。</p>
+<p>接下來將介紹如何透過 Terraform 來管理我們的 Rancher，之後的章節有機會的話也會順便展示一下使用 Terraform 的寫法。</p>
+<h1 id="Terraform"><a href="#Terraform" class="headerlink" title="Terraform"></a>Terraform</h1><p>由於重點是 Rancher，因此就不會探討太多 Terraform 的基本概念與使用方式，會更加專注於如何透過 Terraform 來管理 Rancher。</p>
+<p>Terraform 官網中有非常詳細的資訊探討 Rancher 所有 API 的使用方式，有興趣可以參閱<a target="_blank" rel="noopener" href="https://registry.terraform.io/providers/rancher/rancher2/latest/docs">Rancher2 Provider</a></p>
+<p>為了要能夠跟 Rancher 溝通，必須要先獲得一組 Access&#x2F;Secrey Key 來存取 Rancher，這組 Key 可以從 Rancher 的使用者帳號去取得。</p>
+<p>首先用一個可以管理 Rancher 的帳號登入到 Rancher UI，接者於右上方使用者那邊去點選 API &amp; Keys，如下圖。</p>
+<p><img src="https://i.imgur.com/KgJ6v60.png"></p>
+<p>進去之後可以看到系統預設有一些 Key，這些忽略即可。<br>要注意的是，每組 Key 產生後都會得到一組對應的 Secret Key，該 Key 是沒有辦法透過 UI 找回來的，這意味如果你當下忘了儲存或是之後不見了，那這把 secret key 就再也沒有辦法找回。</p>
+<p>點選右上方的 Add Key 可以看到如下的畫面，該畫面可以先設定該 Key 會不會自動過期的時間，以及使用範圍。</p>
+<p><img src="https://i.imgur.com/Xip7yz6.png"></p>
+<p>設定名稱後就會看到如下圖的畫面，畫面中有四種相關不同的資訊，分別是</p>
+<ol>
+<li>Access Endpoint: 存取的 API 位置</li>
+<li>Access Key</li>
+<li>Secret Key(只有這邊會出現，一但按下 Close 就再也拿不回來了)</li>
+<li>針對 HTTP 需求譬如 kubectl 是有機會直接使用最後一個 Bearer Token 使用</li>
+</ol>
+<p><img src="https://i.imgur.com/gBJ7sKJ.png"></p>
+<p>這次的 Terraform 要使用前三組資訊，這邊不考慮任何 Terraform 的撰寫技巧與 Style，單純用最簡單的風格來介紹如何將 Terraform 與 Rancher 整合。</p>
+<p>以下示範是基於 Terraform 1.0 與 Rancher Provider 1.17.0 的版本</p>
+<p>首先準備一個 main.tf 的檔案，內容如下</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">╰─$ <span class="built_in">cat</span> main.tf</span><br><span class="line">terraform &#123;</span><br><span class="line">  required_providers &#123;</span><br><span class="line">    rancher2 = &#123;</span><br><span class="line">      <span class="built_in">source</span> = <span class="string">&quot;rancher/rancher2&quot;</span></span><br><span class="line">      version = <span class="string">&quot;1.17.0&quot;</span></span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">provider <span class="string">&quot;rancher2&quot;</span> &#123;</span><br><span class="line">  api_url    = <span class="string">&quot;https://rancher.hwchiu.com&quot;</span></span><br><span class="line">  access_key = <span class="string">&quot;token-ng6df&quot;</span></span><br><span class="line">  secret_key = <span class="string">&quot;l8kjh7w5mdb5s5nzmp56c5rctpt59p9bcq9wbw2g8b66wsdchrkdv2&quot;</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>接者透過 Terraform init 先初始化相關模組</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">╰─$ terraform init</span><br><span class="line">Initializing the backend...</span><br><span class="line"></span><br><span class="line">Initializing provider plugins...</span><br><span class="line">- Finding rancher/rancher2 versions matching <span class="string">&quot;1.17.0&quot;</span>...</span><br><span class="line">- Installing rancher/rancher2 v1.17.0...</span><br><span class="line">- Installed rancher/rancher2 v1.17.0 (signed by a HashiCorp partner, key ID 2EEB0F9AD44A135C)</span><br><span class="line"></span><br><span class="line">Partner and community providers are signed by their developers.</span><br><span class="line">If you<span class="string">&#x27;d like to know more about provider signing, you can read about it here:</span></span><br><span class="line"><span class="string">https://www.terraform.io/docs/cli/plugins/signing.html</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">Terraform has created a lock file .terraform.lock.hcl to record the provider</span></span><br><span class="line"><span class="string">selections it made above. Include this file in your version control repository</span></span><br><span class="line"><span class="string">so that Terraform can guarantee to make the same selections by default when</span></span><br><span class="line"><span class="string">you run &quot;terraform init&quot; in the future.</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">Terraform has been successfully initialized!</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">You may now begin working with Terraform. Try running &quot;terraform plan&quot; to see</span></span><br><span class="line"><span class="string">any changes that are required for your infrastructure. All Terraform commands</span></span><br><span class="line"><span class="string">should now work.</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">If you ever set or change modules or backend configuration for Terraform,</span></span><br><span class="line"><span class="string">rerun this command to reinitialize your working directory. If you forget, other</span></span><br><span class="line"><span class="string">commands will detect it and remind you to do so if necessary.</span></span><br></pre></td></tr></table></figure>
+
+<p>一切都準備完畢後，接下來示範一下如何透過 Rancher 來創造一些 Rancher 的資源，譬如說來創造一個 <a target="_blank" rel="noopener" href="https://registry.terraform.io/providers/rancher/rancher2/latest/docs/resources/cluster_template">RKE Template</a>。</p>
+<p>這邊直接參考範例將下列內容寫入到 main.tf 中<br>該範例會創建一個 RKE Template 並且針對 etcd 以及一些更新策略進行設定。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line">$ cat main.tf</span><br><span class="line">terraform &#123;</span><br><span class="line">  required_providers &#123;</span><br><span class="line">    rancher2 = &#123;</span><br><span class="line">      source = &quot;rancher/rancher2&quot;</span><br><span class="line">      version = &quot;1.17.0&quot;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">provider &quot;rancher2&quot; &#123;</span><br><span class="line">  api_url    = &quot;https://rancher.hwchiu.com&quot;</span><br><span class="line">  access_key = &quot;token-ng6df&quot;</span><br><span class="line">  secret_key = &quot;l8kjh7w5mdb5s5nzmp56c5rctpt59p9bcq9wbw2g8b66wsdchrkdv2&quot;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">resource &quot;rancher2_cluster_template&quot; &quot;foo&quot; &#123;</span><br><span class="line">  name = &quot;ithome_terraforn&quot;</span><br><span class="line">  template_revisions &#123;</span><br><span class="line">    name = &quot;V1&quot;</span><br><span class="line">    cluster_config &#123;</span><br><span class="line">      rke_config &#123;</span><br><span class="line">        network &#123;</span><br><span class="line">          plugin = &quot;canal&quot;</span><br><span class="line">        &#125;</span><br><span class="line">        services &#123;</span><br><span class="line">          etcd &#123;</span><br><span class="line">            creation = &quot;6h&quot;</span><br><span class="line">            retention = &quot;24h&quot;</span><br><span class="line">          &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        upgrade_strategy &#123;</span><br><span class="line">          drain = true</span><br><span class="line">          max_unavailable_worker = &quot;20%&quot;</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    default = true</span><br><span class="line">  &#125;</span><br><span class="line">  description = &quot;Terraform cluster template foo&quot;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>接者透過 terraform apply 去更新</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br></pre></td><td class="code"><pre><span class="line">$ terraform apply</span><br><span class="line">...</span><br><span class="line">              + rke_config &#123;</span><br><span class="line">                  + addon_job_timeout     = 0</span><br><span class="line">                  + ignore_docker_version = <span class="literal">true</span></span><br><span class="line">                  + kubernetes_version    = (known after apply)</span><br><span class="line">                  + prefix_path           = (known after apply)</span><br><span class="line">                  + ssh_agent_auth        = <span class="literal">false</span></span><br><span class="line">                  + ssh_cert_path         = (known after apply)</span><br><span class="line">                  + ssh_key_path          = (known after apply)</span><br><span class="line">                  + win_prefix_path       = (known after apply)</span><br><span class="line"></span><br><span class="line">                  + network &#123;</span><br><span class="line">                      + mtu     = 0</span><br><span class="line">                      + options = (known after apply)</span><br><span class="line">                      + plugin  = <span class="string">&quot;canal&quot;</span></span><br><span class="line">                    &#125;</span><br><span class="line"></span><br><span class="line">                  + services &#123;</span><br><span class="line">                      + etcd &#123;</span><br><span class="line">                          + ca_cert    = (known after apply)</span><br><span class="line">                          + cert       = (sensitive value)</span><br><span class="line">                          + creation   = <span class="string">&quot;6h&quot;</span></span><br><span class="line">                          + extra_args = (known after apply)</span><br><span class="line">                          + gid        = 0</span><br><span class="line">                          + image      = (known after apply)</span><br><span class="line">                          + key        = (sensitive value)</span><br><span class="line">                          + path       = (known after apply)</span><br><span class="line">                          + retention  = <span class="string">&quot;24h&quot;</span></span><br><span class="line">                          + snapshot   = <span class="literal">false</span></span><br><span class="line">                          + uid        = 0</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125;</span><br><span class="line"></span><br><span class="line">                  + upgrade_strategy &#123;</span><br><span class="line">                      + drain                        = <span class="literal">true</span></span><br><span class="line">                      + max_unavailable_controlplane = <span class="string">&quot;1&quot;</span></span><br><span class="line">                      + max_unavailable_worker       = <span class="string">&quot;20%&quot;</span></span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">Plan: 1 to add, 0 to change, 0 to destroy.</span><br><span class="line"></span><br><span class="line">Do you want to perform these actions?</span><br><span class="line">  Terraform will perform the actions described above.</span><br><span class="line">  Only <span class="string">&#x27;yes&#x27;</span> will be accepted to approve.</span><br><span class="line"></span><br><span class="line">  Enter a value: <span class="built_in">yes</span></span><br><span class="line"></span><br><span class="line">rancher2_cluster_template.foo: Creating...</span><br><span class="line">rancher2_cluster_template.foo: Creation complete after 2s [<span class="built_in">id</span>=cattle-global-data:ct-rtd4f]</span><br><span class="line"></span><br><span class="line">Apply complete! Resources: 1 added, 0 changed, 0 destroyed.</span><br></pre></td></tr></table></figure>
+
+<p>一切創造完畢後就可以移動到 Rancher UI 中，從 RKE Template 可以看到多出了一個新的 RKE Template，名稱為 ithome_terraform，與我們前述 main.tf 中描述的一樣。</p>
+<p><img src="https://i.imgur.com/VISDJn9.png"></p>
+<p>點進去該 RKE Template 就可以看到詳細的設定，這邊要補充一下， Rancher 大部分的物件都提供兩種閱覽模式，一種是友善的 UI 介面另一種則是純 YAML 的描述檔案。<br>按照下方的方式點選 View as a Form 來看看基於 YAML 的內容。</p>
+<p><img src="https://i.imgur.com/o8W7jBz.png"></p>
+<p>從 YAML 內就可以看到 Terraform 描述的設定都有正確的寫進來。</p>
+<p><img src="https://i.imgur.com/LUrbVVN.png"></p>
+<p>透過這樣簡單的方式，就可以使用程式碼的方式來管理 Rancher，除了 RKE Template 之外， Cloud Credential, Node Template, Cluster 也都可以透過 Terraform 的方式來管理，這樣有另外一個好處就是系統管理員只要撰寫好這些資源後，接下來的使用者就不需要接觸到這些太細節的機密資訊，能夠專心的目標資源與邏輯去描述與創造即可。</p>
+<p>最後這邊要再補充一個使用 API 溝通 Rancher 的好處，事實上， Rancher UI 沒有辦法展現 Rancher 100% 的能力， RKE 內有非常多的設定可以處理，但是有些處理實際上沒有辦法透過 UI 去設定，譬如說想要針對 Kubelet 給一些額外參數的話，這些設定是沒有辦法從 Rancher UI 完成的，但是如果是透過 Rancher API 來設定的話就沒有問題。</p>
+<p>Rancher API 有很多方式可以處理，不論是直接撰寫應用程式溝通 Rancher 或是使用 Terraform&#x2F;Pulumi 等工具都可以，透過這類型工具去描述 Rancher 實際上可以將 Rancher 使用的更靈活與更強大，設定的東西也更多元化。</p>
+<p>如果團隊有意願長期使用 Rancher，會非常推薦使用 IaC 的工具來維護與管理 Rancher，期帶來得好非常的多。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>詳細可以參閱<br>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/GitOps/" rel="tag"># GitOps</a>
+              <a href="/tags/Rancher/" rel="tag"># Rancher</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/reading-note-4.html" rel="prev" title="[閱讀筆記] - Week 4">
+                  <i class="fa fa-chevron-left"></i> [閱讀筆記] - Week 4
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/reading-note-5.html" rel="next" title="[閱讀筆記] - Week 5">
+                  [閱讀筆記] - Week 5 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="對於 SDN Controller 來說，最基本的功能就是要可以傳輸封包，然而在這種集中式管理的情況下，傳統的 Spanning Tree Protocol 不會運行。因此 Controller 本身要有辦法判斷當前的網路拓墣中是否有迴圈以避免產生廣播風暴。本文會透過觀察原始碼的方式來研究在 NOX Conroller 是如何實現的。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Nox-Spanning_Tree">
+<meta property="og:url" content="https://www.hwchiu.com/nox-spanning-tree.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="對於 SDN Controller 來說，最基本的功能就是要可以傳輸封包，然而在這種集中式管理的情況下，傳統的 Spanning Tree Protocol 不會運行。因此 Controller 本身要有辦法判斷當前的網路拓墣中是否有迴圈以避免產生廣播風暴。本文會透過觀察原始碼的方式來研究在 NOX Conroller 是如何實現的。">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2013-09-01T23:01:00.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.633Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Python">
+<meta property="article:tag" content="SDN">
+<meta property="article:tag" content="Openflow">
+<meta property="article:tag" content="Nox">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/nox-spanning-tree.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/nox-spanning-tree.html","path":"nox-spanning-tree.html","title":"Nox-Spanning_Tree"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Nox-Spanning_Tree | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Introduction"><span class="nav-number">2.</span> <span class="nav-text">Introduction</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#init"><span class="nav-number">2.1.</span> <span class="nav-text">init</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#install"><span class="nav-number">2.2.</span> <span class="nav-text">install</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#dp-join"><span class="nav-number">2.3.</span> <span class="nav-text">dp_join</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#dp-leave"><span class="nav-number">2.4.</span> <span class="nav-text">dp_leave</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#update-spanning-tree"><span class="nav-number">2.5.</span> <span class="nav-text">update_spanning_tree</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#update-spanning-tree-llback"><span class="nav-number">2.6.</span> <span class="nav-text">update_spanning_tree_llback</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#handle-port-status"><span class="nav-number">2.7.</span> <span class="nav-text">handle_port_status</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#handle-packet-in"><span class="nav-number">2.8.</span> <span class="nav-text">handle_packet_in</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#update-lldp-send-period"><span class="nav-number">2.9.</span> <span class="nav-text">update_lldp_send_period</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">3.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/nox-spanning-tree.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Nox-Spanning_Tree | Hwchiu Learning Note">
+      <meta itemprop="description" content="對於 SDN Controller 來說，最基本的功能就是要可以傳輸封包，然而在這種集中式管理的情況下，傳統的 Spanning Tree Protocol 不會運行。因此 Controller 本身要有辦法判斷當前的網路拓墣中是否有迴圈以避免產生廣播風暴。本文會透過觀察原始碼的方式來研究在 NOX Conroller 是如何實現的。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Nox-Spanning_Tree
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2013-09-02 07:01:00" itemprop="dateCreated datePublished" datetime="2013-09-02T07:01:00+08:00">2013-09-02</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">對於 SDN Controller 來說，最基本的功能就是要可以傳輸封包，然而在這種集中式管理的情況下，傳統的 Spanning Tree Protocol 不會運行。因此 Controller 本身要有辦法判斷當前的網路拓墣中是否有迴圈以避免產生廣播風暴。本文會透過觀察原始碼的方式來研究在 NOX Conroller 是如何實現的。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>Spanning_tree 是nox的一個module.<br>nox會藉由此moudle來維護spanning tree,避免封包在廣播的時候會產生broadcast storm.</p>
+<h1 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h1><h2 id="init"><a href="#init" class="headerlink" title="init"></a><strong>init</strong></h2><p>這邊做的是一些成員的初始化，包括一些set的初始。</p>
+<h2 id="install"><a href="#install" class="headerlink" title="install"></a>install</h2><p>首先會呼叫<code>update_lldp_send_period</code>更新一次lldp發送的頻率</p>
+<p>會根據port的數量去決定LLDP發送的頻率,目前FLOO_D_WAIT_TIME 預設是10秒，代表10秒內要把平均的送出LLDP出去。</p>
+<p>接者會去註冊一些相關事件</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">self.register_for_datapath_join ( self.dp_join )</span><br><span class="line">self.register_for_datapath_leave( self.dp_leave )</span><br><span class="line">self.register_for_port_status( self.handle_port_status )</span><br><span class="line">self.register_for_packet_in( self.handle_packet_in)</span><br></pre></td></tr></table></figure>
+<p>這段還不是很清楚，但是感覺是讓一些變數在各module之間互通使用的。<br><code>self.bindings = self.resolve(pybindings_storage)</code></p>
+<p>這段則是透過reactor把命令給延緩1秒後執行<br>意思就是這行結束一秒後，就會自己執行update_spanning_tree.<br><code>self.post_callback(1, self.update_spanning_tree)</code></p>
+<h2 id="dp-join"><a href="#dp-join" class="headerlink" title="dp_join"></a>dp_join</h2><p>當有switch 與controller連線之後，便會呼叫此function來做處理。</p>
+<p>如果Nox本身不認得該switch的話，就會去紀錄該switch有哪些port<br>如果該port的port number 小於 OFPP_MAX(65280)的話，就進行相關設定</p>
+<p>設定該port的起始時間<br>預設該port是不能flood的，這樣可以避免新的PORT一出現就會使得spanning tree出問題。<br>然後發送一個port_modify的封包去把該port給設定成no_flood</p>
+<p>最後紀錄該Port，並且重新調整LLDP的值</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">now = time.time()</span><br><span class="line">ports = &#123;&#125;</span><br><span class="line"><span class="keyword">for</span> port <span class="keyword">in</span> stats[<span class="string">&#x27;ports&#x27;</span>]:</span><br><span class="line">	ports[port[core.PORT_NO]] = port</span><br><span class="line">	<span class="keyword">if</span> port[core.PORT_NO] &lt;= openflow.OFPP_MAX:</span><br><span class="line">		port[<span class="string">&#x27;enable_time&#x27;</span>] = now + FLOOD_WAIT_TIME</span><br><span class="line">		port[<span class="string">&#x27;flood&#x27;</span>] = <span class="literal">False</span></span><br><span class="line">		hw_addr = <span class="string">&quot;\0\0&quot;</span> + port[core.HW_ADDR]</span><br><span class="line">		hw_addr = struct.unpack(<span class="string">&quot;!q&quot;</span>, hw_addr)[<span class="number">0</span>]</span><br><span class="line">		self.ctxt.send_port_mod(dp, port[core.PORT_NO], ethernetaddr(hw_addr),</span><br><span class="line">		openflow.OFPPC_NO_FLOOD, openflow.OFPPC_NO_FLOOD)</span><br><span class="line"></span><br><span class="line">self.datapaths[dp] = ports</span><br><span class="line">self.port_count += <span class="built_in">len</span>(ports)</span><br><span class="line">self.update_lldp_send_period()</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="dp-leave"><a href="#dp-leave" class="headerlink" title="dp_leave"></a>dp_leave</h2><p>當有swtich離開的時候，先檢查該switch是否存在<br>然後把整體的port_count給調整。</p>
+<h2 id="update-spanning-tree"><a href="#update-spanning-tree" class="headerlink" title="update_spanning_tree"></a>update_spanning_tree</h2><p>先利用bindings去取得所有的link，然後把本身的一個callback function傳進去。<br>接者在FLOOD_PORT_UPDATE_INTERVAL(5 sec)的時間後，呼叫update_spanning_tree.</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">self.bindings.get_all_links(self.update_spanning_tree_callback)</span><br><span class="line">self.post_callback(FLOOD_PORT_UPDATE_INTERVAL, self.update_spanning_tree)</span><br></pre></td></tr></table></figure>
+
+<h2 id="update-spanning-tree-llback"><a href="#update-spanning-tree-llback" class="headerlink" title="update_spanning_tree_llback"></a>update_spanning_tree_llback</h2><h2 id="handle-port-status"><a href="#handle-port-status" class="headerlink" title="handle_port_status"></a>handle_port_status</h2><h2 id="handle-packet-in"><a href="#handle-packet-in" class="headerlink" title="handle_packet_in"></a>handle_packet_in</h2><p>port是flood port或是該封包是LLDP 這兩種情況就直接把該封包傳給下一個module去處理。</p>
+<p>除了此情況以外</p>
+<ul>
+<li>檢查destination的mac address 是否學過</li>
+<li>檢查destination的ip type &#x3D; ethernet 且 ip version &#x3D; ipv4且 ip header &#x3D; 20byte (5*4)</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> <span class="keyword">not</span> packet.parsed:</span><br><span class="line">	<span class="keyword">if</span> packet.<span class="built_in">type</span> == ethernet.LLDP_TYPE:</span><br><span class="line">		<span class="keyword">return</span> CONTINUE</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">try:</span><br><span class="line">	dst_mac = (struct.unpack(&#x27;!I&#x27;, packet.arr[0:4])[0] &lt;&lt; 16) + struct.unpack(&#x27;!H&#x27;, packet.arr[4:6])[0]</span><br><span class="line">	if dst_mac in self.mac_bypass:</span><br><span class="line">		return CONTINUE</span><br><span class="line"></span><br><span class="line">	type = struct.unpack(&#x27;!H&#x27;, packet.arr[12:14])[0]</span><br><span class="line">	ipver = struct.unpack(&#x27;!b&#x27;, packet.arr[14:15])[0]</span><br><span class="line">	if type == 0x800 and ipver == 0x45:</span><br><span class="line">		dst_ip = struct.unpack(&#x27;!I&#x27;, packet.arr[30:34])[0]</span><br><span class="line">			if dst_ip in self.ip_bypass:</span><br><span class="line">				return CONTINUE</span><br><span class="line">	except:</span><br><span class="line">		pass</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">try</span>:</span><br><span class="line">    <span class="keyword">if</span> self.datapaths[dpid][inport][<span class="string">&#x27;flood&#x27;</span>]:</span><br><span class="line">        <span class="keyword">return</span> CONTINUE</span><br><span class="line">    <span class="keyword">else</span>:</span><br><span class="line">        log.warn(<span class="string">&quot;STOP&quot;</span>)</span><br><span class="line">        <span class="keyword">return</span> STOP</span><br><span class="line"><span class="keyword">except</span> KeyError:</span><br><span class="line">    <span class="keyword">return</span> STOP</span><br></pre></td></tr></table></figure>
+
+<h2 id="update-lldp-send-period"><a href="#update-lldp-send-period" class="headerlink" title="update_lldp_send_period"></a>update_lldp_send_period</h2><p>在nox中LLDP的發送情況是要在 FLOOW_WAIT_TIME的時間內 把所有的LLDP都送出去</p>
+<p>所以PORT的數量愈多，每個LLDP的間隔就愈短。<br>預設值</p>
+<ul>
+<li>FLOOW_WAIT_TIME &#x3D; 10</li>
+<li>MIN_LLDP_SEND_PERIOD &#x3D; 0.05</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> self.port_count == <span class="number">0</span>:</span><br><span class="line">	nox.netapps.discovery.discovery.LLDP_SEND_PERIOD = MIN_LLDP_SEND_PERIOD</span><br><span class="line"><span class="keyword">else</span>:</span><br><span class="line">	nox.netapps.discovery.discovery.LLDP_SEND_PERIOD = <span class="built_in">min</span>(</span><br><span class="line">		MIN_LLDP_SEND_PERIOD,</span><br><span class="line">		(FLOOD_WAIT_TIME * <span class="number">1.0</span>) / <span class="number">2</span> / self.port_count)</span><br></pre></td></tr></table></figure>
+
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Python/" rel="tag"># Python</a>
+              <a href="/tags/SDN/" rel="tag"># SDN</a>
+              <a href="/tags/Openflow/" rel="tag"># Openflow</a>
+              <a href="/tags/Nox/" rel="tag"># Nox</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/floodlight-execution.html" rel="prev" title="Execution Floodlight">
+                  <i class="fa fa-chevron-left"></i> Execution Floodlight
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/install-sphinx-on-ubuntu-1204-lts.html" rel="next" title="Install Sphinx on Ubuntu 12.04 LTS">
+                  Install Sphinx on Ubuntu 12.04 LTS <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

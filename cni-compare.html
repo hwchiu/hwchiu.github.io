@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="作為一個 Kubernetes 使用者，可能都有聽過 CNI&#x2F;CRI&#x2F;CSI 等眾多的介面。而 CNI 作為一個掌管整個 Kubernetes 叢集網路的核心元件，負責提供各式各樣的網路功能。目前為數眾多的開源 CNI 專案們，到底各別擁有什麼樣的特性與效果，作為一個管理者在選擇 CNI 的時候應該怎麼考慮。本文針對常見的 CNI 專案們進行了一個簡單的分析與介紹，讓讀者能夠更加得清楚自己需要的功">
+<meta property="og:type" content="article">
+<meta property="og:title" content="常見 CNI (Container Network Interface) Plugin 介紹">
+<meta property="og:url" content="https://www.hwchiu.com/cni-compare.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="作為一個 Kubernetes 使用者，可能都有聽過 CNI&#x2F;CRI&#x2F;CSI 等眾多的介面。而 CNI 作為一個掌管整個 Kubernetes 叢集網路的核心元件，負責提供各式各樣的網路功能。目前為數眾多的開源 CNI 專案們，到底各別擁有什麼樣的特性與效果，作為一個管理者在選擇 CNI 的時候應該怎麼考慮。本文針對常見的 CNI 專案們進行了一個簡單的分析與介紹，讓讀者能夠更加得清楚自己需要的功">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://3.bp.blogspot.com/-jJK65zh2wE8/WIE5o3HkXFI/AAAAAAAAA7U/QkoCoYnTWAEz60H0nyP4_wN0tVG3WVWAwCEw/s1600/k8spolicy.png">
+<meta property="og:image" content="https://i.imgur.com/39xuTqb.png">
+<meta property="og:image" content="https://github.com/intel/multus-cni/raw/master/doc/images/multus_cni_pod.png">
+<meta property="article:published_time" content="2018-10-27T23:54:27.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.604Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="CNI">
+<meta property="article:tag" content="Docker">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://3.bp.blogspot.com/-jJK65zh2wE8/WIE5o3HkXFI/AAAAAAAAA7U/QkoCoYnTWAEz60H0nyP4_wN0tVG3WVWAwCEw/s1600/k8spolicy.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/cni-compare.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/cni-compare.html","path":"cni-compare.html","title":"常見 CNI (Container Network Interface) Plugin 介紹"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>常見 CNI (Container Network Interface) Plugin 介紹 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Basic-CNI"><span class="nav-number">2.</span> <span class="nav-text">Basic CNI</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Flannel"><span class="nav-number">3.</span> <span class="nav-text">Flannel</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Installation"><span class="nav-number">3.1.</span> <span class="nav-text">Installation</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Features"><span class="nav-number">3.2.</span> <span class="nav-text">Features</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Calico"><span class="nav-number">4.</span> <span class="nav-text">Calico</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Installation-1"><span class="nav-number">4.1.</span> <span class="nav-text">Installation</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Features-1"><span class="nav-number">4.2.</span> <span class="nav-text">Features</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Policy"><span class="nav-number">4.2.1.</span> <span class="nav-text">Policy</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Network"><span class="nav-number">4.2.2.</span> <span class="nav-text">Network</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Canal"><span class="nav-number">5.</span> <span class="nav-text">Canal</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Nuage"><span class="nav-number">6.</span> <span class="nav-text">Nuage</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Feature"><span class="nav-number">6.1.</span> <span class="nav-text">Feature</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Ciliunm"><span class="nav-number">7.</span> <span class="nav-text">Ciliunm</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Networking"><span class="nav-number">7.1.</span> <span class="nav-text">Networking</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Network-Policy"><span class="nav-number">7.2.</span> <span class="nav-text">Network Policy</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#OVN"><span class="nav-number">8.</span> <span class="nav-text">OVN</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#SR-IOV"><span class="nav-number">9.</span> <span class="nav-text">SR-IOV</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Example"><span class="nav-number">9.1.</span> <span class="nav-text">Example</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#DPDK"><span class="nav-number">10.</span> <span class="nav-text">DPDK</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Example-1"><span class="nav-number">10.1.</span> <span class="nav-text">Example</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Bond-cni"><span class="nav-number">11.</span> <span class="nav-text">Bond-cni</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Example-2"><span class="nav-number">11.1.</span> <span class="nav-text">Example</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Multus-x2F-CNI-Genie-x2F-Knitter"><span class="nav-number">12.</span> <span class="nav-text">Multus&#x2F;CNI-Genie&#x2F;Knitter</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Example-3"><span class="nav-number">12.1.</span> <span class="nav-text">Example</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">13.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Reference"><span class="nav-number">14.</span> <span class="nav-text">Reference</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">15.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/cni-compare.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="常見 CNI (Container Network Interface) Plugin 介紹 | Hwchiu Learning Note">
+      <meta itemprop="description" content="作為一個 Kubernetes 使用者，可能都有聽過 CNI/CRI/CSI 等眾多的介面。而 CNI 作為一個掌管整個 Kubernetes 叢集網路的核心元件，負責提供各式各樣的網路功能。目前為數眾多的開源 CNI 專案們，到底各別擁有什麼樣的特性與效果，作為一個管理者在選擇 CNI 的時候應該怎麼考慮。本文針對常見的 CNI 專案們進行了一個簡單的分析與介紹，讓讀者能夠更加得清楚自己需要的功能及應用是什麼，才能夠更聰明的選擇所要的 CNI">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          常見 CNI (Container Network Interface) Plugin 介紹
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-10-28 07:54:27" itemprop="dateCreated datePublished" datetime="2018-10-28T07:54:27+08:00">2018-10-28</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">作為一個 Kubernetes 使用者，可能都有聽過 CNI/CRI/CSI 等眾多的介面。而 CNI 作為一個掌管整個 Kubernetes 叢集網路的核心元件，負責提供各式各樣的網路功能。目前為數眾多的開源 CNI 專案們，到底各別擁有什麼樣的特性與效果，作為一個管理者在選擇 CNI 的時候應該怎麼考慮。本文針對常見的 CNI 專案們進行了一個簡單的分析與介紹，讓讀者能夠更加得清楚自己需要的功能及應用是什麼，才能夠更聰明的選擇所要的 CNI</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>本篇文章要來幫大家導讀一下目前常見的 <code>CNI Plugin</code> 有哪些，大致上的內容主要會含括這個 <code>Plugin</code> 的基本功能以及主打的特色，可能使用的場景與情境。<br>老話一句，基本上叢集管理員還是要<code>明確的清楚自己的需求</code>,不要盲目的追求任何一套 <code>CNI Plugin</code>, 沒有存在一套世界最強的 <code>CNI Plugin</code> 可以滿足所有的使用情境與需求。</p>
+<h1 id="Basic-CNI"><a href="#Basic-CNI" class="headerlink" title="Basic CNI"></a>Basic CNI</h1><p>一開始先跟大家介紹一些大家應該都沒聽過的 <code>CNI Plugin</code></p>
+<ol>
+<li>bridge</li>
+<li>host-device</li>
+<li>ipvlan</li>
+<li>macvlan</li>
+<li>ptp</li>
+<li>vlan</li>
+<li>loopback</li>
+</ol>
+<p>這些 <code>CNI Plugin</code> 都是由 <code>CNI</code> 專案所提供的基本功能，其目的非常簡單，就是提供最簡單且單一的網路架構。</p>
+<p>以 <code>Bridge</code> 為範例，就是一個透過 <code>Linux Bridge</code> 將容器與宿主機給串連起來的方式，除此之外就沒有任何功能了。</p>
+<p>而 <code>ptp</code> 就是一個簡單的 <code>Point to Point</code> 的架構，中間甚至連虛擬交換機都沒有，單純的透過 <code>veth</code> 將容器與宿主機連接再一起。</p>
+<p>但是 <code>CNI</code> 迷人的地方就在於這些功能的整合，每個 <code>CNI</code> 專注於一個簡單的功能，彼此又互相整合來完成各式各樣的強大功能。</p>
+<p>有興趣的話可以參閱一下 <a target="_blank" rel="noopener" href="https://github.com/containernetworking/plugins/tree/master/plugins/main">containernetworking&#x2F;plugins</a></p>
+<h1 id="Flannel"><a href="#Flannel" class="headerlink" title="Flannel"></a>Flannel</h1><p><code>Flannel</code> 我覺得應該是 <code>CNI Plugin</code> 裡面頂級出名的，幾乎各種教學文件都可以看到使用 <code>Flannel</code> 作為基本的 <code>CNI Pugin</code>. 其實從 <code>Flannel</code> 的功能面以及安裝性來說，我認為 <code>Flannel</code> 非常簡單且已經可以滿足大部分安裝者的基本需求。</p>
+<p>此外，<code>Flannel</code> 其實背後則是會呼叫 <code>Bridge</code> 這個 <code>CNI</code> 來幫忙建立基本的 <code>Veth/Bridge</code> 等功能，自己則是專注於 <code>Overlay Network</code> 的管理。</p>
+<p>我們從兩個面向來看 <code>Flannel</code> 的特色</p>
+<h2 id="Installation"><a href="#Installation" class="headerlink" title="Installation"></a>Installation</h2><p><code>Flannel</code> 安裝非常簡單，實際上只需要部屬一個 <code>Yaml</code> 檔案即可。<br>該 <code>Yaml</code> 裡面其實會牽扯到不少元件，譬如 <code>DaemonSet</code>, <code>InitContainer</code> 等許多有趣的玩法，這邊就不再贅述，有興趣的可以想想看一個問題</p>
+<p>你要如何讓任何加入到k8s的新節點都能夠自動安裝 CNI 需要的 binary 以及 config ?</p>
+<h2 id="Features"><a href="#Features" class="headerlink" title="Features"></a>Features</h2><p><code>Flannel</code> 功能非常簡單，就是且只有 <code>Overlay Network</code>，目標是提供<code>Pod</code>與<code>Pod</code>之間跨節點的溝通，提供 Layer3 IPv4 的能力來處理節點與節點之間傳輸的辦法。<br>目前其採用的實作方式有</p>
+<ol>
+<li>VXLAN</li>
+<li>UDP 封裝</li>
+<li>Host-GW 靜態路由設定</li>
+</ol>
+<p>詳細的實作內容請參閱<a target="_blank" rel="noopener" href="https://github.com/coreos/flannel/blob/master/Documentation/backends.md">GitHub Flannel</a></p>
+<h1 id="Calico"><a href="#Calico" class="headerlink" title="Calico"></a>Calico</h1><p>另外一個也是非常知名的 <code>CNI Plugin</code> 就是 <code>Calico</code>, 相對於 <code>Flannel</code> 來說， <code>Calico</code> 提供的功能則相對的多，而這些功能與特色都能夠對應不同的網路環境。</p>
+<p><code>Calico</code> 專案的開發相對於 <code>Flannel</code> 來得更加活躍且也不停的有各種功能出現，畢竟相對於 <code>Flannel</code> 單純想提供<code>Pod x Pod</code> 連線功能來說， <code>Calico</code> 想提供的則是更多的功能，自然而然的發展就會比較廣且活躍。</p>
+<h2 id="Installation-1"><a href="#Installation-1" class="headerlink" title="Installation"></a>Installation</h2><p>安裝方便基本上可以很簡單，如同 <code>Flannel</code> 一樣透過一個 <code>Yaml</code> 就可以安裝基本的 <code>CNI</code> 資源到 Kubernetes 叢集中。此外也可以很複雜到需要安裝非常多的東西來提供更進階的功能。 <code>這部分取決於你想要採用的功能</code>。</p>
+<p>舉例來說，如何建立存放 <code>Calico</code> 各節點溝通的資料就有兩種</p>
+<ol>
+<li>etcd</li>
+<li>kubernetes API</li>
+</ol>
+<p>詳細的安裝教學可以參閱<a target="_blank" rel="noopener" href="https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/">官網</a></p>
+<h2 id="Features-1"><a href="#Features-1" class="headerlink" title="Features"></a>Features</h2><p><code>Calico</code> 支援的平台非常多種，本身支援 <code>CNI</code> 介面使得支援 <code>CNI</code> 的平台都可以使用外，其也可以透過 <code>Neutron Plugin</code> 的方式安裝於 <code>OpenStack</code> 的環境中，算是我目前看到支援度非常豐富的網路功能解決方案</p>
+<p>在其功能方面，基本上主要以 <code>kubernetes</code> 該平台能夠提供的功能來探討，可以分成兩個面向來看，分別是 <code>Policy</code> 以及 <code>Network</code>。</p>
+<h3 id="Policy"><a href="#Policy" class="headerlink" title="Policy"></a>Policy</h3><ol>
+<li><p>Network Policy<br>實際上，<code>Kubernetes</code> 本身有定義 <code>Network Policy</code> 的介面，但是實際上卻沒有實現這種能夠用來限制 <code>Pod</code> 與 <code>Pod</code> 之間連線的功能。 官網明確的說明這部分的實現要依賴 <code>CNI Plugin</code> 來處理。<br>而 <code>Calico</code> 就有實現這種介面，因此可以直接使用 <code>Kubernetes Network Policy</code> 的規範去設定相對應的 <code>Yaml</code> 來實現基本的<code>ACL (Access Control List)</code></p>
+</li>
+<li><p>Application Layer Policy<br>相對於基本的 <code>Kubernetes Network Policy</code> 外， <code>Calico</code> 本身透過 <code>Kubernetes CustomResourceDefinetion(CRD)</code> 提供了另外一層新的 <code>GlobalNetworkPolicy</code>.<br>該介面提供了基於 <code>HTTP</code> 方法或是路徑為基準的 <code>ACL</code>，本身的實現是透過 <code>Service Mesh</code> 的方式來進行 <code>ACL</code> 的處理，因此本身會依賴 <code>lstio</code> 的系統。在安裝上會需要更多的操作以及設定的細節來開啟此功能。</p>
+</li>
+</ol>
+<h3 id="Network"><a href="#Network" class="headerlink" title="Network"></a>Network</h3><ol>
+<li>Overlay Network.<br><code>Calico</code> 對於網路連線方面也有提供類似 <code>Flannel</code> 的功能，透過 <code>VXLAN</code> 或是 <code>IP in IP</code> 這類型的協定來封裝連線封包已達到 <code>Overlay Network</code> 的需求</li>
+<li>Native Routing<br>除了上述的 <code>Overlay Network</code> 之外， <code>Calico</code> 最主打的就是第二種網路，完完全全的 <code>Underlay Network</code>, 不依賴任何的封包封裝協定。<br><code>Calico</code> 的想法很簡單，雖然 <code>Overlay Network</code> 很方便，但是實際上每次的封包封裝都會增加整體封包的複雜度，同時也會增加封包的處理時間。<br>因此 <code>Calico</code> 透過 <code>IPTables</code> 以及 <code>Routing Table</code> 的方式來處理 <code>Layer3</code>路由的問題，讓不同節點之間的 <code>Pod</code> 可以透過 <code>Routing Table</code> 的方式直接互相連間而不需要再包覆一層額外的標頭檔來處理封包。</li>
+</ol>
+<p>這部分的原理牽扯到 <code>Layer3</code> 路由以及相關閘道的 <code>MAC address</code> 的原理，有興趣的可以參考官方說明<br><a target="_blank" rel="noopener" href="https://docs.projectcalico.org/v3.3/reference/architecture/data-path">The Calico Data Path: IP Routing and iptables
+</a><br>3. Public IP Address Assignment<br><code>Calico</code> 有額外自行開發一套 <code>IPAM</code> 來管理 <code>IP</code> 及分配，在此架構中所有的 <code>IP</code> 都會從 <code>IP Pool</code> 中去取得。</p>
+<p>同時搭配 <code>BGP</code> 等動態路由協定的幫忙，所有的 <code>Pod</code> 都可以被賦予一個可被存取的 <code>Public IP</code> 地址，同時這些 <code>Pod</code> 在對外進行存取的時候也不需要進行 <code>NAT</code> 的轉換，可減少一次封包轉換所造成的效能耗損</p>
+<h1 id="Canal"><a href="#Canal" class="headerlink" title="Canal"></a>Canal</h1><p><code>Canal</code> 是一個比較特別的 <code>CNI Plugin</code>, 其目的在於整合 <code>Flannel</code> 以及 <code>Calico</code> 這兩個 <code>CNI Plugin</code>. 希望使用 <code>Calico</code> 的 <code>Network Policy</code> 功能以及 <code>Flannel</code> 的 <code>Overlay Network</code> 功能。</p>
+<p>因此整體上並沒有什麼特別獨特的功能，不過隨者時間演進，目前 <code>Canal</code> 專案也有大變化。</p>
+<p>從 <code>Canal</code> 於 <a target="_blank" rel="noopener" href="https://github.com/projectcalico/canal">Github canal</a> 官網上面可以看到該專案在<a target="_blank" rel="noopener" href="https://github.com/projectcalico/canal/commit/54b58775578f0e3a306d9f2706e4d9b829fb7562#diff-04c6e90faac2675aa89e2176d2eec7d8"> Jan 27,2018</a> 更新了說明來表示該專案已經停止開發，目前已經可以直接在 <code>Calico</code> 的官網直接看到 <code>Calico</code> 與 <code>Flannel</code> 的整合方法以及安裝方式，因此 <code>Canal</code> 這個獨立的 <code>CNI Plugin</code> 基本上已經沒有需要使用的必要了。</p>
+<h1 id="Nuage"><a href="#Nuage" class="headerlink" title="Nuage"></a>Nuage</h1><p><code>Nuage</code> 是一個基於 <code>SDN</code> 概念開發的<code>CNI Plugin</code>，基底層使用了 <code>OpenvSwitch</code> 作為軟體交換機，同時使用了 <code>OpenFlow</code> 此協定來控制 <code>OpenvSwitch</code>.<br>此外，為了能夠更加聰明有智慧的去透過 <code>OpenFlow</code> 控制 <code>OpenvSwitch</code>, 也必須要有一個 <code>OpenFlow Controller VSC</code> 來作為一個中央控管的管理者。</p>
+<h2 id="Feature"><a href="#Feature" class="headerlink" title="Feature"></a>Feature</h2><p><code>Nugae</code> 本身在網路連線方面，也有提供基於 <code>VXLAN</code> 協定的 <code>Overlay Network</code> 的應用。這部分應該是直接利用 <code>OpenvSwitch</code> 本身提供的 <code>VXLAN</code> 功能來完成。<br>此外針對 <code>Nuage</code> 也有實現 <code>Network Policy</code>, 其原理就是透過 <code>Openflow</code> 的規則下發到所有的 <code>OpenvSwitch</code> 來達到 <code>Pod</code> 與 <code>Pod</code> 之間的傳輸規則隔離。</p>
+<p>下圖是一個簡單的示意圖來解釋 <code>Network Policy</code> 的運作原理，大致上就是當使用者透過 <code>Client API</code> 去寫入 <code>Network Policy</code> 的規則後，這些規則最後會被相關的應用程式給解讀並且轉達給 <code>VSC, SDN Controller</code>，最後 <code>VSC</code> 會把該規則對應到的資訊透過 <code>OpenFlow</code> 的方式寫入到對應的節點上面的 <code>OpenvSwitch</code> 上來達到 ACL 的功能。</p>
+<p><img src="https://3.bp.blogspot.com/-jJK65zh2wE8/WIE5o3HkXFI/AAAAAAAAA7U/QkoCoYnTWAEz60H0nyP4_wN0tVG3WVWAwCEw/s1600/k8spolicy.png"></p>
+<h1 id="Ciliunm"><a href="#Ciliunm" class="headerlink" title="Ciliunm"></a>Ciliunm</h1><p><code>Ciliunm</code> 最厲害也是最主打的功能並不是網路方面的連接，反而是安全性以及平衡附載特點。<br>在其實作中採用了 <code>eBPF</code> 以及 <code>XDP</code> 這兩種這幾年逐漸受到重視的技術來處理封包。連線的封包能夠在網卡收到但是尚未送到 <code>Kernel</code> 前就先行處理，因此有更早期且更快速的效率來處理封包。</p>
+<p>接下來就針對其各個特色功能來介紹</p>
+<h2 id="Networking"><a href="#Networking" class="headerlink" title="Networking"></a>Networking</h2><p>網路連線方面提供兩種功能，<code>Overlay Network</code> 以及 <code>Native Routing</code>.</p>
+<ol>
+<li>Overlay Network<br><code>Overlay Network</code> 本身也是依賴 <code>VXLAN</code> 以及 <code>Geneve</code> 這些已知的協定來處理，<code>Ciliunm</code> 直接使用 <code>Kernel</code> 相關的功能來達到這些封裝效果，因此其支援度以及支援性則是依賴於使用的 <code>Kernel</code> 版本。</li>
+<li>Native Routing<br>這個比較偏向給進階使用者使用的，叢集管理者必須要知道這方面的概念同時也要確保相關的 <code>Routing Table</code> 是可以運行的，同時也可以使用 <code>OSPF/BGP</code> 等相關的應用程式來輔助。<br>詳細的可以參考<a target="_blank" rel="noopener" href="https://cilium.readthedocs.io/en/v1.2/concepts/#direct-native-routing-mode">Ciliunm Concepts</a></li>
+<li>Load Balacing<br>負載平衡方面，<code>Cilium</code> 則使用了 <code>BPF</code> 的架構並且透過 <code>Hashing</code> 的方式來幫忙決定該連線最後的目標節點，</li>
+</ol>
+<h2 id="Network-Policy"><a href="#Network-Policy" class="headerlink" title="Network Policy"></a>Network Policy</h2><p><code>Ciluum</code> 除了實現了 <code>Kubernetes Network Policy</code> 這種基於 <code>Layer4/Layer3</code> 的防火牆外，本身也有額外實現了 <code>Layer 7</code> 的防火牆。<br>在 <code>Layer7</code> 方面支援了下列的協定</p>
+<ul>
+<li>REST&#x2F;HTTP</li>
+<li>gRPC</li>
+<li>Kafka<br>已 <code>Kafka</code> 來說，可以使用下列的 <code>Yaml</code> 來描述相關的防火牆規則<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">&quot;cilium.io/v2&quot;</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">CiliumNetworkPolicy</span></span><br><span class="line"><span class="attr">description:</span> <span class="string">&quot;enable empire-hq to produce to empire-announce and deathstar-plans&quot;</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">&quot;rule1&quot;</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">endpointSelector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">kafka</span></span><br><span class="line">  <span class="attr">ingress:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">fromEndpoints:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">matchLabels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">empire-hq</span></span><br><span class="line">    <span class="attr">toPorts:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">port:</span> <span class="string">&quot;9092&quot;</span></span><br><span class="line">        <span class="attr">protocol:</span> <span class="string">TCP</span></span><br><span class="line">      <span class="attr">rules:</span></span><br><span class="line">        <span class="attr">kafka:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">role:</span> <span class="string">&quot;produce&quot;</span></span><br><span class="line">          <span class="attr">topic:</span> <span class="string">&quot;deathstar-plans&quot;</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">role:</span> <span class="string">&quot;produce&quot;</span></span><br><span class="line">          <span class="attr">topic:</span> <span class="string">&quot;empire-announce&quot;</span></span><br></pre></td></tr></table></figure>
+詳細更多的用法可以參閱其<a target="_blank" rel="noopener" href="http://docs.cilium.io/en/stable/">官網</a> 來學習</li>
+</ul>
+<h1 id="OVN"><a href="#OVN" class="headerlink" title="OVN"></a>OVN</h1><p><code>OVN</code>, <code>Open Virtual Network</code>  是由 <code>OpenvSwitch</code> 的開發公司, <code>Nicira</code> 開發的一套 <code>OpenvSwitch</code> 管理工具。<br>最初開發 <code>OVN</code> 的用途就是希望能夠透過一個類似 <code>SDN Controller</code> 概念的應用程式來管理整個網路叢集中的 <code>OpenvSwitch</code>, 並且方便且有效率透過管理這些 <code>OpenvSwitch</code> 來達到各式各樣的網路功能，譬如簡單的 ACL 到多租戶的虛擬網路</p>
+<p>如今 <code>OVN</code> 也透過 <code>CNI</code> 的介面以及相關的 <code>Kubernetes API</code> 來整合到 <code>Kubernetes</code> 環境中。</p>
+<p>從功能面來說, <code>OVN</code> 的主軸還是在於網路功能的提供，除了最基本的 <code>Overlay Network</code> 之外，也能夠透過 <code>OpenvSwitch</code> 的架構來實現<br>如 <code>kubernetes service(ClusterIP,NodePort)</code> 等功能。</p>
+<p>從目前的發展來看也許還沒有很強大的力量可以吸引使用者轉換過去，不過若能夠透過 <code>OVN</code> 配上 <code>OpenvSwitch</code> 來完成 <code>Kubernetes</code> 內部所有的 <code>Networking</code> 功能，則有招一日我認為若能夠將所有的 <code>OpenvSwitch</code> 都整合 <code>DPDK</code> 此框架則有機會可以一舉將整個 <code>Kubernetes</code> 內部所有網路傳輸的效能直接提到到 10Gbps 以上(數字上限很依賴調整，但是 10Gbps 基本上絕對沒問題).</p>
+<p>有興趣玩玩的可以參考 <a target="_blank" rel="noopener" href="https://github.com/openvswitch/ovn-kubernetes">官網</a>，裡面也有附設相關的 <code>Vagrant</code> 讓開發者使用看看。</p>
+<h1 id="SR-IOV"><a href="#SR-IOV" class="headerlink" title="SR-IOV"></a>SR-IOV</h1><p>相對於前述所有的 <code>CNI</code> 都提供一個全面性的網路功能，接下來的幾個 <code>CNI</code> 則是會跟網卡的硬體資訊有更強烈的整合。<br><code>SR-IOV</code> 的介紹可以參考 <a target="_blank" rel="noopener" href="https://blog.pichuang.com.tw/nfv-sr-iov/">NFV 網路技術介紹 – SR-IOV</a> 這篇文章來學習。</p>
+<p>比較簡單的理解就可以想成硬體網卡端會直接映射一個虛擬網卡到對應的 <code>Container</code> 內部去使用，這種情況下該 <code>Container</code> 內往該虛擬網卡送出去的封包都會直接從對外層的實體網卡送出去，不會經過宿主機內部的任何軟體交換機處理。</p>
+<p>好處來說就是效能會更高，速度更快。壞處來說就是基本上 <code>Kubernetes</code> 原先透過 <code>IPTables</code> 或是 <code>IPvS</code> 提供的任何 <code>Kubernetes Networking Functions</code> (Services&#x2F;DNS) 都會失效。</p>
+<p>此外 <code>SR-IOV</code> 也有 <code>VF</code> 數量上的限制，所以使用上絕對不會是每個 <code>Pod</code> 都會使用，而是要依據自己的需求以及對應的情境來使用。</p>
+<h2 id="Example"><a href="#Example" class="headerlink" title="Example"></a>Example</h2><p>一個簡單的 <code>CNI</code> 設定檔範例如下</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    <span class="attr">&quot;name&quot;:</span> <span class="string">&quot;mynet&quot;</span>,</span><br><span class="line">    <span class="attr">&quot;type&quot;:</span> <span class="string">&quot;sriov&quot;</span>,</span><br><span class="line">    <span class="attr">&quot;if0&quot;:</span> <span class="string">&quot;enp1s0f1&quot;</span>,</span><br><span class="line">    <span class="attr">&quot;ipam&quot;:</span> &#123;</span><br><span class="line">        <span class="attr">&quot;type&quot;:</span> <span class="string">&quot;host-local&quot;</span>,</span><br><span class="line">        <span class="attr">&quot;subnet&quot;:</span> <span class="string">&quot;10.55.206.0/26&quot;</span>,</span><br><span class="line">        <span class="attr">&quot;routes&quot;:</span> [</span><br><span class="line">            &#123; <span class="attr">&quot;dst&quot;:</span> <span class="string">&quot;0.0.0.0/0&quot;</span> &#125;</span><br><span class="line">        ],</span><br><span class="line">        <span class="attr">&quot;gateway&quot;:</span> <span class="string">&quot;10.55.206.1&quot;</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用上強烈建議要搭配 <code>Intel</code> 針對 <code>SR-IOV</code> 所開發的 <code>Device Plugin</code> 來處理 <code>VF</code> 的同步與管理，可以減少更多對硬體資訊的依賴性。</p>
+<p>有興趣的可以參閱 <code>Intel</code> 所維護的 <a target="_blank" rel="noopener" href="https://github.com/intel/sriov-cni">SRIOV-CNI</a></p>
+<p>SR-IOV 最早期的 Plugin 並不是 Intel 所開發的，但是 Intel 將其 Fork 回來並且加入了更多的功能，同時也在同一個 <code>Plugin</code> 之中去支援 DPDK 的功能</p>
+<h1 id="DPDK"><a href="#DPDK" class="headerlink" title="DPDK"></a>DPDK</h1><p>與 <code>SR-IOV</code> 類似，都是針對特定用途且有網卡資訊依賴性的 <code>CNI</code> 插件，主旨都在提供一個更高速且更低傳輸延遲的網路環境。</p>
+<p><code>DPDK</code> 就是一個 <code>Kernel ByPass</code> 的應用程式架構，透過 <code>Polling</code> 的方式來盡可能的使用 <code>CPU</code> 去輪詢網卡來提升網卡的處理效率，在使用上則必須要指定對應的實體網卡資訊。<br>一旦網卡使用上了 <code>DPDK</code>, 所有未客製化的常見工具 (ifconfig, ip) 等都沒有辦法檢視到該網卡的資訊，因為該網卡已經從 <code>Kernel</code> 內消失了。</p>
+<h2 id="Example-1"><a href="#Example-1" class="headerlink" title="Example"></a>Example</h2><p>一個關於 <code>DPDK</code> 的 <code>CNI</code> 設定 <code>Yaml</code> 如下</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    <span class="attr">&quot;name&quot;:</span> <span class="string">&quot;mynet&quot;</span>,</span><br><span class="line">    <span class="attr">&quot;type&quot;:</span> <span class="string">&quot;sriov&quot;</span>,</span><br><span class="line">    <span class="attr">&quot;if0&quot;:</span> <span class="string">&quot;enp1s0f1&quot;</span>,</span><br><span class="line">    <span class="attr">&quot;if0name&quot;:</span> <span class="string">&quot;net0&quot;</span>,</span><br><span class="line">    <span class="attr">&quot;dpdk&quot;:</span> &#123;</span><br><span class="line">        <span class="string">&quot;kernel_driver&quot;</span><span class="string">:&quot;ixgbevf&quot;</span>,</span><br><span class="line">        <span class="string">&quot;dpdk_driver&quot;</span><span class="string">:&quot;igb_uio&quot;</span>,</span><br><span class="line">        <span class="string">&quot;dpdk_tool&quot;</span><span class="string">:&quot;/opt/dpdk/usertools/dpdk-devbind.py&quot;</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>Intel</code> 將 <code>DPDK</code> 相關的功能一起放在 <code>SRIOV-CNI</code> 裡面，可以到<a target="_blank" rel="noopener" href="https://github.com/intel/sriov-cni">SRIOV-CNI Github</a>參考用法</p>
+<h1 id="Bond-cni"><a href="#Bond-cni" class="headerlink" title="Bond-cni"></a>Bond-cni</h1><p><code>Bonding</code>, 或是 <code>Teaming</code> 都是非常類似概念的一種實作，本文主要針對 <code>Bonding</code> 來介紹。</p>
+<p>歡迎參考 <code>Redhat</code> 的文件來學習 <code>Teaming</code> 以及 <code>Bonding</code> 的差異<br><a target="_blank" rel="noopener" href="https://rhelblog.redhat.com/2014/06/23/team-driver/">If You Like Bonding, You Will Love Teaming</a></p>
+<p>能夠將多張網卡抽象成一張網卡來使用，這種情況下該網卡能夠提供下列的功能</p>
+<ol>
+<li>Load-Balancing<br>能夠針對 <code>Layer2/Layer3/Layer4</code> 等不同的規範讓不同的連線最後透過不同的實體網卡傳輸，舉例來說兩張 1G 的網卡綁在一起後是有機會能夠提供 2Gbps 的傳輸數率</li>
+<li>Fault-tolerance</li>
+<li>Active-Backup<br>當底層網卡有任何故障的時候，最上層的應用程式可以不需要意會到這種情況且依然有辦法繼續傳送網路封包。</li>
+</ol>
+<h2 id="Example-2"><a href="#Example-2" class="headerlink" title="Example"></a>Example</h2><p>相關的 <code>CNI</code> 設定如下</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">	<span class="attr">&quot;name&quot;:</span> <span class="string">&quot;mynet&quot;</span>,</span><br><span class="line">	<span class="attr">&quot;type&quot;:</span> <span class="string">&quot;flannel&quot;</span>,</span><br><span class="line">	<span class="attr">&quot;delegate&quot;:</span> &#123;</span><br><span class="line">		<span class="attr">&quot;type&quot;:</span> <span class="string">&quot;bond&quot;</span>,</span><br><span class="line">		<span class="attr">&quot;mode&quot;:</span> <span class="string">&quot;active-backup&quot;</span>,</span><br><span class="line">		<span class="attr">&quot;miimon&quot;:</span> <span class="string">&quot;100&quot;</span>,</span><br><span class="line">		<span class="attr">&quot;links&quot;:</span> [</span><br><span class="line">            &#123;</span><br><span class="line">				<span class="attr">&quot;name&quot;:</span> <span class="string">&quot;ens3f2&quot;</span></span><br><span class="line">			&#125;,</span><br><span class="line">			&#123;</span><br><span class="line">				<span class="attr">&quot;name&quot;:</span> <span class="string">&quot;ens3f2d1&quot;</span></span><br><span class="line">			&#125;</span><br><span class="line">		]</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>這個 <code>CNI</code> Plugin 也是由 <code>Intel</code> 所開發的，不得不說 <code>Intel</code> 對於 <code>On-premise</code> 環境中的 <code>Networking Solution</code> 下足了功夫，缺少什麼就自己實現什麼並且開源，最後將這些各式各樣的 <code>CNI Plugin</code> 統整成為自己的解決方案。</p>
+<p>有興趣了解更多的可以參閱其<a target="_blank" rel="noopener" href="https://github.com/intel/bond-cni">intel&#x2F;bond-cni</a></p>
+<h1 id="Multus-x2F-CNI-Genie-x2F-Knitter"><a href="#Multus-x2F-CNI-Genie-x2F-Knitter" class="headerlink" title="Multus&#x2F;CNI-Genie&#x2F;Knitter"></a>Multus&#x2F;CNI-Genie&#x2F;Knitter</h1><p>前面講了非常多的 <code>CNI Plugin</code>，從全面性的網路功能到依賴特定網卡型號的用途都有，接下來要介紹的 <code>CNI Plugin</code> 可以說是一個非常特別類型的 <code>CNI</code> 用法。</p>
+<p>舉 <code>Kubernetes</code> 為範例，對於每一個創建的 <code>Pod</code> 只會呼叫一次 <code>CNI</code> 來設定相關的網路功能，然而在某些場景應用中，會特別希望該 <code>Pod</code> 中有多個網路介面。我這邊使用下圖作為一個範例介紹</p>
+<p>試想一個情境，有很多的應用程式容器化之後要運行在 <code>Kubernetes</code> 上，這些容器本身需要互相溝通協調，同時這些容器本身有非常強烈的網路效能需求，譬如 <code>High Throughput/Low Latency</code>.</p>
+<p>在這些應用程式尚未容器化以前，其架構中常常會規劃成 <code>Control Network</code> 以及 <code>Data Network</code>. 這些應用程式透過 <code>Control Network</code> 來傳輸控制用的資料，而透過 <code>Data Network</code> 來傳輸真正的資料。</p>
+<p>這些應用程式容器化遷移到 <code>Kubernetes</code> 之後，要如何在 <code>Kubernetes</code> 上滿足這些需求?</p>
+<p>就算今天 <code>Kubernetes</code> 不用 <code>IPTables</code> 而改用 <code>IPvS</code> 的模式來處理相關的功能，整體傳輸的速度還是受限於 <code>Linux Kernel</code>而沒有辦法達到令人滿意的境界，勢必要另尋它路來處理。<br><img src="https://i.imgur.com/39xuTqb.png" alt="Imgur"></p>
+<p>這種需求的情況下，有一種特別的 <code>CNI</code> 就誕生了，這類型的 <code>CNI</code> 本身沒有提供任何的網路應用功能，而是作為一個呼叫者去銜接數個 <code>CNI Plugins</code> 來處理。<br>這邊借用 <code>Multus</code> 的一張圖片來說<br><img src="https://github.com/intel/multus-cni/raw/master/doc/images/multus_cni_pod.png"></p>
+<p>最終目的就是希望每個 <code>Container</code> 被創立的時候都可以執行多次的 <code>CNI Plugin</code>.</p>
+<p>因此整個架構就會是 <code>Kubernetes</code> –&gt; <code>Special CNI</code> -&gt; <code>Other CNIs</code>.</p>
+<p>現在提供這種需求的 <code>CNI</code> 也不少，由於目的相同，大部分都是單純用法不同，因此我將這些 <code>CNI</code> 都放在一起。</p>
+<p><code>Mutlus-CNI</code> 是由 <code>Intel</code> 所主導開發的，看到這邊再來回想一下前面所介紹的 <code>SRIOV/DPDK/Bonding</code> 等也是由 <code>Intel</code> 所維護的相關 <code>CNI Plugin</code>。</p>
+<p>不難想像 <code>Intel</code> 想要做的是一個整體的網路解決方案，先透過個別的 <code>CNI</code> 提供獨特的功能，最後透過 <code>Multus</code> 的方式將這些 <code>CNI</code> 全部串接起來來滿足使用者的需求。</p>
+<h2 id="Example-3"><a href="#Example-3" class="headerlink" title="Example"></a>Example</h2><p>這邊舉一個 <code>Intel</code> 提供的範例，看看是如何透過 <code>Multus</code> 串接各式各樣的 <code>CNI</code> 來使用</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    <span class="attr">&quot;name&quot;:</span> <span class="string">&quot;multus-demo-network&quot;</span>,</span><br><span class="line">    <span class="attr">&quot;type&quot;:</span> <span class="string">&quot;multus&quot;</span>,</span><br><span class="line">    <span class="attr">&quot;delegates&quot;:</span> [</span><br><span class="line">        &#123;</span><br><span class="line">                <span class="attr">&quot;type&quot;:</span> <span class="string">&quot;sriov&quot;</span>,</span><br><span class="line">                <span class="comment">#part of sriov plugin conf</span></span><br><span class="line">                <span class="attr">&quot;if0&quot;:</span> <span class="string">&quot;enp12s0f0&quot;</span>,</span><br><span class="line">                <span class="attr">&quot;ipam&quot;:</span> &#123;</span><br><span class="line">                        <span class="attr">&quot;type&quot;:</span> <span class="string">&quot;host-local&quot;</span>,</span><br><span class="line">                        <span class="attr">&quot;subnet&quot;:</span> <span class="string">&quot;10.56.217.0/24&quot;</span>,</span><br><span class="line">                        <span class="attr">&quot;rangeStart&quot;:</span> <span class="string">&quot;10.56.217.131&quot;</span>,</span><br><span class="line">                        <span class="attr">&quot;rangeEnd&quot;:</span> <span class="string">&quot;10.56.217.190&quot;</span>,</span><br><span class="line">                        <span class="attr">&quot;routes&quot;:</span> [</span><br><span class="line">                                &#123; <span class="attr">&quot;dst&quot;:</span> <span class="string">&quot;0.0.0.0/0&quot;</span> &#125;</span><br><span class="line">                        ],</span><br><span class="line">                        <span class="attr">&quot;gateway&quot;:</span> <span class="string">&quot;10.56.217.1&quot;</span></span><br><span class="line">                &#125;</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">                <span class="attr">&quot;type&quot;:</span> <span class="string">&quot;ptp&quot;</span>,</span><br><span class="line">                <span class="attr">&quot;ipam&quot;:</span> &#123;</span><br><span class="line">                        <span class="attr">&quot;type&quot;:</span> <span class="string">&quot;host-local&quot;</span>,</span><br><span class="line">                        <span class="attr">&quot;subnet&quot;:</span> <span class="string">&quot;10.168.1.0/24&quot;</span>,</span><br><span class="line">                        <span class="attr">&quot;rangeStart&quot;:</span> <span class="string">&quot;10.168.1.11&quot;</span>,</span><br><span class="line">                        <span class="attr">&quot;rangeEnd&quot;:</span> <span class="string">&quot;10.168.1.20&quot;</span>,</span><br><span class="line">                        <span class="attr">&quot;routes&quot;:</span> [</span><br><span class="line">                                &#123; <span class="attr">&quot;dst&quot;:</span> <span class="string">&quot;0.0.0.0/0&quot;</span> &#125;</span><br><span class="line">                        ],</span><br><span class="line">                        <span class="attr">&quot;gateway&quot;:</span> <span class="string">&quot;10.168.1.1&quot;</span></span><br><span class="line">                &#125;</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">                <span class="attr">&quot;type&quot;:</span> <span class="string">&quot;flannel&quot;</span>,</span><br><span class="line">                <span class="attr">&quot;delegate&quot;:</span> &#123;</span><br><span class="line">                        <span class="attr">&quot;isDefaultGateway&quot;:</span> <span class="literal">true</span></span><br><span class="line">                &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    ]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>礙於人生苦短，時間有限，本篇文章沒有辦法將所有的 <code>CNI Plugin</code> 都介紹一遍，還有非常多的 <code>CNI Plugin</code> 沒有介紹到，譬如 <code>Knitter</code>, <code>vhost-CNI</code>, <code>DANM</code> 甚至是一些<code>Plublic Cloud Provider</code>所開源的 <code>CNI</code> 專案.</p>
+<p>不過我相信對於大部分公有雲的使用者來說，其實使用公有雲本身提供的網路解決方案都能夠滿足大部分的需求，如果你有需要在 <code>On-Premise</code> 的架構下去設計這些 <code>Kubernetes</code> 平台並且需要符合特定的使用情境的話，那一定要好好的想清楚自己的需求，尋找一套合適的<code>CNI</code>來使用，真的不行的話非常推薦自己撰寫一套 <code>CNI</code> 出來客製化自己的需求。</p>
+<h1 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://kubernetes.io/blog/2017/01/scaling-kubernetes-deployments-with-policy-base-networking/">Scaling Kubernetes deployments with Policy-Based Networking</a></li>
+<li><a target="_blank" rel="noopener" href="http://docs.cilium.io/en/stable/policy/language/#http">Cilium Network Policy</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni">CNI - the Container Network Interface
+</a></li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/CNI/" rel="tag"># CNI</a>
+              <a href="/tags/Docker/" rel="tag"># Docker</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/costco-salmon.html" rel="prev" title="costco 冷凍鮭魚排紀錄">
+                  <i class="fa fa-chevron-left"></i> costco 冷凍鮭魚排紀錄
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/kubernetes-storage-i.html" rel="next" title="Kubernetes X Storage (I)">
+                  Kubernetes X Storage (I) <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

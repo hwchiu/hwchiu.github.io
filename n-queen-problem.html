@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本文介紹一個常見也是著名的演算法題目， N-Queue(N皇后),該題目假設在一個 NxN的棋盤上面，想求得總共有多少種的辦法去放置 N 的皇后且這些皇后彼此都不會互相影響，影響的定義則是上下左右直線，以及左下右上斜線總共六條斜線中都不能有其他的皇后。 這個經典問題有非常多種的解決方法，最簡單的就是透過遞迴配上剪枝來加速，然而在N過大的時候，盤面的數量太多，每次的運算都太花時間會導致整體求解速度過">
+<meta property="og:type" content="article">
+<meta property="og:title" content="N-Queen problem">
+<meta property="og:url" content="https://www.hwchiu.com/n-queen-problem.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文介紹一個常見也是著名的演算法題目， N-Queue(N皇后),該題目假設在一個 NxN的棋盤上面，想求得總共有多少種的辦法去放置 N 的皇后且這些皇后彼此都不會互相影響，影響的定義則是上下左右直線，以及左下右上斜線總共六條斜線中都不能有其他的皇后。 這個經典問題有非常多種的解決方法，最簡單的就是透過遞迴配上剪枝來加速，然而在N過大的時候，盤面的數量太多，每次的運算都太花時間會導致整體求解速度過">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2014-09-19T01:01:00.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.632Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Algorithm">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/n-queen-problem.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/n-queen-problem.html","path":"n-queen-problem.html","title":"N-Queen problem"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>N-Queen problem | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Algorithm"><span class="nav-number">2.</span> <span class="nav-text">Algorithm</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AC%AC%E4%B8%80%E5%9B%9E%E5%90%88"><span class="nav-number">2.1.</span> <span class="nav-text">第一回合</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AC%AC%E4%BA%8C%E5%9B%9E%E5%90%88"><span class="nav-number">2.2.</span> <span class="nav-text">第二回合</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AC%AC%E4%B8%89%E5%9B%9E%E5%90%88"><span class="nav-number">2.3.</span> <span class="nav-text">第三回合</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AC%AC%E5%9B%9B%E5%9B%9E%E5%90%88"><span class="nav-number">2.4.</span> <span class="nav-text">第四回合</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AC%AC%E4%B8%80%E6%AC%A1%E8%BF%AD%E4%BB%A3"><span class="nav-number">2.5.</span> <span class="nav-text">第一次迭代</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AC%AC%E4%BA%8C%E6%AC%A1%E8%BF%AD%E4%BB%A3"><span class="nav-number">2.6.</span> <span class="nav-text">第二次迭代</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AC%AC%E4%B8%89%E6%AC%A1%E8%BF%AD%E4%BB%A3"><span class="nav-number">2.7.</span> <span class="nav-text">第三次迭代</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AC%AC%E5%9B%9B%E6%AC%A1%E8%BF%AD%E4%BB%A3"><span class="nav-number">2.8.</span> <span class="nav-text">第四次迭代</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">3.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/n-queen-problem.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="N-Queen problem | Hwchiu Learning Note">
+      <meta itemprop="description" content="本文介紹一個常見也是著名的演算法題目， N-Queue(N皇后),該題目假設在一個 NxN的棋盤上面，想求得總共有多少種的辦法去放置 N 的皇后且這些皇后彼此都不會互相影響，影響的定義則是上下左右直線，以及左下右上斜線總共六條斜線中都不能有其他的皇后。 這個經典問題有非常多種的解決方法，最簡單的就是透過遞迴配上剪枝來加速，然而在N過大的時候，盤面的數量太多，每次的運算都太花時間會導致整體求解速度過慢。因此本文使用基於 Bit 為單位的方式去進行運算，能夠更快速的求出答案。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          N-Queen problem
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2014-09-19 09:01:00" itemprop="dateCreated datePublished" datetime="2014-09-19T09:01:00+08:00">2014-09-19</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本文介紹一個常見也是著名的演算法題目， N-Queue(N皇后),該題目假設在一個 NxN的棋盤上面，想求得總共有多少種的辦法去放置 N 的皇后且這些皇后彼此都不會互相影響，影響的定義則是上下左右直線，以及左下右上斜線總共六條斜線中都不能有其他的皇后。 這個經典問題有非常多種的解決方法，最簡單的就是透過遞迴配上剪枝來加速，然而在N過大的時候，盤面的數量太多，每次的運算都太花時間會導致整體求解速度過慢。因此本文使用基於 Bit 為單位的方式去進行運算，能夠更快速的求出答案。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>在成功嶺新訓得十六天，為了不讓自己的腦袋沒有運轉，上課的時候我就到處找東西想，腦中第一個想到可以動腦的題目就是Ｎ皇后</p>
+<p>N皇后是一個經典的題目，最初是8皇后，後來被推廣至Ｎ皇后，想要瞭解此題目的規則可以參考<a target="_blank" rel="noopener" href="http://zh.wikipedia.org/wiki/%E5%85%AB%E7%9A%87%E5%90%8E%E9%97%AE%E9%A2%98">八皇后問題</a></p>
+<p>此題目最直覺的解決方法就是Backtracking，去枚舉所有可能性，對於每種可能性檢查是否合法，這部分可以透過一些機制來達到剪枝的效果，藉此減少運算次數已提升運算速度。<br>由於之前跟Ensky一起合作寫<a target="_blank" rel="noopener" href="https://github.com/ensky/GroundGame-scheduler">大地遊戲產生器</a>時，我有嘗試使用bitwise的架構來進行加速，因此這次我決定在成功嶺上課的時間，想辦法把N皇后的問題也用bitwise的方式來處理。</p>
+<p>雖然以前就知道N皇后有用bitwise的方式來運算，但是這次想要靠自己慢慢思考，去想出每一個步驟來解決此問題。因此我就在成功嶺上課的過程中，將程式碼給手寫下來，待新訓結束後趕緊來測試結果。</p>
+<h1 id="Algorithm"><a href="#Algorithm" class="headerlink" title="Algorithm"></a>Algorithm</h1><p>在原本沒有加速的版本中，我們會使用<strong>2D Array</strong>來表示當前的盤面，每次選擇下一個皇后位置時，都會根據此盤面來選擇一個合法的位置。再選擇一個合法的位置時，不但要確認該col上是否已經有放過，還要檢查是否有斜線通過，這部分算法中比較麻煩的部分。<br>再<strong>Bitwise</strong>的版本中，我們不使用<strong>2D Array</strong>來表示盤面，而是使用一個整數的bit來表示當前盤面的狀況，利用0與1分別代表是否有放置皇后，舉例來說，以6X6的盤面來講，<strong>001001</strong>就代表者第三個col跟第六個col上都有皇后存在。這邊我使用了三個變數，分別是<strong>position</strong>,<strong>left</strong>,<strong>right</strong>三個變數來記錄盤面上的可能性。<strong>position</strong>紀錄的是皇后在哪些col上面有放置，<strong>left</strong>紀錄的是所有皇后左對角線的位置而<strong>right</strong>則是所有皇后右對角線的位置。<br>以下面5X5的圖為例。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">10000</span><br><span class="line">00100</span><br><span class="line">00001</span><br><span class="line">01000</span><br><span class="line">00010</span><br></pre></td></tr></table></figure>
+<p>此圖中1代表皇后的位置，所以第一個row中，皇后放到第一個col，第二個row中，皇后放到第三個col的位置，以此類推。在這種情況下，我們要如何用剛剛所說的三個整數來描述此情況。這邊我們會採取漸進式的方式來描述此三個變數，一開始只有第一個row，接下來是包含了前兩個row，再來就前三個row，以此類推。</p>
+<h2 id="第一回合"><a href="#第一回合" class="headerlink" title="第一回合"></a>第一回合</h2><p>Position: 10000<br>Left: 00000  (因為1的左對角線就超出邊界了，所以此時的Left就是空的）<br>Right: 01000</p>
+<h2 id="第二回合"><a href="#第二回合" class="headerlink" title="第二回合"></a>第二回合</h2><p>Position: 10100 (因為第二個row的皇后是放在第三個col，因此就跟上一回合的Position給結合)<br>Left: 01000<br>Right: 00110 (之前的Right到了這一個回合，要先往右邊移動一格，變成00100，然後第二回合的皇后所產生的右對角線則是00010，將這兩個集合起來就會變成00110)</p>
+<h2 id="第三回合"><a href="#第三回合" class="headerlink" title="第三回合"></a>第三回合</h2><p>Position: 10101<br>Left: 10010 (上一回合的Left到此回合後，就要往左移動一格）<br>Right: 00011</p>
+<h2 id="第四回合"><a href="#第四回合" class="headerlink" title="第四回合"></a>第四回合</h2><p>Position: 11101<br>Left: 10100<br>Right: 00101<br>…以此類推<br>所以目前已經想好了要如何使用三個整數的bit來表示當前盤面的情況，如果要挑選一個合法的位置，首先將<strong>Position</strong>|<strong>Left</strong>|<strong>Right</strong>給得到一個新的值，這個值中為0的bit就代表是可以用的地方，因此從這些地方來挑選下一個合法位置即可。<br>以剛剛的範例來說，過的第一回合後，<br>Position: 10000<br>Left: 00000<br>Right: 01000<br>將三個變數取ＯＲ得到新的值（101000），此值代表了第二回合要選取皇后時，第一跟第三個col都不能放皇后，只能放2,4,5,6四個col。<br>這些表達方式都釐清後，接下來最困難的就是如何自動的選出合法位置，以剛剛的範例來說(101000)，針對此範例，我們知道皇后只能放在2,4,5,6四個col，我希望能夠找出一種方法來依序取出這四個位置，並且在四個位置都去放下皇后試試看。<br>這邊最直覺的方法就是將該值(101000)不停地**&#x2F;2<strong>與</strong>%2**，如此一來就可以知道每個bit是0還是1，但是這種方法的卻點就是要跑太多次迭代了，我希望能夠找出一個方法，該數值中有多少個0，就迭代多少次，不需要額外的次數來處理。<br>原本數值:<strong>101000</strong></p>
+<h2 id="第一次迭代"><a href="#第一次迭代" class="headerlink" title="第一次迭代"></a>第一次迭代</h2><p>這次選出了第一個0，（000001)<br>因此當前的Position就會變成 (101000) | (000001)  &#x3D; 101001</p>
+<h2 id="第二次迭代"><a href="#第二次迭代" class="headerlink" title="第二次迭代"></a>第二次迭代</h2><p>這次選出了第二個0，（000010)<br>因此當前的Position就會變成 (101000) | (000010)  &#x3D; 101010</p>
+<h2 id="第三次迭代"><a href="#第三次迭代" class="headerlink" title="第三次迭代"></a>第三次迭代</h2><p>這次選出了第三個0，（000100)<br>因此當前的Position就會變成 (101000) | (000100)  &#x3D; 101100</p>
+<h2 id="第四次迭代"><a href="#第四次迭代" class="headerlink" title="第四次迭代"></a>第四次迭代</h2><p>這次選出了第四個0，（010000)<br>因此當前的Position就會變成 (101000) | (010000)  &#x3D; 111000<br>除了更新Position，Left以及Right也都要一併更新。簡單來說，我希望依序取出bit中是0的位置。<br>這邊我使用了二補數的概念來處理，如下。<br>由於使用的是一個32bit的整數來處理，但是實際上對於8X8盤面只需要8個bit，因此在計算時，必須要注意沒有使用到超過8bit以後得值，這邊我用一個limit (11111111)來作為一個極限的判斷。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">	currentPos = position | left | right;</span><br><span class="line">	<span class="type">int</span> newPos;</span><br><span class="line"><span class="keyword">while</span>( currentPos &lt; limit)&#123;</span><br><span class="line">  newPos = (currentPos+<span class="number">1</span>) &amp; ~currentPos;</span><br><span class="line">  newPosition = position | newPos;</span><br><span class="line">  left = limit &amp; ((left | newPos) &lt;&lt;<span class="number">1</span>);</span><br><span class="line">  right = limit &amp; ((right | newPos) &gt;&gt;<span class="number">1</span>);</span><br><span class="line">  <span class="comment">//dosomething</span></span><br><span class="line">  currentPos = currentPos | newPos;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>這邊會將每次選到的位置都放到<strong>newPos</strong>，並用此變數來更新<strong>Position</strong>等變數，<br>最後使用<strong>currentPos</strong>來記錄還有哪些位置可以選，如此一來就能夠依序的把bit為0的位置取出來。</p>
+<p>整個程式的完整程式碼如下，執行時輸入N，此Ｎ代表的是該局為NXN的皇后。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span><span class="string">&lt;iostream&gt;</span></span></span><br><span class="line">using namespace <span class="built_in">std</span>;</span><br><span class="line"><span class="type">int</span> limit;</span><br><span class="line"><span class="type">int</span> N;</span><br><span class="line"><span class="type">int</span> counter;</span><br><span class="line"><span class="type">void</span> <span class="title function_">DFS</span><span class="params">(<span class="type">int</span> position,<span class="type">int</span> left, <span class="type">int</span> right,<span class="type">int</span> depth)</span>&#123;</span><br><span class="line">    <span class="keyword">if</span>(depth == N)&#123;</span><br><span class="line">        counter++;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="type">int</span> currentPos = position | left | right;</span><br><span class="line">    <span class="type">int</span> newPos;</span><br><span class="line">    <span class="keyword">while</span>( currentPos &lt; limit )&#123;</span><br><span class="line">        newPos = (currentPos+<span class="number">1</span>) &amp; ~currentPos;</span><br><span class="line">        DFS( position | newPos, limit &amp; ((left | newPos)&lt;&lt;<span class="number">1</span>), limit&amp;((right | newPos)&gt;&gt;<span class="number">1</span>),depth+<span class="number">1</span>);</span><br><span class="line">        currentPos = currentPos | newPos;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">()</span>&#123;</span><br><span class="line">    <span class="built_in">cin</span> &gt;&gt; N;</span><br><span class="line">    counter =<span class="number">0</span>;</span><br><span class="line">    limit = (<span class="number">1</span>&lt;&lt;(N))<span class="number">-1</span>;</span><br><span class="line">    DFS(<span class="number">0</span>,<span class="number">0</span>,<span class="number">0</span>,<span class="number">0</span>);</span><br><span class="line">    <span class="built_in">cout</span> &lt;&lt; counter&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Algorithm/" rel="tag"># Algorithm</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2014-08-23-mininet-and-network-subnet.html" rel="prev" title="Mininet with different network subnet">
+                  <i class="fa fa-chevron-left"></i> Mininet with different network subnet
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2014-09-19-mininet-with-different-network-subnet-v2.html" rel="next" title="Mininet with different network subnet (v2)">
+                  Mininet with different network subnet (v2) <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

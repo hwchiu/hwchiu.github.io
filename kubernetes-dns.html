@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="DNS 在傳統的網路架構中一直扮演很重要的角色，可以讓用戶端透過 FQDN 的方式去存取目標的伺服器端，不需要去寫死對方的 IP 地址。然而在 kubernetes 的架構中, kubernetes 預設就會建立一套 DNS server 讓所有創建的 Pod 來使用。對於一般的使用者來說，只要能夠存取外面網路以及 Kubernetes Service 相關即可,然而在某些特殊的應用情境下，譬如目">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Kubernetes] DNS setting in your Pod">
+<meta property="og:url" content="https://www.hwchiu.com/kubernetes-dns.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="DNS 在傳統的網路架構中一直扮演很重要的角色，可以讓用戶端透過 FQDN 的方式去存取目標的伺服器端，不需要去寫死對方的 IP 地址。然而在 kubernetes 的架構中, kubernetes 預設就會建立一套 DNS server 讓所有創建的 Pod 來使用。對於一般的使用者來說，只要能夠存取外面網路以及 Kubernetes Service 相關即可,然而在某些特殊的應用情境下，譬如目">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/DcFCnLw.png">
+<meta property="article:published_time" content="2018-08-03T02:52:35.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.629Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="DNS">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/DcFCnLw.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/kubernetes-dns.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/kubernetes-dns.html","path":"kubernetes-dns.html","title":"[Kubernetes] DNS setting in your Pod"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>[Kubernetes] DNS setting in your Pod | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Introduction"><span class="nav-number">2.</span> <span class="nav-text">Introduction</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#The-Reason-Why-We-Need-This"><span class="nav-number">2.1.</span> <span class="nav-text">The Reason Why We Need This</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Pod"><span class="nav-number">3.</span> <span class="nav-text">Pod</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#DNSConfig"><span class="nav-number">3.1.</span> <span class="nav-text">DNSConfig</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#DNSSPolicy"><span class="nav-number">3.2.</span> <span class="nav-text">DNSSPolicy</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#None"><span class="nav-number">3.2.1.</span> <span class="nav-text">None</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Default"><span class="nav-number">3.2.2.</span> <span class="nav-text">Default</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ClusterFirst"><span class="nav-number">3.2.3.</span> <span class="nav-text">ClusterFirst</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#HostNetwork"><span class="nav-number">3.2.4.</span> <span class="nav-text">HostNetwork</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ClusterFirstHostNet"><span class="nav-number">3.3.</span> <span class="nav-text">ClusterFirstHostNet</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">4.</span> <span class="nav-text">Summary</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#DNSPolicy"><span class="nav-number">4.1.</span> <span class="nav-text">DNSPolicy</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#DNSConfig-1"><span class="nav-number">4.2.</span> <span class="nav-text">DNSConfig</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">5.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/kubernetes-dns.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="[Kubernetes] DNS setting in your Pod | Hwchiu Learning Note">
+      <meta itemprop="description" content="DNS 在傳統的網路架構中一直扮演很重要的角色，可以讓用戶端透過 FQDN 的方式去存取目標的伺服器端，不需要去寫死對方的 IP 地址。然而在 kubernetes 的架構中, kubernetes 預設就會建立一套 DNS server 讓所有創建的 Pod 來使用。對於一般的使用者來說，只要能夠存取外面網路以及 Kubernetes Service 相關即可,然而在某些特殊的應用情境下，譬如目前喊行之有年的 NFV 架構中，我們的服務(Pod)本身可能會需要更複雜的網路架構，譬如同時存在 Data Network/Control Network. 這情況下，我們的 Pod 會需要特別去處理自己裡面服務所使用的 DNS Server 。 本文主要針對 Pod 裡面關於 DNS 相關的設定進行介紹，並且透過實際部屬 Yaml 的方式來看看到底如何使用。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          [Kubernetes] DNS setting in your Pod
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-08-03 10:52:35" itemprop="dateCreated datePublished" datetime="2018-08-03T10:52:35+08:00">2018-08-03</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">DNS 在傳統的網路架構中一直扮演很重要的角色，可以讓用戶端透過 FQDN 的方式去存取目標的伺服器端，不需要去寫死對方的 IP 地址。然而在 kubernetes 的架構中, kubernetes 預設就會建立一套 DNS server 讓所有創建的 Pod 來使用。對於一般的使用者來說，只要能夠存取外面網路以及 Kubernetes Service 相關即可,然而在某些特殊的應用情境下，譬如目前喊行之有年的 NFV 架構中，我們的服務(Pod)本身可能會需要更複雜的網路架構，譬如同時存在 Data Network/Control Network. 這情況下，我們的 Pod 會需要特別去處理自己裡面服務所使用的 DNS Server 。 本文主要針對 Pod 裡面關於 DNS 相關的設定進行介紹，並且透過實際部屬 Yaml 的方式來看看到底如何使用。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>此篇文章是 Kubernetes Pod-DNS 系列文章第一篇<br>此系列文會從使用者的用法到一些問題的發掘，最後透過閱讀程式碼的方式去分析這些問題</p>
+<p>相關的文章連結如下</p>
+<ul>
+<li><a href="https://www.hwchiu.com/kubernetes-dns-ii.html">[Kubernetes] DNS Setting with Dockerd</a></li>
+<li><a href="https://www.hwchiu.com/kubernetes-dns-iii.html">[Kubernetes] DNS Setting with Dockerd(原始碼分析上)</a></li>
+<li><a href="https://www.hwchiu.com/kubernetes-dns-iiii.html">[Kubernetes] DNS Setting with Dockerd(原始碼分析下)</a></li>
+</ul>
+<p>在<code>Kubernetes</code> 裡面看到 <code>DNS</code> 這個字眼，實際上可以想到非常多相關的元件與功能，<br>譬如用來提供 <code>kubernetes</code> 集群內服務的 <code>kube-DNS</code>, 或是透過 <code>kubernetes service</code> 產生之獨一無二的 FQDN 名稱，最後就是本篇文章想要分享的一個元件， <code>Pod</code> 內的 <code>DNS</code> 設定。</p>
+<p>在大部分的使用情境之下，通常不會去關心這個部分，直接套用 <code>kubernetes</code> 預設的設定幫忙把相關的給處理完畢，然而隨者 <code>kubernetes</code> 愈來愈熱門，使用的情境愈來愈多。<br>譬如跟 NFV(Network Function Virtualization) 有關的應用中，我們所運行的任何應用程式 (Pod) 可能就會有 <code>DNS</code> 相關的需求。</p>
+<p>接下來我們使用下面這張架構圖來說明可能的使用情境<br><img src="https://i.imgur.com/DcFCnLw.png" alt="NFV Case"></p>
+<h1 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h1><h2 id="The-Reason-Why-We-Need-This"><a href="#The-Reason-Why-We-Need-This" class="headerlink" title="The Reason Why We Need This"></a>The Reason Why We Need This</h2><p>一般的使用情境下，我們的<code>kubernetes</code> 的集群使用方式就如同圖片中紫色&#x2F;粉紅色(Pod3)區塊一樣，所有的 <code>Pod</code> 如果有任何要存取<code>DNS</code>的需求，都會透過集群內<code>K8S-DNS</code>來處理對應的請求與回覆。</p>
+<p>然而在 NFV 的使用情境下，網路變成一個很重要的區塊，整體的效能都取決於該應用程式的設計與整個及集群的網路架構設計。</p>
+<p>這部分的應用程式通常都會追求高輸出或是低延遲，同時也要避免這些流量會跟其他無關的流量使用相同的網路線才傳輸，造成該應用程式沒有辦法得到最好的效能。</p>
+<p>在這種情況下，通常整個集群就會將網路設計成兩種架構，分別是<code>Control Network</code>, <code>Data Network</code> 兩個完全不同用途的網路架構。</p>
+<p>在 <code>Kubernetes</code> 的架構下， <code>Control Network</code> 就類似圖示中的 <code>Cluster Network</code>，負責整個集群之間的溝通。<br>對應到圖中綠色&#x2F;橘色(Pod1,Pod2)這兩個區塊則是所謂的 <code>Data Network</code>.<br>其網路卡本身也是獨立出來，不會與本來的 <code>kubernetes</code> 集群互相衝突，其之間的流量就透過獨立的網路傳輸。</p>
+<p>獨立出來的網路架構就意味者，這些特殊應用的<code>Pod</code>基本上沒有辦法跟<code>Kubernetes</code>集群內的<code>Kube-DNS</code> 互連，網路本身就隔絕了這些連線。</p>
+<p>此外，這些應用程式可能會在外部有自己的 <code>DNS Server</code> 來使用，所以在這種類型下，我們會希望這些應用程式 (Pod2&#x2F;Pod3) 能夠使用自定義的 <code>DNS Server</code> 來使用，而<br>並非集群內建的 <code>DNS Server</code> 。</p>
+<h1 id="Pod"><a href="#Pod" class="headerlink" title="Pod"></a>Pod</h1><p>透過上述的介紹，已經可以大概了解我們的需求，希望能夠針對 <code>Pod</code> 內去進行 <code>DNS</code> 客製化的設定。</p>
+<p>在目前 <code>kubernetes</code> v1.11.0 裡面，對於 <code>Pod</code> 來說，<code>DNS</code> 相關的選項有兩個，分別是 <code>DNSConfig</code> 以及 <code>DNSPolicy</code>。</p>
+<p>其中 <code>DNSConfig</code> 代表的是客製化的 <code>DNS</code> 參數，而 <code>DNSPolicy</code> 則是要如何幫 <code>Pod</code>設定預設的 <code>DNS</code>。</p>
+<p>接下來我們來看看對於 <code>Pod</code> 來說，到底有哪些 <code>DNS</code> 的設定可以使用</p>
+<p><strong>底下範例使用的全部的 <code>kubernetes yaml</code> 檔案都可以在 <a target="_blank" rel="noopener" href="https://github.com/hwchiu/kubeDemo/tree/master/dns">Hwchiu KubeDemo</a> 找到</strong></p>
+<h2 id="DNSConfig"><a href="#DNSConfig" class="headerlink" title="DNSConfig"></a>DNSConfig</h2><p><code>DNSConfig</code> 意味可以讓操作者延伸當前 <code>Pod</code> 內關於 <code>DNS</code> 的設定，這邊要特別注意的是，我使用的字眼是 <code>延伸</code> 而非 <code>設定</code>，這是因為透過下個章節的 <code>DNSPOlicy</code>, 每個 <code>Pod</code> 都會有一組預設的 <code>DNS</code> 設定。<br>透過 <code>DNSConfig</code> 我們可以繼續往上疊加相關的 <code>DNS</code> 參數到 <code>Pod</code> 之中。<br>目前總共支援三個參數可以設定，分別是</p>
+<ol>
+<li>nameservers:</li>
+<li>searches:</li>
+<li>options:</li>
+</ol>
+<p>這三個參數其實就是對應到大家熟悉的 <code>/etc/resolv.conf</code> 裡面的三個參數，這邊就不針對 <code>DNS</code> 進行介紹，不熟悉的朋友可以自行在去 <strong>Google</strong> 學一下這些參數。</p>
+<p>在 <code>Kubernetes</code>裡面，這三個變數都歸屬於 <code>dnsConfig</code> 下面，而 <code>dnsConfig</code> 則是歸屬於 <code>PodSpec</code> 底下，因為 <code>Pod</code> 內所有的 <code>Container</code> 都共享相同的 <code>Network Namespace</code>, 所以網路相關的設定都會共享。</p>
+<p>這邊提供一個簡單的 <code>yaml</code> 範例，也可以在 <a target="_blank" rel="noopener" href="https://github.com/hwchiu/kubeDemo/blob/master/dns/dnsSetting/ubuntu.yml">這邊找到</a></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">ubuntu-setting</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br><span class="line">    <span class="attr">command:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">sleep</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;360000&quot;</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">ubuntu</span></span><br><span class="line">  <span class="attr">restartPolicy:</span> <span class="string">Always</span></span><br><span class="line">  <span class="attr">dnsConfig:</span></span><br><span class="line">    <span class="attr">nameservers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="number">1.2</span><span class="number">.3</span><span class="number">.4</span></span><br><span class="line">    <span class="attr">searches:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">ns1.svc.cluster.local</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">my.dns.search.suffix</span></span><br><span class="line">    <span class="attr">options:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">ndots</span></span><br><span class="line">        <span class="attr">value:</span> <span class="string">&quot;2&quot;</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">edns0</span></span><br></pre></td></tr></table></figure>
+
+<p>在部屬上述 <code>yaml</code> 檔案後，透過下列指令可以觀察到系統上面 <code>DNS</code> 相關的設定變得非常多。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vagrant@vortex-dev:~/kubeDemo/dns/dnsSetting$ kubectl exec ubuntu-setting cat /etc/resolv.conf</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">nameserver 10.96.0.10</span><br><span class="line">nameserver 1.2.3.4</span><br><span class="line">search default.svc.cluster.local svc.cluster.local cluster.local ns1.svc.cluster.local my.dns.search.suffix</span><br><span class="line">options c</span><br><span class="line">vagrant@vortex-dev:~/kubeDemo/dns/dnsSetting$</span><br></pre></td></tr></table></figure>
+
+<p>針對 <code>nameserver</code> 可以觀察到多了 <strong>1.2.3.4</strong>,<br>而 <code>search</code> 則是多了 <strong>ns1.svc.cluster.local my.dns.search.suffix</strong> 這兩個自定義的數值，最後 <code>options</code> 則增加了我們範例中的 <strong>ndots:2 edns0</strong></p>
+<p><code>DNSConfig</code> 非常簡單直覺，如果你有自己需要的 <code>DNS</code> 參數需要使用，就可以透過這個欄位來設定。</p>
+<h2 id="DNSSPolicy"><a href="#DNSSPolicy" class="headerlink" title="DNSSPolicy"></a>DNSSPolicy</h2><p>前面提過， <code>DNSConfig</code> 提供的是延伸 <code>Pod</code> 內預設的 <code>DNS</code> 設定，而 <code>DNSPolicy</code> 就是決定 <code>Pod</code> 內預設的 <code>DNS</code> 設定有哪些。<br>目前總共有四個類型可以選擇</p>
+<ul>
+<li>None</li>
+<li>Default</li>
+<li>ClusterFirst</li>
+<li>ClusterFirstHostNet</li>
+</ul>
+<p>接下來針對這四個選項分別介紹</p>
+<h3 id="None"><a href="#None" class="headerlink" title="None"></a>None</h3><p><code>None</code> 的意思就如同字面上一樣，將會清除 <code>Pod</code> 預設的 <code>DNS</code> 設定，於此狀況下， <code>Kubernetes</code> 不會幫使用者的 <code>Pod</code> 預先載入任何自身邏輯判斷得到的 <code>DNS</code> 設定。<br>但是為了避免一個 <code>Pod</code> 裡面沒有任何的 <code>DNS</code> 設定存在，因此若使用這個 <code>None</code>的話，則一定要設定 <code>DNSConfig</code> 來描述自定義的 <code>DNS</code> 參數。</p>
+<p>使用<a target="_blank" rel="noopener" href="https://github.com/hwchiu/kubeDemo/blob/master/dns/None/ubuntu.yml">下列 Yaml</a> 檔案來進行測試</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">ubuntu-none</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br><span class="line">    <span class="attr">command:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">sleep</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;360000&quot;</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">ubuntu</span></span><br><span class="line">  <span class="attr">restartPolicy:</span> <span class="string">Always</span></span><br><span class="line">  <span class="attr">dnsPolicy:</span> <span class="string">None</span></span><br><span class="line">  <span class="attr">dnsConfig:</span></span><br><span class="line">    <span class="attr">nameservers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="number">1.2</span><span class="number">.3</span><span class="number">.4</span></span><br><span class="line">    <span class="attr">searches:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">ns1.svc.cluster.local</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">my.dns.search.suffix</span></span><br><span class="line">    <span class="attr">options:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">ndots</span></span><br><span class="line">        <span class="attr">value:</span> <span class="string">&quot;2&quot;</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">edns0</span></span><br></pre></td></tr></table></figure>
+
+<p>部屬完畢後，透過下列指令觀察該 <code>Pod</code> 內的 <code>DNS</code> 設定，可以觀察到跟之前 <code>DNSConfig</code> 的結果有一點差異，這時候只有顯示我們在 <code>Yaml</code> 裡面所設定的那些資訊，集群本身預設則不會幫忙加入任何 <code>DNS</code> 了。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">vagrant@vortex-dev:~/kubeDemo/dns/dnsSetting$ kubectl exec ubuntu-none cat /etc/resolv.conf</span><br><span class="line">nameserver 1.2.3.4</span><br><span class="line">search ns1.svc.cluster.local my.dns.search.suffix</span><br><span class="line">options ndots:2 edns0</span><br></pre></td></tr></table></figure>
+
+<h3 id="Default"><a href="#Default" class="headerlink" title="Default"></a>Default</h3><p><code>Default</code> 代表的是希望 <code>Pod</code> 裡面的 <code>DNS</code> 設定請繼承運行該 <code>Pod</code> 的 <code>Node</code> 上的 <code>DNS</code> 設定。<br>簡單來說就是，該 <code>Pod</code> 的 <code>DNS</code> 設定會跟節點機器完全一致。</p>
+<p>接下來使用<a target="_blank" rel="noopener" href="https://github.com/hwchiu/kubeDemo/blob/master/dns/default/ubuntu.yml">下列Yaml</a>檔案ˋ來進行測試</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">ubuntu-default</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br><span class="line">    <span class="attr">command:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">sleep</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;360000&quot;</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">ubuntu</span></span><br><span class="line">  <span class="attr">restartPolicy:</span> <span class="string">Always</span></span><br><span class="line">  <span class="attr">dnsPolicy:</span> <span class="string">Default</span></span><br></pre></td></tr></table></figure>
+
+<p>首先，我們先觀察本機上面的 <code>DNS</code> 設定，這邊因為我的 <code>kubernetes</code> 集群只有一台，所以我可以確保該 <code>Pod</code> 一定會運行在我這台機器上。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">vagrant@vortex-dev:~/kubeDemo/dns/dnsSetting$ cat /etc/resolv.conf</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">Dynamic resolv.conf(5) file <span class="keyword">for</span> glibc resolver(3) generated by resolvconf(8)</span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">    DO NOT EDIT THIS FILE BY HAND -- YOUR CHANGES WILL BE OVERWRITTEN</span></span><br><span class="line">nameserver 10.0.2.3</span><br></pre></td></tr></table></figure>
+<p>這時可以觀察到，機器上本來的<code>DNS</code>設定非常簡單，只有單純的 <code>10.0.2.3</code>。<br>接下來我們觀察該 <code>Pod</code> 內的 <code>DNS</code> 設定</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">vagrant@vortex-dev:~/kubeDemo/dns/dnsSetting$ kubectl exec ubuntu-default cat /etc/resolv.conf</span><br><span class="line">nameserver 10.0.2.3</span><br></pre></td></tr></table></figure>
+
+<p>可以看到這兩個的 <code>DNS</code> 設定是完全一致的，該 <code>Pod</code>內的 <code>DNS</code> 設定已經直接繼承自該運行節點上的設定了。</p>
+<h3 id="ClusterFirst"><a href="#ClusterFirst" class="headerlink" title="ClusterFirst"></a>ClusterFirst</h3><p>相對於上述的 <code>Default</code> 設定， <code>ClusterFisrt</code> 是完全相反的操作，會預先把 <code>kube-dns</code> 的資訊當做預設參數寫入到該 <code>Pod</code> 內的 <code>DNS</code> 設定。</p>
+<blockquote>
+<p>特別注意的是， ClusterFirst 是預設的行為，若沒有在 Pod 內特別描述 PodPolicy, 則預設會以 ClusterFirst 來看待</p>
+</blockquote>
+<p>接下來使用<a target="_blank" rel="noopener" href="https://github.com/hwchiu/kubeDemo/blob/master/dns/ClusterFirst/ubuntu.yml">下列Yaml檔案</a>來觀察結果看</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">ubuntu-clusterfirst</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br><span class="line">    <span class="attr">command:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">sleep</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;360000&quot;</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">ubuntu</span></span><br><span class="line">  <span class="attr">restartPolicy:</span> <span class="string">Always</span></span><br><span class="line">  <span class="attr">dnsPolicy:</span> <span class="string">ClusterFirst</span></span><br></pre></td></tr></table></figure>
+
+<p>首先，因為 <code>ClusterFirst</code> 使用的是 <code>kube-dns</code> 的 <code>clusterIP</code> 作為 <code>DNS</code> 的位置，所以我們先透過下列指令觀察 <code>kube-dns</code> 的 IP 位置</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">vagrant@vortex-dev:~/kubeDemo/dns/dnsSetting$ kubectl -n kube-system get svc kube-dns</span><br><span class="line">NAME       TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)         AGE</span><br><span class="line">kube-dns   ClusterIP   10.96.0.10   &lt;none&gt;        53/UDP,53/TCP   19h</span><br></pre></td></tr></table></figure>
+
+<p>根據上述結果可以觀察到，當前 <code>kube-dns</code> 使用的 <code>clusterIP</code> 是 <code>10.96.0.10</code>。</p>
+<p>接下來去觀察對應 <code>Pod</code> 內的 <code>DNS</code> 設定</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">vagrant@vortex-dev:~/kubeDemo/dns/dnsSetting$ kubectl exec ubuntu-clusterfirst cat /etc/resolv.conf</span><br><span class="line">nameserver 10.96.0.10</span><br><span class="line">search default.svc.cluster.local svc.cluster.local cluster.local</span><br><span class="line">options ndots:5</span><br><span class="line">vagrant@vortex-dev:~/kubeDemo/dns/dnsSetting$</span><br></pre></td></tr></table></figure>
+
+<p>這邊可以看到一些資訊</p>
+<ol>
+<li>nameserver 對應到的就是 <code>kube-dns</code> 的 <code>clusterIP</code></li>
+<li>search 這邊則會產生不少個關於 <code>kubernetes</code> 集群內使用的規則，這邊要特定注意到 <code>default</code> 這個數值會隨者該 <code>Pod</code> 所屬的 <code>namespace</code> 有所改變<blockquote>
+<p>在 <code>kubernetes</code> 中，每個 service 都會打開一個 <code>$service</code>.<code>$namespace</code>.svc.cluster.local 的 <code>DNS</code>.<br>對於 <code>Pod</code> 來說, 相同 <code>namespace</code> 可以直接用 <code>$service</code> 直接查詢到，若是不同的 <code>namespace</code>則要輸入 <code>$service.$namespace</code><br>這邊就是依賴這些 search 來達成這些功能的</p>
+</blockquote>
+</li>
+</ol>
+<p>此外，<code>ClusterFirst</code> 有一個衝突，如果你的 <code>Pod</code> 有設定 <code>HostNetwork=true</code> 的話，則 <code>ClusterFirst</code> 就會變成 <code>Default</code> 來使用。</p>
+<h3 id="HostNetwork"><a href="#HostNetwork" class="headerlink" title="HostNetwork"></a>HostNetwork</h3><p>使用<a target="_blank" rel="noopener" href="https://github.com/hwchiu/kubeDemo/blob/master/dns/hostnetwork/ubuntu-default.yml">下列 Yaml</a> 來觀察測試一下</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: v1</span><br><span class="line">kind: Pod</span><br><span class="line">metadata:</span><br><span class="line">  name: ubuntu-hostnetwork-policy-default</span><br><span class="line">  namespace: default</span><br><span class="line">spec:</span><br><span class="line">  containers:</span><br><span class="line">  - image: hwchiu/netutils</span><br><span class="line">    command:</span><br><span class="line">      - sleep</span><br><span class="line">      - &quot;360000&quot;</span><br><span class="line">    imagePullPolicy: IfNotPresent</span><br><span class="line">    name: ubuntu</span><br><span class="line">  hostNetwork: true</span><br><span class="line">  restartPolicy: Always</span><br><span class="line">  dnsPolicy: ClusterFirst</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">vagrant@vortex-dev:~/kubeDemo/dns/dnsSetting$ kubectl exec ubuntu-hostnetwork-policy-default cat /etc/resolv.conf</span><br><span class="line">nameserver 10.0.2.3</span><br></pre></td></tr></table></figure>
+
+<p>可以觀察到，這個情況下， <code>DNS</code> 的設定會被設定回節點上的設定。</p>
+<p>這邊稍微來解釋一下這個設計上的原理以及流程</p>
+<ol>
+<li>因為設定 <code>HostNetwork=true</code>, 會讓該 <code>Pod</code> 與該節點共用相同的網路空間(網卡&#x2F;路由等功能)</li>
+<li>相關的 &#x2F;etc&#x2F;hosts 就不會被掛載到 Pod 裡面</li>
+<li>這種情況下就會使用節點本身的 DNS 設定，也就是 Default 的概念</li>
+</ol>
+<p>在這種情況下，就會有人想要問，我如果刻意的想要這樣設定不行嘛?<br>原先的設計中，是沒有辦法刻意處理的，原因是當 <code>Pod yaml</code> 檔案送出去後，在發現沒有設定 <code>PodPolicy</code> 的情況下，會自動幫你把該<code>PodPolicy</code> 補上 <code>ClusterFirst</code> 的數值。</p>
+<p>然後最後面的程式處理邏輯中，其實並沒有辦法分別下列兩種情況</p>
+<ol>
+<li>HostNetwork<blockquote>
+<p>我希望走 Host DNS</p>
+</blockquote>
+</li>
+<li>HostNetwork &amp; PodPolicy&#x3D;ClusterFirst.<blockquote>
+<p>我希望走 ClusterIP DNS</p>
+</blockquote>
+</li>
+</ol>
+<p>上述兩種情況對於後端的程式來看都長得一樣<br><code>HostNetwork &amp; PodPolicy=ClusterFirst.</code><br>因此完全沒有辦法分辨</p>
+<p>我們可以直接從 <a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/release-1.11/pkg/kubelet/network/dns/dns.go#L258">Kubernetes 程式碼</a> 來閱讀一下其運作流程</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">getPodDNSType</span><span class="params">(pod *v1.Pod)</span></span> (podDNSType, <span class="type">error</span>) &#123;</span><br><span class="line">	dnsPolicy := pod.Spec.DNSPolicy</span><br><span class="line">	<span class="keyword">switch</span> dnsPolicy &#123;</span><br><span class="line">	<span class="keyword">case</span> v1.DNSNone:</span><br><span class="line">		<span class="keyword">if</span> utilfeature.DefaultFeatureGate.Enabled(features.CustomPodDNS) &#123;</span><br><span class="line">			<span class="keyword">return</span> podDNSNone, <span class="literal">nil</span></span><br><span class="line">		&#125;</span><br><span class="line">		<span class="comment">// This should not happen as kube-apiserver should have rejected</span></span><br><span class="line">		<span class="comment">// setting dnsPolicy to DNSNone when feature gate is disabled.</span></span><br><span class="line">		<span class="keyword">return</span> podDNSCluster, fmt.Errorf(fmt.Sprintf(<span class="string">&quot;invalid DNSPolicy=%v: custom pod DNS is disabled&quot;</span>, dnsPolicy))</span><br><span class="line">	<span class="keyword">case</span> v1.DNSClusterFirstWithHostNet:</span><br><span class="line">		<span class="keyword">return</span> podDNSCluster, <span class="literal">nil</span></span><br><span class="line">	<span class="keyword">case</span> v1.DNSClusterFirst:</span><br><span class="line">		<span class="keyword">if</span> !kubecontainer.IsHostNetworkPod(pod) &#123;</span><br><span class="line">			<span class="keyword">return</span> podDNSCluster, <span class="literal">nil</span></span><br><span class="line">		&#125;</span><br><span class="line">		<span class="comment">// Fallback to DNSDefault for pod on hostnetowrk.</span></span><br><span class="line">		<span class="keyword">fallthrough</span></span><br><span class="line">	<span class="keyword">case</span> v1.DNSDefault:</span><br><span class="line">		<span class="keyword">return</span> podDNSHost, <span class="literal">nil</span></span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// This should not happen as kube-apiserver should have rejected</span></span><br><span class="line">	<span class="comment">// invalid dnsPolicy.</span></span><br><span class="line">	<span class="keyword">return</span> podDNSCluster, fmt.Errorf(fmt.Sprintf(<span class="string">&quot;invalid DNSPolicy=%v&quot;</span>, dnsPolicy))</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>這邊可以看到一旦是 <code>DNSClusterFirst</code> 的情況下，若有設定 <code>HostNetwork</code>, 最後就會直節回傳 <code>podDNSHost</code> 節點的 <code>DNS</code> 設定回去。</p>
+<p>為了解決上述的問題，所以引進了一個新的型態 <code>ClusterFirstHostNet</code></p>
+<h2 id="ClusterFirstHostNet"><a href="#ClusterFirstHostNet" class="headerlink" title="ClusterFirstHostNet"></a>ClusterFirstHostNet</h2><p><code>ClusterFirstHostNet</code> 用途非常簡單，我希望滿足使用 <code>HostNetwork</code> 同時使用 <code>kube-dns</code> 作為我 <code>Pod</code> 預設 <code>DNS</code> 的設定。</p>
+<p>根據上面的程式碼也可以觀察到</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">case</span> v1.DNSClusterFirstWithHostNet:</span><br><span class="line">	<span class="keyword">return</span> podDNSCluster, <span class="literal">nil</span></span><br></pre></td></tr></table></figure>
+
+<p>其實只要將 <code>DNSPolicy</code> 設定為 <code>ClusterFirstHostNet</code>, 就會一律回傳 <code>kube-dns</code> 這種 <code>clusterIP</code> 的形式。</p>
+<p>這邊我們使用 <a target="_blank" rel="noopener" href="https://github.com/hwchiu/kubeDemo/blob/master/dns/hostnetwork/ubuntu-dns.yml">下列 Yaml 檔案</a></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">ubuntu-hostnetwork-policy</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br><span class="line">    <span class="attr">command:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">sleep</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;360000&quot;</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">ubuntu</span></span><br><span class="line">  <span class="attr">hostNetwork:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">restartPolicy:</span> <span class="string">Always</span></span><br><span class="line">  <span class="attr">dnsPolicy:</span> <span class="string">ClusterFirstWithHostNet</span></span><br></pre></td></tr></table></figure>
+
+<p>部屬完畢後執行下列指令觀察該 <code>Pod</code> 的狀態</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">vagrant@vortex-dev:~/kubeDemo/dns/dnsSetting$ kubectl exec ubuntu-hostnetwork-policy cat /etc/resolv.conf</span><br><span class="line">nameserver 10.96.0.10</span><br><span class="line">search default.svc.cluster.local svc.cluster.local cluster.local</span><br><span class="line">options ndots:5</span><br></pre></td></tr></table></figure>
+
+<p>可以發現這時候的 <code>DNS</code> 設定就會使用的是 <code>ClusterIP</code> 的設定了。</p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>目前 Pod 有提供兩種設定 <code>DNS</code> 的參數來使用者來管理 <code>DNS</code> 相關的參數。</p>
+<ul>
+<li>DNSPolicy</li>
+<li>DNSConfig</li>
+</ul>
+<h2 id="DNSPolicy"><a href="#DNSPolicy" class="headerlink" title="DNSPolicy"></a>DNSPolicy</h2><p>代表的是該 <code>Pod</code> 預設的 <code>DNS</code>  設定，目前總共有四種類型可以使用</p>
+<p><strong>Default</strong></p>
+<ul>
+<li>代表的是繼承自運行節點的 <code>DNS</code> 設定</li>
+</ul>
+<p><strong>None</strong></p>
+<ul>
+<li>代表的是完全不設定任何 <code>DNS</code> 的資訊，所有的 <code>DNS</code> 都依賴 <code>DNSConfig</code> 欄位來描述 (若採用 None, 一定要設定 <code>DNSConfig</code>)</li>
+</ul>
+<p><strong>ClusterFirst</strong></p>
+<ul>
+<li>代表是使用 <code>kube-dns</code> 提供的 <code>clusterIP</code> 作為預設的 <code>DNS</code> 設定</li>
+<li>同時若使用者沒有在 <code>Pod</code> 內去描述 <code>DNSConfig</code> ，則預設會使用 <code>ClusterFirst</code> 這個設定</li>
+</ul>
+<p><strong>ClusterFirstWithHostNet</strong></p>
+<ul>
+<li>這個選項就是特別針對 <code>HostNetwork=true</code> 創立的</li>
+<li>可以提供使用節點網路但是同時又使用 <code>kube-dns</code> 提供的 <code>clusterIP</code> 作為其 <code>DNS</code> 的設定。</li>
+</ul>
+<h2 id="DNSConfig-1"><a href="#DNSConfig-1" class="headerlink" title="DNSConfig"></a>DNSConfig</h2><p><code>DNSConfig</code> 可以讓使用者直接輸入 <code>DNS</code> 相關的參數，該參數會擴充該 <code>Pod</code>原本的 <code>DNS</code> 設定檔案。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DNS/" rel="tag"># DNS</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/k8s-security-11tips-ii.html" rel="prev" title="11個保護你 Kubernetes 集群的技巧與觀念(下)">
+                  <i class="fa fa-chevron-left"></i> 11個保護你 Kubernetes 集群的技巧與觀念(下)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/costco-chicken.html" rel="next" title="Costco 去骨雞腿排紀錄">
+                  Costco 去骨雞腿排紀錄 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

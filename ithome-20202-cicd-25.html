@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="ITHOME-2020 系列文章">
+<meta property="og:type" content="article">
+<meta property="og:title" content="鐵人賽系列文章- Day 25 - Secret 使用範例: sealed-secrets">
+<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-25.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="ITHOME-2020 系列文章">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2021-02-02T03:07:09.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.621Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="DevOps">
+<meta property="article:tag" content="ITHOME">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-25.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/ithome-20202-cicd-25.html","path":"ithome-20202-cicd-25.html","title":"鐵人賽系列文章- Day 25 - Secret 使用範例: sealed-secrets"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>鐵人賽系列文章- Day 25 - Secret 使用範例: sealed-secrets | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%AE%89%E8%A3%9D"><span class="nav-number">1.</span> <span class="nav-text">安裝</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8"><span class="nav-number">2.</span> <span class="nav-text">使用</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">3.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-25.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="鐵人賽系列文章- Day 25 - Secret 使用範例: sealed-secrets | Hwchiu Learning Note">
+      <meta itemprop="description" content="ITHOME-2020 系列文章">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          鐵人賽系列文章- Day 25 - Secret 使用範例: sealed-secrets
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2021-02-02 11:07:09" itemprop="dateCreated datePublished" datetime="2021-02-02T11:07:09+08:00">2021-02-02</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">ITHOME-2020 系列文章</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>上篇文章中我們介紹了不同參考架構的解決方案，而本篇我們將使用 sealed-secrets 這個開源專案來實現其中一種架構，也就是最後一種基於加解密的解決方案。透過這個方案我們可以將機密資訊加密後存放到 Git 保存，但內容被部署到 Kubernetes 內部後則是會被自動解密</p>
+<h1 id="安裝"><a href="#安裝" class="headerlink" title="安裝"></a>安裝</h1><p><a target="_blank" rel="noopener" href="https://github.com/bitnami-labs/sealed-secrets">Sealed-secrets</a> 本身有是由兩個元件組成，一個是 Kubernetes 內的 controller，而另外一個則是操作使用的 CLI。</p>
+<p>等等我們會需要借助這兩個工具來處理，其中透過 Controller 來解密，而 CLI 要先跟 Controller 溝通取得憑證，最後加密</p>
+<p>安裝 Controller 的方法很多種，可以使用原生 Yaml, Kustomize 或是 Helm 都可以</p>
+<p>以下我們使用 Helm 來安裝，我們將服務安裝到 default namespace，並且取名為 ithome。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ helm repo add stable https://kubernetes-charts.storage.googleapis.com</span><br><span class="line">$ helm repo update</span><br><span class="line">$ helm install --namespace default ithome stable/sealed-secrets</span><br></pre></td></tr></table></figure>
+
+
+
+<p>接下來我們要安裝 CLI 的工具，這部分可以直接安裝編譯好的版本</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"> $ wget https://github.com/bitnami-labs/sealed-secrets/releases/download/v0.12.5/kubeseal-linux-amd64</span><br><span class="line"> $ <span class="built_in">chmod</span> 755 kubeseal-linux-amd64</span><br><span class="line"> $ sudo <span class="built_in">mv</span> kubeseal-linux-amd64 /usr/local/bin</span><br><span class="line"> $ kubeseal  --<span class="built_in">help</span></span><br><span class="line">Usage of kubeseal:</span><br><span class="line">      --add_dir_header                   If <span class="literal">true</span>, adds the file directory to the header</span><br><span class="line">      --allow-empty-data                 Allow empty data <span class="keyword">in</span> the secret object</span><br><span class="line">      --alsologtostderr                  <span class="built_in">log</span> to standard error as well as files</span><br><span class="line">      --as string                        Username to impersonate <span class="keyword">for</span> the operation</span><br><span class="line">      --as-group stringArray             Group to impersonate <span class="keyword">for</span> the operation, this flag can be repeated to specify multiple <span class="built_in">groups</span>.</span><br><span class="line">      --cert string                      Certificate / public key file/URL to use <span class="keyword">for</span> encryption. Overrides --controller-*</span><br><span class="line">      --certificate-authority string     Path to a cert file <span class="keyword">for</span> the certificate authority</span><br><span class="line">      --client-certificate string        Path to a client certificate file <span class="keyword">for</span> TLS</span><br><span class="line">      --client-key string                Path to a client key file <span class="keyword">for</span> TLS</span><br><span class="line">      --cluster string                   The name of the kubeconfig cluster to use</span><br><span class="line">      --context string                   The name of the kubeconfig context to use</span><br><span class="line">      --controller-name string           Name of sealed-secrets controller. (default <span class="string">&quot;sealed-secrets-controller&quot;</span>)</span><br><span class="line">      --controller-namespace string      Namespace of sealed-secrets controller. (default <span class="string">&quot;kube-system&quot;</span>)</span><br><span class="line">      --fetch-cert                       Write certificate to stdout. Useful <span class="keyword">for</span> later use with --cert</span><br><span class="line">  -o, --format string                    Output format <span class="keyword">for</span> sealed secret. Either json or yaml (default <span class="string">&quot;json&quot;</span>)</span><br><span class="line">      --from-file strings                (only with --raw) Secret items can be sourced from files. Pro-tip: you can use /dev/stdin to <span class="built_in">read</span> pipe input. This flag tries to fol</span><br><span class="line">low the same syntax as <span class="keyword">in</span> kubectl</span><br><span class="line">......</span><br><span class="line">$ kubeseal</span><br><span class="line">(<span class="built_in">tty</span> detected: expecting json/yaml k8s resource <span class="keyword">in</span> stdin)</span><br><span class="line">error: cannot fetch certificate: services <span class="string">&quot;sealed-secrets-controller&quot;</span> not found</span><br></pre></td></tr></table></figure>
+
+<p>這邊執行會失敗是因為預設情況下， kubeseal 會嘗試跟 <code>sealed-secrets-controller</code> 這個 service 去溝通，取得相關資訊，但是因為我們透過 helm 安裝的關係，名稱不會一致，所以執行的時候要透過 –controller-name 以及 –controller-namespace 兩個來替換掉到我們安裝的名稱與 namespace。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ kubeseal --controller-name=ithome-sealed-secrets --controller-namespace=default</span><br><span class="line">(<span class="built_in">tty</span> detected: expecting json/yaml k8s resource <span class="keyword">in</span> stdin)</span><br><span class="line">^C</span><br></pre></td></tr></table></figure>
+
+<p>改成上述執行就不會有獲取憑證失敗的問題了，這時候可以按下 CTRL+C 給跳出。因為 kubeseal 的工作很簡單，給我 kubernetes secret 檔案，我給你加密後的結果。預設情況是從 STDIN 輸入。</p>
+<h1 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h1><p>接下來的示範流程如下</p>
+<ol>
+<li>準備一個 kubernetes secret，決定使用 docker login 後產生的 login.json</li>
+<li>將該 kubernetes secret 透過 kubeseal 產生出一個 sealedsecret 的物件，該物件的內容是加密，不是 secret 的編碼</li>
+<li>將 sealedsecret 這個物件部署到 kubernetes 內，觀察是否有產生全新的 secret 內容</li>
+<li>檢查該 secret 的內容，與(1)產生的一樣</li>
+<li>透過反解 base64 編碼，確認內容與 login.json 一致</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl create secret generic ithome-example --from-file=.dockerconfigjson=/home/ubuntu/.docker/config.json --<span class="built_in">type</span>=kubernetes.io/dockerconfigjson --dry-run=client -o yaml &gt; secret.yaml</span><br><span class="line">$ kubeseal --controller-name=ithome-sealed-secrets --controller-namespace=default -o yaml &lt; secret.yaml  &gt; sealedsecret.yaml</span><br><span class="line">$ <span class="built_in">cat</span> sealedsecret.yaml</span><br><span class="line">apiVersion: bitnami.com/v1alpha1</span><br><span class="line">kind: SealedSecret</span><br><span class="line">metadata:</span><br><span class="line">  creationTimestamp: null</span><br><span class="line">  name: ithome-example</span><br><span class="line">  namespace: default</span><br><span class="line">spec:</span><br><span class="line">  encryptedData:</span><br><span class="line">    .dockerconfigjson: AgBOq/FUB4OSIjOfua8vikrosi9R6uFROuAeT0rV3myf4memo+Y3LwP9mDGsswcUhFk5N29BS1V76ycLX31a8IbzON40AWJAnclSn9qWoj+ZDZmD1p+1OSPCdjV5FjDhVnGNwi49DAvr+L+WLREGdD2fgizVWq+Ebk7acFjmI2uGq7J2yoocH+/qpX/13e2kj36J7+Rwd+RBhnkKTImlQJsXjKsBYENxjsRnc+UzNjkXjBcXEYihHq9MIXdtElPG1Kur27pIC+urj9FkWnQ4lO2tUoI3NDIuQFCvKaeAwEP0cu+3wlY0F2Ax2/CT0SQ9WB0VM8iyrNaccFDuItGnqRksya0WtXLV4fYafbxR4+itzCpt8sH0VOUouoDml9FqAgLfWrqld74VnEpSJybdf/Wfea3PYLFTDScHClWDW7qBTvZmkCIWDS44/HNcQdflpnrmLJk2sxO20T6aJPYDK9M7V5iD0b7Ch8OHNmL/8e/kDhaCTVqUcUXw2qtx7LBJhaxalSoYfhzvwFIDG9AbRe95d2oQJpXl6mHviNqJkOqNiU5M6Byt3YXR+YaFV+A9n0aj6Rl0Bw8y4s9+0LoXrTdv2t3opSe26xOJhmgfOxuxELKY+kaATNpLYez3+S3QaTgDZ0n7tgTzFg041brOL3SkUa+UZ9MqUG9XKMPGXQY0lFf5DhB1FIjWiCOWfOS+JAJsG38izjd8iYZ8wIWIoe983exo2AaCcLS+4cB18ftwoDmlYn8Y+WqmEtzhZA8OMsk4KTSsWPakWFc8rbxRt6aHTER0enXof86B2V/TwxDuPzN4OWmcO7mSMUgdXxbAnRLKVfmuVwYEYTW91wZN5+IQWZVTHwZnXS+ahHzV7TS+zFF74F06yz7Tx6YRQUmnWUH8HJiuxPTNeZbKkvcD7Q==</span><br><span class="line">  template:</span><br><span class="line">    metadata:</span><br><span class="line">      creationTimestamp: null</span><br><span class="line">      name: ithome-example</span><br><span class="line">      namespace: default</span><br><span class="line">    <span class="built_in">type</span>: kubernetes.io/dockerconfigjson</span><br></pre></td></tr></table></figure>
+
+<p>首先透過 <code>kubectl create secret</code> 就如同之前 harbor 的範例一樣，產生出一個 secret.yaml，其內容其實是編碼後的 config.json</p>
+<p>接下來，透過 kubeseal 的指令，把剛剛的 secret.yaml 傳進去，然後最後產生出一個 sealedsecret.yaml 檔案。我們可以觀察到這個檔案裡面的內容跟 kubernetes secret 很類似，多了一個 <code>encryptedData</code> 的欄位，下面的資訊都是加密後，並不是編碼。這個物件<code>就是我們可以放在 Git</code>內保存的。</p>
+<p>接下來我們把這個物件送到 kubernetes 內，然後我們馬上觀察 <code>SealedSecret</code> 以及 <code>Secret</code>，的確有一個全新的 <code>Secret</code> 產生了，名稱就是我們前面用的 <code>ithome-example</code>。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl apply -f sealedsecret.yaml</span><br><span class="line">sealedsecret.bitnami.com/ithome-example created</span><br><span class="line">$ kubectl get SealedSecret</span><br><span class="line">NAME             AGE</span><br><span class="line">ithome-example   12s</span><br><span class="line">$ kubectl get secret ithome-example</span><br><span class="line">NAME             TYPE                             DATA   AGE</span><br><span class="line">ithome-example   kubernetes.io/dockerconfigjson   1      16s</span><br></pre></td></tr></table></figure>
+
+<p>現在來觀察產生出來的 <code>secret</code> 跟我們最原始的 <code>secret</code> 內容是否一致，主要觀察 <code>data</code> 內部的資料，可以發現 <code>.dockerconfigjson</code> 的編碼結果是完全一致的</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl get secret ithome-example -o yaml</span><br><span class="line">apiVersion: v1</span><br><span class="line">data:</span><br><span class="line">  .dockerconfigjson: ewoJImF1dGhzIjogewoJCSJyZWdpc3RyeS5od2NoaXUuY29tIjogewoJCQkiYXV0aCI6ICJZV1J0YVc0NlNHRnlZbTl5TVRJek5EVT0iCgkJfQoJfSwKCSJIdHRwSGVhZGVycyI6IHsKCQkiVXNlci1BZ2VudCI6ICJEb2NrZXItQ2xpZW50LzE5LjAzLjEyIChsaW51eCkiCgl9Cn0=</span><br><span class="line">kind: Secret</span><br><span class="line">metadata:</span><br><span class="line">  creationTimestamp: <span class="string">&quot;2020-09-14T05:31:36Z&quot;</span></span><br><span class="line">  name: ithome-example</span><br><span class="line">  namespace: default</span><br><span class="line">  ownerReferences:</span><br><span class="line">  - apiVersion: bitnami.com/v1alpha1</span><br><span class="line">    controller: <span class="literal">true</span></span><br><span class="line">    kind: SealedSecret</span><br><span class="line">    name: ithome-example</span><br><span class="line">    uid: a6fa91c0-eb90-403b-baea-5aabc979212c</span><br><span class="line">  resourceVersion: <span class="string">&quot;1025425&quot;</span></span><br><span class="line">  selfLink: /api/v1/namespaces/default/secrets/ithome-example</span><br><span class="line">  uid: 8546ec86-6e51-4a20-883f-f403ac2b450a</span><br><span class="line"><span class="built_in">type</span>: kubernetes.io/dockerconfigjson</span><br><span class="line">$ <span class="built_in">cat</span> secret.yaml</span><br><span class="line">apiVersion: v1</span><br><span class="line">data:</span><br><span class="line">  .dockerconfigjson: ewoJImF1dGhzIjogewoJCSJyZWdpc3RyeS5od2NoaXUuY29tIjogewoJCQkiYXV0aCI6ICJZV1J0YVc0NlNHRnlZbTl5TVRJek5EVT0iCgkJfQoJfSwKCSJIdHRwSGVhZGVycyI6IHsKCQkiVXNlci1BZ2VudCI6ICJEb2NrZXItQ2xpZW50LzE5LjAzLjEyIChsaW51eCkiCgl9Cn0=</span><br><span class="line">kind: Secret</span><br><span class="line">metadata:</span><br><span class="line">  creationTimestamp: null</span><br><span class="line">  name: ithome-example</span><br><span class="line"><span class="built_in">type</span>: kubernetes.io/dockerconfigjson</span><br></pre></td></tr></table></figure>
+
+
+
+<p>最後再來檢查反編碼後的結果，這邊我使用了 view-secret 這個 kubectl plugin 來自動幫忙反編碼，同時也比對最原始的 ~&#x2F;.docker&#x2F;config.json，最後確認兩者內容一致。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl view-secret ithome-example</span><br><span class="line">Choosing key: .dockerconfigjson</span><br><span class="line">&#123;</span><br><span class="line">        <span class="string">&quot;auths&quot;</span>: &#123;</span><br><span class="line">                <span class="string">&quot;registry.hwchiu.com&quot;</span>: &#123;</span><br><span class="line">                        <span class="string">&quot;auth&quot;</span>: <span class="string">&quot;YWRtaW46SGFyYm9yMTIzNDU=&quot;</span></span><br><span class="line">                &#125;</span><br><span class="line">        &#125;,</span><br><span class="line">        <span class="string">&quot;HttpHeaders&quot;</span>: &#123;</span><br><span class="line">                <span class="string">&quot;User-Agent&quot;</span>: <span class="string">&quot;Docker-Client/19.03.12 (linux)&quot;</span></span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br><span class="line">$ <span class="built_in">cat</span> ~/.docker/config.json</span><br><span class="line">&#123;</span><br><span class="line">        <span class="string">&quot;auths&quot;</span>: &#123;</span><br><span class="line">                <span class="string">&quot;registry.hwchiu.com&quot;</span>: &#123;</span><br><span class="line">                        <span class="string">&quot;auth&quot;</span>: <span class="string">&quot;YWRtaW46SGFyYm9yMTIzNDU=&quot;</span></span><br><span class="line">                &#125;</span><br><span class="line">        &#125;,</span><br><span class="line">        <span class="string">&quot;HttpHeaders&quot;</span>: &#123;</span><br><span class="line">                <span class="string">&quot;User-Agent&quot;</span>: <span class="string">&quot;Docker-Client/19.03.12 (linux)&quot;</span></span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<p>到這邊我們的 Demo 就告了一個段落，我們透過 kubeseal 來幫忙加密，加密後的結果是一個名為 SealedSecret 的物件，其內容都是加密後的樣式，我們可以直接存放於 Git 裡面，這樣的話 GitOps 的模式也可以套用上去。</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/bitnami-labs/sealed-secrets">SealedSecret</a> 官網上面還有更多關於 Key 的操作，包含 Renew, 更新等各種進階用法，如果對這個開源軟體有興趣的人歡迎玩耍看看</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>詳細可以參閱<br>矽谷牛線上學院<br><a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-24.html" rel="prev" title="鐵人賽系列文章- Day 24 - Secret 的部署問題與參考解法(下)">
+                  <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day 24 - Secret 的部署問題與參考解法(下)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-26.html" rel="next" title="鐵人賽系列文章- Day26 - kubelet Plugin 介紹">
+                  鐵人賽系列文章- Day26 - kubelet Plugin 介紹 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

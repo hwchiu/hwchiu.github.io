@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="IP Address Management 作為 CNI 本身可提供的一個重要功能之一，更是 kubernetes 本身不可或缺的能力，透過 IPAM 的管理可以讓每個 Pod 都獲得一個 IPv4 或是 IPv6 的地址，至於 Pod 本身能不能上網，那就是 CNI 本身要處理的問題，根據不同需求來建議不同的網路環境提供 Pod 上網能力。本篇文章主要是探討 IPAM 的部分，針對三個由官方維護">
+<meta property="og:type" content="article">
+<meta property="og:title" content="初探 CNI 的 IP 分配問題 (IPAM)">
+<meta property="og:url" content="https://www.hwchiu.com/cni-ipam.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="IP Address Management 作為 CNI 本身可提供的一個重要功能之一，更是 kubernetes 本身不可或缺的能力，透過 IPAM 的管理可以讓每個 Pod 都獲得一個 IPv4 或是 IPv6 的地址，至於 Pod 本身能不能上網，那就是 CNI 本身要處理的問題，根據不同需求來建議不同的網路環境提供 Pod 上網能力。本篇文章主要是探討 IPAM 的部分，針對三個由官方維護">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/2sSTHuq.png">
+<meta property="article:published_time" content="2019-09-27T23:15:33.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.606Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="CNI">
+<meta property="article:tag" content="ITHOME">
+<meta property="article:tag" content="IPAM">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/2sSTHuq.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/cni-ipam.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/cni-ipam.html","path":"cni-ipam.html","title":"初探 CNI 的 IP 分配問題 (IPAM)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>初探 CNI 的 IP 分配問題 (IPAM) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#DHCP"><span class="nav-number">1.1.</span> <span class="nav-text">DHCP</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Static"><span class="nav-number">1.2.</span> <span class="nav-text">Static</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Example"><span class="nav-number">1.2.1.</span> <span class="nav-text">Example</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Host-Local"><span class="nav-number">1.3.</span> <span class="nav-text">Host-Local</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Example-1"><span class="nav-number">1.3.1.</span> <span class="nav-text">Example</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Introduction"><span class="nav-number">1.3.2.</span> <span class="nav-text">Introduction</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">2.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%83%E8%80%83"><span class="nav-number">3.</span> <span class="nav-text">參考</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">4.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/cni-ipam.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="初探 CNI 的 IP 分配問題 (IPAM) | Hwchiu Learning Note">
+      <meta itemprop="description" content="IP Address Management 作為 CNI 本身可提供的一個重要功能之一，更是 kubernetes 本身不可或缺的能力，透過 IPAM 的管理可以讓每個 Pod 都獲得一個 IPv4 或是 IPv6 的地址，至於 Pod 本身能不能上網，那就是 CNI 本身要處理的問題，根據不同需求來建議不同的網路環境提供 Pod 上網能力。本篇文章主要是探討 IPAM 的部分，針對三個由官方維護作為參考用的 IPAM，分別介紹他們的用途以及使用方式，來深入了解 IPAM 設計需要思考的部分以及相關議題">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          初探 CNI 的 IP 分配問題 (IPAM)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-09-28 07:15:33" itemprop="dateCreated datePublished" datetime="2019-09-28T07:15:33+08:00">2019-09-28</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">IP Address Management 作為 CNI 本身可提供的一個重要功能之一，更是 kubernetes 本身不可或缺的能力，透過 IPAM 的管理可以讓每個 Pod 都獲得一個 IPv4 或是 IPv6 的地址，至於 Pod 本身能不能上網，那就是 CNI 本身要處理的問題，根據不同需求來建議不同的網路環境提供 Pod 上網能力。本篇文章主要是探討 IPAM 的部分，針對三個由官方維護作為參考用的 IPAM，分別介紹他們的用途以及使用方式，來深入了解 IPAM 設計需要思考的部分以及相關議題</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>上篇文章中我們使用 golang 作為開發語言嘗試撰寫第一個簡單的 CNI 解決方案，並且在這個解決方案內我們完成 Linux Bridge 的建置，並且透過 <strong>veth</strong> 的方式連接 <strong>host</strong> 與 <strong>network namespace</strong> 串連起來。</p>
+<p>此外上篇文章中也有檢討設計的問題，最重要的就是 <strong>IP</strong> 位址的分配，上篇的範例採用靜態分配的方式，沒有辦法擴展使用，單純只能作為測試實驗。<br>而本篇文章則會針對三個由 <a target="_blank" rel="noopener" href="https://github.com/containernetworking/plugins/tree/master/plugins/ipam">CNI 官方 GitHub</a> 維護的 IP Address Management (IPAM) 解決方案。</p>
+<p>探討到 IPAM 之前，我們先來複習一下 CNI 的基本設定格式 <strong>Network Configuration</strong>，其中有個<a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni/blob/master/SPEC.md#network-configuration">欄位</a> 就叫做 <strong>ipam</strong>.</p>
+<p>其說明非常簡單:</p>
+<blockquote>
+<p>ipam (dictionary, optional): Dictionary with IPAM specific values:<br>type (string): Refers to the filename of the IPAM plugin executable.</p>
+</blockquote>
+<p>這邊再次重申一個概念，不論是建立網路功能，分配 IP，各式各樣的輔助功能，這些應用程式只要有符合 <strong>CNI</strong> 標準，都可以稱之為 <strong>CNI Plugin</strong>。</p>
+<p>所謂的 <strong>IPAM</strong> 也都有符合 <strong>CNI</strong> 的標準，但是其主要的功能就是幫你找到一個可用的 IP，非常簡單，但是這邊也要注意。這邊唯一的標準只有 <strong>CNI</strong> 的格式， <strong>IPAM</strong> 本身沒有標準，所以你要怎麼實作都沒有規範，能夠滿足需求就好。</p>
+<p>我認為官方為了讓整個 CNI 的設定檔案看起來有結構且規範，特別在 <strong>Network Configuration</strong> 中加入了一個 <strong>IPAM</strong> 的欄位，讓這個 <strong>CNI Plugin</strong> 知道當前的設定有特別指定的 <strong>IPAM</strong> 方式，你就依照這個資料將相關的設定傳入 <strong>IPAM</strong> 參數指定的執行檔，期盼該執行檔會回你一個可以用的 IP， 最後你再將該 IP 設定到你自己創建的網路介面上。</p>
+<p>所以下列設定檔案其運作邏輯是</p>
+<ol>
+<li>先呼叫 <strong>bridge</strong> 這個執行檔去處理</li>
+<li><strong>bridge</strong> 內部建立一切資訊後，會準備好相關資訊，再次呼叫 <strong>host-local</strong> 這隻相容 <strong>CNI</strong> 標準的執行檔(但是目的是為了 IP)</li>
+<li><strong>host-local</strong>被呼叫後根據設定回傳資訊，該資訊包含了一個可用的 IP 地址</li>
+<li><strong>bridge</strong> 取得該可用的 <strong>IP</strong> 地址後，設定到創立的網路介面。<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">	<span class="attr">&quot;name&quot;</span><span class="punctuation">:</span> <span class="string">&quot;mynet&quot;</span><span class="punctuation">,</span></span><br><span class="line">	<span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;bridge&quot;</span><span class="punctuation">,</span></span><br><span class="line">	<span class="attr">&quot;bridge&quot;</span><span class="punctuation">:</span> <span class="string">&quot;mynet0&quot;</span><span class="punctuation">,</span></span><br><span class="line">	<span class="attr">&quot;isDefaultGateway&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span><span class="punctuation">,</span></span><br><span class="line">	<span class="attr">&quot;forceAddress&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">false</span></span><span class="punctuation">,</span></span><br><span class="line">	<span class="attr">&quot;ipMasq&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span><span class="punctuation">,</span></span><br><span class="line">	<span class="attr">&quot;hairpinMode&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span><span class="punctuation">,</span></span><br><span class="line">	<span class="attr">&quot;ipam&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">		<span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;host-local&quot;</span><span class="punctuation">,</span></span><br><span class="line">		<span class="attr">&quot;subnet&quot;</span><span class="punctuation">:</span> <span class="string">&quot;10.10.0.0/16&quot;</span></span><br><span class="line">	<span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure></li>
+</ol>
+<p>上述的流程看似合理但是我認為確有一個致命的問題就是，上面的流程都只是 <strong>Bridge</strong> 自己說的，並不在 <strong>CNI</strong> 的標準規範內。<br>今天我們也可以寫一個 <strong>CNI</strong> 完全忽略 <strong>IPAM</strong> 這個欄位，自己用別的方式取得 IP 來設定，也是可以。<br>甚至我寫一個欄位，然後我也呼叫 <strong>IPAM</strong>， 但是我期盼 <strong>IPAM</strong> 不要只是回傳 <strong>IP</strong> 給我，請幫我一起設定。 這種邏輯也可以</p>
+<p>因此 <strong>CNI</strong> 這邊由於網路架構太多元化，沒有辦法訂下一個完美的標準，最後就變成溝通介面標準化，剩下就是各自努力想辦法讓一切運作，同時每個 CNI 都要描述自己支援的設定有哪些。</p>
+<h2 id="DHCP"><a href="#DHCP" class="headerlink" title="DHCP"></a>DHCP</h2><p>首先介紹的第一個 IPAM 就是 <strong>DHCP</strong>，這個 <strong>DHCP IPAM</strong> 我自己只有拿來做一些 POC 測試的時候玩過，其使用限制不少，並不太容易直接整合到大部分的使用情境中。</p>
+<p>一個 DHCP 的服務流程需要有兩個元件分別是</p>
+<ol>
+<li>dhcp client</li>
+<li>dhcp server</li>
+</ol>
+<p>而這個 DHCP IPAM 扮演的角色就是 <strong>DHCP Client</strong>，而 <strong>dhcp client</strong> 按照慣例的運作模式就是</p>
+<ol>
+<li>發送 DHCP Request</li>
+<li>等待 DHCP Reply</li>
+<li>設定 IP 到目標網路介面</li>
+<li>定期 Renew</li>
+</ol>
+<p>而 <strong>DHCP IPAM</strong> 實實在在的扮演上面四個角色，而這邊就有一個問題了，這個 <strong>IPAM</strong> 會幫你設定 <strong>IP</strong>，因為 <strong>DHCP</strong> 會需要定期 <strong>renew</strong>，同時有更換 IP 的話就會自動幫你替換掉，這個是正常的行為。</p>
+<p>由這邊可以知道不同的 <strong>IPAM</strong> 的運作行為不同，所以使用前一定要確認其使用方法與情境。</p>
+<p>另外一個問題就是 <strong>DHCP</strong> 的封包，在預設的情況下是 <strong>Layer2</strong> 的封包，沒有任何的 <strong>dhcp relay</strong> 的幫忙的話，你的 <strong>DHCP Request</strong> 很難送到外面的 <strong>dhcp server</strong> 來取得一個 IP，所以這個 <strong>DHCP IPAM</strong> 的官方文件有特別說明</p>
+<blockquote>
+<p>With dhcp plugin the containers can get an IP allocated by a DHCP server already running on your network. This can be especially useful with plugin types such as macvlan.</p>
+</blockquote>
+<p>一種使用情境是直接透過 <strong>macvlan</strong> 的方式把 <strong>host</strong> 上的網路介面與 <strong>network namespace</strong> 共用，這樣從 <strong>network namespace</strong> 出去的封包就會直接從該網路介面出去。</p>
+<p>接下來來探討一下整個 <strong>DHCP IPAM</strong> 的運作模式，該專案本身提供個兩種運作模式，一種是單純的 <strong>CNI</strong> 模式，一種則是一個不停運行的 <strong>daemon</strong> 模式。</p>
+<p><strong>daemon</strong> 模式的功用很簡單，接受所有來自 <strong>CNI</strong> 模式的請求，然後切換到目標的 <strong>network namespace</strong> 裡面去根據目標的網路介面發送一個 <strong>DHCP</strong> 請求封包。</p>
+<p>所以運行這個 <strong>DHCP IPAM</strong>  之前，要先在系統上跑一隻 <strong>daemon</strong>，然後會透過 <strong>unix socket</strong> 的方式等待 <strong>DHCP IPAM CNI</strong> 發送命令過來，當然該命令會包含</p>
+<ol>
+<li>目標的 network namespace</li>
+<li>目標的 網路卡名稱</li>
+</ol>
+<p>整個運作流程可以歸納為下圖<br><img src="https://i.imgur.com/2sSTHuq.png"></p>
+<ol>
+<li>首先當該 <strong>DHCP CNI</strong>被呼叫後，會先透過 <strong>unix socket</strong>  的方式通知 <strong>daemon</strong></li>
+<li><strong>daemon</strong> 接者潛入到該 netns 之中，確認該 Interface 存在後，就開始發送 <strong>DHCP</strong> 請求</li>
+<li>這邊我用一個 <strong>magic</strong> 的意思代表沒有限定外表要怎麼實作，總之你的 <strong>DHCP</strong> 封包要有辦法出去就好</li>
+<li>最後外面的(甚至同一台機器)上面的 <strong>DHCP Server</strong> 可以看到 <strong>Request</strong> 並且回覆 <strong>Reply</strong></li>
+<li>最後當 <strong>DHCP Daemon</strong> 發送 <strong>DHCP</strong>  請求的那隻 thread 接收到 <strong>DHCP</strong> 回覆後，就會幫目標網卡設定 <strong>IP</strong> 地址。</li>
+</ol>
+<p>最後，這個 <strong>IPAM</strong> 沒有這麼好用，光是那個 <strong>magic</strong> 的部分就不是一般使用者習慣的用法，我認為可以當作研究並增廣見聞即可。</p>
+<h2 id="Static"><a href="#Static" class="headerlink" title="Static"></a>Static</h2><p>這個 <strong>IPAM</strong> 其實沒有什麼好說，就是一個測試用的 IPAM，根據其 <a target="_blank" rel="noopener" href="https://github.com/containernetworking/plugins/tree/master/plugins/ipam/static">GitHub</a> 上面的介紹</p>
+<blockquote>
+<p>Overview<br>static IPAM is very simple IPAM plugin that assigns IPv4 and IPv6 addresses statically to container. This will be useful in debugging purpose and in case of assign same IP address in different vlan&#x2F;vxlan to containers.</p>
+</blockquote>
+<p>就是一個除錯使用的 IPAM，我覺得唯一可以看的就是格式內容，完全可以補足我們前篇文章所設計的用法，將其擴大到更完整。</p>
+<p>首先裡面分成三大塊，分別是</p>
+<ol>
+<li>IP 地址，包含了 ipv4&#x2F;ipv6</li>
+<li>Route 路由表</li>
+<li>DNS 設定</li>
+</ol>
+<p>如果你對於上述三個概念都熟悉的話，其實下面的設定檔案不太需要講，大概看過就知道代表什麼意思。</p>
+<p>另外要注意一下的是這個 <strong>IPAM</strong> 的運作模式就比較上述講述的，只專心在分 <strong>IP</strong> 地址，本身沒有任何設定的功能。 所以呼叫者最後要根據回傳的資訊自己去決定要怎麼設定。</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;name&quot;</span><span class="punctuation">:</span> <span class="string">&quot;test&quot;</span><span class="punctuation">,</span></span><br><span class="line">	<span class="attr">&quot;ipam&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">		<span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;static&quot;</span><span class="punctuation">,</span></span><br><span class="line">		<span class="attr">&quot;addresses&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">			<span class="punctuation">&#123;</span></span><br><span class="line">				<span class="attr">&quot;address&quot;</span><span class="punctuation">:</span> <span class="string">&quot;10.10.0.1/24&quot;</span><span class="punctuation">,</span></span><br><span class="line">				<span class="attr">&quot;gateway&quot;</span><span class="punctuation">:</span> <span class="string">&quot;10.10.0.254&quot;</span></span><br><span class="line">			<span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">			<span class="punctuation">&#123;</span></span><br><span class="line">				<span class="attr">&quot;address&quot;</span><span class="punctuation">:</span> <span class="string">&quot;3ffe:ffff:0:01ff::1/64&quot;</span><span class="punctuation">,</span></span><br><span class="line">				<span class="attr">&quot;gateway&quot;</span><span class="punctuation">:</span> <span class="string">&quot;3ffe:ffff:0::1&quot;</span></span><br><span class="line">			<span class="punctuation">&#125;</span></span><br><span class="line">		<span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">		<span class="attr">&quot;routes&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">			<span class="punctuation">&#123;</span> <span class="attr">&quot;dst&quot;</span><span class="punctuation">:</span> <span class="string">&quot;0.0.0.0/0&quot;</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">			<span class="punctuation">&#123;</span> <span class="attr">&quot;dst&quot;</span><span class="punctuation">:</span> <span class="string">&quot;192.168.0.0/16&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;gw&quot;</span><span class="punctuation">:</span> <span class="string">&quot;10.10.5.1&quot;</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">			<span class="punctuation">&#123;</span> <span class="attr">&quot;dst&quot;</span><span class="punctuation">:</span> <span class="string">&quot;3ffe:ffff:0:01ff::1/64&quot;</span> <span class="punctuation">&#125;</span></span><br><span class="line">		<span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">		<span class="attr">&quot;dns&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">			<span class="attr">&quot;nameservers&quot;</span> <span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;8.8.8.8&quot;</span><span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">			<span class="attr">&quot;domain&quot;</span><span class="punctuation">:</span> <span class="string">&quot;example.com&quot;</span><span class="punctuation">,</span></span><br><span class="line">			<span class="attr">&quot;search&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span> <span class="string">&quot;example.com&quot;</span> <span class="punctuation">]</span></span><br><span class="line">		<span class="punctuation">&#125;</span></span><br><span class="line">	<span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="Example"><a href="#Example" class="headerlink" title="Example"></a>Example</h3><p><strong>kubeadm</strong> 本身沒有內建這個 <strong>CNI</strong> 執行檔，需要的要自行去官方下載或是自行編譯安裝。<br>假設有這個檔案後，我們可以直接使用之前執行 <strong>CNI</strong> 的方式來執行該檔案，先把上述的設定存成一個名為 <strong>static</strong> 的檔案。<br>最後可以觀察其輸出結果，這些結果理論上是呼叫他的 <strong>CNI</strong> 去解讀，然後根據需求去設定 <strong>IP, Route, DNS</strong> 這些資源。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">$ sudo CNI_COMMAND=ADD CNI_CONTAINERID=ns1 CNI_NETNS=/var/run/netns/ns1 CNI_IFNAME=eth10 CNI_PATH=/opt/cni/bin/ /opt/cni/bin/static &lt; static</span><br><span class="line">&#123;</span><br><span class="line">    <span class="string">&quot;cniVersion&quot;</span>: <span class="string">&quot;0.2.0&quot;</span>,</span><br><span class="line">    <span class="string">&quot;ip4&quot;</span>: &#123;</span><br><span class="line">        <span class="string">&quot;ip&quot;</span>: <span class="string">&quot;10.10.0.1/24&quot;</span>,</span><br><span class="line">        <span class="string">&quot;gateway&quot;</span>: <span class="string">&quot;10.10.0.254&quot;</span>,</span><br><span class="line">        <span class="string">&quot;routes&quot;</span>: [</span><br><span class="line">            &#123;</span><br><span class="line">                <span class="string">&quot;dst&quot;</span>: <span class="string">&quot;0.0.0.0/0&quot;</span></span><br><span class="line">            &#125;,</span><br><span class="line">            &#123;</span><br><span class="line">                <span class="string">&quot;dst&quot;</span>: <span class="string">&quot;192.168.0.0/16&quot;</span>,</span><br><span class="line">                <span class="string">&quot;gw&quot;</span>: <span class="string">&quot;10.10.5.1&quot;</span></span><br><span class="line">            &#125;</span><br><span class="line">        ]</span><br><span class="line">    &#125;,</span><br><span class="line">    <span class="string">&quot;ip6&quot;</span>: &#123;</span><br><span class="line">        <span class="string">&quot;ip&quot;</span>: <span class="string">&quot;3ffe:ffff:0:1ff::1/64&quot;</span>,</span><br><span class="line">        <span class="string">&quot;gateway&quot;</span>: <span class="string">&quot;3ffe:ffff::1&quot;</span>,</span><br><span class="line">        <span class="string">&quot;routes&quot;</span>: [</span><br><span class="line">            &#123;</span><br><span class="line">                <span class="string">&quot;dst&quot;</span>: <span class="string">&quot;3ffe:ffff:0:1ff::1/64&quot;</span></span><br><span class="line">            &#125;</span><br><span class="line">        ]</span><br><span class="line">    &#125;,</span><br><span class="line">    <span class="string">&quot;dns&quot;</span>: &#123;</span><br><span class="line">        <span class="string">&quot;nameservers&quot;</span>: [</span><br><span class="line">            <span class="string">&quot;8.8.8.8&quot;</span></span><br><span class="line">        ],</span><br><span class="line">        <span class="string">&quot;domain&quot;</span>: <span class="string">&quot;example.com&quot;</span>,</span><br><span class="line">        <span class="string">&quot;search&quot;</span>: [</span><br><span class="line">            <span class="string">&quot;example.com&quot;</span></span><br><span class="line">        ]</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+
+<h2 id="Host-Local"><a href="#Host-Local" class="headerlink" title="Host-Local"></a>Host-Local</h2><p>最後終於要講最重要的 <strong>IPAM</strong> 了，其使用率也是頗高的，滿多的 <strong>CNI</strong> 會使用這個 <strong>IPAM</strong> 作為基底去處理 <strong>IP</strong> 分配的問題，因此這邊來好好的研究一下這個 <strong>IPAM</strong>。</p>
+<h3 id="Example-1"><a href="#Example-1" class="headerlink" title="Example"></a>Example</h3><p>開始研究其特色之前，我們直接先直接運行一個簡單的範例</p>
+<ol>
+<li>準備一個 config 給 host-local</li>
+<li>呼叫 <strong>host-local cni</strong>，觀察其結果</li>
+<li>呼叫 <strong>host-local cni</strong>，觀察其結果</li>
+<li>呼叫 <strong>host-local cni</strong>，觀察其結果</li>
+</ol>
+<p>上面是認真的要呼叫三次，來觀察呼叫三次會有什麼不一樣的結果</p>
+<p>首先我們先觀察一下其設定檔案，裡面相對於 <strong>static</strong> 來說，裡面最大的不一樣是出現了 <strong>range</strong>, <strong>subnet</strong> 之類的字眼</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cat</span> config</span><br><span class="line">&#123;</span><br><span class="line">        <span class="string">&quot;ipam&quot;</span>: &#123;</span><br><span class="line">                <span class="string">&quot;type&quot;</span>: <span class="string">&quot;host-local&quot;</span>,</span><br><span class="line">                <span class="string">&quot;ranges&quot;</span>: [</span><br><span class="line">                        [</span><br><span class="line">                                &#123;</span><br><span class="line">                                        <span class="string">&quot;subnet&quot;</span>: <span class="string">&quot;10.10.0.0/16&quot;</span>,</span><br><span class="line">                                        <span class="string">&quot;rangeStart&quot;</span>: <span class="string">&quot;10.10.1.20&quot;</span>,</span><br><span class="line">                                        <span class="string">&quot;rangeEnd&quot;</span>: <span class="string">&quot;10.10.3.50&quot;</span>,</span><br><span class="line">                                        <span class="string">&quot;gateway&quot;</span>: <span class="string">&quot;10.10.0.254&quot;</span></span><br><span class="line">                                &#125;,</span><br><span class="line">                                &#123;</span><br><span class="line">                                        <span class="string">&quot;subnet&quot;</span>: <span class="string">&quot;172.16.5.0/24&quot;</span></span><br><span class="line">                                &#125;</span><br><span class="line">                        ]</span><br><span class="line">                ]</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>接者我們就運行該 <strong>host-local CNI</strong> 三次，看看三次的結果如何</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">$ sudo CNI_COMMAND=ADD CNI_CONTAINERID=ns1 CNI_NETNS=/var/run/netns/ns1 CNI_IFNAME=eth10 CNI_PATH=/opt/cni/bin/ /opt/cni/bin/host-local &lt; config</span><br><span class="line">&#123;</span><br><span class="line">    <span class="string">&quot;cniVersion&quot;</span>: <span class="string">&quot;0.2.0&quot;</span>,</span><br><span class="line">    <span class="string">&quot;ip4&quot;</span>: &#123;</span><br><span class="line">        <span class="string">&quot;ip&quot;</span>: <span class="string">&quot;10.10.1.20/16&quot;</span>,</span><br><span class="line">        <span class="string">&quot;gateway&quot;</span>: <span class="string">&quot;10.10.0.254&quot;</span></span><br><span class="line">    &#125;,</span><br><span class="line">    <span class="string">&quot;dns&quot;</span>: &#123;&#125;</span><br><span class="line">&#125;</span><br><span class="line">$ sudo CNI_COMMAND=ADD CNI_CONTAINERID=ns1 CNI_NETNS=/var/run/netns/ns1 CNI_IFNAME=eth10 CNI_PATH=/opt/cni/bin/ /opt/cni/bin/host-local &lt;config</span><br><span class="line">&#123;</span><br><span class="line">    <span class="string">&quot;cniVersion&quot;</span>: <span class="string">&quot;0.2.0&quot;</span>,</span><br><span class="line">    <span class="string">&quot;ip4&quot;</span>: &#123;</span><br><span class="line">        <span class="string">&quot;ip&quot;</span>: <span class="string">&quot;10.10.1.21/16&quot;</span>,</span><br><span class="line">        <span class="string">&quot;gateway&quot;</span>: <span class="string">&quot;10.10.0.254&quot;</span></span><br><span class="line">    &#125;,</span><br><span class="line">    <span class="string">&quot;dns&quot;</span>: &#123;&#125;</span><br><span class="line">&#125;</span><br><span class="line">$ sudo CNI_COMMAND=ADD CNI_CONTAINERID=ns1 CNI_NETNS=/var/run/netns/ns1 CNI_IFNAME=eth10 CNI_PATH=/opt/cni/bin/ /opt/cni/bin/host-local &lt;config</span><br><span class="line">&#123;</span><br><span class="line">    <span class="string">&quot;cniVersion&quot;</span>: <span class="string">&quot;0.2.0&quot;</span>,</span><br><span class="line">    <span class="string">&quot;ip4&quot;</span>: &#123;</span><br><span class="line">        <span class="string">&quot;ip&quot;</span>: <span class="string">&quot;10.10.1.22/16&quot;</span>,</span><br><span class="line">        <span class="string">&quot;gateway&quot;</span>: <span class="string">&quot;10.10.0.254&quot;</span></span><br><span class="line">    &#125;,</span><br><span class="line">    <span class="string">&quot;dns&quot;</span>: &#123;&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>輸出的結果非常的有趣，每次的輸出內容幾乎都一樣，除了 <strong>ip4.ip</strong> 這個欄位之外有些許差別，分別是<br><strong>10.10.1.20&#x2F;16, 10.10.1.21&#x2F;16, 10.10.1.22&#x2F;16</strong></p>
+<p>同時我們在複習一下剛剛設定裡面的 <strong>range.subnet</strong> 相關設定</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">&quot;subnet&quot;</span><span class="punctuation">:</span> <span class="string">&quot;10.10.0.0/16&quot;</span><span class="punctuation">,</span></span><br><span class="line"><span class="attr">&quot;rangeStart&quot;</span><span class="punctuation">:</span> <span class="string">&quot;10.10.1.20&quot;</span><span class="punctuation">,</span></span><br><span class="line"><span class="attr">&quot;rangeEnd&quot;</span><span class="punctuation">:</span> <span class="string">&quot;10.10.3.50&quot;</span><span class="punctuation">,</span></span><br><span class="line"><span class="attr">&quot;gateway&quot;</span><span class="punctuation">:</span> <span class="string">&quot;10.10.0.254&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>看到這邊應該心裡已經有個譜了， <strong>host-local</strong> 會根據參數給予的 <strong>IP</strong> 範圍，依序回傳一個沒有被使用過的 <strong>IP</strong>， 這個運作原理非常的符合我們真正的需求，每次有 <strong>POD</strong> 產生的時候都可以得到一個沒有被使用過的 <strong>IP</strong> 地址，避免重複同時又能夠使用。</p>
+<p>接下來我們來正式的研究這個 <strong>IPAM CNI</strong>，看看其設計上還有什麼樣的特色與注意事項</p>
+<h3 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h3><p>如慣例一樣，我們先看看官方 <a target="_blank" rel="noopener" href="https://github.com/containernetworking/plugins/tree/master/plugins/ipam/host-local">GitHub</a> 怎麼描述這個專案</p>
+<blockquote>
+<p>host-local IPAM plugin allocates ip addresses out of a set of address ranges. It stores the state locally on the host filesystem, therefore ensuring uniqueness of IP addresses on a single host.<br>The allocator can allocate multiple ranges, and supports sets of multiple (disjoint) subnets. The allocation strategy is loosely round-robin within each range set.</p>
+</blockquote>
+<p>擷取幾個重點</p>
+<ol>
+<li>從 address ranges 中分配 IP</li>
+<li>將分配的結果存在本地機器，所以這也是為什麼叫做 <strong>host-local</strong></li>
+</ol>
+<p>其中(2)算是一個手段，用來滿足(1)，畢竟如果沒有地方進行紀錄來進行比較，就沒有辦法每次都回傳一個沒有被用過的 <strong>IP</strong> 地址。</p>
+<p>接下來看一個比較完整的設定檔案</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">	<span class="attr">&quot;ipam&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">		<span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;host-local&quot;</span><span class="punctuation">,</span></span><br><span class="line">		<span class="attr">&quot;ranges&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">			<span class="punctuation">[</span></span><br><span class="line">				<span class="punctuation">&#123;</span></span><br><span class="line">					<span class="attr">&quot;subnet&quot;</span><span class="punctuation">:</span> <span class="string">&quot;10.10.0.0/16&quot;</span><span class="punctuation">,</span></span><br><span class="line">					<span class="attr">&quot;rangeStart&quot;</span><span class="punctuation">:</span> <span class="string">&quot;10.10.1.20&quot;</span><span class="punctuation">,</span></span><br><span class="line">					<span class="attr">&quot;rangeEnd&quot;</span><span class="punctuation">:</span> <span class="string">&quot;10.10.3.50&quot;</span><span class="punctuation">,</span></span><br><span class="line">					<span class="attr">&quot;gateway&quot;</span><span class="punctuation">:</span> <span class="string">&quot;10.10.0.254&quot;</span></span><br><span class="line">				<span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">				<span class="punctuation">&#123;</span></span><br><span class="line">					<span class="attr">&quot;subnet&quot;</span><span class="punctuation">:</span> <span class="string">&quot;172.16.5.0/24&quot;</span></span><br><span class="line">				<span class="punctuation">&#125;</span></span><br><span class="line">			<span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">			<span class="punctuation">[</span></span><br><span class="line">				<span class="punctuation">&#123;</span></span><br><span class="line">					<span class="attr">&quot;subnet&quot;</span><span class="punctuation">:</span> <span class="string">&quot;3ffe:ffff:0:01ff::/64&quot;</span><span class="punctuation">,</span></span><br><span class="line">					<span class="attr">&quot;rangeStart&quot;</span><span class="punctuation">:</span> <span class="string">&quot;3ffe:ffff:0:01ff::0010&quot;</span><span class="punctuation">,</span></span><br><span class="line">					<span class="attr">&quot;rangeEnd&quot;</span><span class="punctuation">:</span> <span class="string">&quot;3ffe:ffff:0:01ff::0020&quot;</span></span><br><span class="line">				<span class="punctuation">&#125;</span></span><br><span class="line">			<span class="punctuation">]</span></span><br><span class="line">		<span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">		<span class="attr">&quot;routes&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">			<span class="punctuation">&#123;</span> <span class="attr">&quot;dst&quot;</span><span class="punctuation">:</span> <span class="string">&quot;0.0.0.0/0&quot;</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">			<span class="punctuation">&#123;</span> <span class="attr">&quot;dst&quot;</span><span class="punctuation">:</span> <span class="string">&quot;192.168.0.0/16&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;gw&quot;</span><span class="punctuation">:</span> <span class="string">&quot;10.10.5.1&quot;</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">			<span class="punctuation">&#123;</span> <span class="attr">&quot;dst&quot;</span><span class="punctuation">:</span> <span class="string">&quot;3ffe:ffff:0:01ff::1/64&quot;</span> <span class="punctuation">&#125;</span></span><br><span class="line">		<span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">		<span class="attr">&quot;dataDir&quot;</span><span class="punctuation">:</span> <span class="string">&quot;/run/my-orchestrator/container-ipam-state&quot;</span></span><br><span class="line">	<span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>這裡面我認為相對有趣的事情有</p>
+<ol>
+<li>支援 ipv6, 其支援 ipv6 的速度遠早於 kubernetes 1.16，這意味之前其實就可以透過 host-local 的方式去分配 ipv6 address， 只是 kubernetes 內部的所有功能都還是基於 ipv4，變成使用上沒有整合很不方便</li>
+<li><strong>dataDir</strong> 的變數會指定要用哪個資料夾作為 <strong>host-local</strong> 記錄用過的資訊，預設值是 <strong>&#x2F;var&#x2F;lib&#x2F;cni&#x2F;networks&#x2F;</strong>.</li>
+</ol>
+<p>根據上述簡單的範例，因為我沒有特別指定 <strong>dataDir</strong>，所以所有的檔案都會存放在 <strong>&#x2F;var&#x2F;lib&#x2F;cni&#x2F;networks&#x2F;</strong> 裡面</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ sudo find /var/lib/cni/networks/ -<span class="built_in">type</span> f</span><br><span class="line">/var/lib/cni/networks/last_reserved_ip.0</span><br><span class="line">/var/lib/cni/networks/10.10.1.20</span><br><span class="line">/var/lib/cni/networks/10.10.1.22</span><br><span class="line">/var/lib/cni/networks/10.10.1.21</span><br><span class="line"></span><br><span class="line">$ sudo find /var/lib/cni/networks/ -<span class="built_in">type</span> f | xargs -I % sh -c <span class="string">&#x27;echo -n &quot;%:   -&gt;&quot;; cat %; echo &quot;&quot;;&#x27;</span></span><br><span class="line">/var/lib/cni/networks/last_reserved_ip.0:   -&gt;10.10.1.22</span><br><span class="line">/var/lib/cni/networks/10.10.1.20:   -&gt;ns1</span><br><span class="line">/var/lib/cni/networks/10.10.1.22:   -&gt;ns1</span><br><span class="line">/var/lib/cni/networks/10.10.1.21:   -&gt;ns1</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>我們可以觀察到，每個被用過的 <strong>IP</strong> 都會產生一個以該 <strong>IP</strong> 為名的檔案，該檔案中的內容非常簡單，就是使用的 <strong>container ID</strong>，由於我目前的範例非常簡單，所以資訊不夠豐富，等之後我們探討 kubernetes 的使用情境後，就可以再次觀察這個欄位。</p>
+<p>此外，還可以觀察到一個名為 <strong>last_reserved_ip</strong> 的檔案，該檔案用來記住每個 <strong>range</strong> 目前分配的最後一個 <strong>IP</strong> 是哪個。<br>目前 <strong>host-local</strong> 分配的演算法是 <strong>round-robin</strong>，對演算法有興趣的可以參考下方的<a target="_blank" rel="noopener" href="https://github.com/containernetworking/plugins/blob/ded2f1757770e8e2aa41f65687f8fc876f83048b/plugins/ipam/host-local/backend/allocator/allocator.go#L150">原始碼</a></p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// GetIter encapsulates the strategy for this allocator.</span></span><br><span class="line"><span class="comment">// We use a round-robin strategy, attempting to evenly use the whole set.</span></span><br><span class="line"><span class="comment">// More specifically, a crash-looping container will not see the same IP until</span></span><br><span class="line"><span class="comment">// the entire range has been run through.</span></span><br><span class="line"><span class="comment">// We may wish to consider avoiding recently-released IPs in the future.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(a *IPAllocator)</span></span> GetIter() (*RangeIter, <span class="type">error</span>) &#123;</span><br><span class="line">....</span><br></pre></td></tr></table></figure>
+
+<p>最後我們再來思考一個問題，今天我們可以使用 <strong>range.subnet</strong> 這類的設定檔案讓 <strong>host-local</strong>來幫我們分配 <strong>IP</strong> 地址，避免重複的問題。<br>但是前述有提過， <strong>CNI</strong> 本身是每個節點都要配置的，所以如果今天每個節點都使用一樣的設定檔，會發生什麼事情?<br>基於 <strong>round-robin</strong> 的演算法下，就會發生不同節點上的 <strong>Pod</strong> 使用到相同的 <strong>IP</strong> 地址，這樣問題還是沒有解決。<br>為了解決這個問題，唯一的辦法就是每台節點上面都要部署不同內容的設定檔案，譬如第一個節點使用 <strong>10.0.1.0&#x2F;24</strong>，第二個使用 <strong>10.0.2.0&#x2F;24</strong>，諸如此類的方式。<br>這樣的使用雖然可以解決問題，但是對於安裝與部署來說又產生其他的困擾，如果今天有舊的節點要移除，新的節點要進來，也要確保設定檔案沒有重複，不然 <strong>IP</strong> 問題就會繼續浮上來。</p>
+<p>只能說這種分散式的東西本身在處理與使用上就要格外小心，沒有集中控制的管理就容易導致群龍無首然後各自為王。</p>
+<p>當然要解決這個問題也是有其他的辦法，下一篇會來探討 <strong>ｆlannel</strong> 的基本安裝過程，並且探討一下 <strong>flannel</strong> 是如何解決對所有節點上的 <strong>Pod</strong> 都能夠分配一個不重複的 <strong>IP</strong> 地址。</p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>本篇文章介紹三種不同官方提供的 <strong>IPAM</strong> 解決方案，這些解決方案也都基於 <strong>CNI</strong> 的標準去設計，所以相容彼此的參數傳遞以及結果回傳。這使得這些 <strong>IPAM</strong> 能夠與其他的 <strong>CNI</strong> 更好整合，藉由分層的概念讓 <strong>IPAM</strong> 專心處理 <strong>IP</strong> 管理分配的問題，而其他的 <strong>CNI</strong> 則是專注於如何建立網路資源，確保目標 <strong>network namespace</strong> 可以獲得想要的上網能力。</p>
+<p>到這一邊我們已經對 <strong>CNI</strong> 有一些基本概念了，接下來我們要實際演練一台具有三個節點的 kubernetes cluster 與 <strong>Flannel CNI</strong> 是如何運作的，包含了安裝過程，設定檔案內容，到最後封包的轉發是如何做到跨節點存取的。</p>
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/containernetworking/plugins">https://github.com/containernetworking/plugins</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni">https://github.com/containernetworking/cni</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni/blob/master/SPEC.md#network-configuration">https://github.com/containernetworking/cni/blob/master/SPEC.md#network-configuration</a></li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/CNI/" rel="tag"># CNI</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+              <a href="/tags/IPAM/" rel="tag"># IPAM</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/cni-golnag.html" rel="prev" title="使用 golang 開發第一個 CNI 程式">
+                  <i class="fa fa-chevron-left"></i> 使用 golang 開發第一個 CNI 程式
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/cni-flannel-i.html" rel="next" title="CNI - Flannel - 安裝設定篇">
+                  CNI - Flannel - 安裝設定篇 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

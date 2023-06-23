@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="ITHOME-2020 系列文章">
+<meta property="og:type" content="article">
+<meta property="og:title" content="鐵人賽系列文章- Day 6 K3D 與KIND 的部署示範">
+<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-6.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="ITHOME-2020 系列文章">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2020-11-08T04:09:28.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.623Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="DevOps">
+<meta property="article:tag" content="ITHOME">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-6.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/ithome-20202-cicd-6.html","path":"ithome-20202-cicd-6.html","title":"鐵人賽系列文章- Day 6 K3D 與KIND 的部署示範"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>鐵人賽系列文章- Day 6 K3D 與KIND 的部署示範 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#K3D"><span class="nav-number">1.</span> <span class="nav-text">K3D</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%89%E8%A3%9D"><span class="nav-number">1.1.</span> <span class="nav-text">安裝</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%B5%E5%BB%BA-Cluster"><span class="nav-number">1.2.</span> <span class="nav-text">創建 Cluster</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AD%98%E5%8F%96-Kubernetes"><span class="nav-number">1.3.</span> <span class="nav-text">存取 Kubernetes</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8B%95%E6%85%8B%E6%96%B0%E5%A2%9E%E7%AF%80%E9%BB%9E"><span class="nav-number">1.4.</span> <span class="nav-text">動態新增節點</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#KIND"><span class="nav-number">2.</span> <span class="nav-text">KIND</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%AE%89%E8%A3%9D-1"><span class="nav-number">3.</span> <span class="nav-text">安裝</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%B5%E5%BB%BA-Cluster-1"><span class="nav-number">3.1.</span> <span class="nav-text">創建 Cluster</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">4.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-6.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="鐵人賽系列文章- Day 6 K3D 與KIND 的部署示範 | Hwchiu Learning Note">
+      <meta itemprop="description" content="ITHOME-2020 系列文章">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          鐵人賽系列文章- Day 6 K3D 與KIND 的部署示範
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2020-11-08 12:09:28" itemprop="dateCreated datePublished" datetime="2020-11-08T12:09:28+08:00">2020-11-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">ITHOME-2020 系列文章</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="K3D"><a href="#K3D" class="headerlink" title="K3D"></a>K3D</h1><p>上篇文章中有提到 K3D 是由 Rancher 所維護且開發的技術，其目的是將 Rancher 維護的輕量級 Kubernetes 版本 <code>k3s</code> 以 Docker 的形式建立起來，透過 Docker Container 的創建就可以輕鬆的建立多個 Kubernetes 節點</p>
+<p>更多詳細介紹請參閱<a target="_blank" rel="noopener" href="https://github.com/rancher/k3d">官方Repo</a></p>
+<h2 id="安裝"><a href="#安裝" class="headerlink" title="安裝"></a>安裝</h2><p>安裝過程非常簡單，一行指令就可以</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo curl -s https://raw.githubusercontent.com/rancher/k3d/main/install.sh | bash</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">$ k3d</span><br><span class="line">Usage:</span><br><span class="line">  k3d [flags]</span><br><span class="line">  k3d [<span class="built_in">command</span>]</span><br><span class="line"></span><br><span class="line">Available Commands:</span><br><span class="line">  cluster     Manage cluster(s)</span><br><span class="line">  completion  Generate completion scripts <span class="keyword">for</span> [bash, zsh, powershell | psh]</span><br><span class="line">  <span class="built_in">help</span>        Help about any <span class="built_in">command</span></span><br><span class="line">  image       Handle container images.</span><br><span class="line">  kubeconfig  Manage kubeconfig(s)</span><br><span class="line">  node        Manage node(s)</span><br><span class="line">  version     Show k3d and default k3s version</span><br><span class="line"></span><br><span class="line">Flags:</span><br><span class="line">  -h, --<span class="built_in">help</span>      <span class="built_in">help</span> <span class="keyword">for</span> k3d</span><br><span class="line">      --verbose   Enable verbose output (debug logging)</span><br><span class="line">      --version   Show k3d and default k3s version</span><br><span class="line"></span><br><span class="line">Use <span class="string">&quot;k3d [command] --help&quot;</span> <span class="keyword">for</span> more information about a <span class="built_in">command</span>.</span><br></pre></td></tr></table></figure>
+
+<p>整個指令非常簡單，比較常見會使用的就是 cluster, kubeconfig 以及 node</p>
+<h2 id="創建-Cluster"><a href="#創建-Cluster" class="headerlink" title="創建 Cluster"></a>創建 Cluster</h2><p>創建上也是非常簡單，輸入 <code>k3d cluster</code> 可以看到一些跟 cluster 相關的指令，實際上使用的時候都要描述你希望的 cluster 名稱，這邊我就不輸入，一律採用預設值 <code>k3s-default</code></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">$ k3d cluster</span><br><span class="line">Manage cluster(s)</span><br><span class="line"></span><br><span class="line">Usage:</span><br><span class="line">  k3d cluster [flags]</span><br><span class="line">  k3d cluster [<span class="built_in">command</span>]</span><br><span class="line"></span><br><span class="line">Available Commands:</span><br><span class="line">  create      Create a new cluster</span><br><span class="line">  delete      Delete cluster(s).</span><br><span class="line">  list        List cluster(s)</span><br><span class="line">  start       Start existing k3d cluster(s)</span><br><span class="line">  stop        Stop existing k3d cluster(s)</span><br><span class="line"></span><br><span class="line">Flags:</span><br><span class="line">  -h, --<span class="built_in">help</span>   <span class="built_in">help</span> <span class="keyword">for</span> cluster</span><br><span class="line"></span><br><span class="line">Global Flags:</span><br><span class="line">      --verbose   Enable verbose output (debug logging)</span><br><span class="line"></span><br><span class="line">Use <span class="string">&quot;k3d cluster [command] --help&quot;</span> <span class="keyword">for</span> more information about a <span class="built_in">command</span></span><br></pre></td></tr></table></figure>
+
+<p>我們可以透過 <code>k3d cluster create</code>  來創建一個 k3s 的叢集，預設情況下是一個節點，我們可以透過 <code>-s</code> 的方式來指定要有多少個 node.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">$ k3d cluster create -s 3</span><br><span class="line">INFO[0000] Created network <span class="string">&#x27;k3d-k3s-default&#x27;</span></span><br><span class="line">INFO[0000] Created volume <span class="string">&#x27;k3d-k3s-default-images&#x27;</span>                                                                                                                           INFO[0000] Creating initializing server node</span><br><span class="line">INFO[0000] Creating node <span class="string">&#x27;k3d-k3s-default-server-0&#x27;</span></span><br><span class="line">INFO[0009] Creating node <span class="string">&#x27;k3d-k3s-default-server-1&#x27;</span></span><br><span class="line">INFO[0010] Creating node <span class="string">&#x27;k3d-k3s-default-server-2&#x27;</span></span><br><span class="line">INFO[0011] Creating LoadBalancer <span class="string">&#x27;k3d-k3s-default-serverlb&#x27;</span></span><br><span class="line">INFO[0018] Cluster <span class="string">&#x27;k3s-default&#x27;</span> created successfully!</span><br><span class="line">INFO[0018] You can now use it like this:</span><br><span class="line">kubectl cluster-info</span><br></pre></td></tr></table></figure>
+
+<p>創建完畢後，我們馬上透過 <code>docker</code> 指令來觀察，可以觀察到的確有 docker container 被創立起來，不過數量卻是比 server 還要多一個，主要是用來當作 load-balancer 使用</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">$ docker ps</span><br><span class="line">CONTAINER ID        IMAGE                      COMMAND                  CREATED             STATUS              PORTS                             NAMES</span><br><span class="line">b5903d159c73        rancher/k3d-proxy:v3.0.1   <span class="string">&quot;/bin/sh -c nginx-pr…&quot;</span>   42 minutes ago      Up 42 minutes       80/tcp, 0.0.0.0:44429-&gt;6443/tcp   k3d-k3s-default-serverlb</span><br><span class="line">aaa0cd077a51        rancher/k3s:v1.18.6-k3s1   <span class="string">&quot;/bin/k3s server --t…&quot;</span>   42 minutes ago      Up 42 minutes                                         k3d-k3s-default-server-2</span><br><span class="line">636968375fd2        rancher/k3s:v1.18.6-k3s1   <span class="string">&quot;/bin/k3s server --t…&quot;</span>   42 minutes ago      Up 42 minutes                                         k3d-k3s-default-server-1</span><br><span class="line">5bfb8b1c64bb        rancher/k3s:v1.18.6-k3s1   <span class="string">&quot;/bin/k3s server --c…&quot;</span>   43 minutes ago      Up 43 minutes                                         k3d-k3s-default-server-0</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="存取-Kubernetes"><a href="#存取-Kubernetes" class="headerlink" title="存取 Kubernetes"></a>存取 Kubernetes</h2><p>為了存取 Kubernetes，我們都會需要準備一份 <code>KUBECONFIG</code> 裡面描述 API Server 的位置，以及使用到的 Username 等資訊，這部分 <code>k3d</code> 也有提供相關的指令來處理 KUBECONFIG</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">$ k3d kubeconfig</span><br><span class="line">Manage kubeconfig(s)</span><br><span class="line"></span><br><span class="line">Usage:</span><br><span class="line">  k3d kubeconfig [flags]</span><br><span class="line">  k3d kubeconfig [<span class="built_in">command</span>]</span><br><span class="line"></span><br><span class="line">Available Commands:</span><br><span class="line">  get         Print kubeconfig(s) from cluster(s).</span><br><span class="line">  merge       Write/Merge kubeconfig(s) from cluster(s) into new or existing kubeconfig/file.</span><br><span class="line"></span><br><span class="line">Flags:</span><br><span class="line">  -h, --<span class="built_in">help</span>   <span class="built_in">help</span> <span class="keyword">for</span> kubeconfig</span><br><span class="line"></span><br><span class="line">Global Flags:</span><br><span class="line">      --verbose   Enable verbose output (debug logging)</span><br><span class="line"></span><br><span class="line">Use <span class="string">&quot;k3d kubeconfig [command] --help&quot;</span> <span class="keyword">for</span> more information about a <span class="built_in">command</span>.</span><br></pre></td></tr></table></figure>
+
+<p>為了簡單測試，我們可以直接使用 <code>k3d kubeconfig merge</code> 讓他產生一個全新的檔案</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ k3d kubeconfig merge</span><br><span class="line">/home/ubuntu/.k3d/kubeconfig-k3s-default.yaml</span><br><span class="line">$ KUBECONFIG=~/.k3d/kubeconfig-k3s-default.yaml kubectl get nodes</span><br><span class="line">NAME                       STATUS     ROLES    AGE     VERSION</span><br><span class="line">k3d-k3s-default-server-2   Ready      master   50m     v1.18.6+k3s1</span><br><span class="line">k3d-k3s-default-server-1   Ready      master   50m     v1.18.6+k3s1</span><br><span class="line">k3d-k3s-default-server-0   Ready      master   50m     v1.18.6+k3s1</span><br></pre></td></tr></table></figure>
+
+<p>創建完畢後透過 KUBECONFIG 這個環境變數指向該檔案，就可以利用 kubectl 指令來操作創建起來的 k3s 叢集</p>
+<h2 id="動態新增節點"><a href="#動態新增節點" class="headerlink" title="動態新增節點"></a>動態新增節點</h2><p>如果今天想要動態新增節點，也可以透過 <code>k3d node create</code> 指令來操作</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">$ k3d node create --role server hwchiu-test</span><br><span class="line">$ k3d node list</span><br><span class="line">NAME                       ROLE           CLUSTER       STATUS</span><br><span class="line">k3d-hwchiu-test-0          server         k3s-default   running</span><br><span class="line">k3d-k3s-default-server-0   server         k3s-default   running</span><br><span class="line">k3d-k3s-default-server-1   server         k3s-default   running</span><br><span class="line">k3d-k3s-default-server-2   server         k3s-default   running</span><br><span class="line">k3d-k3s-default-serverlb   loadbalancer   k3s-default   running</span><br><span class="line">$ KUBECONFIG=~/.k3d/kubeconfig-k3s-default.yaml kubectl get nodes</span><br><span class="line">NAME                       STATUS     ROLES    AGE     VERSION</span><br><span class="line">k3d-k3s-default-server-0   Ready      master   51m     v1.18.6+k3s1</span><br><span class="line">k3d-k3s-default-server-2   Ready      master   51m     v1.18.6+k3s1</span><br><span class="line">k3d-k3s-default-server-1   Ready      master   51m     v1.18.6+k3s1</span><br><span class="line">k3d-hwchiu-test-0          Ready      master   9s      v1.18.6+k3s1</span><br></pre></td></tr></table></figure>
+
+
+
+<p>整個使用上的介紹就到這邊，基本上不會太困難，而且指令簡單，想要快速架起多節點的 Kubernetes，可以嘗試使用看看這套軟體</p>
+<h1 id="KIND"><a href="#KIND" class="headerlink" title="KIND"></a>KIND</h1><p>接下來我們來看另外一套也是基於 Docker 為基礎的多節點建置工具 KIND, 相對於 K3D， KIND 是完整版本的 Kubernetes，由 Kubernetes 社群維護，使用上也是非常簡單，詳細的介紹可以參閱 <a target="_blank" rel="noopener" href="https://github.com/kubernetes-sigs/kind">官方Repo</a></p>
+<h1 id="安裝-1"><a href="#安裝-1" class="headerlink" title="安裝"></a>安裝</h1><p>安裝過程非常簡單，也是一些 script 的行為就可以處理完畢，跟 <code>k3d</code> 一樣，所有的操作過程都是在本地的 binary 完成的</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">curl -Lo ./kind <span class="string">&quot;https://github.com/kubernetes-sigs/kind/releases/download/v0.7.0/kind-<span class="subst">$(uname)</span>-amd64&quot;</span></span><br><span class="line"><span class="built_in">chmod</span> a+x ./kind</span><br><span class="line">sudo <span class="built_in">mv</span> ./kind /usr/local/bin/kind</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">$ kind</span><br><span class="line">kind creates and manages <span class="built_in">local</span> Kubernetes clusters using Docker container <span class="string">&#x27;nodes&#x27;</span></span><br><span class="line"></span><br><span class="line">Usage:</span><br><span class="line">  kind [<span class="built_in">command</span>]</span><br><span class="line"></span><br><span class="line">Available Commands:</span><br><span class="line">  build       Build one of [base-image, node-image]</span><br><span class="line">  completion  Output shell completion code <span class="keyword">for</span> the specified shell (bash or zsh)</span><br><span class="line">  create      Creates one of [cluster]</span><br><span class="line">  delete      Deletes one of [cluster]</span><br><span class="line">  <span class="built_in">export</span>      Exports one of [kubeconfig, logs]</span><br><span class="line">  get         Gets one of [clusters, nodes, kubeconfig]</span><br><span class="line">  <span class="built_in">help</span>        Help about any <span class="built_in">command</span></span><br><span class="line">  load        Loads images into nodes</span><br><span class="line">  version     Prints the kind CLI version</span><br><span class="line"></span><br><span class="line">Flags:</span><br><span class="line">  -h, --<span class="built_in">help</span>              <span class="built_in">help</span> <span class="keyword">for</span> kind</span><br><span class="line">      --loglevel string   DEPRECATED: see -v instead</span><br><span class="line">  -q, --quiet             silence all stderr output</span><br><span class="line">  -v, --verbosity int32   info <span class="built_in">log</span> verbosity</span><br><span class="line">      --version           version <span class="keyword">for</span> kind</span><br><span class="line"></span><br><span class="line">Use <span class="string">&quot;kind [command] --help&quot;</span> <span class="keyword">for</span> more information about a <span class="built_in">command</span>.</span><br></pre></td></tr></table></figure>
+
+<p>測試上最常用到的指令就是 <code>create</code>, <code>delete</code> 以及 <code>load</code> ，這兩者可以幫忙創建與刪除 kubernetes cluster, 後者則可以將一些 container image 送到 docker container 中，這樣你的 kubernetes cluster 如果要抓取 image 就可以直接從本地抓取。</p>
+<h2 id="創建-Cluster-1"><a href="#創建-Cluster-1" class="headerlink" title="創建 Cluster"></a>創建 Cluster</h2><p>接下來我們要用 <code>kind create cluster</code> 來創建一個基於 docker 的 Kubernetes 叢集，預設情況下只會創建出一個單一節點，如果想要創建更多節點，我們要透過 config 的方式告知 KIND 我們需要的拓墣形狀</p>
+<p>因此事先準備好下列檔案 kind.yaml</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">kind:</span> <span class="string">Cluster</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">kind.sigs.k8s.io/v1alpha3</span></span><br><span class="line"><span class="attr">nodes:</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">role:</span> <span class="string">control-plane</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">role:</span> <span class="string">worker</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">role:</span> <span class="string">worker</span></span><br></pre></td></tr></table></figure>
+
+<p>裡面描述我們需要三個 node, 其中一個代表 control-plane, 另外兩個則是單純的 worker, 然後將該 config 傳入 KIND 一起使用</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">$ kind create cluster --config kind.yaml</span><br><span class="line">Creating cluster <span class="string">&quot;kind&quot;</span> ...</span><br><span class="line"> ✓ Ensuring node image (kindest/node:v1.17.0) 🖼</span><br><span class="line"> ✓ Preparing nodes 📦 📦 📦</span><br><span class="line"> ✓ Writing configuration 📜</span><br><span class="line"> ✓ Starting control-plane 🕹️</span><br><span class="line"> ✓ Installing CNI 🔌</span><br><span class="line"> ✓ Installing StorageClass 💾</span><br><span class="line"> ✓ Joining worker nodes 🚜</span><br><span class="line">Set kubectl context to <span class="string">&quot;kind-kind&quot;</span></span><br><span class="line">You can now use your cluster with:</span><br><span class="line"></span><br><span class="line">kubectl cluster-info --context kind-kind</span><br><span class="line"></span><br><span class="line">Have a question, bug, or feature request? Let us know! https://kind.sigs.k8s.io/<span class="comment">#community 🙂</span></span><br></pre></td></tr></table></figure>
+
+<p>創建完畢後，直接使用 <code>docker ps</code> 來觀察結果</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ docker ps</span><br><span class="line">CONTAINER ID        IMAGE                  COMMAND                  CREATED             STATUS              PORTS                       NAMES</span><br><span class="line">97d7d804ea75        kindest/node:v1.17.0   <span class="string">&quot;/usr/local/bin/entr…&quot;</span>   4 minutes ago       Up 4 minutes                                    kind-worker2</span><br><span class="line">9085118d47b3        kindest/node:v1.17.0   <span class="string">&quot;/usr/local/bin/entr…&quot;</span>   4 minutes ago       Up 4 minutes        127.0.0.1:32768-&gt;6443/tcp   kind-control-plane</span><br><span class="line">b9eedb6d5f38        kindest/node:v1.17.0   <span class="string">&quot;/usr/local/bin/entr…&quot;</span>   4 minutes ago       Up 4 minutes                                    kind-worker</span><br></pre></td></tr></table></figure>
+
+
+
+<p>可以觀察到的確有相對應數量的 docker container 被叫起來，不同於 <code>k3d</code>， <code>kind</code> 並不會幫忙準備額外的 load-balancer，所以數量就是我們指定的數量</p>
+<p>不同於 <code>k3d</code>, <code>kind</code> 本身創建完畢後就會直接把相關的 KUBECONFIG 給寫入到 <code>$home/.kube/config</code> 裡面，因此使用者可以直接使用預設的位置來進行使用</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl get nodes</span><br><span class="line">NAME                 STATUS   ROLES    AGE   VERSION</span><br><span class="line">kind-control-plane   Ready    master   13m   v1.17.0</span><br><span class="line">kind-worker          Ready    &lt;none&gt;   12m   v1.17.0</span><br><span class="line">kind-worker2         Ready    &lt;none&gt;   12m   v1.17.0</span><br></pre></td></tr></table></figure>
+
+
+
+<p>KIND 本身並沒有辦法動態增加節點，這個是使用上的限制，不過我認為這個功能不會影響太多，畢竟作為一個本地測試的節點，有任何問題就砍掉重建就好，花費的時間也不會太長。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/docker-network-model-snat.html" rel="prev" title="Docker 網路入門篇(三) - 網路存取分析">
+                  <i class="fa fa-chevron-left"></i> Docker 網路入門篇(三) - 網路存取分析
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-7.html" rel="next" title="鐵人賽系列文章- Day 7 - 本地開發 Kubernetes 應用程式流程">
+                  鐵人賽系列文章- Day 7 - 本地開發 Kubernetes 應用程式流程 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

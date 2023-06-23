@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="在這個資訊安全意識稍微抬頭的世代，網站配有 HTTPS 可說是個基本標配。同時因為 Let&#39;s Encrypt 的出現，讓 TLS 憑證的申請變得簡單且容易上手。然而使用 Let&#39;s Encrypt 本身還是有一些限制要處理，譬如需要定期更新憑證，以及如何驗證申請者目標網域的擁有者，這部分的操作都有對應的腳本來處理。然而在 Kubernetes 叢集之中，除了手動去運行這些腳本之外，有沒有更方便的">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Automatically Renew Your Certificated in kubernetes by Cert-Manager">
+<meta property="og:url" content="https://www.hwchiu.com/cert-manager.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="在這個資訊安全意識稍微抬頭的世代，網站配有 HTTPS 可說是個基本標配。同時因為 Let&#39;s Encrypt 的出現，讓 TLS 憑證的申請變得簡單且容易上手。然而使用 Let&#39;s Encrypt 本身還是有一些限制要處理，譬如需要定期更新憑證，以及如何驗證申請者目標網域的擁有者，這部分的操作都有對應的腳本來處理。然而在 Kubernetes 叢集之中，除了手動去運行這些腳本之外，有沒有更方便的">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/kMj495o.png">
+<meta property="og:image" content="https://i.imgur.com/niybCcQ.png">
+<meta property="article:published_time" content="2018-10-02T18:48:04.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.603Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="Security">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/kMj495o.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/cert-manager.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/cert-manager.html","path":"cert-manager.html","title":"Automatically Renew Your Certificated in kubernetes by Cert-Manager"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Automatically Renew Your Certificated in kubernetes by Cert-Manager | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Component"><span class="nav-number">2.</span> <span class="nav-text">Component</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Issuers"><span class="nav-number">2.1.</span> <span class="nav-text">Issuers</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#ACME"><span class="nav-number">2.1.1.</span> <span class="nav-text">ACME</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#HTTP-01"><span class="nav-number">2.1.1.1.</span> <span class="nav-text">HTTP-01</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#DNS-01"><span class="nav-number">2.1.1.2.</span> <span class="nav-text">DNS-01</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CA"><span class="nav-number">2.1.2.</span> <span class="nav-text">CA</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Valut"><span class="nav-number">2.1.3.</span> <span class="nav-text">Valut</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Self-Signed"><span class="nav-number">2.1.4.</span> <span class="nav-text">Self-Signed</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Certificate"><span class="nav-number">2.2.</span> <span class="nav-text">Certificate</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Summary"><span class="nav-number">2.3.</span> <span class="nav-text">Summary</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Setup"><span class="nav-number">3.</span> <span class="nav-text">Setup</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Cert-Manager"><span class="nav-number">3.1.</span> <span class="nav-text">Cert-Manager</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Issuers-1"><span class="nav-number">3.2.</span> <span class="nav-text">Issuers</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#CloudFlare"><span class="nav-number">3.2.1.</span> <span class="nav-text">CloudFlare</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ClusterIssuers"><span class="nav-number">3.2.2.</span> <span class="nav-text">ClusterIssuers</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Certificates"><span class="nav-number">3.3.</span> <span class="nav-text">Certificates</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary-1"><span class="nav-number">4.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">5.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/cert-manager.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Automatically Renew Your Certificated in kubernetes by Cert-Manager | Hwchiu Learning Note">
+      <meta itemprop="description" content="在這個資訊安全意識稍微抬頭的世代，網站配有 HTTPS 可說是個基本標配。同時因為 Let's Encrypt 的出現，讓 TLS 憑證的申請變得簡單且容易上手。然而使用 Let's Encrypt 本身還是有一些限制要處理，譬如需要定期更新憑證，以及如何驗證申請者目標網域的擁有者，這部分的操作都有對應的腳本來處理。然而在 Kubernetes 叢集之中，除了手動去運行這些腳本之外，有沒有更方便的方式可以整合這一切。本文要介紹一個叫做 `Cert-Manager` 的解決方案，透過其原理的理解，以及實際操作的步驟來學習如何更方便的在 kubernetes 叢集內管理憑證">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Automatically Renew Your Certificated in kubernetes by Cert-Manager
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-10-03 02:48:04" itemprop="dateCreated datePublished" datetime="2018-10-03T02:48:04+08:00">2018-10-03</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">在這個資訊安全意識稍微抬頭的世代，網站配有 HTTPS 可說是個基本標配。同時因為 Let's Encrypt 的出現，讓 TLS 憑證的申請變得簡單且容易上手。然而使用 Let's Encrypt 本身還是有一些限制要處理，譬如需要定期更新憑證，以及如何驗證申請者目標網域的擁有者，這部分的操作都有對應的腳本來處理。然而在 Kubernetes 叢集之中，除了手動去運行這些腳本之外，有沒有更方便的方式可以整合這一切。本文要介紹一個叫做 `Cert-Manager` 的解決方案，透過其原理的理解，以及實際操作的步驟來學習如何更方便的在 kubernetes 叢集內管理憑證</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>之前於 <a href="https://www.hwchiu.com/k8s-security-11tips-i.html">11個保護你 Kubernetes 集群的技巧與觀念(上)</a> 中有不斷的強調加密連線 <code>SSL</code> 的重要性。最簡單的範例就是如果今天有一個需求需要於 <code>kubernetes</code> 叢集中部屬一個網頁服務供外部存取時，預設情況下我們都會走 <code>HTTP(80)</code>, 然而在安全意識崛起的時代，基本上一個網頁服務沒有 <code>HTTPS(443)</code> 的存取方式時，大家對於是否要在該網站輸入一些機密資料都會變得小心翼翼甚至拒絕使用。</p>
+<p>為了讓該網頁伺服器提供 <code>HTTPS</code> 的連線方式，我們必須要提供一組憑證，且該憑證的簽署方是要被信任的。<br>在這個情況下，我們可以像第三方廠商購買憑證的方式來取得一個合法的憑證，並且將該憑證部屬在我們的網頁伺服器上，這樣就可以順利的提供 <code>HTTPS</code> 安全連線方式。</p>
+<p>但是更多時候，很多人都只有買域名卻沒有買憑證，解決方法都是透過免費的 <code>Let&#39;s Encrypt</code> 去簽署憑證，然而 <code>Let&#39;s Encrypt</code> 本身期限很短，需要定期更新來確保憑證的有效性。</p>
+<p>這個過程其實不會太難，基本上就是申請 <code>Let&#39;s Encrypt</code> 服務，然後想辦法定期更新該憑證即可。<br>然而這個步驟有沒有辦法變得很簡單? 可以讓叢集部屬人員可以用非常簡單的方式來達成這件事情?</p>
+<p>本文會跟大家介紹 <code>Cert-Manager</code> 這套用來管理憑證相關的服務，如何透過這個服務可以輕鬆的在 <code>kubernetes</code> 內把上述的事情自動處理完畢，讓你只需要專心處理自己的應用程式即可。</p>
+<h1 id="Component"><a href="#Component" class="headerlink" title="Component"></a>Component</h1><p>如同前言所述，接下來的文章都會針對 <code>Cert-Manager</code> 這個套件作介紹，大致上會講述如果要完成前述所需要的自動更新憑證等相關事情，於 <code>Cert-Manager</code> 中實際上會是怎麼完成的。同時身為系統管理員，需要準備哪些相關的資訊來處理。</p>
+<h2 id="Issuers"><a href="#Issuers" class="headerlink" title="Issuers"></a>Issuers</h2><p><code>Cert-Manager</code> 裡面總共有兩種類型的 <code>Issuers</code>, 分別是 <code>Issuer</code> 以及 <code>ClusterIssuers</code>. 這兩個的差異只有在於其影響的 <code>kubernetes namespace</code> 的範圍而以，其餘的功能都一樣. 所以接下來的文章將會使用 <code>Issuers</code> 來當做範例介紹.</p>
+<p><code>Issuers</code> 代表的是一個能夠從會簽署 <code>x509</code> 憑證的授權單位所取得憑證的一個資源，最<br>目前 <code>Issuers</code> 支援的 <code>DNS Challenge</code> 有兩種，分別是 <code>HTTP-01</code> 以及 <code>DNS-01</code>.<br>常見的後端代表就是想辦法從 <code>Let&#39;s Encrypt</code> 取得憑證.</p>
+<ol>
+<li>Issuers 是透過 <code>Kubernetes CustomResourceDefinition(CRD)</code> 所自定義的新資源<ul>
+<li>這意味你可以透過 <code>kubectl get issuers</code> 來檢視相關的設定</li>
+</ul>
+</li>
+<li>對於每個 <code>kubernetes</code> 叢集來說，系統內至少要部屬一個 <code>Issuers</code> 來完成憑證的功能</li>
+<li>Issuers 目前提供了四種後端接口, 這邊會稍微介紹一下彼此的差異，最後說明本文會基於哪種後端接口來展示</li>
+</ol>
+<h3 id="ACME"><a href="#ACME" class="headerlink" title="ACME"></a>ACME</h3><p>這個類型應該是最常見也是最多人在使用的，透過 <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Automated_Certificate_Management_Environment">Automated Certificate Management Environment(ACME)</a><br>這個協定與已知的 <code>CA</code> 溝通來取得憑證。</p>
+<p>與 <code>CA</code> 的溝通過程中，最困難也是最核心的部份就是 <code>DNS Challenge</code>, 使用者必須要向 <code>CA</code> 證明自己擁有想要簽署憑證的域名。<br>目前 <code>Issuers</code> 支援的 <code>DNS Challenge</code> 有兩種，分別是 <code>HTTP-01</code> 以及 <code>DNS-01</code>.</p>
+<h4 id="HTTP-01"><a href="#HTTP-01" class="headerlink" title="HTTP-01"></a>HTTP-01</h4><p>顧名思義，就是透過 <code>HTTP</code> 的方式來驗證是否擁有該網域，要採用這種方式基本上要滿足幾個條件</p>
+<ol>
+<li>首先針對想要簽署的網域進行設定，譬如將 <code>test.hwchiu.com</code> 指向到一個 <code>IP</code> 地址</li>
+<li>該 <code>CA</code> 會嘗試透過 <code>HTTP</code> 的方式去連線 <code>test.hwchiu.com</code>. 其會預期得到一個對應的 <code>HTTP</code> 回應，該回應的格式可以參考 <a target="_blank" rel="noopener" href="https://tools.ietf.org/html/draft-ietf-acme-acme-07#section-8.3"> HTTP Challenge</a></li>
+</ol>
+<p>透過上述兩個條件，我們可以觀察到幾個現象</p>
+<ol>
+<li><code>HTTP-01</code> 並不支援 <code>wildcard</code> 的 <code>domain</code>, 因為要透過 <code>DNS</code> 查詢對應的 IP 來取得 HTTP 回應</li>
+<li>為了讓 <code>HTTP</code> 封包可以順利的連線，通常客戶端都會需要有一個可存取的對外 IP 地址<ul>
+<li>當然這部分你若熟悉網路，要透過 <code>DNAT</code> 的方式將封包導入到私有 IP 的網頁伺服器上也是沒有問題</li>
+</ul>
+</li>
+</ol>
+<p>大部分人的人在使用 <code>Let&#39;s Encrypt</code> 時基本上都是透過 <code>HTTP-01</code> 這個方式來驗證，因為使用上其實相對簡單，基本的那些網頁伺服器以及對應的 HTTP 格式都有相關的軟體幫忙處理，大幅度簡化了管理員的設定。</p>
+<p>本篇文章並不打算使用這個方式，因為過於簡單沒有什麼好設定的，所以我們來看看另外一種挑戰， <code>DNS-01</code>.</p>
+<h4 id="DNS-01"><a href="#DNS-01" class="headerlink" title="DNS-01"></a>DNS-01</h4><p>相對於 <code>HTTP-01</code> 透過 <code>HTTP</code> 連線來驗證是否有該網域的擁有權， <code>DNS-01</code>  則是透過創造一個預期內容的 <code>TXT</code> 紀錄來證明你擁有該網域的擁有權。為了達成上述的事項，<code>Issuers</code> 目前有支援下列的 <code>DNS</code> 供應商來幫忙完成這個自動創建 <code>TXT</code> 紀錄的需求</p>
+<ul>
+<li>Google CloudDNS</li>
+<li>Amazon Route53</li>
+<li>Cloudflare</li>
+<li>Akamai FastDNS</li>
+<li>RFC2136</li>
+<li>ACME-DNS</li>
+</ul>
+<p>透過 <code>DNS-01</code> 的機制就可以打破 <code>HTTP-01</code> 的限制，客戶端本身即使位於私有網路內也是沒有問題的。</p>
+<p>而因為我自己的網域目前是放在 <code>Cloudflare</code> 上，因此本文就會採取 <code>DNS-01</code> 的方式並且使用 <code>Cloudflare</code> 作為測試的 <code>DNS</code> 提供者。</p>
+<h3 id="CA"><a href="#CA" class="headerlink" title="CA"></a>CA</h3><p>相對於上述的 <code>ACME</code> 的使用方式， <code>CA</code> 類型的 <code>Issuers</code> 則是會使用一組事先準備好的簽署金鑰來發行憑證。這組簽署憑證必須要以 <code>kubernetes secret</code> 的形式存於 <code>kubernetes cluster</code> 中。<br>舉例來說，你可以先透過 <code>openssl</code> 的方式產生對應的檔案，並且把該檔案加入到 <code>kubernetes secret</code> 內，最後透過 <code>CA</code> 類型的 <code>Issuers</code> 來使用。</p>
+<h3 id="Valut"><a href="#Valut" class="headerlink" title="Valut"></a>Valut</h3><p>如果你系統內有安裝 <a target="_blank" rel="noopener" href="https://www.vaultproject.io/">HashCrop Valut</a> 的話，可以透過這個類型的 <code>Issuers</code> 來與 <code>Valut</code> 溝通。</p>
+<h3 id="Self-Signed"><a href="#Self-Signed" class="headerlink" title="Self-Signed"></a>Self-Signed</h3><p>這個選項目前會用到的機會不多，大致上有兩種情境</p>
+<ol>
+<li>想要透過 <code>kubernetes</code> 打造一個 <code>Public Key Infrastructur (PKI)</code> 架構</li>
+<li>搭配後續會介紹的 <code>Certificate</code> 作為一個 <code>root CA</code> 供 <code>CA</code> 型態的 <code>Issuers</code> 使用<br> -. 可以參考 <a href="/https://github.com/jetstack/cert-manager/blob/834fda15a1160b3e75d92ab7d84b1402eac9be0a/docs/admin/resource-validation-webhook.rst">resource-validation-webhook</a> 的使用範例來瞭解如何搭配使用</li>
+</ol>
+<p>想要更加深入的瞭解這些選項可以直接到<a target="_blank" rel="noopener" href="http://docs.cert-manager.io/en/latest/reference/issuers.html">官網</a>閱讀相關的資訊以及範例使用</p>
+<h2 id="Certificate"><a href="#Certificate" class="headerlink" title="Certificate"></a>Certificate</h2><p>看完了 <code>Issuers</code> 之後，我們來看看第二個也是最後一個透過 <code>kubernetes CRD</code> 所建立的物件，<code>Certificate</code>.</p>
+<p><code>Certificate</code> 就如同其名稱一樣，代表的是一個憑證，其會嘗試使用 <code>Issuers</code> 來獲得對應的憑證與金鑰，當成功取得對應的資源後，就會將該對憑證與金鑰的資訊放到 <code>kubernetes secret</code> 裡面。<br><code>Certificate</code>  以及產生的 <code>kubernetes secret</code> 都跟 <code>namespace</code> 有綁定關係，所以對於不同的 <code>namespace</code> 的應用程式若想要擁有這張簽署的憑證，則都需要創立一個對應的 <code>certificate</code> 來使用。</p>
+<h2 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h2><p>基本上整個 <code>cert-manager</code> 的關係都是由 <code>Issuers/Certificate</code> 所組成的，當然也有部屬安裝 <code>cert-manager</code> 時會佈署的 <code>kubernetes deployment</code>, 該 <code>deployment</code> 作為 <code>Issuers/Certificate</code> 之間的橋樑， 定期確認 <code>Certificate</code> 的合法性並且當憑證快要到期時還會嘗試更新。</p>
+<p>透過這些資源的整合，<code>Cert-Manager</code> 就能夠於 <code>kubernetes</code> 叢集內提供可以從 <code>Let&#39;s Encrypt</code> 取得憑證並且定期自動更新以確保憑證不會過期的憑證供我們其他的應用程式使用。</p>
+<h1 id="Setup"><a href="#Setup" class="headerlink" title="Setup"></a>Setup</h1><p>看了上述的基本概念介紹後，我們接下來就要手把手的嘗試透過 <code>Cert-Manager</code> 來取得一個憑證，這中間的過程大概如下</p>
+<ol>
+<li>部屬 <code>cert-manager</code> 相關的服務到 <code>kubernetes</code> 叢集中</li>
+<li>部署 <code>Issuers</code></li>
+<li>部屬 <code>Certificate</code></li>
+<li>透過檢查 <code>Kubernetes Secret</code>, 確認是否有拿到可用的憑證</li>
+</ol>
+<p>整個系統的架構圖如下，基本上我們會有 <code>Issuers/Certificate</code> 基本元件，同時為了滿足 <code>DNS-01</code>, 這邊會需要一個額外的 <code>kubernetes secret</code> 供 <code>Issuers</code> 使用。此外 <code>Certificate</code> 最後則會產生一個 <code>kubernetes secret</code> 的合法憑證。</p>
+<p><img src="https://i.imgur.com/kMj495o.png" alt="Imgur"></p>
+<h2 id="Cert-Manager"><a href="#Cert-Manager" class="headerlink" title="Cert-Manager"></a>Cert-Manager</h2><p>安裝 <code>Cert-Manager</code> 的部分有兩種安裝方式，第一種就是最基本也是最熟悉的，根據自己的環境去部屬事先提供好了 <code>Yaml</code> 檔案。<br>這部分可以參考<a target="_blank" rel="noopener" href="https://github.com/jetstack/cert-manager/tree/master/contrib/manifests/cert-manager">官方 Github </a> 上面的檔案，基本上會根據叢集是否有啟用 <code>RBAC (Role-Based Access Control)</code> 來決定要部屬那個檔案。</p>
+<p>另外一個安裝方式則是透過 <code>Package</code> 的概念來安裝，這邊採用的是 <code>Helm</code> 的方式來安裝，透過 <code>Helm</code> 的打包及管理，套件管理員將該服務所需要的 <code>Yaml</code> 都收集完畢並且打包，使用者只需要透過 <code>Helm</code> 的指令很簡單輕鬆的直接安裝完畢。</p>
+<p>這邊我就直接使用 <code>Helm</code> 的方式來安裝 <code>Cert-Manager</code>.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">hwchiu➜~» helm install \</span><br><span class="line">    --name cert-manager \</span><br><span class="line">    --namespace kube-system \</span><br><span class="line">    stable/cert-manager</span><br></pre></td></tr></table></figure>
+
+<p>想要安裝 <code>Helm</code> 可以參考<a target="_blank" rel="noopener" href="https://docs.helm.sh/using_helm/">官網的教學</a></p>
+<p>安裝完畢後，可以透過 <code>kubectl</code> 的指令去確認是否需要的 <code>deployment</code> 有運行起來</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">hwchiu➜~» kubectl -n kube-system get  deployment/cert-manager</span><br><span class="line">NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE</span><br><span class="line">cert-manager   1         1         1            1           5d</span><br></pre></td></tr></table></figure>
+
+<h2 id="Issuers-1"><a href="#Issuers-1" class="headerlink" title="Issuers"></a>Issuers</h2><p>當 <code>cert-manager</code> 正確安裝後，我們接下來要開始處理 <code>Issuers</code>, 再我的範例之中，我採用的是 <code>clusterIssuers</code> 來建立一個供所有 <code>namespace</code> 都可以使用的 <code>Issuers</code>.</p>
+<p>此外，由於我要採用的是 <code>DNS-01</code> 的方式來驗證網域的擁有權，同時我的 <code>DNS</code> 提供商是 <code>CloudFlare</code>. 因此我必須要先創立一個 <code>kubernetes sercet</code> 讓我的 <code>Issuers</code> 有能力操控我的 <code>CloudFlar</code>.</p>
+<h3 id="CloudFlare"><a href="#CloudFlare" class="headerlink" title="CloudFlare"></a>CloudFlare</h3><p>這部分會依據你的 <code>DNS</code> 供應商有不同的做法，詳細的可以參考 <a target="_blank" rel="noopener" href="http://docs.cert-manager.io/en/latest/reference/issuers/acme/dns01.html#supported-dns01-providers">Cert-Manager Supported DNS01 Providers</a></p>
+<ol>
+<li>以 <code>CloudFlare</code> 爲範例，首先到你網域的控制台中去取得你的 <code>Public Key</code>. 可參考下圖</li>
+<li>得到該 <code>Public Key</code> 後，接下來要轉成 <code>Base64</code> 並且放到 <code>kubernetes sercet</code>.</li>
+</ol>
+<p><img src="https://i.imgur.com/niybCcQ.png" alt="Imgur"></p>
+<p>假設該 <code>Public Key</code> 是 <code>12345678910</code>, 執行下列函式得到對應的 <code>Base64</code> 編碼結果</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">echo</span> -n <span class="string">&quot;12345678910&quot;</span> | <span class="built_in">base64</span></span><br></pre></td></tr></table></figure>
+
+<p>接下來我們要透過 <code>yaml</code> 的方式創建 <code>kubernetes secret</code>.<br>打開文件 <code>sercet.yml</code> 並且貼上下列內容</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Secret</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">cloudflare</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">kube-system</span></span><br><span class="line"><span class="attr">data:</span></span><br><span class="line">  <span class="attr">api:</span> <span class="string">MTIzNDU2Nzg5MTA=</span></span><br></pre></td></tr></table></figure>
+
+<p>創建好上述的 <code>yaml</code> 檔案後，我們就透過 <code>kubectl create -f secret.yml</code></p>
+<h3 id="ClusterIssuers"><a href="#ClusterIssuers" class="headerlink" title="ClusterIssuers"></a>ClusterIssuers</h3><p>接下來我們就要來創建我們的 <code>ClusterIssuers</code> 了，</p>
+<p>這邊我們直接來看相關的 <code>yaml</code> 內容，有一些東西要注意</p>
+<ol>
+<li>我們在 <code>Issuer</code> 內目前使用了 <code>acme</code> 的方式來認證</li>
+<li>server 的部分，一般來說會先用 <code>staging</code> 的內容來確認所有的資訊都正常且可以運作，正式環境中就會切換成 <code>v02</code> 的版本來使用</li>
+<li>於 <code>acme</code> 裡面，我們使用 <code>dns01</code> 的方式來驗證<ul>
+<li>我們採用的是 <code>cloudflare</code> 的方式， 這邊就是填寫你擁有網域的信箱</li>
+<li>接下來要使用剛剛創立的 <code>kubernetes secret</code>, <code>name/key</code> 就對應到 <code>kubernetes secret</code> 內的 <code>metadata:name</code> 以及 <code>data/api</code>.</li>
+</ul>
+</li>
+</ol>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">certmanager.k8s.io/v1alpha1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">ClusterIssuer</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">cert-demo</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">acme:</span></span><br><span class="line">    <span class="comment">#server: https://acme-v02.api.letsencrypt.org/directory</span></span><br><span class="line">    <span class="attr">server:</span> <span class="string">https://acme-staging-v02.api.letsencrypt.org/directory</span></span><br><span class="line">    <span class="attr">email:</span> <span class="string">your@mail.com</span></span><br><span class="line">    <span class="comment"># Name of a secret used to store the ACME account private key</span></span><br><span class="line">    <span class="attr">privateKeySecretRef:</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">cert-demo</span></span><br><span class="line">    <span class="comment"># ACME DNS-01 provider configurations</span></span><br><span class="line">    <span class="attr">dns01:</span></span><br><span class="line">      <span class="comment"># Here we define a list of DNS-01 providers that can solve DNS challenges</span></span><br><span class="line">      <span class="attr">providers:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">cf-dns</span></span><br><span class="line">          <span class="attr">cloudflare:</span></span><br><span class="line">            <span class="attr">email:</span> <span class="string">your@mail.com</span></span><br><span class="line">            <span class="comment"># A secretKeyRef to a cloudflare api key</span></span><br><span class="line">            <span class="attr">apiKeySecretRef:</span></span><br><span class="line">              <span class="attr">name:</span> <span class="string">cloudflare</span></span><br><span class="line">              <span class="attr">key:</span> <span class="string">api</span></span><br></pre></td></tr></table></figure>
+
+<p>創建上述 <code>ClusterIssuers</code> 的檔案之後，可以透過 <code>kubectl describe clusgerissuer/cert-demo</code> 去確認狀態，譬如</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">.....</span><br><span class="line">Status:</span><br><span class="line">  Acme:</span><br><span class="line">    Uri:  https://acme-staging-v02.api.letsencrypt.org/acme/acct/7037688</span><br><span class="line">  Conditions:</span><br><span class="line">    Last Transition Time:  2018-09-30T16:51:03Z</span><br><span class="line">    Message:               The ACME account was registered with the ACME server</span><br><span class="line">    Reason:                ACMEAccountRegistered</span><br><span class="line">    Status:                True</span><br><span class="line">    Type:                  Ready</span><br><span class="line">Events:                    &lt;none&gt;</span><br></pre></td></tr></table></figure>
+
+<p>確認這邊是 <code>True/Ready</code> 之後, 對於 <code>Issuers</code> 的事情就告一段落了</p>
+<h2 id="Certificates"><a href="#Certificates" class="headerlink" title="Certificates"></a>Certificates</h2><p>正式進入 <code>Yaml</code> 之前，有幾個重要的事情要先注意</p>
+<ol>
+<li>每個 <code>Certificate</code> 可以設定 <code> Subject Alternative Names(SANs)</code>, 亦即可以設定多個 <code>domain name</code>.</li>
+<li>針對設定的所有 <code>domain name</code>, <code>Issuers</code> 都必須要去處理。實際上在 <code>Issuers</code> 的設定中，可以設定多種方法，甚至是同時支援多個 <code>DNS</code> 供應商。</li>
+<li>因此對應<code>Certificae</code> 中的每個 <code>domain name</code>, 都要指派對應 <code>Issuers</code> 的可以用來處理該 <code>Certificate</code> 的物件，譬如 <code>dns-01</code> 內的某種 <code>dns</code> 供應商。</li>
+<li>每個 <code>Certificate</code> 最後會把得到的憑證資訊都寫入到 <code>Kubernetes Secret</code> 的資源內，所以我們必須要設定我們期望的名稱</li>
+</ol>
+<p>有了上述的概念後，我們就可以來看一下 <code>Yaml</code> 的內容了</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">certmanager.k8s.io/v1alpha1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Certificate</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">demo-certi</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">secretName:</span> <span class="string">demo-certi-tls</span></span><br><span class="line">  <span class="attr">issuerRef:</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">cert-demo</span></span><br><span class="line">    <span class="attr">kind:</span> <span class="string">ClusterIssuer</span></span><br><span class="line">  <span class="attr">dnsNames:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">test.hwchiu.com</span></span><br><span class="line">  <span class="attr">acme:</span></span><br><span class="line">    <span class="attr">config:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">dns01:</span></span><br><span class="line">        <span class="attr">provider:</span> <span class="string">cf-dns</span></span><br><span class="line">      <span class="attr">domains:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">test.hwchiu.com</span></span><br></pre></td></tr></table></figure>
+
+<p>這個範例中，我們要先指定該 <code>Certificate</code>  要使用的 <code>Issuers</code>. 這部分要透過 <code>issuerRef</code> 來指定剛剛創立的 <code>ClusterIssuers</code>.<br>接下來透過 <code>secretName</code> 去指定之後創立的 <code>kubernetes secret</code> 的名稱</p>
+<p>最後要處理子域名的問題，在這個範例中只有一個，也就是 <code>test.hwchiu.com</code>.<br>所以在 <code>acme</code> 的部分就直接使用先前創立的 <code>ClusterIssuers</code> 內所描述的 <code>DNS01</code> 方式去進行認證</p>
+<p>當這一切都準備就緒後就透過 <code>kubectl apply</code> 給部屬到叢集內。</p>
+<p>接下來我們可以觀察整體運行的狀況，我們透過 <code>kubctl descriBe certificate demo-creti</code> 可以看一下 <code>certificae</code> 當前的狀態。</p>
+<p>一個運行的範例如下</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Events:</span><br><span class="line">  Type    Reason        Age   From          Message</span><br><span class="line">  ----    ------        ----  ----          -------</span><br><span class="line">  Normal  CreateOrder   16s   cert-manager  Created new ACME order, attempting validation...</span><br><span class="line">  Normal  IssueCert     15s   cert-manager  Issuing certificate...</span><br><span class="line">  Normal  CertObtained  13s   cert-manager  Obtained certificate from ACME server</span><br><span class="line">  Normal  CertIssued    13s   cert-manager  Certificate issued successfully</span><br></pre></td></tr></table></figure>
+
+<p>當一切都完畢後，就可以透過 <code>kubernetes get secret</code> 看到 <code>cert-manager</code> 已經幫忙創立了一個 <code>kubernetes secret</code>，裡面已經包含了你需要的憑證。<br>如果有使用 <code>ingress</code> 相關的，可以直接在 <code>Ingress</code> 那邊透過 <code>tls</code> 的設定直接使用該 <code>secret</code> 幫你的 <code>Ingress</code> 套上這個憑證囉</p>
+<h1 id="Summary-1"><a href="#Summary-1" class="headerlink" title="Summary"></a>Summary</h1><p>使用任何的解決方案前，都要先思考一下到底自己遇到的是什麼問題，再從這個問題延伸去尋找方法來處理。接下來為了要更能夠熟悉該方法所帶來的好處以及壞處，就必須要花時間去瞭解其架構以及原理，最後透過動手操作的方式來實際體驗是否真的能夠解決問題。</p>
+<p>本文的出發點很簡單，就是想要有一個解決方案能夠幫忙處理 <code>Ingress</code> 的憑證，然後因為沒錢所以希望使用 <code>Let&#39;s Encrypt</code> 的服務，但是礙於該服務所簽署的憑證有效期限很短，所以需要一直更新。</p>
+<p>基於這個問題的情況下，我開始研究了 <code>Cert-Manager</code>，並且透過一系列的操作與體驗來理解如何使用 <code>Cert-Manager</code> 解決我的問題。</p>
+<p>最後也希望大家都能夠保持類似的態度與想法來解決每一個問題，藉由這些步驟能夠更深刻的體會每個解決方案背後的原理以及設計思緒，將這些概念融入自己的思想之中以不停的成長學習。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/Security/" rel="tag"># Security</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/kubernetes-fedora.html" rel="prev" title="Install the kubernetes as single node in Fedora 28">
+                  <i class="fa fa-chevron-left"></i> Install the kubernetes as single node in Fedora 28
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/tools-ncdu.html" rel="next" title="NCurses Disk Usage(ncdu)">
+                  NCurses Disk Usage(ncdu) <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

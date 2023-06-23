@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="VPN server is a very useful tool for your network connectivity, although there&#39;re many online VPN service around the world, it&#39;s slow speed and money cost and you can&#39;t sure they won&#39;t collect your co">
+<meta property="og:type" content="article">
+<meta property="og:title" content="mpd5 on FreeBSD 10.0">
+<meta property="og:url" content="https://www.hwchiu.com/mpd5-on-freebsd-100.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="VPN server is a very useful tool for your network connectivity, although there&#39;re many online VPN service around the world, it&#39;s slow speed and money cost and you can&#39;t sure they won&#39;t collect your co">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2014-07-26T06:29:00.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.632Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="System">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="FreeBSD">
+<meta property="article:tag" content="VPN">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/mpd5-on-freebsd-100.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/mpd5-on-freebsd-100.html","path":"mpd5-on-freebsd-100.html","title":"mpd5 on FreeBSD 10.0"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>mpd5 on FreeBSD 10.0 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Install"><span class="nav-number">2.</span> <span class="nav-text">Install</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Pkg"><span class="nav-number">2.1.</span> <span class="nav-text">Pkg</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Ports"><span class="nav-number">2.2.</span> <span class="nav-text">Ports</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Config"><span class="nav-number">3.</span> <span class="nav-text">Config</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#VPN-Configuraion"><span class="nav-number">3.1.</span> <span class="nav-text">VPN Configuraion</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Use-configuration"><span class="nav-number">3.2.</span> <span class="nav-text">Use configuration</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#System-configuration"><span class="nav-number">3.3.</span> <span class="nav-text">System configuration</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Log-configuration"><span class="nav-number">3.4.</span> <span class="nav-text">Log configuration.</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Usage"><span class="nav-number">4.</span> <span class="nav-text">Usage</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/mpd5-on-freebsd-100.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="mpd5 on FreeBSD 10.0 | Hwchiu Learning Note">
+      <meta itemprop="description" content="VPN server is a very useful tool for your network connectivity, although there're many online VPN service around the world, it's slow speed and money cost and you can't sure they won't collect your connection data. That's why sometimes we want to build the VPN server by ourself and this porst introduce a way to setup a VPN server in your FreeBSD server.">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          mpd5 on FreeBSD 10.0
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2014-07-26 14:29:00" itemprop="dateCreated datePublished" datetime="2014-07-26T14:29:00+08:00">2014-07-26</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">VPN server is a very useful tool for your network connectivity, although there're many online VPN service around the world, it's slow speed and money cost and you can't sure they won't collect your connection data. That's why sometimes we want to build the VPN server by ourself and this porst introduce a way to setup a VPN server in your FreeBSD server.</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>Install a VPN server on FreeBSD 10.0-Release on Amazon EC2.</p>
+<h1 id="Install"><a href="#Install" class="headerlink" title="Install"></a>Install</h1><h2 id="Pkg"><a href="#Pkg" class="headerlink" title="Pkg"></a>Pkg</h2><ul>
+<li>pkg install mpd5</li>
+</ul>
+<h2 id="Ports"><a href="#Ports" class="headerlink" title="Ports"></a>Ports</h2><ul>
+<li>portmaster net&#x2F;mpd5</li>
+</ul>
+<h1 id="Config"><a href="#Config" class="headerlink" title="Config"></a>Config</h1><h2 id="VPN-Configuraion"><a href="#VPN-Configuraion" class="headerlink" title="VPN Configuraion"></a>VPN Configuraion</h2><ul>
+<li><strong>cp &#x2F;usr&#x2F;local&#x2F;etc&#x2F;mpd5&#x2F;mpd.conf.sample &#x2F;usr&#x2F;local&#x2F;etc&#x2F;mpd5&#x2F;mpd.conf</strong></li>
+<li><code>set user hwchiu 123456</code> used to config the admin’s accoutn and password of the web page.</li>
+<li><code>set web self 0.0.0.0 5006</code> is the listen ip address and port of the web page.</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">startup:</span><br><span class="line">        <span class="comment"># configure mpd users</span></span><br><span class="line">        <span class="built_in">set</span> user hwchiu 123456</span><br><span class="line">        <span class="comment"># configure the console</span></span><br><span class="line">        <span class="built_in">set</span> console self 127.0.0.1 5005</span><br><span class="line">        <span class="built_in">set</span> console open</span><br><span class="line">        <span class="comment"># configure the web server</span></span><br><span class="line">        <span class="built_in">set</span> web self 0.0.0.0 5006</span><br><span class="line">        <span class="built_in">set</span> web open</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>comment the <code>dialup</code> and add <code>pptp_server</code>, we will config the options of pptp_server later.</li>
+</ul>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">default:</span><br><span class="line">        <span class="comment">#load dialup</span></span><br><span class="line">        load pptp_server</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>set ippool add pool1 ip_start, ip_end</code> is used to set the private ip range for vpn user. the name <code>ippool</code> and <code>pool1</code> must be the same as <code>set ipcp ranges 192.168.1.1/32 ippool pool1</code></li>
+<li><code>set ipcp ranges 192.168.1.1/32 ippool pool1</code> is the ip address of the server.</li>
+<li><code>set ipcp dns 172.31.0.2</code> is used to set the dns server. In my case, since my machine is behind the EC2, i used the same configuration in my FreeBSD.</li>
+<li><code>set ipcp nbns 172.31.0.2</code>is used to for windows client.</li>
+<li><code>set pptp self 172.31.18.110</code>. You should set your ip address which is shown on the network interface.<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Define dynamic IP address pool.</span></span><br><span class="line">        <span class="built_in">set</span> ippool add pool1 192.168.1.50 192.168.1.99</span><br><span class="line"><span class="comment"># Create clonable bundle template named B</span></span><br><span class="line">        create bundle template B</span><br><span class="line">        <span class="built_in">set</span> iface <span class="built_in">enable</span> proxy-arp</span><br><span class="line">        <span class="built_in">set</span> iface idle 1800</span><br><span class="line">        <span class="built_in">set</span> iface <span class="built_in">enable</span> tcpmssfix</span><br><span class="line">        <span class="built_in">set</span> ipcp <span class="built_in">yes</span> vjcomp</span><br><span class="line"><span class="comment"># Specify IP address pool for dynamic assigment.</span></span><br><span class="line">        <span class="built_in">set</span> ipcp ranges 192.168.1.1/32 ippool pool1</span><br><span class="line">        <span class="built_in">set</span> ipcp dns 172.31.0.2</span><br><span class="line">        <span class="built_in">set</span> ipcp nbns 172.31.0.2</span><br><span class="line"><span class="comment"># The five lines below enable Microsoft Point-to-Point encryption</span></span><br><span class="line"><span class="comment"># (MPPE) using the ng_mppc(8) netgraph node type.</span></span><br><span class="line">        <span class="built_in">set</span> bundle <span class="built_in">enable</span> compression</span><br><span class="line">        <span class="built_in">set</span> ccp <span class="built_in">yes</span> mppc</span><br><span class="line">        <span class="built_in">set</span> mppc <span class="built_in">yes</span> e40</span><br><span class="line">        <span class="built_in">set</span> mppc <span class="built_in">yes</span> e128</span><br><span class="line">        <span class="built_in">set</span> mppc <span class="built_in">yes</span> stateless</span><br><span class="line"><span class="comment"># Create clonable link template named L</span></span><br><span class="line">        create <span class="built_in">link</span> template L pptp</span><br><span class="line"><span class="comment"># Set bundle template to use</span></span><br><span class="line">        <span class="built_in">set</span> <span class="built_in">link</span> action bundle B</span><br><span class="line"><span class="comment"># Multilink adds some overhead, but gives full 1500 MTU.</span></span><br><span class="line">        <span class="built_in">set</span> <span class="built_in">link</span> <span class="built_in">enable</span> multilink</span><br><span class="line">        <span class="built_in">set</span> <span class="built_in">link</span> <span class="built_in">yes</span> acfcomp protocomp</span><br><span class="line">        <span class="built_in">set</span> <span class="built_in">link</span> no pap chap eap</span><br><span class="line">        <span class="built_in">set</span> <span class="built_in">link</span> <span class="built_in">enable</span> chap</span><br><span class="line"><span class="comment"># We can use use RADIUS authentication/accounting by including</span></span><br><span class="line"><span class="comment"># another config section with label &#x27;radius&#x27;.</span></span><br><span class="line"><span class="comment">#       load radius</span></span><br><span class="line">        <span class="built_in">set</span> <span class="built_in">link</span> keep-alive 10 60</span><br><span class="line"><span class="comment"># We reducing link mtu to avoid GRE packet fragmentation.</span></span><br><span class="line">        <span class="built_in">set</span> <span class="built_in">link</span> mtu 1460</span><br><span class="line"><span class="comment"># Configure PPTP</span></span><br><span class="line">        <span class="built_in">set</span> pptp self 172.31.18.110</span><br><span class="line"><span class="comment"># Allow to accept calls</span></span><br><span class="line">        <span class="built_in">set</span> <span class="built_in">link</span> <span class="built_in">enable</span> incoming</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="Use-configuration"><a href="#Use-configuration" class="headerlink" title="Use configuration"></a>Use configuration</h2><ul>
+<li><strong>cp &#x2F;usr&#x2F;local&#x2F;etc&#x2F;mpd5&#x2F;mpd.secret.sample  &#x2F;usr&#x2F;local&#x2F;etc&#x2F;mpd5&#x2F;mpd.secret</strong><br>The format of mpd.secret is <code>username password ip_address</code> per line.</li>
+<li><strong>Example</strong></li>
+</ul>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">fred            <span class="string">&quot;fred-pw&quot;</span></span><br><span class="line">joe             <span class="string">&quot;foobar&quot;</span>        192.168.1.1</span><br></pre></td></tr></table></figure>
+
+<h2 id="System-configuration"><a href="#System-configuration" class="headerlink" title="System configuration"></a>System configuration</h2><ul>
+<li><strong>sysctl net.inet.ip.forwarding&#x3D;1</strong></li>
+<li><strong>Pf configuraion</strong><ol>
+<li>use NAT for internal private network.</li>
+<li>skip the lo interface.</li>
+<li>block adll traffic adn log all packet by default.</li>
+<li>pass in tcp for port 1723 (PPTP)</li>
+<li>pass in protocol gre</li>
+<li>pass in from any to internal private network and vice versa.</li>
+<li>Use the <code>pfctl -f file</code> to reload the pf instead of <code>/etc/rc.d/pf restart</code>, the latter will disconnect all exist connection.<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">my_int = <span class="string">&quot;xn0&quot;</span></span><br><span class="line">internal_net = <span class="string">&quot;192.168.0.0/16&quot;</span></span><br><span class="line">external_addr = <span class="string">&quot;172.31.18.110&quot;</span></span><br><span class="line">nat on <span class="variable">$my_int</span> from <span class="variable">$internal_net</span> to any -&gt; <span class="variable">$external_addr</span></span><br><span class="line"><span class="built_in">set</span> skip on lo</span><br><span class="line">block <span class="keyword">in</span> <span class="built_in">log</span> all</span><br><span class="line">pass <span class="keyword">in</span> on <span class="variable">$my_int</span> proto tcp from any to any port 1723 keep state</span><br><span class="line">pass <span class="keyword">in</span> on <span class="variable">$my_int</span> proto tcp from any to any port 443 keep state</span><br><span class="line">pass <span class="keyword">in</span> quick on <span class="variable">$my_int</span> proto icmp all keep state</span><br><span class="line">pass <span class="keyword">in</span> proto gre all keep state</span><br><span class="line">pass <span class="keyword">in</span> from any to <span class="variable">$internal_net</span></span><br><span class="line">pass <span class="keyword">in</span> from <span class="variable">$internal_net</span> to any</span><br><span class="line">pass out proto &#123; gre, tcp, udp, icmp &#125; all keep state</span><br></pre></td></tr></table></figure></li>
+</ol>
+</li>
+</ul>
+<h2 id="Log-configuration"><a href="#Log-configuration" class="headerlink" title="Log configuration."></a>Log configuration.</h2><ul>
+<li>Edit &#x2F;etc&#x2F;syslog.conf<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">!mpd</span><br><span class="line">	*.*                                             /var/log/mpd.log</span><br></pre></td></tr></table></figure></li>
+<li>Touch &#x2F;var&#x2F;log&#x2F;mpd.log</li>
+<li>Restart syslog</li>
+</ul>
+<h1 id="Usage"><a href="#Usage" class="headerlink" title="Usage"></a>Usage</h1><ul>
+<li><strong>&#x2F;usr&#x2F;local&#x2F;etc&#x2F;rc.d&#x2F;mpd5 start</strong></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/System/" rel="tag"># System</a>
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/FreeBSD/" rel="tag"># FreeBSD</a>
+              <a href="/tags/VPN/" rel="tag"># VPN</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2014-07-26-port-s-information-in-floodlight.html" rel="prev" title="Ports information in Floodlight">
+                  <i class="fa fa-chevron-left"></i> Ports information in Floodlight
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/git-notes.html" rel="next" title="Git 筆記">
+                  Git 筆記 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

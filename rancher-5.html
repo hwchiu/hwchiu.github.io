@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="Rancher 系列文第五篇，探討創建 k8s 的方式">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Rancher 系列文] - 創建 k8s 叢集">
+<meta property="og:url" content="https://www.hwchiu.com/rancher-5.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="Rancher 系列文第五篇，探討創建 k8s 的方式">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/S8sLUOQ.png">
+<meta property="og:image" content="https://i.imgur.com/C81donD.png">
+<meta property="og:image" content="https://i.imgur.com/GZNh44H.png">
+<meta property="og:image" content="https://i.imgur.com/XX2MzK2.png">
+<meta property="og:image" content="https://i.imgur.com/NVheVRv.png">
+<meta property="og:image" content="https://i.imgur.com/VQ1uZpg.png">
+<meta property="og:image" content="https://i.imgur.com/hUDKW6n.png">
+<meta property="og:image" content="https://i.imgur.com/YKMLAu6.png">
+<meta property="og:image" content="https://i.imgur.com/l7gw88c.png">
+<meta property="og:image" content="https://i.imgur.com/QGWJ6AZ.png">
+<meta property="og:image" content="https://i.imgur.com/KV1GL0D.png">
+<meta property="og:image" content="https://i.imgur.com/zSEEaSJ.png">
+<meta property="og:image" content="https://i.imgur.com/HEIW0uD.png">
+<meta property="og:image" content="https://i.imgur.com/9gwB4Ps.png">
+<meta property="og:image" content="https://i.imgur.com/HeWrk3x.png">
+<meta property="og:image" content="https://i.imgur.com/ZHrSYO2.png">
+<meta property="og:image" content="https://i.imgur.com/x7HLRik.png">
+<meta property="og:image" content="https://i.imgur.com/roI1gNn.png">
+<meta property="og:image" content="https://i.imgur.com/3uVsCev.png">
+<meta property="og:image" content="https://i.imgur.com/3yBGeOb.png">
+<meta property="og:image" content="https://i.imgur.com/t6UkV0y.png">
+<meta property="og:image" content="https://i.imgur.com/je64hZY.png">
+<meta property="og:image" content="https://i.imgur.com/PTl5sZx.png">
+<meta property="og:image" content="https://i.imgur.com/rDpyXCV.png">
+<meta property="og:image" content="https://i.imgur.com/syJS7EQ.png">
+<meta property="og:image" content="https://i.imgur.com/Avv0ZIy.png">
+<meta property="og:image" content="https://i.imgur.com/C4n3IuD.png">
+<meta property="og:image" content="https://i.imgur.com/cMNnaBS.png">
+<meta property="og:image" content="https://i.imgur.com/EewxM5S.png">
+<meta property="og:image" content="https://i.imgur.com/VxY0UQn.png">
+<meta property="og:image" content="https://i.imgur.com/IBFlyMV.png">
+<meta property="og:image" content="https://i.imgur.com/hod7WVe.png">
+<meta property="og:image" content="https://i.imgur.com/W3kP0HI.png">
+<meta property="og:image" content="https://i.imgur.com/JteqMZs.png">
+<meta property="og:image" content="https://i.imgur.com/GAUhv1v.png">
+<meta property="og:image" content="https://i.imgur.com/rCnAAWt.png">
+<meta property="article:published_time" content="2021-11-14T14:30:15.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.638Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="DevOps">
+<meta property="article:tag" content="GitOps">
+<meta property="article:tag" content="Rancher">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/S8sLUOQ.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/rancher-5.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/rancher-5.html","path":"rancher-5.html","title":"[Rancher 系列文] - 創建 k8s 叢集"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>[Rancher 系列文] - 創建 k8s 叢集 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Existing-Cluster"><span class="nav-number">1.</span> <span class="nav-text">Existing Cluster</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Managed-Kubernetes-Service"><span class="nav-number">2.</span> <span class="nav-text">Managed Kubernetes Service</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%A2%E9%9B%86%E5%AD%98%E5%8F%96"><span class="nav-number">3.</span> <span class="nav-text">叢集存取</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">4.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/rancher-5.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="[Rancher 系列文] - 創建 k8s 叢集 | Hwchiu Learning Note">
+      <meta itemprop="description" content="Rancher 系列文第五篇，探討創建 k8s 的方式">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          [Rancher 系列文] - 創建 k8s 叢集
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2021-11-14 22:30:15" itemprop="dateCreated datePublished" datetime="2021-11-14T22:30:15+08:00">2021-11-14</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">Rancher 系列文第五篇，探討創建 k8s 的方式</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>前篇文章探討了 Rancher 其中一種安裝 Kubernetes(RKE) 的方式，該方式會先透過 API 請求 Service Provider(Azure) 幫忙創建相關的 VM，接者於這些 VM 上面搭建一個符合需求的 RKE 叢集。</p>
+<p>為了讓簡化整個設定過程，我們學到了如何透過 Cloud Credential 以及 Node Template 兩種方式來事先解決繁瑣的操作，接者真正創建 RKE 叢集時則使用 Node Template 與 RKE Template 兩個方式讓整個創建過程變得很簡單，不需要填入太多資訊，只需要利用這兩個 Template 的內容加上自行設計要多少個 VM 節點，這些節點要屬於什麼身份以及該叢集最後要給哪個使用者&#x2F;群組使用即可。</p>
+<p>本篇文章將繼續把剩下兩種安裝方式給走一遍，三種安裝方式都玩過後會對 Rancher 的能力有更多的瞭解，同時也會為之後 Rancher Fleet 的使用先行搭建環境。</p>
+<p>之前探討使用者管理與部署時於系統中創建了三種不同群組的使用者，包含了 DEV, QA 以及 IT。而這兩個章節探討的三種部署方式其實剛好就會剛好拿來搭配這些不同的使用者，期望透過不同方式搭造出來的三套 RKE 叢集本身權限控管上就有不同的設定。</p>
+<p>目標狀況是三套叢集擁有的權限如下</p>
+<ol>
+<li>DEV 叢集 -&gt; IT &amp; DEV 可以使用</li>
+<li>QA 叢集 -&gt; IT &amp; QA 可以使用</li>
+<li>IT 叢集 -&gt; IT 可以使用</li>
+</ol>
+<p>基本上因為 IT 群組的使用者會被視為系統管理員，因此本身就有能力可以存取其他叢集，所以創建時只需要針對 DEV 以及 QA 兩個叢集去設計。<br>實務上到底會如何設計取決於團隊人數與分工狀況，這邊的設計單純只是一個權限控管的示範，並不代表真實應用就需要這樣做。</p>
+<h1 id="Existing-Cluster"><a href="#Existing-Cluster" class="headerlink" title="Existing Cluster"></a>Existing Cluster</h1><p>前篇文章探討的是動態創建 VM 並且於搭建 RKE 叢集，與之相反的另外一種架設方式就是於一個已經存在的節點上去搭建 RKE 叢集。</p>
+<p>這個安裝方式大部分都會用於地端環境，部分使用者的地端環境沒有 vSphere&#x2F;Openstack 等專案可以幫忙自動創建 VM，這種情況下一台又一台的 bare-metal 機器就會採用這種方式來安裝。</p>
+<p>我先於我的 Azure 環境中創建兩個 VM，想要用這兩個 VM 搭建一個屬於 QA 群組使用者的 RKE 叢集</p>
+<p><img src="https://i.imgur.com/S8sLUOQ.png"></p>
+<p>上圖中標示為 qa-rke{1,2} 的機器就是為了這個情況手動創建起來的。<br>準備好了相關 VM 之後，就切換到 Rancher 的介面去創建一個 RKE 叢集。</p>
+<p><img src="https://i.imgur.com/C81donD.png"></p>
+<p>介面中選擇非常簡單，只有一個 Existing Nodes 可以選擇，點進去後可以看到類似下方頁面</p>
+<p><img src="https://i.imgur.com/GZNh44H.png"></p>
+<p>與之前的安裝方式不同，這邊沒有所謂的 Node Pool 的概念，畢竟是要安裝到一個已存在的節點，所以沒有 Node Pool 需要設定也是合理的。<br>這邊我將該叢集分配給 QA 群組的使用者，令其為 Owner，擁有整個叢集的管理權限，同時下方繼續使用先前設定好的 RKE 叢集。</p>
+<p>一切完畢後點選 Next 到下一個頁面，該頁面才是真正安裝的方式</p>
+<p><img src="https://i.imgur.com/XX2MzK2.png"></p>
+<p>該介面有三個地方要注意</p>
+<ol>
+<li>最下方是安裝的指令，實際上是到該節點上透過 Docker 的方式去運行一個 Rancher Agent 的容器，該容器會想辦法跟安裝 RKE 並且跟遠方的 Rancher 註冊以方便被管理</li>
+<li>最上方兩個區塊都是用來調整該節點到底要於 RKE 叢集中扮演什麼角色，這些變動都會影響下方 Docker 指令</li>
+<li>就如同先前安裝一樣，這邊也需要選擇當前節點到底要當 ETCD&#x2F;Control Plane&#x2F;Worker 等</li>
+<li>Show advanced options 選項打開可以看到的是 Labels&#x2F;Taints 等相關設定</li>
+</ol>
+<p>我透過上述介面設定了兩種介面，分別是</p>
+<ol>
+<li>單純的 worker</li>
+<li>全包，同時兼任 worker&#x2F;etcd&#x2F;controlplane</li>
+</ol>
+<p>接者複製這些 docker 指令到事先準備好的 VM 上去執行</p>
+<p><img src="https://i.imgur.com/NVheVRv.png"></p>
+<p>到兩個機器上貼上指令後，就慢慢的等 Rancher 將整個 RKE 架設起來。</p>
+<p>可以看到透過這種方式創建的叢集，其 Provider 會被設定成 Custom，跟之前創立的 Azure 有所需別。</p>
+<p><img src="https://i.imgur.com/VQ1uZpg.png"></p>
+<p>點選該叢集名稱進去後，切換到節點區塊可以看到兩台機器正在建立中，這邊要特別注意，節點的 hostname 必須要不同，如果 hostname 一致的話會讓 Rancher 搞混，所以使用 bare-metal 機器建立時千萬要注意 hostname 不要衝突。</p>
+<p><img src="https://i.imgur.com/hUDKW6n.png"></p>
+<p>一切結束後，就可以於最外層的介面看到三個已經建立的叢集，一個是用來維護 Rancher 本身，兩個則是給不同群組的 RKE 叢集。</p>
+<p><img src="https://i.imgur.com/YKMLAu6.png"></p>
+<h1 id="Managed-Kubernetes-Service"><a href="#Managed-Kubernetes-Service" class="headerlink" title="Managed Kubernetes Service"></a>Managed Kubernetes Service</h1><p>接者來看最後一個安裝方式，這個方式想要直接透過 Rancher 去創造 AKS 這種 Kubernetes 服務，並且安裝完畢後將 Rancher 的相關服務部署進去，這樣 Rancher 才有辦法控管這類型的叢集。</p>
+<p>回到叢集安裝畫面，這時候針對最下面的服務，預設情況下這邊的選擇比較少，但是如果有到 Tools-&gt;Driver 去將 Cluster Driver 給打開的話，這邊就會出現更多的 Service Provider 可以選擇。</p>
+<p><img src="https://i.imgur.com/l7gw88c.png"></p>
+<p>根據我的環境，我選擇了 Azure AKS，點選進去後就可以看到如下圖的設定頁面</p>
+<p><img src="https://i.imgur.com/QGWJ6AZ.png"></p>
+<p>進到畫面後的第一個選項就是 Azure 相關的認證資訊，這邊我認為是 Rancher 還沒有做得很完善的部分，先前創建 Node Template 時使用的 Cloud Credential 這邊沒有辦法二次使用，變成每次創建一個 AKS 叢集時都要重新輸入一次相關的資訊，這部分我認為還是有點不方便。<br>不過仔細觀察需要的資訊有些許不同，創造 Node Template 時不需要 Tenant ID，但是使用 AKS 卻需要。有可能因為這些設定不同導致 Cloud Credential 這邊就沒有辦法很輕鬆的共用。<br>不過作為使用者也是希望未來能夠簡化這些操作，否則每次創建都要翻找算是有點麻煩。</p>
+<p><img src="https://i.imgur.com/KV1GL0D.png"></p>
+<p>通過存取資訊驗證後，就可以來到設定頁面，因為這個是 AKS 叢集，因此並沒有辦法使用 RKE Template 來客製化內容，所有的設定內容都是跟 AKS 有關，因此不同的 K8S 服務提供的操作選項就不同。</p>
+<p><img src="https://i.imgur.com/zSEEaSJ.png"></p>
+<p>一切準備就緒後，就可以看到最外層的叢集列表多出了一個全新的 Kubernetes 叢集，其 Provider 則是 Azure AKS。</p>
+<p><img src="https://i.imgur.com/HEIW0uD.png"></p>
+<p>此時觀看 Azure AKS 的頁面可以發現到也多了一個正在創建中的 AKS 叢集，名稱 c-xxxx 就是 Rancher 創造的證明，每個 Rancher 管理的 Kubernetes 叢集都會有一個內部ID，都是 c-xxxx 的形式。</p>
+<p>等待一段時間待節點全部產生完畢，就可以看到一個擁有三個節點的 AKS 叢集被創建了</p>
+<p><img src="https://i.imgur.com/9gwB4Ps.png"></p>
+<p>最後到外層叢集介面可以看到目前有四個 K8S 叢集被 Rancher 管理，其中一個是管理 Rancher 本身，剩下三個則是新創立的 K8s 叢集。同時這三個叢集都分配給不同群組的使用者使用。</p>
+<p><img src="https://i.imgur.com/HeWrk3x.png"></p>
+<p>如果這時候用 QA 使用者登入，就只會看到一個叢集，整個運作的確有符合當初的設計。<br><img src="https://i.imgur.com/ZHrSYO2.png"></p>
+<p>叢集都創立完畢後，接下來探討如何使用 Rancher 的介面來管理 Kubernetes，以及 Rancher 介面還提供了哪些好用的功能可以讓叢集管理員更加方便的去操作叢集。</p>
+<h1 id="叢集存取"><a href="#叢集存取" class="headerlink" title="叢集存取"></a>叢集存取</h1><p>對於大部分的 Kubernetes 工程師來說， kubectl 是個必須要會的使用工具，而 dashboard 更多時候是作為一個輔助的工具，提供更友善的視覺化方式來有效的提供資訊。<br>Rancher 本身提供非常友善的 Dashboard，可以讓非工程人員也可以快速地瀏覽與理解當前 Kubernetes 叢集的狀態，舉例來說隨便點進一個之前創立的 Kubernetes 叢集，會看到如下的畫面。</p>
+<p><img src="https://i.imgur.com/x7HLRik.png"></p>
+<p>畫面中有幾個點可以注意</p>
+<ol>
+<li>Rancher 內部有兩種瀏覽介面，分別是 Cluster Manager 以及 Cluster Explorer，預設情況下都是使用 Cluster Manager 來瀏覽</li>
+<li>Rancher v2.5 之後將慢慢的轉往 Cluster Explorer 去使用，所以可以觀察到畫面上都有提示，告知使用者可以嘗試使用看看 Cluster Explorer 來管理與瀏覽 Kubernetes 叢集</li>
+<li>畫面中間大大的顯示了三個關於 Kubernetes 資源的資訊，CPU, Memory 以及 Pod 的數量。Kubernetes 預設情況下每個節點最多只能部署110個 Pod，所以畫面中顯示的是 18&#x2F;330，代表說目前已經有 18 個Pod 部署了。而 CPU&#x2F;Memory 代表的則是有多少系統資源已經被預先保留，這部分是透過 Pod 裏面的 Resource.Request 來處理的</li>
+<li>最下面還有四個健康狀態，代表整個叢集中的 Etcd, Control Plane(Controller,Scheduler) 以及節點之間的健康狀態</li>
+<li>最下面 Events 展開則是可以看到 Kubernetes 內的相關 Event</li>
+</ol>
+<p>上述的 Portal 簡單地呈現了當前 Kubernetes 叢集是否健康，特別是當叢集有任何問題時，下方的四個狀態都會變成紅色醒目的提醒使用者叢集有問題。</p>
+<p>有了基本介面後，接下來把注意力移動到右上方兩個選項，分別是 Launch kubectl 以及 Kubeconfig File。<br>點選 Kubeconfig File，則會看到類似下列的畫面，該畫面中呈現的就是完整的 Kubeconfig file 內容。</p>
+<p><img src="https://i.imgur.com/roI1gNn.png"></p>
+<p>這意味你可以把該檔案抓到你的電腦，直接於本地端使用 Kubectl 指令去存取目標叢集，示範中使用的是給 DEV 人員操作的叢集，所以該 Kubectl 本身對應的使用者其實也就是我當前用來登入 Rancher 系統的使用者。<br>如果熟悉 Kubeconfig 格式的讀者會觀察到, Rancher 本身會針對 Clusters 這個欄位填入多個組合，這些組合分兩大類，分別是</p>
+<ol>
+<li>叢集中的 API Server 位置</li>
+<li>Rancher Server 本身</li>
+</ol>
+<p>假如今天你有辦法直接存取到目標節點，譬如節點本身有 Public IP 且也有開啟 6443 Port，那就可以使用這個方式直接存取該 Kubernetes 叢集。<br>但是如果該節點今天是一個封閉的環境，沒有任何 Public IP 可以直接存取，那可以採取第二種方式，把任何 API 請求都打向 Rancher 服務，如圖中的 “<a target="_blank" rel="noopener" href="https://rancher.hwchiu.com/k8s/clusters/c-z8j6q">https://rancher.hwchiu.com/k8s/clusters/c-z8j6q</a>“ 這個位置，然後 Rancher 就會幫忙把請求給轉發到目標叢集內，可以想像成是一個 Proxy By Pass 的概念。</p>
+<p>補充一下: 因為目標 Kubernetes 叢集內都會安裝 Rancher 相關的服務，這些服務都會主動的跟 Rancher 進行連線，所以 Rancher 才有辦法把這些 API 請求給轉發到這些不能被外界主動存取的 Kubernetes 叢集。</p>
+<p>以下是個範例，將上述檔案存成一個名為 ithome 的檔案，接者執行 kubectl 的時候可以透過 –kubeconfig 的參數來指定當前 kubectl 要使用哪個檔案</p>
+<p><img src="https://i.imgur.com/3uVsCev.png"></p>
+<p>上述指令就呈現了當前 DEV 叢集中的相關 Pod 資訊，其中可以看到</p>
+<ol>
+<li>Flannel CNI 符合之前 RKE Template 的選擇</li>
+<li>RKE 叢集有滿多相關的服務</li>
+<li>cattle-system 有所謂的 cattle-node-agent，這些角色就是會負責跟 Rancher 溝通。</li>
+</ol>
+<p>基本上只有擁有了 KUBECONFIG 的檔案，管理者就有辦法透過 kubectl,helm 等指令直接管理該叢集。<br>如果系統上剛好沒有安裝這些指令，但是又想要使用 kubectl 來操作怎麼辦？<br>Rancher 也想到了這一塊，所以叢集畫面右上方的 Launch Kubectl 按鈕給他點下去，<br>該功能會開啟一個 web-based 的終端機，裡面提供了 kubectl 的指令，同時 kubeconfig 也都設定完畢了。<br>所以可以直接於該環境中使用 kubectl 去操作叢集，範例如下</p>
+<p><img src="https://i.imgur.com/3yBGeOb.png"></p>
+<p>基本上掌握這兩個功能的用法，就等於掌握了直接操作當前 Kubernetes 叢集的能力，習慣使用 kubectl 的使用者也可以開始透過 kubectl 來管理與部署該 Rancher 上的各種應用，當然 Rancher 本身也有自己的架構能夠讓使用者去部署應用程式，好壞沒有絕對，都要進行評估與比較。</p>
+<p>Kubectl 與 Kubecfongi File 旁邊有一個按鈕，該按鈕點下去後可以看到一些關於 Kubernetes 叢集的選項，而不同的搭建的叢集顯示的功能都不同，譬如</p>
+<p>如果節點是透過 AKS 搭建的，可以看到選項非常少，只有編輯與刪除是常見會使用的功能，編輯頁面中可以針對叢集名稱，叢集的使用權限，甚至針對 K8S 叢集的選項進行調整。不過由於該叢集是由 AKS 維護的，所以修改的內容也都是跟 AKS 有關。</p>
+<p><img src="https://i.imgur.com/t6UkV0y.png"></p>
+<p>第二個看到的是透過 Docker 指令於現存節點上安裝的 RKE 叢集，這種狀況下可以選擇的操作非常多，譬如</p>
+<ol>
+<li>Rotate Certificates，該功能主要是針對 Kubernetes 內各元件溝通用的憑證，譬如 API Server, Controller..等</li>
+<li>Snapshot 主要會針對 etcd 進行備份與還原，該備份並沒有辦法針對使用者部署的應用程式去處理備份跟還原，之後可以細談一下這塊</li>
+<li>Registration Cmd，由於該叢集是透過讓節點運行 Docker 指令將其加入到 RKE 叢集中，因此如果今天有新的節點要使用時，就可以直接點選該指令取得相關的 docker 指令，介面中也可以重新選擇身份與相關的標籤&#x2F;Taint等。</li>
+<li>Run CIS Scan，這個功能會慢慢被淘汰，v2.5 後 Cluster Explorer 內關於 App 的管理方式有更好的處理方式，建議使用那邊的 CIS 處理。</li>
+</ol>
+<p><img src="https://i.imgur.com/je64hZY.png"></p>
+<p>最後一個則是透過 API 請求 Azure 創造 VM 的 RKE 叢集，基本上差異就只是沒有 Docker 指令可以處理。</p>
+<p><img src="https://i.imgur.com/PTl5sZx.png"></p>
+<p>從上述三個叢集的觀察到可以發現， Rancher 很多功能都跟 RKE 叢集有關，所以如果今天是讓 Rancher 管理並非是由 Rancher 創造的叢集，功能上都會有所限制，並不能完全發揮 Rancher 的功能。</p>
+<p>看完叢集相關的狀態後，切換到節點頁面，節點頁面也會因為不同安裝方式會有不同的呈現方式</p>
+<p>下圖是基於 AKS 所創造的叢集，該叢集顯示了三個節點，這些節點因為 AKS 的關係被打上了非常多的標籤。</p>
+<p><img src="https://i.imgur.com/rDpyXCV.png"></p>
+<p>如果該叢集是透過 API 要求 Azure 動態新增 VM 所創造的叢集，則該頁面是完全不同的類型</p>
+<p><img src="https://i.imgur.com/syJS7EQ.png"></p>
+<p>上述畫面中有幾個點可以注意</p>
+<ol>
+<li>每個 Node Pool 都是獨立顯示，可以看到該 Node Pool 下目前有多少節點，每個節點的 IP 等資訊</li>
+<li>每個 Node Pool 右方都有 +- 兩個按鈕，可以讓你動態的調整節點數量</li>
+<li>由於這些節點都是動態創立的，因此如果今天有需求想要透過 SSH 去存取這些節點的話，實際上可以到每個節點旁邊的選項去下載該節點的 SSH Keys，這個功能是只有這種創造方式的叢集才擁有的。其他創造方式的叢集節點沒有辦法讓你下載相關的 SSH Key。</li>
+</ol>
+<p>上述畫面除了 Cluster, Nodes 外還有其他選項，Member 頁面可以重新設定到底該叢集的擁有者與會員有誰，譬如最初 DEV 叢集只有 DEV 群組的使用者可以操作，目前嘗試將 QA 群組的使用者加入進去，並且設定權限為 Cluster Member，設定完後的畫面如下。</p>
+<p><img src="https://i.imgur.com/Avv0ZIy.png"></p>
+<p>這種情況下，如果使用 QA 使用者登入，就可以看到這個 DEV 叢集，接者使用該 QA 使用者嘗試去存取該 DEV 叢集並且獲取該 Kubeconfig 就可以順利的使用了。</p>
+<p><img src="https://i.imgur.com/C4n3IuD.png"></p>
+<p>如果熟悉 Kubernetes RBAC 的讀者，可以嘗試挖掘一下到底 Rancher 是如何把設定的這些權限給對應到 Kubernetes 內的權限。下圖是一個範例。</p>
+<p>下圖是 QA 使用者存取 DEV 叢集用的 Kubeconfig，可以看到 User 部分使用的 Token 進行驗證，該 Token 中有一個資訊代表的是該 User 的 ID，u-dc5fezjbyi</p>
+<p><img src="https://i.imgur.com/cMNnaBS.png"></p>
+<p>擁有該資訊後，可以到該 Kubernetes 叢集內去找尋 cattle-system 底下 ClusterUserAttribute 這個物件，看看是否有符合這個名稱的物件，找到後可以看到該物件描述了這使用者本身有一個 Group 的屬性。<br>該 Group 很明顯跟 Azure 有關，其值為 azuread_group:&#x2F;&#x2F;ec55ce9e-dbd4-427c-905c-d8063b19f150.<br>這個 Group 就會被用到 ClusterRoleBinding 中的 Subject</p>
+<p><img src="https://i.imgur.com/EewxM5S.png"></p>
+<p>因此透過 kubectl 搭配 jq 的一些語法去找，看看有沒有哪些 ClusterRoleBinding 裏面是對應到這個 Group 群組，可以發現系統中有四個物件符合這個情況，而這四個物件對應到的 Role 分別是 read-only-promoted, cluster-member, p-<strong><strong>-namespaces-readonly，後面那個包含 “p-</strong></strong>“ 字串的物件會跟之後探討的 Project 概念有關。</p>
+<p><img src="https://i.imgur.com/VxY0UQn.png"></p>
+<p>接者有興趣的可以再繼續看這些不同的 Roles 實際上被賦予什麼樣的權限與操作。</p>
+<p>除了 Member 可以操作外， Cluster 還有一個 Tools 的清單可以玩</p>
+<p><img src="https://i.imgur.com/IBFlyMV.png"></p>
+<p>裡面有很多第三方整合工具可以安裝，但是如果是 v2.5 的使用者，非常建議直接忽略這個頁面，因為這邊都是舊版安裝與設<br>定行為，v2.5 後這些整合工具除了 Catalog 外基本上都已經搬移到 Cluster Explorer 頁面去安裝與操作。<br>因此接下來就嘗試進入到 Cluster Explorer 來看看這個 Rancher 想要推廣的新操作介面。</p>
+<p><img src="https://i.imgur.com/hod7WVe.png"></p>
+<p>Cluster Explore 的介面跟 Cluster Manager 是截然不同的，這邊列出幾個重點</p>
+<ol>
+<li>右上方可以選擇當前是觀看哪個叢集，可以快速切換，同時提供一個按鈕返回 Cluster Manager.</li>
+<li>中間簡單呈現當前 Kubernetes 叢集的資訊，版本，提供者與節點資訊</li>
+<li>跟之前一樣呈現系統的資源使用量，不過 CPU&#x2F;Memory 本身同時提供當前使用量已經當前被預約使用量，這兩個數字可以更好的去幫助管理員去設計當前相關資源的 request&#x2F;limit 要多少</li>
+<li>左上方是重要的功能選單，不少功能都可以點選該處來處理</li>
+<li>左下方呈現 Kubernetes 中的各項資源，每個資源都可以點進去觀看，譬如 ClusterRoleBinding 就會更友善的呈現每個物件對應到的到底是 User ， Group 還是 Service Account。</li>
+</ol>
+<p>點選左上方 Cluster Explorer 後切換到 Apps &amp; Marketplace，可以看到類似下方的畫面</p>
+<p><img src="https://i.imgur.com/W3kP0HI.png"></p>
+<p>該畫面中呈現了可以讓使用者輕鬆安裝的各類應用程式，這些應用程式分成兩大類，由 Rancher 自行維護整合的或是由合作夥伴提供的。<br>如果安裝的是由 Rancher 整合的 Application，那安裝完畢左上方都會出現一個針對該 App 專屬的介面，譬如我們可以嘗試安裝 CIS Benchmark。</p>
+<p><img src="https://i.imgur.com/JteqMZs.png"></p>
+<p>安裝過程中，畫面下方會彈出一個類似終端機的視窗告知使用者安裝過程，待一切安裝完畢後可以透過畫面中間的 “X” 來關閉這個視窗。</p>
+<p><img src="https://i.imgur.com/GAUhv1v.png"></p>
+<p>接者重新點選左上方的清單就會看到這時候有 CIS Benchmark 這個應用程式可以使用，該應用程式可以用來幫助管理去掃描 Kubernetes 叢集內是否有一些安全性的疑慮，該專案背後是依靠 kube-bench 來完成的，基本上 Rancher 有提供不同的 Profile 可以使用，所以對於安全性有需求的管理員可以安裝這個應用程式並且定期掃描。</p>
+<p><img src="https://i.imgur.com/rCnAAWt.png"></p>
+<p>一個掃描的示範如上，該圖片中顯示了使用的是 rke-profile-permissions-1.6 這個 profile，然後跑出來的結果有 62 個通過， 24 個警告， 36 測試不需要跑。<br>如果拿 RKE 的 profile 去跑 AKS 的叢集就會得到失敗，因為 RKE 的 profile 是針對 RKE 的環境去設計的，因此可能會有一些功能跟 AKS 的設計不同，會失敗也是可以預料的。</p>
+<p>Rancher 本身提供的 Application 非常多，下篇文章就來仔細看看其中最好用的 Monitoring 套件到底能夠提供什麼功能，使用者安裝可以如何使用這個套件來完成 Promethues + Grafana 的基本功能。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>詳細可以參閱<br>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/GitOps/" rel="tag"># GitOps</a>
+              <a href="/tags/Rancher/" rel="tag"># Rancher</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/reading-note-2.html" rel="prev" title="[閱讀筆記] - Week 2">
+                  <i class="fa fa-chevron-left"></i> [閱讀筆記] - Week 2
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/reading-note-3.html" rel="next" title="[閱讀筆記] - Week 3">
+                  [閱讀筆記] - Week 3 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

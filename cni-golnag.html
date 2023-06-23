@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本篇文章算是一個手把手實作的文章，主要會介紹如何使用 golang 開發一個基於 Linux Bridge 的 CNI 應用程式，並且介紹如何搭配設定檔來使用這個 CNI 操作 Linux Network Namespace, 藉由這篇文章的過程理解到一個 CNI 的運作及開發，對於往後研究其他 CNI 都會有一些幫助，特別是城市的框架跟概念。 最後本篇開發的 CNI 應用程式其實是可以直接套用到">
+<meta property="og:type" content="article">
+<meta property="og:title" content="使用 golang 開發第一個 CNI 程式">
+<meta property="og:url" content="https://www.hwchiu.com/cni-golnag.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本篇文章算是一個手把手實作的文章，主要會介紹如何使用 golang 開發一個基於 Linux Bridge 的 CNI 應用程式，並且介紹如何搭配設定檔來使用這個 CNI 操作 Linux Network Namespace, 藉由這篇文章的過程理解到一個 CNI 的運作及開發，對於往後研究其他 CNI 都會有一些幫助，特別是城市的框架跟概念。 最後本篇開發的 CNI 應用程式其實是可以直接套用到">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/botAbi0.png">
+<meta property="og:image" content="https://i.imgur.com/botAbi0.png">
+<meta property="article:published_time" content="2019-09-26T22:19:48.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.606Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="CNI">
+<meta property="article:tag" content="ITHOME">
+<meta property="article:tag" content="Golang">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/botAbi0.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/cni-golnag.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/cni-golnag.html","path":"cni-golnag.html","title":"使用 golang 開發第一個 CNI 程式"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>使用 golang 開發第一個 CNI 程式 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BB%8B%E7%B4%B9"><span class="nav-number">2.</span> <span class="nav-text">介紹</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%B5%81%E7%A8%8B"><span class="nav-number">3.</span> <span class="nav-text">流程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Step-1"><span class="nav-number">3.1.</span> <span class="nav-text">Step 1</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Step-2"><span class="nav-number">3.2.</span> <span class="nav-text">Step 2</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Step-3"><span class="nav-number">3.3.</span> <span class="nav-text">Step 3</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Step-4"><span class="nav-number">3.4.</span> <span class="nav-text">Step 4</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summay"><span class="nav-number">4.</span> <span class="nav-text">Summay</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%83%E8%80%83"><span class="nav-number">5.</span> <span class="nav-text">參考</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/cni-golnag.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="使用 golang 開發第一個 CNI 程式 | Hwchiu Learning Note">
+      <meta itemprop="description" content="本篇文章算是一個手把手實作的文章，主要會介紹如何使用 golang 開發一個基於 Linux Bridge 的 CNI 應用程式，並且介紹如何搭配設定檔來使用這個 CNI 操作 Linux Network Namespace, 藉由這篇文章的過程理解到一個 CNI 的運作及開發，對於往後研究其他 CNI 都會有一些幫助，特別是城市的框架跟概念。 最後本篇開發的 CNI 應用程式其實是可以直接套用到 Kubernetes 裡面使用，就因為都遵循 CNI 的規則">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          使用 golang 開發第一個 CNI 程式
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-09-27 06:19:48" itemprop="dateCreated datePublished" datetime="2019-09-27T06:19:48+08:00">2019-09-27</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本篇文章算是一個手把手實作的文章，主要會介紹如何使用 golang 開發一個基於 Linux Bridge 的 CNI 應用程式，並且介紹如何搭配設定檔來使用這個 CNI 操作 Linux Network Namespace, 藉由這篇文章的過程理解到一個 CNI 的運作及開發，對於往後研究其他 CNI 都會有一些幫助，特別是城市的框架跟概念。 最後本篇開發的 CNI 應用程式其實是可以直接套用到 Kubernetes 裡面使用，就因為都遵循 CNI 的規則</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前面兩篇文章探討了 <code>Container Network Interface(CNI)</code> 的概念，並且從 Kubernetes 的環境中去探討如何使用 CNI，包含了各種設定。</p>
+<p>此外之前也有提過 <a target="_blank" rel="noopener" href="https://github.com/containernetworking/plugins">containernetworking GitHub</a> 有提供很多基本好用的 CNI 解決方案供其他的 <code>CNI</code> 解決方案重複使用，譬如</p>
+<ol>
+<li>bridge</li>
+<li>lo</li>
+<li>portmapper</li>
+<li>local-host</li>
+<li>dhcp</li>
+<li>…等</li>
+</ol>
+<p>而今天要來探討到底 <code>bridge</code> 這個簡單的 CNI 怎麼實現的，以及我們將使用 golang 自己打造一個簡單版本的 bridge CNI。</p>
+<p>另外本文所使用的 golang 基於測試與開發方便，沒有講究太多架構與維護性，單純就是功能上的驗證。</p>
+<h1 id="介紹"><a href="#介紹" class="headerlink" title="介紹"></a>介紹</h1><p>本篇文章使用的程式碼都基於下列 <a href="ttps://github.com/hwchiu/CNI_Tutorial_2018">CNI Tutorial</a> repo，裡面還有含有一個建置好所有環境的 <strong>vagrant</strong> 檔案，會直接準備好所有環境供測試。</p>
+<p>這次的目標很簡單，使用 golang 寫一個基於 CNI 的解決方案，該解決方案會執行下列行為</p>
+<ol>
+<li>讀取 config, 取得 bridge 名稱以及想要設定的 IP 地址</li>
+<li>根據上述的資訊創建對應的 Linux Bridge</li>
+<li>創建一條特殊的虛擬 link (veth)</li>
+<li>將該虛擬 link 的兩端分別接到 Linux Bridge 以及 傳入的 network namespace 上，並且命名為 eth0</li>
+<li>幫 network namespace 內的 eth0 設定 IP 地址</li>
+</ol>
+<p>整個結果就如同下圖，這次的概念非常簡單，也沒有牽扯過多額外的功能，基本上就是看一下一個 CNI 可能會怎麼實現，有個這個概念之後再來看其他的 <code>CNI</code> 解決方案的原始碼的時候就比較有概念該怎麼去理解與閱讀。<br><img src="https://i.imgur.com/botAbi0.png"></p>
+<h1 id="流程"><a href="#流程" class="headerlink" title="流程"></a>流程</h1><h2 id="Step-1"><a href="#Step-1" class="headerlink" title="Step 1"></a>Step 1</h2><p>為了快速使用 golang 開發 <code>CNI</code> 的應用程式，我們可以借助官方提供的函示庫來幫助我們快速建立整個 <code>CNI</code> 的框架</p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">&quot;fmt&quot;</span></span><br><span class="line">	<span class="string">&quot;github.com/containernetworking/cni/pkg/skel&quot;</span></span><br><span class="line">	<span class="string">&quot;github.com/containernetworking/cni/pkg/version&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">cmdAdd</span><span class="params">(args *skel.CmdArgs)</span></span> <span class="type">error</span> &#123;</span><br><span class="line">	fmt.Printf(<span class="string">&quot;interfance Name: %s\n&quot;</span>, args.IfName)</span><br><span class="line">	fmt.Printf(<span class="string">&quot;netns path: %s\n&quot;</span>, args.Netns)</span><br><span class="line">	fmt.Printf(<span class="string">&quot;the config data: %s\n&quot;</span>, args.StdinData)</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">cmdDel</span><span class="params">(args *skel.CmdArgs)</span></span> <span class="type">error</span> &#123;</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	skel.PluginMain(cmdAdd, cmdDel, version.All)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>這個範例中，我們建立的兩個 function, 分別要用來處理 ADD&#x2F;DEL 兩個事件，對應到 Container 被創立以及 Container 被刪除</p>
+<p>接者透過 <code>skel</code> 這個函式庫將這兩個 function 與 <strong>ADD&#x2F;DEL</strong> 事件給關聯起來<br>其中要注意的是這些 function 的參數都必須是 <strong>skel.CmdArgs</strong>，其結構如下</p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> CmdArgs <span class="keyword">struct</span> &#123;</span><br><span class="line">	ContainerID <span class="type">string</span></span><br><span class="line">	Netns       <span class="type">string</span></span><br><span class="line">	IfName      <span class="type">string</span></span><br><span class="line">	Args        <span class="type">string</span></span><br><span class="line">	Path        <span class="type">string</span></span><br><span class="line">	StdinData   []<span class="type">byte</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>有沒有覺得這些欄位與之前介紹的 CNI 標準內定義的欄位很相似？ 這個結構就是用來幫助處理相關參數的，該 <strong>skel</strong> 的函式庫會幫忙把相關參數收集完畢後塞到這個結構內，並且傳入到 ADD&#x2F;DEL 對應的 function.</p>
+<p>此外這邊的 <strong>StdinData</strong> 其實就是所謂的 <strong>Network Configuration</strong> 的 json檔案，而這個範例中我們希望透過一個 config 去描述 bridge 的名稱以及 <strong>network namespace</strong> 會用到的 IP 地址。<br>因此我們先設計一個簡單的 Config 內容，並且存放到名為 <strong>config</strong> 的檔案內</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;name&quot;</span><span class="punctuation">:</span> <span class="string">&quot;mynet&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;BridgeName&quot;</span><span class="punctuation">:</span> <span class="string">&quot;test&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;IP&quot;</span><span class="punctuation">:</span> <span class="string">&quot;192.0.2.12/24&quot;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>假設上述的 golang 程式編譯完成後名為 <strong>mycni</strong>，則我們可以這樣進行測試</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">$ sudo ip netns add ns1</span><br><span class="line">$ sudo CNI_COMMAND=ADD CNI_CONTAINERID=ns1 CNI_NETNS=/var/run/netns/ns1 CNI_IFNAME=eth10 CNI_PATH=`<span class="built_in">pwd</span>` ./mycni &lt; config</span><br><span class="line"></span><br><span class="line">interfance Name: eth10</span><br><span class="line">netns path: /var/run/netns/ns1</span><br><span class="line">the config data: &#123;</span><br><span class="line">        <span class="string">&quot;name&quot;</span>: <span class="string">&quot;mynet&quot;</span>,</span><br><span class="line">        <span class="string">&quot;BridgeName&quot;</span>: <span class="string">&quot;test&quot;</span>,</span><br><span class="line">        <span class="string">&quot;IP&quot;</span>: <span class="string">&quot;192.0.2.12/24&quot;</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>其中用到的環境變數 <strong>CNI_XXX</strong> 由 <a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni/blob/master/SPEC.md#parameters">CNI SPEC</a> 所定義，分別有</p>
+<ol>
+<li>CNI_COMMAND</li>
+<li>CNI_CONYAINERID</li>
+<li>CNI_IFNAME</li>
+<li>CNI_ARGS</li>
+<li>CNI_PATH</li>
+</ol>
+<p>完成了這一步就意味我們的程式已經可以處理 CNI 相關的資訊了，只要把上述的設定檔案與執行檔放入到 kubernetes cluster 內，依照 <strong>–cni-bin-dri</strong> 以及 <strong>–cni-conf-dir</strong> 的設定的位置下，就可以順利地被執行然後印出相關資訊。</p>
+<p>不過由於目前的程式什麼都沒有做，所以執行起來的 Pod 會變成沒有對外連接上網的能力，但是整個流程算是已經打通了，下一步就是如何透過這些資訊來操作 Linux 以及 Network Namespace。</p>
+<h2 id="Step-2"><a href="#Step-2" class="headerlink" title="Step 2"></a>Step 2</h2><p>接下來我們要做的事情就是在系統內創建一個 <strong>Linux Bridge</strong>，這部分會使用到 <strong>netlink</strong> 相關的函示庫進行操作，主要是透過 <strong>netlink</strong> 這個<strong>IPC</strong>的機制直接告訴 <strong>kernel</strong> 幫忙操作。</p>
+<p>此外，我們在上一個步驟定義了簡單的 config 內容，因此這次也要在程式內定義相關的結構來讀取這些資料。</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;name&quot;</span><span class="punctuation">:</span> <span class="string">&quot;mynet&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;BridgeName&quot;</span><span class="punctuation">:</span> <span class="string">&quot;test&quot;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;IP&quot;</span><span class="punctuation">:</span> <span class="string">&quot;192.0.2.12/24&quot;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">&quot;encoding/json&quot;</span></span><br><span class="line">	<span class="string">&quot;fmt&quot;</span></span><br><span class="line">	<span class="string">&quot;syscall&quot;</span></span><br><span class="line"></span><br><span class="line">	<span class="string">&quot;github.com/containernetworking/cni/pkg/skel&quot;</span></span><br><span class="line">	<span class="string">&quot;github.com/containernetworking/cni/pkg/version&quot;</span></span><br><span class="line">	<span class="string">&quot;github.com/vishvananda/netlink&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> SimpleBridge <span class="keyword">struct</span> &#123;</span><br><span class="line">	BridgeName <span class="type">string</span> <span class="string">`json:&quot;bridgeName&quot;`</span></span><br><span class="line">	IP         <span class="type">string</span> <span class="string">`json:&quot;ip&quot;`</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">cmdAdd</span><span class="params">(args *skel.CmdArgs)</span></span> <span class="type">error</span> &#123;</span><br><span class="line">	sb := SimpleBridge&#123;&#125;</span><br><span class="line">	<span class="keyword">if</span> err := json.Unmarshal(args.StdinData, &amp;sb); err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line">	fmt.Println(sb)</span><br><span class="line"></span><br><span class="line">	br := &amp;netlink.Bridge&#123;</span><br><span class="line">		LinkAttrs: netlink.LinkAttrs&#123;</span><br><span class="line">			Name: sb.BridgeName,</span><br><span class="line">			MTU:  <span class="number">1500</span>,</span><br><span class="line">			<span class="comment">// Let kernel use default txqueuelen; leaving it unset</span></span><br><span class="line">			<span class="comment">// means 0, and a zero-length TX queue messes up FIFO</span></span><br><span class="line">			<span class="comment">// traffic shapers which use TX queue length as the</span></span><br><span class="line">			<span class="comment">// default packet limit</span></span><br><span class="line">			TxQLen: <span class="number">-1</span>,</span><br><span class="line">		&#125;,</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	err := netlink.LinkAdd(br)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &amp;&amp; err != syscall.EEXIST &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> err := netlink.LinkSetUp(br); err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li>定義一個簡單的結構，用來讀取該 json 檔案</li>
+<li>該 config 會放到 <strong>args.StdinData</strong> ，嘗試從這邊讀取內容</li>
+<li>接下來我們要使用 <strong>netlink</strong> 的函示庫操作 <strong>Linux Bridge</strong> 分成三個步驟<ul>
+<li>創建 Bridge 的物件</li>
+<li>告知 Kernel 幫忙創建 Bridge</li>
+<li>將該 Bridge 啟動 (類似 ifconfig br0 up)</li>
+</ul>
+</li>
+</ol>
+<p>由於這個範例中我們還沒有真的去操控到 <strong>namespace</strong>，所以不需要真的創建 <strong>namespace</strong> 也是可以運行的</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">$ brctl show</span><br><span class="line">bridge name     bridge <span class="built_in">id</span>               STP enabled     interfaces</span><br><span class="line"></span><br><span class="line">$ sudo CNI_COMMAND=ADD CNI_CONTAINERID=ns1 CNI_NETNS=/var/run/netns/ns1 CNI_IFNAME=eth10 CNI_PATH=`<span class="built_in">pwd</span>` ./mycni &lt; config</span><br><span class="line">&#123;<span class="built_in">test</span> 192.0.2.12/24&#125;</span><br><span class="line"></span><br><span class="line">$ brctl show</span><br><span class="line">bridge name     bridge <span class="built_in">id</span>               STP enabled     interfaces</span><br><span class="line"><span class="built_in">test</span>            8000.000000000000       no</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="Step-3"><a href="#Step-3" class="headerlink" title="Step 3"></a>Step 3</h2><p>再來重新檢視一下我們的目標圖<br><img src="https://i.imgur.com/botAbi0.png"></p>
+<p>第三步驟我們要滿足上圖的(2)的功能，建立一對 <strong>veth</strong> 並且分別連接到 <strong>Linux Bridge</strong> 以及預先創立好的 <strong>network namespace</strong> 上，同時該名稱必須是我們透過參數傳進去的。</p>
+<p>由於接下來要直接針對 <strong>network namespace (netns)</strong> 進行操作，同時也會用到一些相關的介面，因此我們要引用更多官方提供的函示庫</p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">&quot;encoding/json&quot;</span></span><br><span class="line">	<span class="string">&quot;fmt&quot;</span></span><br><span class="line">	<span class="string">&quot;syscall&quot;</span></span><br><span class="line"></span><br><span class="line">	<span class="string">&quot;github.com/containernetworking/cni/pkg/skel&quot;</span></span><br><span class="line">	<span class="string">&quot;github.com/containernetworking/cni/pkg/types/current&quot;</span></span><br><span class="line">	<span class="string">&quot;github.com/containernetworking/cni/pkg/version&quot;</span></span><br><span class="line">	<span class="string">&quot;github.com/containernetworking/plugins/pkg/ip&quot;</span></span><br><span class="line">	<span class="string">&quot;github.com/containernetworking/plugins/pkg/ns&quot;</span></span><br><span class="line">	<span class="string">&quot;github.com/vishvananda/netlink&quot;</span></span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+
+<p>延續 Step 2的程式，我們創建完畢 <strong>Linux Bridge</strong> 之後，接下來我們要開始處理 network namespace，運作流程如下</p>
+<ol>
+<li>根據參數 <strong>CNI_NETNS</strong> 給的路徑取得相關 network namespace(netns) 的物件</li>
+<li>於該 netns 內創建一對 <strong>veth</strong> ，需要三個參數，分別是<ul>
+<li>interface name, 也就是 CNI_INFNAME</li>
+<li>mtu, 範例測試使用 1500 即可</li>
+<li>另外一端的 netns 物件，由於我們是在目標的 netns 內創造，所以這個變數則是要給 <strong>host</strong> 本身的 netns</li>
+</ul>
+</li>
+<li>創建完畢後透過 <strong>veth</strong> 的回傳變數取得創建於 <strong>host</strong> 上的 interface 名稱，通常是 <strong>vethxxxxxxx</strong> 這種格式</li>
+<li>根據上述的名稱再次透過 <strong>netlink</strong> 去取得該網路介面的物件</li>
+<li>最後透過 <strong>netlink</strong> 的方式把該介面接上已經創建好的 <strong>Linux Bridfge</strong></li>
+</ol>
+<p>接下來一個步驟一個步驟試試看</p>
+<p>首先透過 <a target="_blank" rel="noopener" href="https://github.com/containernetworking/plugins/blob/master/pkg/ns/ns_linux.go#L136">官方函式庫</a> 提供的功能來取得 netns 的物件，其參數就是我們在執行時傳入的 <strong>&#x2F;var&#x2F;run&#x2F;netns&#x2F;ns1</strong></p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">netns, err := ns.GetNS(args.Netns)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">	<span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>接者我們可以透過 <a target="_blank" rel="noopener" href="https://github.com/containernetworking/plugins/blob/master/pkg/ns/ns_linux.go#L165">netns.Do</a> 的方式於該 netns 內執行任意 function.</p>
+<p>所以先定義一個 function (handler)，該 function 必須要能夠創建一對 <strong>veth</strong> 並且收集到創建後的另外一端名稱 <strong>vethxxxx</strong></p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">hostIface := &amp;current.Interface&#123;&#125;</span><br><span class="line"><span class="keyword">var</span> handler = <span class="function"><span class="keyword">func</span><span class="params">(hostNS ns.NetNS)</span></span> <span class="type">error</span> &#123;</span><br><span class="line">	hostVeth, _, err := ip.SetupVeth(args.IfName, <span class="number">1500</span>, hostNS)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line">	hostIface.Name = hostVeth.Name</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> err := netns.Do(handler); err != <span class="literal">nil</span> &#123;</span><br><span class="line">	<span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>對 <strong>netns.Do</strong> 有興趣的可以觀看其<a target="_blank" rel="noopener" href="https://github.com/containernetworking/plugins/blob/master/pkg/ns/ns_linux.go#L165">原始碼</a>，該實作內會取得當前 <strong>host</strong> 的 <strong>netns</strong> 並且傳入到參數的函式中。</p>
+<p>上述流程其實可以把 <strong>current.Interface</strong> 物件單純換成字串就好，因為我們這個範例中只有要收集 interface name, 沒有其他的網卡資訊。</p>
+<p>接下來就是透過 <strong>netlink</strong> 將該 interface name 轉換成相關的物件，以利後面的  <strong>LinkSetMaster</strong>操作</p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">hostVeth, err := netlink.LinkByName(hostIface.Name)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">	<span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> err := netlink.LinkSetMaster(hostVeth, br); err != <span class="literal">nil</span> &#123;</span><br><span class="line">	<span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>最後依序執行下列的步驟，先清除先前創立過的所有資源，然後手動創建一個 <strong>netns</strong>。</p>
+<p>要注意 <strong>netns</strong> 的名稱 <strong>ns1</strong> 必須要與參數 <strong>CNI_NETNS</strong> 後面的名稱一致。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Teardown all resoureces</span></span><br><span class="line">$ sudo ip netns del ns1</span><br><span class="line">$ sudo ifconfig <span class="built_in">test</span> down</span><br><span class="line">$ sudo brctl delbr <span class="built_in">test</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Create network namespace</span></span><br><span class="line">$ sudo ip netns add ns1</span><br><span class="line"></span><br><span class="line">$ sudo CNI_COMMAND=ADD CNI_CONTAINERID=ns1 CNI_NETNS=/var/run/netns/ns1 CNI_IFNAME=eth10 CNI_PATH=`<span class="built_in">pwd</span>` ./mycni &lt; config</span><br><span class="line">$ sudo brctl show <span class="built_in">test</span></span><br><span class="line">bridge name     bridge <span class="built_in">id</span>               STP enabled     interfaces</span><br><span class="line"><span class="built_in">test</span>            8000.6a5cc34310be       no              veth99b22b47</span><br><span class="line">$ sudo ip netns <span class="built_in">exec</span> ns1 ifconfig -a</span><br><span class="line">eth10     Link encap:Ethernet  HWaddr 96:7c:33:2b:f3:42</span><br><span class="line">          inet6 addr: fe80::947c:33ff:fe2b:f342/64 Scope:Link</span><br><span class="line">          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1</span><br><span class="line">          RX packets:1 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:1 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:0</span><br><span class="line">          RX bytes:90 (90.0 B)  TX bytes:90 (90.0 B)</span><br><span class="line"></span><br><span class="line">lo        Link encap:Local Loopback</span><br><span class="line">          LOOPBACK  MTU:65536  Metric:1</span><br><span class="line">          RX packets:0 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:1</span><br><span class="line">          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)</span><br></pre></td></tr></table></figure>
+
+<p>跑完這個範例我們就已經順利的建立好相關的橋樑，將 <strong>host</strong> 與 <strong>network namespace</strong> 透過虛擬連結 <strong>veth</strong> 給打通了。</p>
+<p>最後一件事情就是設立該 <strong>network namespace</strong> 裡面使用的 IP 地址</p>
+<h2 id="Step-4"><a href="#Step-4" class="headerlink" title="Step 4"></a>Step 4</h2><p>由於先前的 <strong>config</strong> 以及相關的結構已經有將 <strong>IP</strong> 的欄位給設定好了，因此接下來我們只要針對 <strong>設定IP</strong> 這個步驟進行探討</p>
+<ol>
+<li>創建 <strong>veth</strong> 後我們還需要額外取得當前 <strong>eth10</strong> 的 <strong>netlink</strong> 物件，這樣才可以透過 <strong>netlink</strong> 對該物件進行 <strong>IP</strong> 的設定</li>
+<li><strong>netlink</strong> 設定 IP 的方式是透過物件 <strong>ip.IPNet</strong>, 這邊要怎麼創造這個物件方法百百種，也跟你怎麼設計自己的 config 有關。</li>
+</ol>
+<p>跟剛剛上述不同，這次創建 <strong>veth</strong> 配對的時候，我們第二個物件也要一併收集 <strong>containerVeth</strong>，代表的就是 <strong>eth10</strong> 這張網卡。</p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">hostVeth, containerVeth, err := ip.SetupVeth(args.IfName, <span class="number">1500</span>, hostNS)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">	<span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">hostIface.Name = hostVeth.Name</span><br></pre></td></tr></table></figure>
+
+<p>因為 config 內目前的設計是 <strong>192.168.1.12&#x2F;24</strong> 這種 CIDR 的格式，所以我直接採用 <strong>net.ParseCIDR</strong> 的方式來解讀該格式，並且可以直接取得 <strong>ip.IPNet</strong> 的物件。</p>
+<p>由於 <strong>ParseCIDR</strong> 產生後的 IPNet 物件，放置的是網段內容並非 IP 資訊，我們需要將 IP 的部分重新覆蓋</p>
+<p>假如我們傳進去的參數是 <strong>192.168.2.12&#x2F;24</strong>, 則創建出來的 <strong>ip.IPNet</strong> 會長</p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">IPNet&#123;</span><br><span class="line">    <span class="number">192.0</span><span class="number">.2</span><span class="number">.0</span>/<span class="number">24</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>但是要傳入給 <strong>netlink</strong> 的物件，我們希望是</p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">IPNet&#123;</span><br><span class="line">    <span class="number">192.0</span><span class="number">.2</span><span class="number">.12</span>/<span class="number">24</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>因此需要把 <strong>IP</strong>欄位重新設定</p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">ipv4Addr, ipv4Net, err := net.ParseCIDR(sb.IP)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">	<span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br><span class="line">ipv4Net.IP = ipv4Addr</span><br></pre></td></tr></table></figure>
+
+<p>最後透過 <strong>netlink</strong> 的方式先把 <strong>eth10</strong> 的物件找出來，接者使用 <strong>netlink</strong> 的方式去設定 <strong>IP</strong> 地址。</p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">link, err := netlink.LinkByName(containerVeth.Name)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">	<span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">addr := &amp;netlink.Addr&#123;IPNet: ipv4Net, Label: <span class="string">&quot;&quot;</span>&#125;</span><br><span class="line"><span class="keyword">if</span> err = netlink.AddrAdd(link, addr); err != <span class="literal">nil</span> &#123;</span><br><span class="line">	<span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cat</span>  config</span><br><span class="line">&#123;</span><br><span class="line">        <span class="string">&quot;name&quot;</span>: <span class="string">&quot;mynet&quot;</span>,</span><br><span class="line">        <span class="string">&quot;BridgeName&quot;</span>: <span class="string">&quot;test&quot;</span>,</span><br><span class="line">        <span class="string">&quot;IP&quot;</span>: <span class="string">&quot;192.0.2.12/24&quot;</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment"># Teardown all resoureces</span></span><br><span class="line">$ sudo ip netns del ns1</span><br><span class="line">$ sudo ifconfig <span class="built_in">test</span> down</span><br><span class="line">$ sudo brctl delbr <span class="built_in">test</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Create network namespace</span></span><br><span class="line">$ sudo ip netns add ns1</span><br><span class="line"></span><br><span class="line">$ sudo CNI_COMMAND=ADD CNI_CONTAINERID=ns1 CNI_NETNS=/var/run/netns/ns1 CNI_IFNAME=eth10 CNI_PATH=`<span class="built_in">pwd</span>` ./mycni &lt; config</span><br><span class="line">$ sudo brctl show <span class="built_in">test</span></span><br><span class="line">bridge name     bridge <span class="built_in">id</span>               STP enabled     interfaces</span><br><span class="line"><span class="built_in">test</span>            8000.6a5cc34310be       no              veth99b22b47</span><br><span class="line">$ sudo ip netns <span class="built_in">exec</span> ns1 ifconfig -a</span><br><span class="line">eth10     Link encap:Ethernet  HWaddr 9a:f9:1c:98:9b:7c</span><br><span class="line">          inet addr:192.0.2.12  Bcast:192.0.2.255  Mask:255.255.255.0</span><br><span class="line">          inet6 addr: fe80::98f9:1cff:fe98:9b7c/64 Scope:Link</span><br><span class="line">          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1</span><br><span class="line">          RX packets:1 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:1 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:0</span><br><span class="line">          RX bytes:90 (90.0 B)  TX bytes:90 (90.0 B)</span><br><span class="line"></span><br><span class="line">lo        Link encap:Local Loopback</span><br><span class="line">          LOOPBACK  MTU:65536  Metric:1</span><br><span class="line">          RX packets:0 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:1</span><br><span class="line">          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)</span><br></pre></td></tr></table></figure>
+
+<p>這時候你如果嘗試使用 <strong>ping</strong> 去測試剛剛創建好的 <strong>IP</strong>，你會發現完全打不通，主要問題有兩個</p>
+<ol>
+<li>系統上沒有配置適當的 routing</li>
+<li>跨網段連接沒有對應的 gateway 幫忙轉發</li>
+</ol>
+<p>最簡單的辦法就是幫 Linux Bridge 設定一個 IP，譬如 <strong>192.0.2.1</strong> 即可。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">$ ping 192.0.2.15</span><br><span class="line">PING 192.0.2.15 (192.0.2.15) 56(84) bytes of data.</span><br><span class="line">^C</span><br><span class="line">--- 192.0.2.15 ping statistics ---</span><br><span class="line">1 packets transmitted, 0 received, 100% packet loss, time 0ms</span><br><span class="line"></span><br><span class="line">$ sudo ifconfig <span class="built_in">test</span> 192.0.2.1/24</span><br><span class="line">$ ping 192.0.2.15</span><br><span class="line">PING 192.0.2.15 (192.0.2.15) 56(84) bytes of data.</span><br><span class="line">64 bytes from 192.0.2.15: icmp_seq=1 ttl=64 time=0.038 ms</span><br><span class="line">64 bytes from 192.0.2.15: icmp_seq=2 ttl=64 time=0.023 ms</span><br></pre></td></tr></table></figure>
+
+<h1 id="Summay"><a href="#Summay" class="headerlink" title="Summay"></a>Summay</h1><p>經過了四個簡單的範例我們成功的撰寫了一個基於 CNI 標準的解決方案，內容非常簡單就是將 <strong>host</strong> 與 <strong>network namespace</strong> 連接起來並且設定IP。 目前的做法還有很多問題需要改善</p>
+<ol>
+<li>相關的 Routing 沒有設定，封包出不去也進不來</li>
+<li>沒有設定相關的 SNAT, <strong>network namespace</strong> 內的封包可能出不去</li>
+<li>IP 完全寫死，這意味如果針對第二個 <strong>network namespace</strong> 去執行就會發生 IP 相同且衝突的問題</li>
+</ol>
+<p>所以為了完成一個堪用的 CNI，背後要做的事情其實滿多的，為了讓網路可以於各式各樣的環境內都可以正常使用，這部分需要做很多的處理與判斷。</p>
+<p>下文章我們要來探討 <strong>IP</strong> 分配的問題，看看目前官方維護的三套 <a target="_blank" rel="noopener" href="https://github.com/containernetworking/plugins/tree/master/plugins/ipam">IPAM</a> 分別是哪些以及如何運作才可以避免各種 IP 衝突且寫死的問題。</p>
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/hwchiu/CNI_Tutorial_2018">https://github.com/hwchiu/CNI_Tutorial_2018</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/containernetworking/plugins">https://github.com/containernetworking/plugins</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni">https://github.com/containernetworking/cni</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/CNI/" rel="tag"># CNI</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+              <a href="/tags/Golang/" rel="tag"># Golang</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/kubernetes-cni.html" rel="prev" title="kubernetes 與 CNI 的互動">
+                  <i class="fa fa-chevron-left"></i> kubernetes 與 CNI 的互動
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/cni-ipam.html" rel="next" title="初探 CNI 的 IP 分配問題 (IPAM)">
+                  初探 CNI 的 IP 分配問題 (IPAM) <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

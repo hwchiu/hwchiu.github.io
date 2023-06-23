@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本篇文章探討 Docker Bridge 網路模型的運作過程，透過步驟去分析到底 docker -p 的背後運作原理">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker 網路入門篇(四) - 外界主動存取">
+<meta property="og:url" content="https://www.hwchiu.com/docker-network-model-lab-dnat.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本篇文章探討 Docker Bridge 網路模型的運作過程，透過步驟去分析到底 docker -p 的背後運作原理">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/TMqnQYg.jpg">
+<meta property="og:image" content="https://i.imgur.com/mmYV2cK.jpg">
+<meta property="article:published_time" content="2020-11-21T13:40:39.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.612Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="Docker">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/TMqnQYg.jpg">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/docker-network-model-lab-dnat.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/docker-network-model-lab-dnat.html","path":"docker-network-model-lab-dnat.html","title":"Docker 網路入門篇(四) - 外界主動存取"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Docker 網路入門篇(四) - 外界主動存取 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%9C%AC%E6%96%87"><span class="nav-number">2.</span> <span class="nav-text">本文</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%92%B0%E5%A2%83"><span class="nav-number">3.</span> <span class="nav-text">環境</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%A4%96%E7%95%8C%E7%B6%B2%E8%B7%AF%E4%B8%BB%E5%8B%95%E5%AD%98%E5%8F%96"><span class="nav-number">4.</span> <span class="nav-text">外界網路主動存取</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%BA%96%E5%82%99-Web-Server"><span class="nav-number">4.1.</span> <span class="nav-text">準備 Web Server</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#DNAT"><span class="nav-number">4.2.</span> <span class="nav-text">DNAT</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%B6%E4%BB%96%E5%95%8F%E9%A1%8C"><span class="nav-number">4.3.</span> <span class="nav-text">其他問題</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9C%AC%E5%9C%B0%E5%AD%98%E5%8F%96"><span class="nav-number">4.3.1.</span> <span class="nav-text">本地存取</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%87%8D%E8%A4%87%E4%BD%BF%E7%94%A8"><span class="nav-number">4.3.2.</span> <span class="nav-text">重複使用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%A7%A3%E6%B1%BA%E6%96%B9%E5%BC%8F"><span class="nav-number">4.3.3.</span> <span class="nav-text">解決方式</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%B8%BD%E7%B5%90"><span class="nav-number">5.</span> <span class="nav-text">總結</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">6.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/docker-network-model-lab-dnat.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Docker 網路入門篇(四) - 外界主動存取 | Hwchiu Learning Note">
+      <meta itemprop="description" content="本篇文章探討 Docker Bridge 網路模型的運作過程，透過步驟去分析到底 docker -p 的背後運作原理">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Docker 網路入門篇(四) - 外界主動存取
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2020-11-21 21:40:39" itemprop="dateCreated datePublished" datetime="2020-11-21T21:40:39+08:00">2020-11-21</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本篇文章探討 Docker Bridge 網路模型的運作過程，透過步驟去分析到底 docker -p 的背後運作原理</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>本篇文章是 Docker 網路入門篇系列文最終篇，閱讀本文前要先有前面三篇文章的基本概念，因此還不夠熟悉的讀者可以再次閱讀前面三篇文章</p>
+<p><a href="https://www.hwchiu.com/docker-network-model.html">Docker Network - 網路模型</a><br><a href="https://www.hwchiu.com/docker-network-model-lab.html">Docker 網路入門篇(二) - Bridge 網路模型</a><br><a href="https://www.hwchiu.com/docker-network-model-snat.html">Docker 網路入門篇(三) - 網路存取分析</a></p>
+<blockquote>
+<p>這系列的文章都會用比較使用者的角度來探討網路概念，比較不會去深度探討底層實作細節</p>
+</blockquote>
+<h1 id="本文"><a href="#本文" class="headerlink" title="本文"></a>本文</h1><p>上篇文章中，我們主要分析的是如何讓我們創建的 Container 能夠存取外部網路，這過程中我們簡單的探討了關於 iptables 的用法，包含了</p>
+<ol>
+<li>SNAT</li>
+<li>Default Policy</li>
+</ol>
+<p>透過 Source Network Address Translation (SNAT) 我們能夠讓外界的網路知道該如何把封包送回到我們的宿主機，接者宿主機內的 Kernel 會把封包給轉回到容器內。<br>而 Docker 安裝時會將預設的 iptables 的防火牆設定為白名單機制，沒有描述的封包一律丟棄，因此我們可以透過修改成黑名單機制，或是加上一條新的規則來允許容器封包可以連接外部。<br>然而，這種走法是 <strong>容器主動存取外部網路，外部網路回覆請求</strong></p>
+<p>而這篇文章則要來探討最後一個網路流向，如何讓 <strong>外部網路，主動存取我們的容器</strong><br>最簡單的範例就是我們運行容器時，可以透過 <strong>-p local_port:container_port</strong> 的指令去告訴 docker 說，請幫我們設定一個網路轉發，當封包到達宿主機的  <strong>local_port</strong> 後，請幫忙將封包給轉送到容器內的 <strong>container_port</strong>。</p>
+<p>透過這個機制，我們可以在系統上運行很多的 <strong>nginx www server</strong>，每個本身都專注於自己的 <strong>80 port</strong>，但是系統上透過不同的 <strong>local_port</strong> 來進行轉發。</p>
+<p>因此接下來就來看看，這過程應該要怎麼實現，有哪些部分需要注意</p>
+<h1 id="環境"><a href="#環境" class="headerlink" title="環境"></a>環境</h1><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ lsb_release -a</span><br><span class="line">No LSB modules are available.</span><br><span class="line">Distributor ID: Ubuntu</span><br><span class="line">Description:    Ubuntu 18.04.3 LTS</span><br><span class="line">Release:        18.04</span><br><span class="line">Codename:       bionic</span><br><span class="line"></span><br><span class="line">$ uname -a</span><br><span class="line">Linux k8s-dev 4.15.0-72-generic #81-Ubuntu SMP Tue Nov 26 12:20:02 UTC 2019 x86_64 x86_64 x86_64 GNU/Linux</span><br><span class="line"></span><br><span class="line">$ docker --version</span><br><span class="line">Docker version 19.03.13, build 4484c46d9d</span><br></pre></td></tr></table></figure>
+<p>實驗所有步驟都可以於 <a target="_blank" rel="noopener" href="https://github.com/technologynoteniu/bloglab/tree/main/docker_network_basic_4">GitHub Repo</a> 中找到</p>
+<h1 id="外界網路主動存取"><a href="#外界網路主動存取" class="headerlink" title="外界網路主動存取"></a>外界網路主動存取</h1><p>為了讓本篇文章專注於如何讓 <strong>外界能夠主動存取容器</strong>，因此前幾篇文章設定的部分這邊就不會再提，可以直接透過運行這個<a target="_blank" rel="noopener" href="https://github.com/technologynoteniu/bloglab/blob/main/docker_network_basic_4/lab1.sh">腳本</a>來創建簡單環境</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">docker run --privileged -d --network=none --name c1 hwchiu/netutils</span><br><span class="line"></span><br><span class="line">sudo brctl addbr hwchiu0</span><br><span class="line">sudo ifconfig hwchiu0 up</span><br><span class="line">sudo ip <span class="built_in">link</span> add dev c1-eth0 <span class="built_in">type</span> veth</span><br><span class="line"></span><br><span class="line">sudo <span class="built_in">ln</span> -s /var/run/docker/netns /var/run/netns</span><br><span class="line"></span><br><span class="line">c1_ns=$(docker inspect c1 | jq -r <span class="string">&#x27;.[0].NetworkSettings.SandboxID&#x27;</span> | <span class="built_in">cut</span> -c1-12)</span><br><span class="line">sudo ip <span class="built_in">link</span> <span class="built_in">set</span> c1-eth0 netns <span class="variable">$&#123;c1_ns&#125;</span> name eth0</span><br><span class="line">sudo docker <span class="built_in">exec</span> c1 ifconfig -a</span><br><span class="line"></span><br><span class="line">sudo brctl addif hwchiu0 veth0</span><br><span class="line">sudo ifconfig veth0 up</span><br><span class="line"></span><br><span class="line">sudo docker <span class="built_in">exec</span> c1 ifconfig eth0 10.55.66.2 netmask 255.255.255.0 up</span><br><span class="line"></span><br><span class="line">sudo ifconfig hwchiu0 10.55.66.1 netmask 255.255.255.0</span><br><span class="line">sudo docker <span class="built_in">exec</span> -it c1 ip route add default via 10.55.66.1</span><br><span class="line">sudo iptables -t nat -I POSTROUTING -s 10.55.66.2/32 -o eth0 -j MASQUERADE</span><br><span class="line">sudo iptables -t filter -I FORWARD -i hwchiu0 -o eth0 -j ACCEPT</span><br><span class="line">sudo iptables -t filter -I FORWARD -i eth0 -o hwchiu0 -j ACCEPT</span><br><span class="line">sudo iptables -t filter -I FORWARD -i hwchiu0 -o eth1 -j ACCEPT</span><br><span class="line">sudo iptables -t filter -I FORWARD -i eth1 -o hwchiu0 -j ACCEPT</span><br></pre></td></tr></table></figure>
+
+<p>我們的目標就是打通這條路，最終會希望可以打造出跟 <strong>docker -p local_port:contianer_port</strong> 一樣的情形<br><img src="https://i.imgur.com/TMqnQYg.jpg"></p>
+<h2 id="準備-Web-Server"><a href="#準備-Web-Server" class="headerlink" title="準備 Web Server"></a>準備 Web Server</h2><p>為了讓整個 Demo 順利與方便，我們會於準備好的容器中透過 <strong>python</strong> 創建一個 <strong>web server</strong>。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line">$ docker <span class="built_in">exec</span> -it c1 apt-get install -y python3</span><br><span class="line"></span><br><span class="line">$ docker <span class="built_in">exec</span> c1 python3 -m http.server&amp;</span><br><span class="line"></span><br><span class="line">$ curl 10.55.66.2:8000</span><br><span class="line">&lt;!DOCTYPE HTML PUBLIC <span class="string">&quot;-//W3C//DTD HTML 4.01//EN&quot;</span> <span class="string">&quot;http://www.w3.org/TR/html4/strict.dtd&quot;</span>&gt;</span><br><span class="line">&lt;html&gt;</span><br><span class="line">&lt;<span class="built_in">head</span>&gt;</span><br><span class="line">&lt;meta http-equiv=<span class="string">&quot;Content-Type&quot;</span> content=<span class="string">&quot;text/html; charset=ascii&quot;</span>&gt;</span><br><span class="line">&lt;title&gt;Directory listing <span class="keyword">for</span> /&lt;/title&gt;</span><br><span class="line">&lt;/head&gt;</span><br><span class="line">&lt;body&gt;</span><br><span class="line">&lt;h1&gt;Directory listing <span class="keyword">for</span> /&lt;/h1&gt;</span><br><span class="line">&lt;hr&gt;</span><br><span class="line">&lt;ul&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;.dockerenv&quot;</span>&gt;.dockerenv&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;bin/&quot;</span>&gt;bin/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;boot/&quot;</span>&gt;boot/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;dev/&quot;</span>&gt;dev/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;entrypoint.bash&quot;</span>&gt;entrypoint.bash&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;etc/&quot;</span>&gt;etc/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;home/&quot;</span>&gt;home/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;lib/&quot;</span>&gt;lib/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;lib64/&quot;</span>&gt;lib64/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;media/&quot;</span>&gt;media/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;mnt/&quot;</span>&gt;mnt/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;opt/&quot;</span>&gt;opt/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;proc/&quot;</span>&gt;proc/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;root/&quot;</span>&gt;root/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;run/&quot;</span>&gt;run/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;sbin/&quot;</span>&gt;sbin/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;srv/&quot;</span>&gt;srv/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;sys/&quot;</span>&gt;sys/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;tmp/&quot;</span>&gt;tmp/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;usr/&quot;</span>&gt;usr/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;var/&quot;</span>&gt;var/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;/ul&gt;</span><br><span class="line">&lt;hr&gt;</span><br><span class="line">&lt;/body&gt;</span><br><span class="line">&lt;/html&gt;</span><br></pre></td></tr></table></figure>
+
+<p>透過上述的指令我們已經創建了一個網頁伺服器，並且透過 <strong>curl</strong> 順利存取，確保該服務沒問題。</p>
+<p>因此接下來，我們要做的就是如何透過 iptables 讓外界網路能夠存取該容器</p>
+<h2 id="DNAT"><a href="#DNAT" class="headerlink" title="DNAT"></a>DNAT</h2><p>基本上網路概念全部都一樣，我們要探討的問題都是一樣的，就是<strong>封包該怎麼送</strong>，<strong>誰來負責轉發</strong>。</p>
+<p>今天外界網路要存取我們內部的容器，想法就是 <strong>就是封包要先到達宿主機，接下來宿主機想辦法幫你轉送到內部容器</strong>。相對於 <strong>SNAT</strong>，這邊要採用的策略是 Destination Network Address Translation(DNAT)，將封包的目標地址進行修改。</p>
+<p>接下來我們來進行一個範例，我們希望做到 <strong>-p 2345:8000</strong> 的範例，將送到本地的 <strong>2345</strong> 送到容器內的 <strong>8000 port</strong> 內。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport 2345 -j DNAT --to-destination 10.55.66.2:8000</span><br></pre></td></tr></table></figure>
+
+<p>上述的指令概念意思是，看到 TCP 的封包，且目標是 2345 port，則透過 DNAT 幫我把封包的目標 IP 改成 10.55.66.2, Port 改成 8000</p>
+<p>接下來到其他環境，對宿主機使用 curl 來存取看看 port 2345</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line">$ curl 172.17.9.103:2345</span><br><span class="line">&lt;!DOCTYPE HTML PUBLIC <span class="string">&quot;-//W3C//DTD HTML 4.01//EN&quot;</span> <span class="string">&quot;http://www.w3.org/TR/html4/strict.dtd&quot;</span>&gt;</span><br><span class="line">&lt;html&gt;</span><br><span class="line">&lt;<span class="built_in">head</span>&gt;</span><br><span class="line">&lt;meta http-equiv=<span class="string">&quot;Content-Type&quot;</span> content=<span class="string">&quot;text/html; charset=ascii&quot;</span>&gt;</span><br><span class="line">&lt;title&gt;Directory listing <span class="keyword">for</span> /&lt;/title&gt;</span><br><span class="line">&lt;/head&gt;</span><br><span class="line">&lt;body&gt;</span><br><span class="line">&lt;h1&gt;Directory listing <span class="keyword">for</span> /&lt;/h1&gt;</span><br><span class="line">&lt;hr&gt;</span><br><span class="line">&lt;ul&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;.dockerenv&quot;</span>&gt;.dockerenv&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;bin/&quot;</span>&gt;bin/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;boot/&quot;</span>&gt;boot/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;dev/&quot;</span>&gt;dev/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;entrypoint.bash&quot;</span>&gt;entrypoint.bash&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;etc/&quot;</span>&gt;etc/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;home/&quot;</span>&gt;home/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;lib/&quot;</span>&gt;lib/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;lib64/&quot;</span>&gt;lib64/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;media/&quot;</span>&gt;media/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;mnt/&quot;</span>&gt;mnt/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;opt/&quot;</span>&gt;opt/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;proc/&quot;</span>&gt;proc/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;root/&quot;</span>&gt;root/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;run/&quot;</span>&gt;run/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;sbin/&quot;</span>&gt;sbin/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;srv/&quot;</span>&gt;srv/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;sys/&quot;</span>&gt;sys/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;tmp/&quot;</span>&gt;tmp/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;usr/&quot;</span>&gt;usr/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;li&gt;&lt;a href=<span class="string">&quot;var/&quot;</span>&gt;var/&lt;/a&gt;&lt;/li&gt;</span><br><span class="line">&lt;/ul&gt;</span><br><span class="line">&lt;hr&gt;</span><br><span class="line">&lt;/body&gt;</span><br><span class="line">&lt;/html&gt;</span><br></pre></td></tr></table></figure>
+
+<p>到這邊為止，基本上我們幾乎實現 <strong>docker -p</strong> 的功能，能夠讓外界存取到內部容器了，其流程如下<br><img src="https://i.imgur.com/mmYV2cK.jpg"></p>
+<h2 id="其他問題"><a href="#其他問題" class="headerlink" title="其他問題"></a>其他問題</h2><p>看似完美解決問題，其實背後還是有一些東西要處理</p>
+<h3 id="本地存取"><a href="#本地存取" class="headerlink" title="本地存取"></a>本地存取</h3><p>完成上述規則後，我們嘗試於宿主機內針對設定的 <strong>2345</strong> 去進行存取</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ curl 172.17.9.103:2345</span><br><span class="line">curl: (7) Failed to connect to 172.17.9.103 port 2345: Connection refused</span><br><span class="line"></span><br><span class="line">$ curl 127.0.0.1:2345</span><br><span class="line">curl: (7) Failed to connect to 127.0.0.1 port 2345: Connection refused</span><br><span class="line"></span><br><span class="line">$ curl localhost:2345</span><br><span class="line">curl: (7) Failed to connect to localhost port 2345: Connection refused</span><br></pre></td></tr></table></figure>
+
+<p>結果看起來我們設定的 iptables 規則對於這種本地直接存取自己是有問題的，但是如果使用的是 <strong>docker -p</strong> 去創造服務的話，會發現其實這些是通的，那到底 <strong>docker</strong> 是怎麼解決這些問題?</p>
+<h3 id="重複使用"><a href="#重複使用" class="headerlink" title="重複使用"></a>重複使用</h3><p>第二個要解決的問題是，如果今天有程式想要於系統中去使用 <strong>port 2345</strong>，這時候問題就來了。</p>
+<p>我們事先透過 iptables 去描述 DNAT，將 2345 轉為容器內80，這部分其實對於 <strong>socket programming</strong> 來說是不知情的，所以任何人都還是有機會去使用本地機器的 <strong>2345 port</strong>。</p>
+<p>在這種情況下，會跑出一個疑問，請問送到 <strong>2345</strong> 的封包到底是要依據我們的規則去轉發給容器，還是要送給這個使用 <strong>2345</strong> 的本地程式?</p>
+<h3 id="解決方式"><a href="#解決方式" class="headerlink" title="解決方式"></a>解決方式</h3><p>為了解決這兩個問題，這邊我們先看個範例</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">$ docker run -d -p 12345:80 nginx</span><br><span class="line"></span><br><span class="line">$ curl localhost:12345</span><br><span class="line">&lt;!DOCTYPE html&gt;</span><br><span class="line">&lt;html&gt;</span><br><span class="line">&lt;<span class="built_in">head</span>&gt;</span><br><span class="line">&lt;title&gt;Welcome to nginx!&lt;/title&gt;</span><br><span class="line">&lt;style&gt;</span><br><span class="line">    body &#123;</span><br><span class="line">        width: 35em;</span><br><span class="line">        margin: 0 auto;</span><br><span class="line">        font-family: Tahoma, Verdana, Arial, sans-serif;</span><br><span class="line">    &#125;</span><br><span class="line">&lt;/style&gt;</span><br><span class="line">&lt;/head&gt;</span><br><span class="line">&lt;body&gt;</span><br><span class="line">&lt;h1&gt;Welcome to nginx!&lt;/h1&gt;</span><br><span class="line">&lt;p&gt;If you see this page, the nginx web server is successfully installed and</span><br><span class="line">working. Further configuration is required.&lt;/p&gt;</span><br><span class="line"></span><br><span class="line">&lt;p&gt;For online documentation and support please refer to</span><br><span class="line">&lt;a href=<span class="string">&quot;http://nginx.org/&quot;</span>&gt;nginx.org&lt;/a&gt;.&lt;br/&gt;</span><br><span class="line">Commercial support is available at</span><br><span class="line">&lt;a href=<span class="string">&quot;http://nginx.com/&quot;</span>&gt;nginx.com&lt;/a&gt;.&lt;/p&gt;</span><br><span class="line"></span><br><span class="line">&lt;p&gt;&lt;em&gt;Thank you <span class="keyword">for</span> using nginx.&lt;/em&gt;&lt;/p&gt;</span><br><span class="line">&lt;/body&gt;</span><br><span class="line">&lt;/html&gt;</span><br><span class="line"></span><br><span class="line">$ ps auxw | grep docker-proxy</span><br><span class="line">root     20060  0.0  0.1 552996  4060 ?        Sl   05:20   0:00 /usr/bin/docker-proxy -proto tcp -host-ip 0.0.0.0 -host-port 12345 -container-ip 172.18.0.2 -container-port 80</span><br><span class="line"></span><br><span class="line">$ sudo netstat -anlpt | grep 12345</span><br><span class="line">tcp6       0      0 :::12345                :::*                    LISTEN      20060/docker-proxy</span><br><span class="line">....</span><br></pre></td></tr></table></figure>
+
+<p>這邊我們透過 <strong>docker</strong> 快速起一個 <strong>nginx</strong> 的服務，並且設定 <strong>12345:80</strong> 的關係。</p>
+<p>可以看到如果 <strong>docker</strong> 的話，我們是可以透過 <strong>localhost:12345</strong> 來存取容器的，這是我們剛剛自己設定 iptables 辦不到的。</p>
+<p>解法是，<strong>docker</strong> 於本地端偷偷部署了一個新的程式，叫做 <strong>docker-proxy</strong>，可以看一下其運行的參數</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-proto tcp -host-ip 0.0.0.0 -host-port 12345 -container-ip 172.18.0.2 -container-port 80</span><br></pre></td></tr></table></figure>
+
+<p>有沒有覺得這些內容跟我們 <strong>iptables</strong> 的規則很類似?</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">iptables -t nat -A PREROUTING -p tcp -m tcp --dport 2345 -j DNAT --to-destination 10.55.66.2:8000</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li>-proto tcp  &lt;—-&gt; -p tcp</li>
+<li>-host-port &lt;—-&gt; -m tcp –dport</li>
+<li>–container-ip, –contianer-port &lt;—–&gt; -j DNAT –to-destination</li>
+</ol>
+<p>所以其實這是一個，針對 <strong>loclahost</strong> 流量而設計的 Proxy 程式，幫忙處理 DNAT，將封包轉送到內部去。</p>
+<p>此外，這個應用程式本身也會去聽 <strong>12345</strong> 這個 port，因此未來如果有任何應用程式想要註冊 <strong>12345</strong> 的話，就會沒有辦法註冊，因為已經被搶走</p>
+<h1 id="總結"><a href="#總結" class="headerlink" title="總結"></a>總結</h1><ol>
+<li><strong>docker -p</strong> 做法非常簡單，就是整合了 iptables DNAT 以及 docker-proxy</li>
+<li>透過 iptables DNAT 的功能，我們可以讓外部網路透過宿主機來存取內部容器，然而這種情況下，你是沒有辦法於宿主機內透過一樣的方式去存取容器的，這部分的原因是 <strong>iptables</strong> 的執行點跟 <strong>localhost</strong> 這種直接存取是有落差的</li>
+<li>docker透過 docker-proxy 的方式來彌補上述的缺陷，專門用來處理本地封包</li>
+<li>同時， docker-proxy 也會佔據本地的 port，避免未來有其他的程式想要使用相同的 port 而造成混淆與服務不如預期。</li>
+</ol>
+<p>到這邊為止，我們透過四篇文章來探討了 Docker 的網路模型，並且嘗試透過手工的方式，打造一個相同的 Bridge 網路模型。過程中，我們也一併探討要如何讓容器擁有網路存取能力，不論是容器間互相存取，容器主動對外存取或是外界主動存取容器。<br>這些步驟背後原理非常複雜，實際的實作細節牽扯到 Linux Kernel 內的很多元件，包含了 netfilter, conntrack, iptables 等，而本系列文目標是從概念出發，從大方向去理解到底怎麼運作，<strong>docker</strong> 怎麼做，有了這些基本概念後<br>未來有興趣去學習底層運作時，也比較會有方向知道該怎麼下手。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/Docker/" rel="tag"># Docker</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-9.html" rel="prev" title="鐵人賽系列文章- Day 9 Pipeline System 介紹">
+                  <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day 9 Pipeline System 介紹
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-10.html" rel="next" title="鐵人賽系列文章- Day 10 CI 與 Kubernetes 的整合">
+                  鐵人賽系列文章- Day 10 CI 與 Kubernetes 的整合 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

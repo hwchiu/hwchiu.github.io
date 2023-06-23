@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="Introduction本篇文章主要會專注於 switchdev 本身的實作上，包含了其結構以及提供的 API 等。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Switchdev] How Kernel Implement SwitchDev(ii)">
+<meta property="og:url" content="https://www.hwchiu.com/2016-04-04-switchdev-iii.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="Introduction本篇文章主要會專注於 switchdev 本身的實作上，包含了其結構以及提供的 API 等。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://lh3.googleusercontent.com/-sk760sgtc28/VwO9Wle0NKI/AAAAAAAAFOo/QrHADU1hDps5c5SmGBwU-nd54ZSJ7UjpQCCo/s720-Ic42/FDB.png">
+<meta property="og:image" content="https://lh3.googleusercontent.com/-6xvPI9pzSrQ/VwO-v0MUQ5I/AAAAAAAAFPA/4P4aYSo6pfMzzPLacKWG-lfICRtn087xQCCo/s720-Ic42/FIB.png">
+<meta property="article:published_time" content="2016-04-04T00:38:00.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.595Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="System">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="Kernel">
+<meta property="article:tag" content="Switchdev">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://lh3.googleusercontent.com/-sk760sgtc28/VwO9Wle0NKI/AAAAAAAAFOo/QrHADU1hDps5c5SmGBwU-nd54ZSJ7UjpQCCo/s720-Ic42/FDB.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/2016-04-04-switchdev-iii.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/2016-04-04-switchdev-iii.html","path":"2016-04-04-switchdev-iii.html","title":"[Switchdev] How Kernel Implement SwitchDev(ii)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>[Switchdev] How Kernel Implement SwitchDev(ii) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Introduction"><span class="nav-number">1.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Structure"><span class="nav-number">2.</span> <span class="nav-text">Structure</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Transaction"><span class="nav-number">2.1.</span> <span class="nav-text">Transaction</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Attribute"><span class="nav-number">2.2.</span> <span class="nav-text">Attribute</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Object"><span class="nav-number">2.3.</span> <span class="nav-text">Object</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Operation"><span class="nav-number">2.4.</span> <span class="nav-text">Operation</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Notifier"><span class="nav-number">2.5.</span> <span class="nav-text">Notifier</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Implementation"><span class="nav-number">3.</span> <span class="nav-text">Implementation</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#SwitchDev-Port-Attribute"><span class="nav-number">3.1.</span> <span class="nav-text">SwitchDev Port Attribute</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#SwitchDev-Port-Object-operation"><span class="nav-number">3.2.</span> <span class="nav-text">SwitchDev Port Object operation</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Port-Bridge"><span class="nav-number">3.3.</span> <span class="nav-text">Port Bridge</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#FDB-Operations"><span class="nav-number">3.4.</span> <span class="nav-text">FDB Operations</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#FIB-Operations"><span class="nav-number">3.5.</span> <span class="nav-text">FIB Operations</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Notifier-1"><span class="nav-number">3.6.</span> <span class="nav-text">Notifier</span></a></li></ol></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/2016-04-04-switchdev-iii.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="[Switchdev] How Kernel Implement SwitchDev(ii) | Hwchiu Learning Note">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          [Switchdev] How Kernel Implement SwitchDev(ii)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2016-04-04 08:38:00" itemprop="dateCreated datePublished" datetime="2016-04-04T08:38:00+08:00">2016-04-04</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><p>本篇文章主要會專注於 switchdev 本身的實作上，包含了其結構以及提供的 API 等。</p>
+<span id="more"></span>
+
+<h2 id="Structure"><a href="#Structure" class="headerlink" title="Structure"></a>Structure</h2><h3 id="Transaction"><a href="#Transaction" class="headerlink" title="Transaction"></a>Transaction</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">switchdev_trans_item</span> &#123;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">list</span>;</span></span><br><span class="line">        <span class="type">void</span> *data;</span><br><span class="line">        <span class="type">void</span> (*destructor)(<span class="type">const</span> <span class="type">void</span> *data);</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">switchdev_trans</span> &#123;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">item_list</span>;</span></span><br><span class="line">        <span class="type">bool</span> ph_prepare;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">bool</span> <span class="title function_">switchdev_trans_ph_prepare</span><span class="params">(<span class="keyword">struct</span> switchdev_trans *trans)</span></span><br><span class="line">&#123;</span><br><span class="line">        <span class="keyword">return</span> trans &amp;&amp; trans-&gt;ph_prepare;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">bool</span> <span class="title function_">switchdev_trans_ph_commit</span><span class="params">(<span class="keyword">struct</span> switchdev_trans *trans)</span></span><br><span class="line">&#123;</span><br><span class="line">        <span class="keyword">return</span> trans &amp;&amp; !trans-&gt;ph_prepare;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>Switchdev <a target="_blank" rel="noopener" href="https://patchwork.ozlabs.org/patch/519719/">實作</a>了一種 trans 的機制，對於 hardware switch 進行一些寫入的動作，如 set&#x2F;add 時，該動作會被拆成兩部份，分別是 prepare&#x2F;commit 兩部分。</li>
+<li>一開始會先將 <strong>ph_prepare</strong> 給設定為 <code>true</code>，然後寫入的資料傳給 driver，讓 driver 知道這次的寫入只是用來確認可行性而已，如果 driver 確定可以寫入後，會將 <strong>ph_prepare</strong> 變為 <code>false</code> 後，再次要求 driver 將真正的資料給寫入。</li>
+</ul>
+<h3 id="Attribute"><a href="#Attribute" class="headerlink" title="Attribute"></a>Attribute</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">enum</span> <span class="title">switchdev_attr_id</span> &#123;</span></span><br><span class="line">        SWITCHDEV_ATTR_ID_UNDEFINED,</span><br><span class="line">        SWITCHDEV_ATTR_ID_PORT_PARENT_ID,</span><br><span class="line">        SWITCHDEV_ATTR_ID_PORT_STP_STATE,</span><br><span class="line">        SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,</span><br><span class="line">        SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,</span><br><span class="line">        SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>  此 enum 用來定義 switch attribute 的種類，當 switch driver 收到一些如 get 的指令時，會根據該 attribute的種類回傳特定資料</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">switchdev_attr</span> &#123;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">net_device</span> *<span class="title">orig_dev</span>;</span></span><br><span class="line">        <span class="class"><span class="keyword">enum</span> <span class="title">switchdev_attr_id</span> <span class="title">id</span>;</span></span><br><span class="line">        u32 flags;</span><br><span class="line">        <span class="class"><span class="keyword">union</span> &#123;</span></span><br><span class="line">                <span class="class"><span class="keyword">struct</span> <span class="title">netdev_phys_item_id</span> <span class="title">ppid</span>;</span>        <span class="comment">/* PORT_PARENT_ID */</span></span><br><span class="line">                u8 stp_state;                           <span class="comment">/* PORT_STP_STATE */</span></span><br><span class="line">                <span class="type">unsigned</span> <span class="type">long</span> brport_flags;             <span class="comment">/* PORT_BRIDGE_FLAGS */</span></span><br><span class="line">                u32 ageing_time;                        <span class="comment">/* BRIDGE_AGEING_TIME */</span></span><br><span class="line">                <span class="type">bool</span> vlan_filtering;                    <span class="comment">/* BRIDGE_VLAN_FILTERING */</span></span><br><span class="line">        &#125; u;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>實際上用來紀錄 switch attribute 的結構</p>
+<ul>
+<li><strong>net_device</strong> 來記錄是哪個目標 device</li>
+<li>id 如前述所說的種類</li>
+<li>flags 目前有三種值<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">define</span> SWITCHDEV_F_NO_RECURSE          BIT(0)</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> SWITCHDEV_F_SKIP_EOPNOTSUPP     BIT(1)</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> SWITCHDEV_F_DEFER               BIT(2)</span></span><br></pre></td></tr></table></figure></li>
+<li>u 則是用來存放該 id 所代表的值</li>
+</ul>
+<h3 id="Object"><a href="#Object" class="headerlink" title="Object"></a>Object</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">enum switchdev_obj_id &#123;</span><br><span class="line">        SWITCHDEV_OBJ_ID_UNDEFINED,</span><br><span class="line">        SWITCHDEV_OBJ_ID_PORT_VLAN,</span><br><span class="line">        SWITCHDEV_OBJ_ID_IPV4_FIB,</span><br><span class="line">        SWITCHDEV_OBJ_ID_PORT_FDB,</span><br><span class="line">        SWITCHDEV_OBJ_ID_PORT_MDB,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>  此 enum 用來記錄該 switch object 的種類，</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">struct switchdev_obj &#123;</span><br><span class="line">        struct net_device *orig_dev;</span><br><span class="line">        enum switchdev_obj_id id;</span><br><span class="line">        u32 flags;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>  此結構記錄 type， net_device 以及 flag，對應種類的數值因為太過於廣泛，所以此 structure 會再被其他的結構給包起來。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">struct switchdev_obj_port_vlan &#123;</span><br><span class="line">        struct switchdev_obj obj;</span><br><span class="line">        u16 flags;</span><br><span class="line">        u16 vid_begin;</span><br><span class="line">        u16 vid_end;</span><br><span class="line">&#125;;</span><br><span class="line">struct switchdev_obj_ipv4_fib &#123;</span><br><span class="line">        struct switchdev_obj obj;</span><br><span class="line">        u32 dst;</span><br><span class="line">        int dst_len;</span><br><span class="line">        struct fib_info fi;</span><br><span class="line">        u8 tos;</span><br><span class="line">        u8 type;</span><br><span class="line">        u32 nlflags;</span><br><span class="line">        u32 tb_id;</span><br><span class="line">&#125;;</span><br><span class="line">struct switchdev_obj_port_fdb &#123;</span><br><span class="line">        struct switchdev_obj obj;</span><br><span class="line">        unsigned char addr[ETH_ALEN];</span><br><span class="line">        u16 vid;</span><br><span class="line">        u16 ndm_state;</span><br><span class="line">&#125;;</span><br><span class="line">struct switchdev_obj_port_mdb &#123;</span><br><span class="line">        struct switchdev_obj obj;</span><br><span class="line">        unsigned char addr[ETH_ALEN];</span><br><span class="line">        u16 vid;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>由上面可以觀察到，目前已經實作了四種的 switchdev obj，分別是 vlan 的設定， L2 的 FDB&#x2F;MDB 以及 L3 的 FIB.</p>
+<h3 id="Operation"><a href="#Operation" class="headerlink" title="Operation"></a>Operation</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * struct switchdev_ops - switchdev operations</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * @switchdev_port_attr_get: Get a port attribute (see switchdev_attr).</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * @switchdev_port_attr_set: Set a port attribute (see switchdev_attr).</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * @switchdev_port_obj_add: Add an object to port (see switchdev_obj_*).</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * @switchdev_port_obj_del: Delete an object from port (see switchdev_obj_*).</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * @switchdev_port_obj_dump: Dump port objects (see switchdev_obj_*).</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">switchdev_ops</span> &#123;</span></span><br><span class="line">        <span class="type">int</span>     (*switchdev_port_attr_get)(<span class="keyword">struct</span> net_device *dev,</span><br><span class="line">                                           <span class="keyword">struct</span> switchdev_attr *attr);</span><br><span class="line">        <span class="type">int</span>     (*switchdev_port_attr_set)(<span class="keyword">struct</span> net_device *dev,</span><br><span class="line">                                           <span class="type">const</span> <span class="keyword">struct</span> switchdev_attr *attr,</span><br><span class="line">                                           <span class="keyword">struct</span> switchdev_trans *trans);</span><br><span class="line">        <span class="type">int</span>     (*switchdev_port_obj_add)(<span class="keyword">struct</span> net_device *dev,</span><br><span class="line">                                          <span class="type">const</span> <span class="keyword">struct</span> switchdev_obj *obj,</span><br><span class="line">                                          <span class="keyword">struct</span> switchdev_trans *trans);</span><br><span class="line">        <span class="type">int</span>     (*switchdev_port_obj_del)(<span class="keyword">struct</span> net_device *dev,</span><br><span class="line">                                          <span class="type">const</span> <span class="keyword">struct</span> switchdev_obj *obj);</span><br><span class="line">        <span class="type">int</span>     (*switchdev_port_obj_dump)(<span class="keyword">struct</span> net_device *dev,</span><br><span class="line">                                           <span class="keyword">struct</span> switchdev_obj *obj,</span><br><span class="line">                                           <span class="type">switchdev_obj_dump_cb_t</span> *cb);</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>此結構被加入到 <strong>struct net_device</strong>內，所以 hardware switch driver 在創建 net_divce 時，要順便對該結構進行初始化，這樣對應的 function pointer 才有辦法在適當的時機被執行，這部分可以參考 rocker driver。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dev-&gt;switchdev_ops = &amp;rocker_port_switchdev_ops;</span><br></pre></td></tr></table></figure>
+
+<h3 id="Notifier"><a href="#Notifier" class="headerlink" title="Notifier"></a>Notifier</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">enum</span> <span class="title">switchdev_notifier_type</span> &#123;</span></span><br><span class="line">        SWITCHDEV_FDB_ADD = <span class="number">1</span>,</span><br><span class="line">        SWITCHDEV_FDB_DEL,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">switchdev_notifier_info</span> &#123;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">net_device</span> *<span class="title">dev</span>;</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">switchdev_notifier_fdb_info</span> &#123;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">switchdev_notifier_info</span> <span class="title">info</span>;</span> <span class="comment">/* must be first */</span></span><br><span class="line">        <span class="type">const</span> <span class="type">unsigned</span> <span class="type">char</span> *addr;</span><br><span class="line">        u16 vid;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>Notifier 是用來讓 hardware switch 通知 linux kernel 用的，目前只有實作 FDB 的部分。<br>當 hardware switch 的 FDB offload 有變化時(ADD&#x2F;DEL)，要透過這個方式一路通知道 linux kernel 去，這樣的話使用 <code>brctl show</code> 指令去看的時候，就可以看到即時的狀態變化。</p>
+<h2 id="Implementation"><a href="#Implementation" class="headerlink" title="Implementation"></a>Implementation</h2><h3 id="SwitchDev-Port-Attribute"><a href="#SwitchDev-Port-Attribute" class="headerlink" title="SwitchDev Port Attribute"></a>SwitchDev Port Attribute</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">switchdev_port_attr_get</span><span class="params">(<span class="keyword">struct</span> net_device *dev,</span></span><br><span class="line"><span class="params">                            <span class="keyword">struct</span> switchdev_attr *attr)</span>;</span><br><span class="line"><span class="type">int</span> <span class="title function_">switchdev_port_attr_set</span><span class="params">(<span class="keyword">struct</span> net_device *dev,</span></span><br><span class="line"><span class="params">                            <span class="type">const</span> <span class="keyword">struct</span> switchdev_attr *attr)</span>;</span><br></pre></td></tr></table></figure>
+<p>這兩個 function 是用來處理 attribute 的，其處理邏輯類似，基本上都按照下列走法</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">switchdev_ops</span> *<span class="title">ops</span> =</span> dev-&gt;switchdev_ops;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (ops &amp;&amp; ops-&gt;switchdev_port_attr_get)</span><br><span class="line">	<span class="keyword">return</span> ops-&gt;switchdev_port_attr_get(dev, attr);</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (attr-&gt;flags &amp; SWITCHDEV_F_NO_RECURSE)</span><br><span class="line">	<span class="keyword">return</span> err;</span><br><span class="line"></span><br><span class="line">netdev_for_each_lower_dev(dev, lower_dev, iter) &#123;</span><br><span class="line">	<span class="comment">/* do something */</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li>先判斷該 device 是否有實作 switchdev_ops,若有的話則直接呼叫 fptr 來處理.<ul>
+<li>參考 rocker driver.</li>
+</ul>
+</li>
+</ol>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">switchdev_ops</span> <span class="title">rocker_port_switchdev_ops</span> =</span> &#123;</span><br><span class="line">	.switchdev_port_attr_get        = rocker_port_attr_get,</span><br><span class="line">	.switchdev_port_attr_set        = rocker_port_attr_set,</span><br><span class="line">&#125;</span><br><span class="line">...</span><br><span class="line">dev-&gt;switchdev_ops = &amp;rocker_port_switchdev_ops;</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>判斷該 device 是否有被設定不需要遞迴往下尋找，若有的話則直接結束</li>
+<li>因為 switch port 可能是屬於 bond&#x2F;team&#x2F;vlan 等 device 底下，所以若直接操作上層的 device 是沒有辦法碰到 switch port 的，這邊會使用 <a target="_blank" rel="noopener" href="https://lists.ubuntu.com/archives/kernel-team/2014-June/043300.html">netdev_for_each_lower_dev</a> 來嘗試抓取到底下所有的 device。<ul>
+<li>對於 get&#x2F;set 來說，會針對底下每個 device 嘗試去 get&#x2F;set 其 attribute.</li>
+</ul>
+</li>
+</ol>
+<h3 id="SwitchDev-Port-Object-operation"><a href="#SwitchDev-Port-Object-operation" class="headerlink" title="SwitchDev Port Object operation"></a>SwitchDev Port Object operation</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">switchdev_port_obj_add</span><span class="params">(<span class="keyword">struct</span> net_device *dev,</span></span><br><span class="line"><span class="params">                           <span class="type">const</span> <span class="keyword">struct</span> switchdev_obj *obj)</span>;</span><br><span class="line"><span class="type">int</span> <span class="title function_">switchdev_port_obj_del</span><span class="params">(<span class="keyword">struct</span> net_device *dev,</span></span><br><span class="line"><span class="params">                           <span class="type">const</span> <span class="keyword">struct</span> switchdev_obj *obj)</span>;</span><br><span class="line"><span class="type">int</span> <span class="title function_">switchdev_port_obj_dump</span><span class="params">(<span class="keyword">struct</span> net_device *dev, <span class="keyword">struct</span> switchdev_obj *obj,</span></span><br><span class="line"><span class="params">                            <span class="type">switchdev_obj_dump_cb_t</span> *cb)</span>;</span><br></pre></td></tr></table></figure>
+<p>這三個 function 都是用來處理 object 的，其運作邏輯也類似</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">switchdev_ops</span> *<span class="title">ops</span> =</span> dev-&gt;switchdev_ops;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (ops &amp;&amp; ops-&gt;switchdev_port_obj_add)</span><br><span class="line">                <span class="keyword">return</span> ops-&gt;switchdev_port_obj_add(dev, obj, trans);</span><br><span class="line">netdev_for_each_lower_dev(dev, lower_dev, iter) &#123;</span><br><span class="line">	<span class="comment">/* do something */</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li>先檢查該 device 是否有實作 switchdev_ops,若有就呼叫對應的 function 來處理</li>
+<li>遞迴存取底下所有的 device (bond&#x2F;team&#x2F;vlan), 針對每個 device 都跑一次對應的結果。</li>
+<li>obj_dump 的部分還會傳入一個 <strong>call back</strong> function, 目前看到的只有兩個實作，分別是 <strong>switchdev_port_obj_dump</strong> 以及 <strong>switchdev_port_vlan_dump_cb</strong>。 兩者都要搭配另外一個 &#96;switchdev_port_xxx_dump** 的結構來使用，目前感覺用途不是很 general.<ul>
+<li>fdb 的 dump 與 <strong>rfnetlink</strong> 有關係，要搭配 <strong>ndo_fdb_dump</strong> 使用。user space tool 透過 netlink 來問 fdb 的資料時，會透過此 cb 將對應的內容填入到 netlink header 中，最後再一路送回 user space 去檢查。</li>
+</ul>
+</li>
+</ol>
+<ul>
+<li>vlan 的部分則是 <strong>rfnetlink</strong> 在使用的，會先呼叫到 <strong>ndo_bridge_getlink</strong>, 最後跑到 <strong>ndo_dflt_bridge_getlink</strong> 才會使用，ndo (network device operation) 的 netlink 操作有必要再多花一些時間去瞭解了。</li>
+</ul>
+<h3 id="Port-Bridge"><a href="#Port-Bridge" class="headerlink" title="Port Bridge"></a>Port Bridge</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">switchdev_port_bridge_getlink</span><span class="params">(<span class="keyword">struct</span> sk_buff *skb, u32 pid, u32 seq,</span></span><br><span class="line"><span class="params">                                  <span class="keyword">struct</span> net_device *dev, u32 filter_mask,</span></span><br><span class="line"><span class="params">                                  <span class="type">int</span> nlflags)</span>;</span><br><span class="line"><span class="type">int</span> <span class="title function_">switchdev_port_bridge_setlink</span><span class="params">(<span class="keyword">struct</span> net_device *dev,</span></span><br><span class="line"><span class="params">                                  <span class="keyword">struct</span> nlmsghdr *nlh, u16 flags)</span>;</span><br><span class="line"><span class="type">int</span> <span class="title function_">switchdev_port_bridge_dellink</span><span class="params">(<span class="keyword">struct</span> net_device *dev,</span></span><br><span class="line"><span class="params">                                  <span class="keyword">struct</span> nlmsghdr *nlh, u16 flags)</span>;</span><br></pre></td></tr></table></figure>
+<p>這三個 function 是用來操作 bridge port attribute 的，基本上都是被設定成 <strong>ndo_bridge_xxx</strong> 的 handler。<br>目前可以參考的範例應該是使用 <strong>br</strong> 這個與 <strong>ip</strong> 類似的 user-space tool.<br>詳細說明可以參考此 <a target="_blank" rel="noopener" href="http://comments.gmane.org/gmane.linux.network/232104">link</a></p>
+<h3 id="FDB-Operations"><a href="#FDB-Operations" class="headerlink" title="FDB Operations"></a>FDB Operations</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">switchdev_port_fdb_add</span><span class="params">(<span class="keyword">struct</span> ndmsg *ndm, <span class="keyword">struct</span> nlattr *tb[],</span></span><br><span class="line"><span class="params">                           <span class="keyword">struct</span> net_device *dev, <span class="type">const</span> <span class="type">unsigned</span> <span class="type">char</span> *addr,</span></span><br><span class="line"><span class="params">                           u16 vid, u16 nlm_flags)</span>;</span><br><span class="line"><span class="type">int</span> <span class="title function_">switchdev_port_fdb_del</span><span class="params">(<span class="keyword">struct</span> ndmsg *ndm, <span class="keyword">struct</span> nlattr *tb[],</span></span><br><span class="line"><span class="params">                           <span class="keyword">struct</span> net_device *dev, <span class="type">const</span> <span class="type">unsigned</span> <span class="type">char</span> *addr,</span></span><br><span class="line"><span class="params">                           u16 vid)</span>;</span><br><span class="line"><span class="type">int</span> <span class="title function_">switchdev_port_fdb_dump</span><span class="params">(<span class="keyword">struct</span> sk_buff *skb, <span class="keyword">struct</span> netlink_callback *cb,</span></span><br><span class="line"><span class="params">                            <span class="keyword">struct</span> net_device *dev,</span></span><br><span class="line"><span class="params">                            <span class="keyword">struct</span> net_device *filter_dev, <span class="type">int</span> idx)</span>;</span><br></pre></td></tr></table></figure>
+<p>這三個 function 是用來操作 fdb 的，當上層走 <strong>rtnetlink</strong> 中的 <strong>ndo_fdb_xxx</strong> type 時，就會觸發對應的 function handler，這些 function 最後都會呼叫到對應的 <strong>switchdev_port_obj_xxx</strong>。</p>
+<p>關於整個 FDB 的操作，可以用下列這張圖來總結<br><img src="https://lh3.googleusercontent.com/-sk760sgtc28/VwO9Wle0NKI/AAAAAAAAFOo/QrHADU1hDps5c5SmGBwU-nd54ZSJ7UjpQCCo/s720-Ic42/FDB.png"></p>
+<ul>
+<li>藍線代表的是 Notifer，當 Rocket 在 FDB 有任何變更時，會一路通知到 Linux Kernel 去，以確保 FDB 資料一致。</li>
+<li>圖中紅線代表的是走 ndo 系列的 netlink event，會直接跟 Rocker 溝通，因此透過 <code>br</code> 此指令去修改 FDB entry時，會先走紅線到 Rocker 去，接者走藍線去通知 Kernel 同步 FDB。</li>
+<li>當透過<code>brctl</code>指令去操作時，這邊目前能做的只有部分 attribute&#x2F;obj 的修改，如 STP 的狀態，此時則會一路從 switchdev 的核心傳到 Rocker 去處理。</li>
+<li>基本上 MDB 的操作則簡單很多，與 FIB 比較類似。</li>
+</ul>
+<h3 id="FIB-Operations"><a href="#FIB-Operations" class="headerlink" title="FIB Operations"></a>FIB Operations</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">int switchdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,</span><br><span class="line">                           u8 tos, u8 type, u32 nlflags, u32 tb_id);</span><br><span class="line">int switchdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,</span><br><span class="line">                           u8 tos, u8 type, u32 tb_id);</span><br><span class="line">void switchdev_fib_ipv4_abort(struct fib_info *fi);</span><br></pre></td></tr></table></figure>
+<ul>
+<li>這三個 function 是用來操作 IPv4 FIB offload 的，不同於 FDB，此 offload rule 本身的學習只能靠 linux kernl 來管理，當 kernel 決定要針對特定 FIB route 處理時，會呼叫上述的 add&#x2F;del 將相關的 FIB router 給加入到 hardware switch 中。</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">err = switchdev_fib_ipv4_add(key, plen, fi,</span><br><span class="line">      new_fa-&gt;fa_tos,</span><br><span class="line">      cfg-&gt;fc_type,</span><br><span class="line">      cfg-&gt;fc_nlflags,</span><br><span class="line">      tb-&gt;tb_id);</span><br><span class="line"><span class="keyword">if</span> (err) &#123;</span><br><span class="line">      switchdev_fib_ipv4_abort(fi);</span><br><span class="line">      kmem_cache_free(fn_alias_kmem, new_fa);</span><br><span class="line">      <span class="keyword">goto</span> out;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>當執行失敗的時候，會呼叫 abort 將 rules 給全部清空，並且將 IPv4 offload 給關閉<ul>
+<li>這部分還有待加強，由註解也可以看出來</li>
+</ul>
+</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* There was a problem installing this route to the offload</span></span><br><span class="line"><span class="comment">* device.  For now, until we come up with more refined</span></span><br><span class="line"><span class="comment">* policy handling, abruptly end IPv4 fib offloading for</span></span><br><span class="line"><span class="comment">* for entire net by flushing offload device(s) of all</span></span><br><span class="line"><span class="comment">* IPv4 routes, and mark IPv4 fib offloading broken from</span></span><br><span class="line"><span class="comment">* this point forward.</span></span><br><span class="line"><span class="comment">*/</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>而目前在加入 rules 的部分，也有針對條件去篩選，並非所有的 FIB 都會被加入<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">#ifdef CONFIG_IP_MULTIPLE_TABLES</span><br><span class="line">        if (fi-&gt;fib_net-&gt;ipv4.fib_has_custom_rules)</span><br><span class="line">                return 0;</span><br><span class="line">#endif</span><br><span class="line"></span><br><span class="line">        if (fi-&gt;fib_net-&gt;ipv4.fib_offload_disabled)</span><br><span class="line">                return 0;</span><br></pre></td></tr></table></figure>
+關於整個 FIB 的操作，可以用下列這張圖來總結<br><img src="https://lh3.googleusercontent.com/-6xvPI9pzSrQ/VwO-v0MUQ5I/AAAAAAAAFPA/4P4aYSo6pfMzzPLacKWG-lfICRtn087xQCCo/s720-Ic42/FIB.png"></li>
+<li>相對於 FDB，非常的簡單，只有 kernel 主動去加入 Rocker 而已</li>
+<li>目前 ndo_xxx_ooo 系列的操作中，還沒有看到 FIB 相關的，大部分都是 bridge&#x2F;vlan&#x2F;macvlan 等。</li>
+</ul>
+<h3 id="Notifier-1"><a href="#Notifier-1" class="headerlink" title="Notifier"></a>Notifier</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">int register_switchdev_notifier(struct notifier_block *nb);</span><br><span class="line">int unregister_switchdev_notifier(struct notifier_block *nb);</span><br><span class="line">int call_switchdev_notifiers(unsigned long val, struct net_device *dev,</span><br><span class="line">                             struct switchdev_notifier_info *info);</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>基本上就是用讓 hardware switch driver 呼叫的，當 switchdevb 有任何更動需要讓上層知道時就會呼叫 <strong>call_switchdev_notifiers</strong>，此時所有透過 <strong>register_switchdev_notifier</strong> 註冊的 handler 都會去處理</li>
+<li>目前有透過的 <strong>register_switchdev_notifier</strong> 註冊的只有 bridge(br.c), 目的是用來同步 FIB 資訊。</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/System/" rel="tag"># System</a>
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/Kernel/" rel="tag"># Kernel</a>
+              <a href="/tags/Switchdev/" rel="tag"># Switchdev</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2016-04-04-switchdev-ii.html" rel="prev" title="[Switchdev] How Kernel Implement SwitchDev(i)">
+                  <i class="fa fa-chevron-left"></i> [Switchdev] How Kernel Implement SwitchDev(i)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/coscup-mininet.html" rel="next" title="COSCUP 2016 Workshop 投影片">
+                  COSCUP 2016 Workshop 投影片 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

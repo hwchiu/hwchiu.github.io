@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="「Tetragon, 基於 eBPF 的 Kubernetes 資安管理工具」">
+<meta property="og:type" content="article">
+<meta property="og:title" content="閱讀筆記: 「Tetragon, 基於 eBPF 的 Kubernetes 資安管理工具」">
+<meta property="og:url" content="https://www.hwchiu.com/read-notes-52.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="「Tetragon, 基於 eBPF 的 Kubernetes 資安管理工具」">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2022-05-22T16:05:08.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.643Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Reading">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/read-notes-52.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/read-notes-52.html","path":"read-notes-52.html","title":"閱讀筆記: 「Tetragon, 基於 eBPF 的 Kubernetes 資安管理工具」"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>閱讀筆記: 「Tetragon, 基於 eBPF 的 Kubernetes 資安管理工具」 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">1.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/read-notes-52.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="閱讀筆記: 「Tetragon, 基於 eBPF 的 Kubernetes 資安管理工具」 | Hwchiu Learning Note">
+      <meta itemprop="description" content="「Tetragon, 基於 eBPF 的 Kubernetes 資安管理工具」">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          閱讀筆記: 「Tetragon, 基於 eBPF 的 Kubernetes 資安管理工具」
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2022-05-23 00:05:08" itemprop="dateCreated datePublished" datetime="2022-05-23T00:05:08+08:00">2022-05-23</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">「Tetragon, 基於 eBPF 的 Kubernetes 資安管理工具」</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>標題: 「Tetragon, 基於 eBPF 的 Kubernetes 資安管理工具」<br>類別: others<br>連結: <a target="_blank" rel="noopener" href="https://isovalent.com/blog/post/2022-05-16-tetragon">https://isovalent.com/blog/post/2022-05-16-tetragon</a></p>
+<p>Cillium 的開發團隊 isovalent 最近公布其內部一直使用的資安相關專案， Teragon (可愛的蜜蜂戰士)。</p>
+<p>Teragon 底層是基於 eBPF 的技術，其目的就是讓你的 Kubernetes 於資安方面可以獲得超級強大的能力，包含</p>
+<ol>
+<li>詳細的視覺化功能，讓你可以一目瞭然到底系統中各項資源的發生過程</li>
+<li>動態強化，可以讓你透過 Kubernetes CRD, OPA, Json 等各種格式來描述相關規範，然後動態無縫的套入到你的 Kubernetes 叢集中</li>
+</ol>
+<p>探討 Teragon 前，要先理解以前目前已知的相關解決方案有哪些，而這些解決方案又有什麼樣的優缺點，包含</p>
+<ol>
+<li>App Instrumentation</li>
+<li>LD_PRELOAD</li>
+<li>ptrace</li>
+<li>seccomp</li>
+<li>SELinux&#x2F;LSM</li>
+<li>Kernel Module</li>
+</ol>
+<p>上述六個方式都有各自的特點，這邊簡單敘述</p>
+<p>App Instrumentation<br>O 效率高，可以看到非常細部的資訊<br>X 程式碼需要修改，不夠透明<br>X 單純的視覺化，不能套入資安規則來防護應用程式<br>X 應用程式為主，不能理解整個系統的狀況</p>
+<p>LD_PRELOAD (動態切換載入的 Library )<br>O 效率高<br>O 應用程式不需要修改<br>X 如果是 Static Llinking 的應用程式那就沒有用了<br>X 幾乎沒有什麼觀察性可言</p>
+<p>ptrace (透過 kernel 提供的功能來檢視使用的 syscall)<br>O 透明，應用程式不用修改<br>X 效能負擔比較高<br>X 應用程式有辦法偵測到自己目前被 ptrace 給監控<br>X 整體範圍只能針對 syscall(系統呼叫)</p>
+<p>seccomp (可以過濾應用程式呼叫的 syscall)<br>O 有效率，應用程式不需要修改<br>X 規則只能針對 syscall 去阻擋<br>X 沒有很好的視覺化方式</p>
+<p>SELinux&#x2F;LSM (Kernel 內建的 security 框架，可以針對存取去控制)<br>O 有效率，應用程式不需要修改<br>O 可防 TOCTTOU 攻擊<br>X 針對 Contaienr&#x2F;Kubernetes 的整合很有限<br>X 不容易擴充<br>X 要針對攻擊類型去設定</p>
+<p>Kernel Module<br>O 有效率，應用程式不需要修改<br>O 不用修改 Kernel 就可以擴充功能<br>X 不是每個環境都允許使用者去載入 kenrel Module<br>X Module 有問題會打爆你的 Kernel<br>X 沒辦法無縫升級，意味你升級功能的過程中必須要將kernel module給 uninstall ，然後重新安裝</p>
+<p>上列六個解決方案有的只能檢視相關流程，有的只能設定規則去防護，但是就是沒有一個工具可以全面處理，而基於 eBPF 實作的 Tetragon 則是一個<br>能夠提供兩項功能的全新解決方案。</p>
+<p>首先資安防護方面， Tetragon 採取的是更底層的概念，不去探討特定的 CVE 操作手法，取而代之的是從幾個常見的攻擊方式來防禦。<br>假如有任何應用程式有不預期的下列行為，就可以直接將該 Process 移除</p>
+<ol>
+<li>使用到不該使用的 capability</li>
+<li>使用到不該使用的 linux namespace</li>
+<li>使用到不該使用的 binary</li>
+<li>看到不該出現的 Pid </li>
+<li>…</li>
+</ol>
+<p>這些規則都可以透過 Kubernetes CRD 來描述，當這些規則被送到 Kubernetes 後，相關的 Controller 就會將規則給轉換後續讓 eBPF 來處理<br>此外因為 eBPF 以及 kprobe 的架構，Tetragon 能夠看到非常多 kernel 的資源存取與操作，譬如</p>
+<ol>
+<li>syscall(系統呼叫)</li>
+<li>Virtual FS</li>
+<li>TCP&#x2F;IP</li>
+<li>namespace</li>
+<li>Storage</li>
+<li>Network</li>
+</ol>
+<p>Tetragon 收集上列不同資訊的資料後進行二次處理，透過精美的網頁來顯示系統中的各種資訊，這些資訊可以提供包含</p>
+<ol>
+<li>哪些 Pod 一直存取 &#x2F;etc&#x2F;passwd, 採用何種方式存取 &#x2F;etc&#x2F;passwd</li>
+<li>特定 Pod 中對外的網路流量資訊，從封包內容到用什麼指令去存取都可以看光光</li>
+<li>…</li>
+</ol>
+<p>eBPF 的應用愈來愈多，而目前看起來 isovalent 更是 Kubernetes 生態系中的領頭羊，雖然不確定未來是否能夠被廣泛採用，但是至少這方面還沒有看到其他解決方案有這麼積極的基於 eBPF 來開發<br>有餘力的話花點時間學習一下 eBPF 的概念可以加強自己對於這類型文章的速度與理解度</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>詳細可以參閱<br>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Reading/" rel="tag"># Reading</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/read-notes-51.html" rel="prev" title="閱讀筆記: 「Datree, Kubernetes Configuration 檢查工具」">
+                  <i class="fa fa-chevron-left"></i> 閱讀筆記: 「Datree, Kubernetes Configuration 檢查工具」
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/read-notes-53.html" rel="next" title="閱讀筆記: 「Mizu, 一套用來檢視 Kubernetes Traffic 的視覺化工具」">
+                  閱讀筆記: 「Mizu, 一套用來檢視 Kubernetes Traffic 的視覺化工具」 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

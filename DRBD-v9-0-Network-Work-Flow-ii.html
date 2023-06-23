@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="Introduction本文延續之前研究 drbd 9.0 網路的工作流程，這篇文章主要在研究其 kernel space 中的行為與邏輯。 從之前 drbdsetup 那邊可以觀察到，這三個指令的結構如下，其中要特別注意的就是DRBD_ADM_CONNECT, DRBD_ADM_NEW_PEER 以及 DRBD_ADM_NEW_PATH。這三個數值其實是給 netlink 使用的，在 kerne">
+<meta property="og:type" content="article">
+<meta property="og:title" content="DRBD v9.0 Network Work Flow(ii)">
+<meta property="og:url" content="https://www.hwchiu.com/DRBD-v9-0-Network-Work-Flow-ii.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="Introduction本文延續之前研究 drbd 9.0 網路的工作流程，這篇文章主要在研究其 kernel space 中的行為與邏輯。 從之前 drbdsetup 那邊可以觀察到，這三個指令的結構如下，其中要特別注意的就是DRBD_ADM_CONNECT, DRBD_ADM_NEW_PEER 以及 DRBD_ADM_NEW_PATH。這三個數值其實是給 netlink 使用的，在 kerne">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://i.imgur.com/xg6LxPS.jpg">
+<meta property="og:image" content="http://i.imgur.com/Mya9Xss.jpg">
+<meta property="article:published_time" content="2017-05-12T09:22:18.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.597Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="System">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="SourceCode">
+<meta property="article:tag" content="DRBD">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://i.imgur.com/xg6LxPS.jpg">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/DRBD-v9-0-Network-Work-Flow-ii.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/DRBD-v9-0-Network-Work-Flow-ii.html","path":"DRBD-v9-0-Network-Work-Flow-ii.html","title":"DRBD v9.0 Network Work Flow(ii)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>DRBD v9.0 Network Work Flow(ii) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Introduction"><span class="nav-number">1.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#drbd-adm-new-peer"><span class="nav-number">2.</span> <span class="nav-text">drbd_adm_new_peer</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#adm-new-connection"><span class="nav-number">2.1.</span> <span class="nav-text">adm_new_connection</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#drbd-create-connection"><span class="nav-number">2.2.</span> <span class="nav-text">drbd_create_connection</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#drbd-adm-new-path"><span class="nav-number">3.</span> <span class="nav-text">drbd_adm_new_path</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#adm-add-path"><span class="nav-number">3.1.</span> <span class="nav-text">adm_add_path</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%8E%A5%E4%B8%8B%E4%BE%86%E5%B0%B1%E5%A6%82%E5%90%8C%E4%B8%8A%E8%BF%B0%E7%9A%84%E6%AD%A5%E9%A9%9F%E4%B8%80%E6%A8%A3%EF%BC%8C%E5%85%88%E5%BE%9E-netlink-%E4%B8%AD%E5%8F%96%E5%87%BA%E6%88%91%E5%80%91%E9%9C%80%E8%A6%81%E7%9A%84%E8%B3%87%E8%A8%8A%EF%BC%8C%E5%9C%A8%E9%80%99%E5%80%8B%E6%8C%87%E4%BB%A4%E4%B8%AD%EF%BC%8C%E6%88%91%E5%80%91%E9%9C%80%E8%A6%81%E7%9A%84%E6%98%AF%E4%B8%80%E6%A2%9D-path-%E5%85%A9%E7%AB%AF%E9%BB%9E%E7%9A%84-address-ip-port-%E3%80%82%E6%8E%A5%E8%80%85%E9%80%8F%E9%81%8Echeck-path-usable%E6%AA%A2%E6%9F%A5%E8%A9%B2%E5%8F%83%E6%95%B8%EF%BC%8C%E8%AD%AC%E5%A6%82%E6%98%AF%E5%90%A6%E5%AD%98%E5%9C%A8%EF%BC%8C%E6%98%AF%E5%90%A6%E5%B7%B2%E7%B6%93%E4%BD%BF%E7%94%A8%E9%81%8E%E3%80%82%E4%B8%80%E5%88%87%E6%BA%96%E5%82%99%E5%AE%8C%E7%95%A2%E5%BE%8C%EF%BC%8C%E9%96%8B%E5%A7%8B%E5%89%B5%E7%AB%8B-strcut-drbd-path%EF%BC%8C%E5%85%88%E5%BE%9E-kernel-%E8%A6%81%E7%A9%BA%E9%96%93%EF%BC%8C%E6%8E%A5%E4%B8%8B%E4%BE%86%E6%8A%8A%E5%85%A9%E7%AB%AF%E9%BB%9E%E7%9A%84-address-%E9%83%BD%E8%A4%87%E8%A3%BD%E9%80%B2%E5%8E%BB%EF%BC%8C%E6%9C%80%E5%BE%8C%E5%B0%B1%E8%AE%93-transport-class-%E8%87%AA%E8%A1%8C%E5%8E%BB%E8%B2%A0%E8%B2%AC%E8%A6%81%E6%80%8E%E9%BA%BC%E8%99%95%E7%90%86%E4%BA%86%EF%BC%8C%E6%96%BC%E6%98%AF%E5%91%BC%E5%8F%AB%E4%BA%86-transport-gt-ops-gt-add-path-%E5%8E%BB%E8%99%95%E7%90%86%E3%80%82-%E5%9C%A8%E6%9C%AC%E6%96%87%E7%9A%84%E7%AF%84%E4%BE%8B%E4%B8%AD%E4%BD%BF%E7%94%A8%E7%9A%84%E6%98%AF-TCP-%E7%9A%84%E6%96%B9%E5%BC%8F%EF%BC%8C%E6%9C%80%E5%BE%8C%E5%89%87%E6%98%AF%E9%80%8F%E9%81%8E-dtt-add-path-%E5%8E%BB%E8%99%95%E7%90%86%EF%BC%8C%E8%A9%B3%E7%B4%B0%E8%99%95%E7%90%86%E7%9A%84%E6%B5%81%E7%A8%8B%E4%B9%8B%E5%BE%8C%E6%9C%83%E5%86%8D%E4%BB%94%E7%B4%B0%E7%A0%94%E7%A9%B6%E6%95%B4%E5%80%8B-TCP-%E5%B1%A4%E7%9A%84%E6%9E%B6%E6%A7%8B%E3%80%82drbd-adm-connect"><span class="nav-number">4.</span> <span class="nav-text">接下來就如同上述的步驟一樣，先從 netlink 中取出我們需要的資訊，在這個指令中，我們需要的是一條 path 兩端點的 **address(ip:port)**。接者透過check_path_usable檢查該參數，譬如是否存在，是否已經使用過。123456783547     &#x2F;* parse and validate only *&#x2F;3548     err &#x3D; path_parms_from_attrs(NULL, info);3549     if (err) {3550         drbd_msg_put_info(adm_ctx-&gt;reply_skb, from_attrs_err_to_txt(err));3551         return ERR_MANDATORY_TAG;3552     }3553     my_addr &#x3D; nested_attr_tb[__nla_type(T_my_addr)];3554     peer_addr &#x3D; nested_attr_tb[__nla_type(T_peer_addr)];一切準備完畢後，開始創立 strcut drbd_path，先從 kernel 要空間，接下來把兩端點的 address 都複製進去，最後就讓 transport class 自行去負責要怎麼處理了，於是呼叫了 transport-&gt;ops-&gt;add_path 去處理。 在本文的範例中使用的是 TCP 的方式，最後則是透過 dtt_add_path 去處理，詳細處理的流程之後會再仔細研究整個 TCP 層的架構。1234567891011121314151617183562     path &#x3D; kzalloc(transport-&gt;class-&gt;path_instance_size, GFP_KERNEL);3563     if (!path)3564         return ERR_NOMEM;35653566     path-&gt;my_addr_len &#x3D; nla_len(my_addr);3567     memcpy(&amp;path-&gt;my_addr, nla_data(my_addr), path-&gt;my_addr_len);3568     path-&gt;peer_addr_len &#x3D; nla_len(peer_addr);3569     memcpy(&amp;path-&gt;peer_addr, nla_data(peer_addr), path-&gt;peer_addr_len);35703571     kref_init(&amp;path-&gt;kref);35723573     err &#x3D; transport-&gt;ops-&gt;add_path(transport, path);3574     if (err) {3575         kref_put(&amp;path-&gt;kref, drbd_destroy_path);3576         drbd_err(adm_ctx-&gt;connection, &quot;add_path() failed with %d\n&quot;, err);3577         drbd_msg_put_info(adm_ctx-&gt;reply_skb, &quot;add_path on transport failed&quot;);3578         return ERR_INVALID_REQUEST;3579     }drbd_adm_connect</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#conn-connect"><span class="nav-number">4.1.</span> <span class="nav-text">conn_connect</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">5.</span> <span class="nav-text">Summary</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/DRBD-v9-0-Network-Work-Flow-ii.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="DRBD v9.0 Network Work Flow(ii) | Hwchiu Learning Note">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          DRBD v9.0 Network Work Flow(ii)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2017-05-12 17:22:18" itemprop="dateCreated datePublished" datetime="2017-05-12T17:22:18+08:00">2017-05-12</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h1><p>本文延續之前研究 drbd 9.0 網路的工作流程，這篇文章主要在研究其 kernel space 中的行為與邏輯。</p>
+<p>從之前 <code>drbdsetup</code> 那邊可以觀察到，這三個指令的結構如下，其中要特別注意的就是<br><strong>DRBD_ADM_CONNECT</strong>, <strong>DRBD_ADM_NEW_PEER</strong> 以及 <strong>DRBD_ADM_NEW_PATH</strong>。<br>這三個數值其實是給 netlink 使用的，在 kernel 端會去註冊遇到三種類型的 netlink 應該要怎麼處理。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0397</span>     &#123;<span class="string">&quot;connect&quot;</span>, CTX_PEER_NODE,</span><br><span class="line"><span class="number">0398</span>         DRBD_ADM_CONNECT, DRBD_NLA_CONNECT_PARMS,</span><br><span class="line"><span class="number">0399</span>         F_CONFIG_CMD,</span><br><span class="line"><span class="number">0400</span>      .ctx = &amp;connect_cmd_ctx,</span><br><span class="line"><span class="number">0401</span>      .summary = <span class="string">&quot;Attempt to (re)establish a replication link to a peer host.&quot;</span> &#125;,</span><br></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0403</span>     &#123;<span class="string">&quot;new-peer&quot;</span>, CTX_PEER_NODE,</span><br><span class="line"><span class="number">0404</span>         DRBD_ADM_NEW_PEER, DRBD_NLA_NET_CONF,</span><br><span class="line"><span class="number">0405</span>         F_CONFIG_CMD,</span><br><span class="line"><span class="number">0406</span>      .ctx = &amp;new_peer_cmd_ctx,</span><br><span class="line"><span class="number">0407</span>      .summary = <span class="string">&quot;Make a peer host known to a resource.&quot;</span> &#125;,</span><br></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0415</span>     &#123;<span class="string">&quot;new-path&quot;</span>, CTX_PEER_NODE,</span><br><span class="line"><span class="number">0416</span>         DRBD_ADM_NEW_PATH, DRBD_NLA_PATH_PARMS,</span><br><span class="line"><span class="number">0417</span>         F_CONFIG_CMD,</span><br><span class="line"><span class="number">0418</span>      .drbd_args = (<span class="keyword">struct</span> drbd_argument[]) &#123;</span><br><span class="line"><span class="number">0419</span>         &#123; <span class="string">&quot;local-addr&quot;</span>, T_my_addr, conv_addr &#125;,</span><br><span class="line"><span class="number">0420</span>         &#123; <span class="string">&quot;remote-addr&quot;</span>, T_peer_addr, conv_addr &#125;,</span><br><span class="line"><span class="number">0421</span>         &#123; &#125; &#125;,</span><br><span class="line"><span class="number">0422</span>      .ctx = &amp;path_cmd_ctx,</span><br><span class="line"><span class="number">0423</span>      .summary = <span class="string">&quot;Add a path (endpoint address pair) where a peer host should be reachable.&quot;</span> &#125;,</span><br></pre></td></tr></table></figure>
+
+<span id="more"></span>
+
+<p>在 <code>drbd_genl.h</code> 中可以看到有下列程式碼，這邊主要是註冊 netlink 的 MACRO，這邊注意的則是 <strong>GENL_doit</strong>，裡面放的是一個 fptr，指向當此 type 被觸發後，要用來處理的 function。<br>所以我們可以明確的知道，在 kernel裡面對應三個指令的 function 分別是<br><strong>drbd_adm_new_peer</strong>, <strong>drbd_adm_new_path</strong>, 以及 <strong>drbd_adm_connect</strong>。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0350</span> GENL_op(DRBD_ADM_NEW_PEER, <span class="number">44</span>, GENL_doit(drbd_adm_new_peer),</span><br><span class="line"><span class="number">0351</span>     GENL_tla_expected(DRBD_NLA_CFG_CONTEXT, DRBD_F_REQUIRED)</span><br><span class="line"><span class="number">0352</span>     GENL_tla_expected(DRBD_NLA_NET_CONF, DRBD_GENLA_F_MANDATORY)</span><br><span class="line"><span class="number">0353</span> )</span><br><span class="line"><span class="number">0354</span></span><br><span class="line"><span class="number">0355</span> GENL_op(DRBD_ADM_NEW_PATH, <span class="number">45</span>, GENL_doit(drbd_adm_new_path),</span><br><span class="line"><span class="number">0356</span>     GENL_tla_expected(DRBD_NLA_CFG_CONTEXT, DRBD_F_REQUIRED)</span><br><span class="line"><span class="number">0357</span>     GENL_tla_expected(DRBD_NLA_PATH_PARMS, DRBD_F_REQUIRED)</span><br><span class="line"><span class="number">0358</span> )</span><br><span class="line"><span class="number">0359</span></span><br><span class="line"><span class="number">0369</span></span><br><span class="line"><span class="number">0370</span> GENL_op(DRBD_ADM_CONNECT, <span class="number">10</span>, GENL_doit(drbd_adm_connect),</span><br><span class="line"><span class="number">0371</span>     GENL_tla_expected(DRBD_NLA_CFG_CONTEXT, DRBD_F_REQUIRED)</span><br><span class="line"><span class="number">0372</span>     GENL_tla_expected(DRBD_NLA_CONNECT_PARMS, DRBD_GENLA_F_MANDATORY)</span><br><span class="line"><span class="number">0373</span> )</span><br></pre></td></tr></table></figure>
+
+
+<h1 id="drbd-adm-new-peer"><a href="#drbd-adm-new-peer" class="headerlink" title="drbd_adm_new_peer"></a>drbd_adm_new_peer</h1><p>基本上 peer 跟 connection 是差不多的東西的，所以這個 function 其實就是創好一條 connection，這邊的 connection 是個抽象層的概念，並不代表底下實際上的網路連線已經建立完畢了。</p>
+<p>如果此 connection 之前已經創立過，則 <strong>adm_ctx.connection</strong> 該指標就會指向該 <strong>connection</strong>，否則就透過 <code>adm_new_connection</code> 創立一條 connection。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">3656</span> <span class="type">int</span> <span class="title function_">drbd_adm_new_peer</span><span class="params">(<span class="keyword">struct</span> sk_buff *skb, <span class="keyword">struct</span> genl_info *info)</span></span><br><span class="line">3657 &#123;</span><br><span class="line"><span class="number">3658</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_config_context</span> <span class="title">adm_ctx</span>;</span></span><br><span class="line"><span class="number">3659</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_connection</span> *<span class="title">connection</span>;</span></span><br><span class="line"><span class="number">3660</span>     <span class="class"><span class="keyword">enum</span> <span class="title">drbd_ret_code</span> <span class="title">retcode</span>;</span></span><br><span class="line"><span class="number">3661</span></span><br><span class="line"><span class="number">3662</span>     retcode = drbd_adm_prepare(&amp;adm_ctx, skb, info, DRBD_ADM_NEED_PEER_NODE);</span><br><span class="line"><span class="number">3663</span>     <span class="keyword">if</span> (!adm_ctx.reply_skb)</span><br><span class="line"><span class="number">3664</span>         <span class="keyword">return</span> retcode;</span><br><span class="line"><span class="number">3665</span></span><br><span class="line"><span class="number">3666</span>     mutex_lock(&amp;adm_ctx.resource-&gt;adm_mutex);</span><br><span class="line"><span class="number">3667</span></span><br><span class="line"><span class="number">3668</span>     <span class="keyword">if</span> (adm_ctx.connection) &#123;</span><br><span class="line"><span class="number">3669</span>         retcode = ERR_INVALID_REQUEST;</span><br><span class="line"><span class="number">3670</span>         drbd_msg_put_info(adm_ctx.reply_skb, <span class="string">&quot;peer connection already exists&quot;</span>);</span><br><span class="line"><span class="number">3671</span>     &#125; <span class="keyword">else</span> &#123;</span><br><span class="line"><span class="number">3672</span>         retcode = adm_new_connection(&amp;connection, &amp;adm_ctx, info);</span><br><span class="line"><span class="number">3673</span>     &#125;</span><br><span class="line"><span class="number">3674</span></span><br><span class="line"><span class="number">3675</span>     mutex_unlock(&amp;adm_ctx.resource-&gt;adm_mutex);</span><br><span class="line"><span class="number">3676</span>     drbd_adm_finish(&amp;adm_ctx, info, retcode);</span><br><span class="line"><span class="number">3677</span>     <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"><span class="number">3678</span> &#125;</span><br></pre></td></tr></table></figure>
+<h2 id="adm-new-connection"><a href="#adm-new-connection" class="headerlink" title="adm_new_connection"></a>adm_new_connection</h2><p>首先，先確認當前還沒有 connection 存在，接下來我們要開始取得一些跟 network 相關的設定，所以這邊會先透過 <code>kzalloc</code> 在 kernel 內產生一個空間，接下來透過 <code>net_conf_from_attrs</code> 從 <strong>netlink</strong> 的 <strong>attribute</strong>中讀取相關的資料，然後 <strong>new_net_conf</strong>  結構中，由於 <code>net_conf_from_attrs</code> 是支由 MACRO 展開的 function，內容不好閱讀，只要知道能夠從 <strong>netlink</strong> 內讀取到想要的數據，並且拿出來即可。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">3326</span>     *ret_conn = <span class="literal">NULL</span>;</span><br><span class="line"><span class="number">3327</span>     <span class="keyword">if</span> (adm_ctx-&gt;connection) &#123;</span><br><span class="line"><span class="number">3328</span>         drbd_err(adm_ctx-&gt;resource, <span class="string">&quot;Connection for peer node id %d already exists\n&quot;</span>,</span><br><span class="line"><span class="number">3329</span>              adm_ctx-&gt;peer_node_id);</span><br><span class="line"><span class="number">3330</span>         <span class="keyword">return</span> ERR_INVALID_REQUEST;</span><br><span class="line"><span class="number">3331</span>     &#125;</span><br><span class="line"><span class="number">3332</span></span><br><span class="line"><span class="number">3333</span>     <span class="comment">/* allocation not in the IO path, drbdsetup / netlink process context */</span></span><br><span class="line"><span class="number">3334</span>     new_net_conf = kzalloc(<span class="keyword">sizeof</span>(*new_net_conf), GFP_KERNEL);</span><br><span class="line"><span class="number">3335</span>     <span class="keyword">if</span> (!new_net_conf)</span><br><span class="line"><span class="number">3336</span>         <span class="keyword">return</span> ERR_NOMEM;</span><br><span class="line"><span class="number">3337</span></span><br><span class="line"><span class="number">3338</span>     set_net_conf_defaults(new_net_conf);</span><br><span class="line"><span class="number">3339</span></span><br><span class="line"><span class="number">3340</span>     err = net_conf_from_attrs(new_net_conf, info);</span><br><span class="line"><span class="number">3341</span>     <span class="keyword">if</span> (err) &#123;</span><br><span class="line"><span class="number">3342</span>         retcode = ERR_MANDATORY_TAG;</span><br><span class="line"><span class="number">3343</span>         drbd_msg_put_info(adm_ctx-&gt;reply_skb, from_attrs_err_to_txt(err));</span><br><span class="line"><span class="number">3344</span>         <span class="keyword">goto</span> fail;</span><br><span class="line"><span class="number">3345</span>     &#125;</span><br></pre></td></tr></table></figure>
+<p>接下來會從設定檔中判斷當前的網路連線是走什麼協定，一般免費社群使用的版本只有 tcp 可以，接洽購買後可以獲得 RDMA 相關的 kernel module 來使用。<br>所以這邊最後會透過 <code>drbd_get_transport_class</code> 根據對應的名稱來找到對應的 netowrk module 實作。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">3347</span>     transport_name = new_net_conf-&gt;transport_name[<span class="number">0</span>] ? new_net_conf-&gt;transport_name : <span class="string">&quot;tcp&quot;</span>;</span><br><span class="line"><span class="number">3348</span>     tr_class = drbd_get_transport_class(transport_name);</span><br><span class="line"><span class="number">3349</span>     <span class="keyword">if</span> (!tr_class) &#123;</span><br><span class="line"><span class="number">3350</span>         retcode = ERR_CREATE_TRANSPORT;</span><br><span class="line"><span class="number">3351</span>         <span class="keyword">goto</span> fail;</span><br><span class="line"><span class="number">3352</span>     &#125;</span><br></pre></td></tr></table></figure>
+
+<p>接下來則是透過 <code>drbd_create_connection</code> 來創建 connection，這邊會將剛剛得到的 <strong>transport_class</strong> 一併傳入，因為最後會需要該 <strong>transport_class</strong> 去執行底層的 init。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">3354</span>     connection = drbd_create_connection(adm_ctx-&gt;resource, tr_class);</span><br><span class="line"><span class="number">3355</span>     <span class="keyword">if</span> (!connection) &#123;</span><br><span class="line"><span class="number">3356</span>         retcode = ERR_NOMEM;</span><br><span class="line"><span class="number">3357</span>         <span class="keyword">goto</span> fail_put_transport;</span><br><span class="line"><span class="number">3358</span>     &#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="drbd-create-connection"><a href="#drbd-create-connection" class="headerlink" title="drbd_create_connection"></a>drbd_create_connection</h2><p>一開始，就先透過 <code>kzalloc</code> 去創建一個空間供 <strong>connection</strong>使用，這邊可以注意到 <strong>size</strong> 的算法非常特別，除了直接用 <code>sizeof</code> 算出該物件外，最後會有一個大小的微調<br><strong>- sizeof(connection-&gt;transport) + tc-&gt;instance_size</strong><br>這邊原因要牽扯到 <strong>drbd_connection</strong> 的實作內容，在其架構中有這樣一段註解</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">1050</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_transport</span> <span class="title">transport</span>;</span> <span class="comment">/* The transport needs to be the last member. The acutal</span></span><br><span class="line"><span class="comment">1051                         implementation might have more members than the</span></span><br><span class="line"><span class="comment">1052                         abstract one. */</span></span><br><span class="line"><span class="number">1053</span> &#125;;</span><br></pre></td></tr></table></figure>
+<p>可以看到其實最後一個欄位算是一個比較抽象的概念，實際上底層的實作可以有更多的變化，所以這邊在計算真正整體大小時，要先扣掉 <strong>sizeof drbd_transport</strong>，然後加上該實作真正用到的大小 <strong>tc-&gt;instance_size</strong>。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">3302</span> <span class="keyword">struct</span> drbd_connection *<span class="title function_">drbd_create_connection</span><span class="params">(<span class="keyword">struct</span> drbd_resource *resource,</span></span><br><span class="line"><span class="params"><span class="number">3303</span>                            <span class="keyword">struct</span> drbd_transport_class *tc)</span></span><br><span class="line">3304 &#123;</span><br><span class="line"><span class="number">3305</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_connection</span> *<span class="title">connection</span>;</span></span><br><span class="line"><span class="number">3306</span>     <span class="type">int</span> size;</span><br><span class="line"><span class="number">3307</span></span><br><span class="line"><span class="number">3308</span>     size = <span class="keyword">sizeof</span>(*connection) - <span class="keyword">sizeof</span>(connection-&gt;transport) + tc-&gt;instance_size;</span><br><span class="line"><span class="number">3309</span>     connection = kzalloc(size, GFP_KERNEL);</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>接下來就要開始初始化 <strong>drbd__connection</strong> 內部的各種結構，包含各種 link list 相關的結構。<br>在一切初始化完畢後，最後呼叫 <strong>transport class</strong> 自己本身的 <strong>init</strong>。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">3374</span>     <span class="keyword">if</span> (tc-&gt;init(&amp;connection-&gt;transport))</span><br><span class="line"><span class="number">3375</span>         <span class="keyword">goto</span> fail;</span><br></pre></td></tr></table></figure>
+
+<p>在創建完畢 connection 後，接下來針對 <strong>net_option</strong>，<strong>crtpyo</strong>， <strong>peer device</strong> 去進行初始化的動作，<br>中間有一段則是將該 connetion 給加到 ** resource ** 此物件中，用 link list 的方式把所有的 connection 都綁起來，未來有其他指令要找到 connection 要使用時，就可以透過此方式找到之前創建的 connection</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">3401</span>     spin_lock_irq(&amp;adm_ctx-&gt;resource-&gt;req_lock);</span><br><span class="line"><span class="number">3402</span>     list_add_tail_rcu(&amp;connection-&gt;connections, &amp;adm_ctx-&gt;resource-&gt;connections);</span><br><span class="line"><span class="number">3403</span>     spin_unlock_irq(&amp;adm_ctx-&gt;resource-&gt;req_lock);</span><br></pre></td></tr></table></figure>
+<p>最後呼叫<code>drbd_thread_start</code> 去創建一個 <strong>kernel thread</strong>來運行 <code>drbd_sender</code>　此 thread。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">3467</span>     drbd_thread_start(&amp;connection-&gt;sender);</span><br></pre></td></tr></table></figure>
+<p>大致上此 function 就結束了。<br>整個<strong>drbd_adm_new_peer</strong>執行完畢後， kernel 內的 <strong>resource</strong> 底下就會有一個 <strong>drbd_connection</strong>的物件在運行，接下來的指令都會嘗試透過 <code>drbd_get_connection_by_node_id</code> 的方式得到該 connection 來進行後續操作。</p>
+<h1 id="drbd-adm-new-path"><a href="#drbd-adm-new-path" class="headerlink" title="drbd_adm_new_path"></a>drbd_adm_new_path</h1><p>在透過 <code>drbd_adm_new_peer</code> 創立一個 connection (peer) 後，接下來我們要在這條    connection 上創立一個新的 path， path 代表的就是實際上連線會對應的 ip address 以及對應的 port。<br>一開始會先透過 <code>drbd_adm_prepare</code> 進行一些資源的獲取，包含 <strong>connection</strong> 也會在裡面取得，然後放到 <strong>adm_ctx.connection</strong> 變數上。<br>接下來就透過 <code>adm_add_path</code> 進行細部的處理。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">3680</span> <span class="type">int</span> <span class="title function_">drbd_adm_new_path</span><span class="params">(<span class="keyword">struct</span> sk_buff *skb, <span class="keyword">struct</span> genl_info *info)</span></span><br><span class="line">3681 &#123;</span><br><span class="line"><span class="number">3682</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_config_context</span> <span class="title">adm_ctx</span>;</span></span><br><span class="line"><span class="number">3683</span>     <span class="class"><span class="keyword">enum</span> <span class="title">drbd_ret_code</span> <span class="title">retcode</span>;</span></span><br><span class="line"><span class="number">3684</span></span><br><span class="line"><span class="number">3685</span>     retcode = drbd_adm_prepare(&amp;adm_ctx, skb, info, DRBD_ADM_NEED_CONNECTION);</span><br><span class="line"><span class="number">3686</span>     <span class="keyword">if</span> (!adm_ctx.reply_skb)</span><br><span class="line"><span class="number">3687</span>         <span class="keyword">return</span> retcode;</span><br><span class="line"><span class="number">3688</span></span><br><span class="line"><span class="number">3689</span>     <span class="comment">/* remote transport endpoints need to be globaly unique */</span></span><br><span class="line"><span class="number">3690</span>     mutex_lock(&amp;adm_ctx.resource-&gt;adm_mutex);</span><br><span class="line"><span class="number">3691</span></span><br><span class="line"><span class="number">3692</span>     retcode = adm_add_path(&amp;adm_ctx, info);</span><br><span class="line"><span class="number">3693</span></span><br><span class="line"><span class="number">3694</span>     mutex_unlock(&amp;adm_ctx.resource-&gt;adm_mutex);</span><br><span class="line"><span class="number">3695</span>     drbd_adm_finish(&amp;adm_ctx, info, retcode);</span><br><span class="line"><span class="number">3696</span>     <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"><span class="number">3697</span> &#125;</span><br></pre></td></tr></table></figure>
+<h2 id="adm-add-path"><a href="#adm-add-path" class="headerlink" title="adm_add_path"></a>adm_add_path</h2><p>首先先從 <strong>connection</strong> 中取得對應的 <strong>drbd_transport</strong> 的實作，不過這邊都沒有任何檢查，所以如果今天還沒有執行 <code>add_peer</code> 前就先執行 <code>add_path</code>，可能會有 <strong>Null pointer dereferences</strong> 的問題。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">3538</span> <span class="type">static</span> <span class="class"><span class="keyword">enum</span> <span class="title">drbd_ret_code</span></span></span><br><span class="line"><span class="class">3539 <span class="title">adm_add_path</span>(<span class="keyword">struct</span> <span class="title">drbd_config_context</span> *<span class="title">adm_ctx</span>,  <span class="keyword">struct</span> <span class="title">genl_info</span> *<span class="title">info</span>)</span></span><br><span class="line"><span class="class">3540 &#123;</span></span><br><span class="line"><span class="number">3541</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_transport</span> *<span class="title">transport</span> =</span> &amp;adm_ctx-&gt;connection-&gt;transport;</span><br><span class="line"><span class="number">3542</span>     <span class="class"><span class="keyword">struct</span> <span class="title">nlattr</span> *<span class="title">my_addr</span> =</span> <span class="literal">NULL</span>, *peer_addr = <span class="literal">NULL</span>;</span><br><span class="line"><span class="number">3543</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_path</span> *<span class="title">path</span>;</span></span><br><span class="line"><span class="number">3544</span>     <span class="class"><span class="keyword">enum</span> <span class="title">drbd_ret_code</span> <span class="title">retcode</span>;</span></span><br><span class="line"><span class="number">3545</span>     <span class="type">int</span> err;</span><br></pre></td></tr></table></figure>
+
+<h1 id="接下來就如同上述的步驟一樣，先從-netlink-中取出我們需要的資訊，在這個指令中，我們需要的是一條-path-兩端點的-address-ip-port-。接者透過check-path-usable檢查該參數，譬如是否存在，是否已經使用過。一切準備完畢後，開始創立-strcut-drbd-path，先從-kernel-要空間，接下來把兩端點的-address-都複製進去，最後就讓-transport-class-自行去負責要怎麼處理了，於是呼叫了-transport-gt-ops-gt-add-path-去處理。-在本文的範例中使用的是-TCP-的方式，最後則是透過-dtt-add-path-去處理，詳細處理的流程之後會再仔細研究整個-TCP-層的架構。drbd-adm-connect"><a href="#接下來就如同上述的步驟一樣，先從-netlink-中取出我們需要的資訊，在這個指令中，我們需要的是一條-path-兩端點的-address-ip-port-。接者透過check-path-usable檢查該參數，譬如是否存在，是否已經使用過。一切準備完畢後，開始創立-strcut-drbd-path，先從-kernel-要空間，接下來把兩端點的-address-都複製進去，最後就讓-transport-class-自行去負責要怎麼處理了，於是呼叫了-transport-gt-ops-gt-add-path-去處理。-在本文的範例中使用的是-TCP-的方式，最後則是透過-dtt-add-path-去處理，詳細處理的流程之後會再仔細研究整個-TCP-層的架構。drbd-adm-connect" class="headerlink" title="接下來就如同上述的步驟一樣，先從 netlink 中取出我們需要的資訊，在這個指令中，我們需要的是一條 path 兩端點的 **address(ip:port)**。接者透過check_path_usable檢查該參數，譬如是否存在，是否已經使用過。一切準備完畢後，開始創立 strcut drbd_path，先從 kernel 要空間，接下來把兩端點的 address 都複製進去，最後就讓 transport class 自行去負責要怎麼處理了，於是呼叫了 transport-&gt;ops-&gt;add_path 去處理。 在本文的範例中使用的是 TCP 的方式，最後則是透過 dtt_add_path 去處理，詳細處理的流程之後會再仔細研究整個 TCP 層的架構。drbd_adm_connect"></a>接下來就如同上述的步驟一樣，先從 <strong>netlink</strong> 中取出我們需要的資訊，在這個指令中，我們需要的是一條 path 兩端點的 **address(ip:port)**。接者透過<code>check_path_usable</code>檢查該參數，譬如是否存在，是否已經使用過。<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">3547</span>     <span class="comment">/* parse and validate only */</span></span><br><span class="line"><span class="number">3548</span>     err = path_parms_from_attrs(<span class="literal">NULL</span>, info);</span><br><span class="line"><span class="number">3549</span>     <span class="keyword">if</span> (err) &#123;</span><br><span class="line"><span class="number">3550</span>         drbd_msg_put_info(adm_ctx-&gt;reply_skb, from_attrs_err_to_txt(err));</span><br><span class="line"><span class="number">3551</span>         <span class="keyword">return</span> ERR_MANDATORY_TAG;</span><br><span class="line"><span class="number">3552</span>     &#125;</span><br><span class="line"><span class="number">3553</span>     my_addr = nested_attr_tb[__nla_type(T_my_addr)];</span><br><span class="line"><span class="number">3554</span>     peer_addr = nested_attr_tb[__nla_type(T_peer_addr)];</span><br></pre></td></tr></table></figure><br>一切準備完畢後，開始創立 <strong>strcut drbd_path</strong>，先從 kernel 要空間，接下來把兩端點的 address 都複製進去，最後就讓 <strong>transport class</strong> 自行去負責要怎麼處理了，於是呼叫了 <code>transport-&gt;ops-&gt;add_path</code> 去處理。 在本文的範例中使用的是 TCP 的方式，最後則是透過 <code>dtt_add_path</code> 去處理，詳細處理的流程之後會再仔細研究整個 TCP 層的架構。<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">3562</span>     path = kzalloc(transport-&gt;class-&gt;path_instance_size, GFP_KERNEL);</span><br><span class="line"><span class="number">3563</span>     <span class="keyword">if</span> (!path)</span><br><span class="line"><span class="number">3564</span>         <span class="keyword">return</span> ERR_NOMEM;</span><br><span class="line"><span class="number">3565</span></span><br><span class="line"><span class="number">3566</span>     path-&gt;my_addr_len = nla_len(my_addr);</span><br><span class="line"><span class="number">3567</span>     <span class="built_in">memcpy</span>(&amp;path-&gt;my_addr, nla_data(my_addr), path-&gt;my_addr_len);</span><br><span class="line"><span class="number">3568</span>     path-&gt;peer_addr_len = nla_len(peer_addr);</span><br><span class="line"><span class="number">3569</span>     <span class="built_in">memcpy</span>(&amp;path-&gt;peer_addr, nla_data(peer_addr), path-&gt;peer_addr_len);</span><br><span class="line"><span class="number">3570</span></span><br><span class="line"><span class="number">3571</span>     kref_init(&amp;path-&gt;kref);</span><br><span class="line"><span class="number">3572</span></span><br><span class="line"><span class="number">3573</span>     err = transport-&gt;ops-&gt;add_path(transport, path);</span><br><span class="line"><span class="number">3574</span>     <span class="keyword">if</span> (err) &#123;</span><br><span class="line"><span class="number">3575</span>         kref_put(&amp;path-&gt;kref, drbd_destroy_path);</span><br><span class="line"><span class="number">3576</span>         drbd_err(adm_ctx-&gt;connection, <span class="string">&quot;add_path() failed with %d\n&quot;</span>, err);</span><br><span class="line"><span class="number">3577</span>         drbd_msg_put_info(adm_ctx-&gt;reply_skb, <span class="string">&quot;add_path on transport failed&quot;</span>);</span><br><span class="line"><span class="number">3578</span>         <span class="keyword">return</span> ERR_INVALID_REQUEST;</span><br><span class="line"><span class="number">3579</span>     &#125;</span><br></pre></td></tr></table></figure><br>drbd_adm_connect</h1><p>一切都準備完畢後，接下來就可以透過 <code>drbd_adm_connect</code> 真正地建立起兩端的連線。如同慣例，一開始都會先呼叫 <code>drbd_adm_prepare</code> 進行資源的整理，接下來就可以直接從 <strong>adm_ctx.connection</strong> 去取得先前創立的連線物件，然後判斷該連線目前的狀態。<br>當初創建好連線時，預設的狀態就是 <strong>C_STANDALONE</strong>。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">3584</span> <span class="type">int</span> <span class="title function_">drbd_adm_connect</span><span class="params">(<span class="keyword">struct</span> sk_buff *skb, <span class="keyword">struct</span> genl_info *info)</span></span><br><span class="line">3585 &#123;</span><br><span class="line"><span class="number">3586</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_config_context</span> <span class="title">adm_ctx</span>;</span></span><br><span class="line"><span class="number">3587</span>     <span class="class"><span class="keyword">struct</span> <span class="title">connect_parms</span> <span class="title">parms</span> =</span> &#123; <span class="number">0</span>, &#125;;</span><br><span class="line"><span class="number">3588</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_peer_device</span> *<span class="title">peer_device</span>;</span></span><br><span class="line"><span class="number">3589</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_connection</span> *<span class="title">connection</span>;</span></span><br><span class="line"><span class="number">3590</span>     <span class="class"><span class="keyword">enum</span> <span class="title">drbd_ret_code</span> <span class="title">retcode</span>;</span></span><br><span class="line"><span class="number">3591</span>     <span class="class"><span class="keyword">enum</span> <span class="title">drbd_conn_state</span> <span class="title">cstate</span>;</span></span><br><span class="line"><span class="number">3592</span>     <span class="type">int</span> i, err;</span><br><span class="line"><span class="number">3593</span></span><br><span class="line"><span class="number">3594</span>     retcode = drbd_adm_prepare(&amp;adm_ctx, skb, info, DRBD_ADM_NEED_CONNECTION);</span><br><span class="line"><span class="number">3595</span>     <span class="keyword">if</span> (!adm_ctx.reply_skb)</span><br><span class="line"><span class="number">3596</span>         <span class="keyword">return</span> retcode;</span><br><span class="line"><span class="number">3597</span></span><br><span class="line"><span class="number">3598</span>     connection = adm_ctx.connection;</span><br><span class="line"><span class="number">3599</span>     cstate = connection-&gt;cstate[NOW];</span><br><span class="line"><span class="number">3600</span>     <span class="keyword">if</span> (cstate != C_STANDALONE) &#123;</span><br><span class="line"><span class="number">3601</span>         retcode = ERR_NET_CONFIGURED;</span><br><span class="line"><span class="number">3602</span>         <span class="keyword">goto</span> out;</span><br><span class="line"><span class="number">3603</span>     &#125;</span><br></pre></td></tr></table></figure>
+<p>接下來透過 <code>first_path</code> 確認該條 <strong>connection</strong> 至少有一條 <strong>path</strong> 存在，因為一個 <strong>connection</strong> 可以有多條 <strong>path</strong>，且這些 <strong>path</strong> 是透過 <strong>link list</strong> 的方式去紀錄的，所以只要判斷該 <strong>list</strong> 的第一個就知道目前有沒有至少一條 <strong>path</strong> 存在。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">3605</span>     <span class="keyword">if</span> (first_path(connection) == <span class="literal">NULL</span>) &#123;</span><br><span class="line"><span class="number">3606</span>         drbd_msg_put_info(adm_ctx.reply_skb, <span class="string">&quot;connection endpoint(s) missing&quot;</span>);</span><br><span class="line"><span class="number">3607</span>         retcode = ERR_INVALID_REQUEST;</span><br><span class="line"><span class="number">3608</span>         <span class="keyword">goto</span> out;</span><br><span class="line"><span class="number">3609</span>     &#125;</span><br></pre></td></tr></table></figure>
+<p>最後透過 <code>change_cstate</code> 的方式來改變當前的狀態，然後透過一連串的呼叫宇改變，最後會在<code>drbd_receive</code> 內呼叫起 <code>conn_connect</code> 來進行真正的連線。<br>這中間的過程就不詳細描述，用兩張簡單的圖片大致說明即可。<br>首先透過第一張圖的流程，最後會跑到 <code>queue_after_state_change_work</code> 裡面，在裡面會創建一個 <strong>work</strong>，然後這個 <strong>work</strong> 裡面的 <strong>call back function</strong>會指向 <strong>w_after_state_change</strong>，最後把該 <strong>work</strong> 透過 <code>drbd_queue_work</code> 放入 resource 內的 <strong>work list</strong>。</p>
+<p><img src="http://i.imgur.com/xg6LxPS.jpg" alt="flow"></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">1901</span> <span class="type">static</span> <span class="type">void</span> <span class="title function_">queue_after_state_change_work</span><span class="params">(<span class="keyword">struct</span> drbd_resource *resource,</span></span><br><span class="line"><span class="params"><span class="number">1902</span>                       <span class="keyword">struct</span> completion *done)</span></span><br><span class="line">1903 &#123;</span><br><span class="line"><span class="number">1904</span>     <span class="comment">/* Caller holds req_lock */</span></span><br><span class="line"><span class="number">1905</span>     <span class="class"><span class="keyword">struct</span> <span class="title">after_state_change_work</span> *<span class="title">work</span>;</span></span><br><span class="line"><span class="number">1906</span>     <span class="type">gfp_t</span> gfp = GFP_ATOMIC;</span><br><span class="line"><span class="number">1907</span></span><br><span class="line"><span class="number">1908</span>     work = kmalloc(<span class="keyword">sizeof</span>(*work), gfp);</span><br><span class="line"><span class="number">1909</span>     <span class="keyword">if</span> (work)</span><br><span class="line"><span class="number">1910</span>         work-&gt;state_change = remember_state_change(resource, gfp);</span><br><span class="line"><span class="number">1911</span>     <span class="keyword">if</span> (work &amp;&amp; work-&gt;state_change) &#123;</span><br><span class="line"><span class="number">1912</span>         work-&gt;w.cb = w_after_state_change;</span><br><span class="line"><span class="number">1913</span>         work-&gt;done = done;</span><br><span class="line"><span class="number">1914</span>         drbd_queue_work(&amp;resource-&gt;work, &amp;work-&gt;w);</span><br><span class="line"><span class="number">1915</span>     &#125; <span class="keyword">else</span> &#123;</span><br><span class="line"><span class="number">1916</span>         kfree(work);</span><br><span class="line"><span class="number">1917</span>         drbd_err(resource, <span class="string">&quot;Could not allocate after state change work\n&quot;</span>);</span><br><span class="line"><span class="number">1918</span>         <span class="keyword">if</span> (done)</span><br><span class="line"><span class="number">1919</span>             complete(done);</span><br><span class="line"><span class="number">1920</span>     &#125;</span><br><span class="line"><span class="number">1921</span> &#125;</span><br></pre></td></tr></table></figure>
+
+<p>接下來如下圖，當 <strong>resource</strong> 一開始透過創立 <strong>resource</strong> 時，就會叫一起一隻 <strong>kernel thread</strong>，會專注於執行 <code>drbd_worker</code> 這隻 function，而這 function 內部則會不斷的把 <strong>resource</strong> 內部的 works 給拿出來執行。</p>
+<p><img src="http://i.imgur.com/Mya9Xss.jpg" alt="flow-2"></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">2746</span> <span class="type">int</span> <span class="title function_">drbd_worker</span><span class="params">(<span class="keyword">struct</span> drbd_thread *thi)</span></span><br><span class="line">2747 &#123;</span><br><span class="line"><span class="number">2748</span>     LIST_HEAD(work_list);</span><br><span class="line"><span class="number">2749</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_resource</span> *<span class="title">resource</span> =</span> thi-&gt;resource;</span><br><span class="line"><span class="number">2750</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_work</span> *<span class="title">w</span>;</span></span><br><span class="line"><span class="number">2751</span></span><br><span class="line"><span class="number">2752</span>     <span class="keyword">while</span> (get_t_state(thi) == RUNNING) &#123;</span><br><span class="line"><span class="number">2753</span>         drbd_thread_current_set_cpu(thi);</span><br><span class="line">.................</span><br><span class="line"><span class="number">2793</span></span><br><span class="line"><span class="number">2794</span>         <span class="keyword">while</span> (!list_empty(&amp;work_list)) &#123;</span><br><span class="line"><span class="number">2795</span>             w = list_first_entry(&amp;work_list, <span class="keyword">struct</span> drbd_work, <span class="built_in">list</span>);</span><br><span class="line"><span class="number">2796</span>             list_del_init(&amp;w-&gt;<span class="built_in">list</span>);</span><br><span class="line"><span class="number">2797</span>             update_worker_timing_details(resource, w-&gt;cb);</span><br><span class="line"><span class="number">2798</span>             w-&gt;cb(w, <span class="number">0</span>);</span><br><span class="line"><span class="number">2799</span>         &#125;</span><br><span class="line"><span class="number">2800</span>     &#125;</span><br><span class="line">......................</span><br><span class="line"><span class="number">2826</span>     <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"><span class="number">2827</span> &#125;</span><br></pre></td></tr></table></figure>
+<p>最後呼叫該 <strong>work</strong> 的 <strong>call back function</strong>，最後會執行到 <code>w_after_state_change</code>，在這個 <strong>function</strong>內，最後會去把每個 connection 內部的 <strong>kernel thread</strong> 給叫起來，而這隻 <strong>kernel thread</strong> 則會呼叫 <strong>drbd_receiver</strong></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">2782</span> <span class="type">static</span> <span class="type">int</span> <span class="title function_">w_after_state_change</span><span class="params">(<span class="keyword">struct</span> drbd_work *w, <span class="type">int</span> unused)</span></span><br><span class="line">2783 &#123;</span><br><span class="line">............</span><br><span class="line"><span class="number">3247</span>     <span class="keyword">for</span> (n_connection = <span class="number">0</span>; n_connection &lt; state_change-&gt;n_connections; n_connection++) &#123;</span><br><span class="line">............</span><br><span class="line"><span class="number">3254</span>         <span class="comment">/* Upon network configuration, we need to start the receiver */</span></span><br><span class="line"><span class="number">3255</span>         <span class="keyword">if</span> (cstate[OLD] == C_STANDALONE &amp;&amp; cstate[NEW] == C_UNCONNECTED)</span><br><span class="line"><span class="number">3256</span>             drbd_thread_start(&amp;connection-&gt;receiver);</span><br><span class="line"><span class="number">3257</span></span><br><span class="line">............</span><br><span class="line"><span class="number">3266</span>     &#125;</span><br><span class="line">......</span><br><span class="line"><span class="number">3287</span>     <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"><span class="number">3288</span> &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>當 <strong>kernel thread</strong> 起來後，接下來就會呼叫 <code>conn_connect</code> 來進行後續的連線，當連線成功後，就會呼叫 <code>drbdd</code> 進入 <strong>while loop</strong> 內來處理。<br>所以接下來就繼續來觀察 <strong>conn_connect</strong> 底下到底怎麼做。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">7646</span> <span class="type">int</span> <span class="title function_">drbd_receiver</span><span class="params">(<span class="keyword">struct</span> drbd_thread *thi)</span></span><br><span class="line">7647 &#123;</span><br><span class="line"><span class="number">7648</span>     <span class="class"><span class="keyword">struct</span> <span class="title">drbd_connection</span> *<span class="title">connection</span> =</span> thi-&gt;connection;</span><br><span class="line"><span class="number">7649</span></span><br><span class="line"><span class="number">7650</span>     <span class="keyword">if</span> (conn_connect(connection)) &#123;</span><br><span class="line"><span class="number">7651</span>         blk_start_plug(&amp;connection-&gt;receiver_plug);</span><br><span class="line"><span class="number">7652</span>         drbdd(connection);</span><br><span class="line"><span class="number">7653</span>         blk_finish_plug(&amp;connection-&gt;receiver_plug);</span><br><span class="line"><span class="number">7654</span>     &#125;</span><br><span class="line"><span class="number">7655</span></span><br><span class="line"><span class="number">7656</span>     conn_disconnect(connection);</span><br><span class="line"><span class="number">7657</span>     <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"><span class="number">7658</span> &#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">7081</span> <span class="type">static</span> <span class="type">void</span> <span class="title function_">drbdd</span><span class="params">(<span class="keyword">struct</span> drbd_connection *connection)</span></span><br><span class="line">7082 &#123;</span><br><span class="line"><span class="number">7087</span>     <span class="keyword">while</span> (get_t_state(&amp;connection-&gt;receiver) == RUNNING) &#123;</span><br><span class="line"><span class="number">7088</span>         <span class="class"><span class="keyword">struct</span> <span class="title">data_cmd</span> <span class="title">const</span> *<span class="title">cmd</span>;</span></span><br><span class="line"><span class="number">7089</span></span><br><span class="line"><span class="number">7090</span>         drbd_thread_current_set_cpu(&amp;connection-&gt;receiver);</span><br><span class="line"><span class="number">7091</span>         update_receiver_timing_details(connection, drbd_recv_header_maybe_unplug);</span><br><span class="line"><span class="number">7092</span>         <span class="keyword">if</span> (drbd_recv_header_maybe_unplug(connection, &amp;pi))</span><br><span class="line"><span class="number">7093</span>             <span class="keyword">goto</span> err_out;</span><br><span class="line"><span class="number">7094</span></span><br><span class="line"><span class="number">7095</span>         cmd = &amp;drbd_cmd_handler[pi.cmd];</span><br><span class="line"><span class="number">7096</span>         <span class="keyword">if</span> (unlikely(pi.cmd &gt;= ARRAY_SIZE(drbd_cmd_handler) || !cmd-&gt;fn)) &#123;</span><br><span class="line"><span class="number">7097</span>             drbd_err(connection, <span class="string">&quot;Unexpected data packet %s (0x%04x)&quot;</span>,</span><br><span class="line"><span class="number">7098</span>                  drbd_packet_name(pi.cmd), pi.cmd);</span><br><span class="line"><span class="number">7099</span>             <span class="keyword">goto</span> err_out;</span><br><span class="line"><span class="number">7100</span>         &#125;</span><br><span class="line">.............</span><br><span class="line"><span class="number">7131</span>     &#125;</span><br><span class="line">...</span><br><span class="line"><span class="number">7136</span> &#125;</span><br></pre></td></tr></table></figure>
+<h2 id="conn-connect"><a href="#conn-connect" class="headerlink" title="conn_connect"></a>conn_connect</h2><p>首先，一開始會先設定當前的 protocol version，主要是用來區分 drbd8 以及 drbd9 用的，預設先當作 drbd 8 (version 80)。接下來則會改變當前的狀態，將 <strong>C_STANDALONE</strong> 轉換成 <strong>C_CONNECTING</strong>。<br>最後就呼叫 <strong>transport class</strong>去執行自己實作的 <strong>connect</strong>。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0665</span> <span class="type">static</span> <span class="type">bool</span> <span class="title function_">conn_connect</span><span class="params">(<span class="keyword">struct</span> drbd_connection *connection)</span></span><br><span class="line">0666 &#123;</span><br><span class="line">................</span><br><span class="line"><span class="number">0675</span> start:</span><br><span class="line"><span class="number">0676</span>     have_mutex = <span class="literal">false</span>;</span><br><span class="line"><span class="number">0677</span>     clear_bit(DISCONNECT_EXPECTED, &amp;connection-&gt;flags);</span><br><span class="line"><span class="number">0678</span>     <span class="keyword">if</span> (change_cstate(connection, C_CONNECTING, CS_VERBOSE) &lt; SS_SUCCESS) &#123;</span><br><span class="line"><span class="number">0679</span>         <span class="comment">/* We do not have a network config. */</span></span><br><span class="line"><span class="number">0680</span>         <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line"><span class="number">0681</span>     &#125;</span><br><span class="line"><span class="number">0682</span></span><br><span class="line"><span class="number">0683</span>     <span class="comment">/* Assume that the peer only understands protocol 80 until we know better.  */</span></span><br><span class="line"><span class="number">0684</span>     connection-&gt;agreed_pro_version = <span class="number">80</span>;</span><br><span class="line"><span class="number">0685</span></span><br><span class="line"><span class="number">0686</span>     err = transport-&gt;ops-&gt;connect(transport);</span><br><span class="line"><span class="number">0687</span>     <span class="keyword">if</span> (err == -EAGAIN) &#123;</span><br><span class="line"><span class="number">0688</span>         <span class="keyword">if</span> (connection-&gt;cstate[NOW] == C_DISCONNECTING)</span><br><span class="line"><span class="number">0689</span>             <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line"><span class="number">0690</span>         <span class="keyword">goto</span> retry;</span><br><span class="line"><span class="number">0691</span>     &#125; <span class="keyword">else</span> <span class="keyword">if</span> (err &lt; <span class="number">0</span>) &#123;</span><br><span class="line"><span class="number">0692</span>         drbd_warn(connection, <span class="string">&quot;Failed to initiate connection, err=%d\n&quot;</span>, err);</span><br><span class="line"><span class="number">0693</span>         <span class="keyword">goto</span> <span class="built_in">abort</span>;</span><br><span class="line"><span class="number">0694</span>     &#125;</span><br></pre></td></tr></table></figure>
+<p>接下來去設定每個 <strong>socket</strong> 的 send&#x2F;recevie timeout，詳細的用途可以參考<a target="_blank" rel="noopener" href="https://linux.die.net/man/7/socket">SO_RCVTIMEO and SO_SNDTIMEO</a>。<br>不過這邊可以注意的是，因為這邊底層是走 linux socket 的方式，所以是走上述的方法去設定，若今天改走 RDMA 的話，作法就會完全不同。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0696</span>     connection-&gt;last_received = jiffies;</span><br><span class="line"><span class="number">0697</span></span><br><span class="line"><span class="number">0698</span>     rcu_read_lock();</span><br><span class="line"><span class="number">0699</span>     nc = rcu_dereference(connection-&gt;transport.net_conf);</span><br><span class="line"><span class="number">0700</span>     ping_timeo = nc-&gt;ping_timeo;</span><br><span class="line"><span class="number">0701</span>     ping_int = nc-&gt;ping_int;</span><br><span class="line"><span class="number">0702</span>     rcu_read_unlock();</span><br><span class="line"><span class="number">0703</span></span><br><span class="line"><span class="number">0704</span>     <span class="comment">/* Make sure we are &quot;uncorked&quot;, otherwise we risk timeouts,</span></span><br><span class="line"><span class="comment">0705      * in case this is a reconnect and we had been corked before. */</span></span><br><span class="line"><span class="number">0706</span>     drbd_uncork(connection, CONTROL_STREAM);</span><br><span class="line"><span class="number">0707</span>     drbd_uncork(connection, DATA_STREAM);</span><br><span class="line"><span class="number">0708</span></span><br><span class="line"><span class="number">0709</span>     <span class="comment">/* Make sure the handshake happens without interference from other threads,</span></span><br><span class="line"><span class="comment">0710      * or the challenge respons authentication could be garbled. */</span></span><br><span class="line"><span class="number">0711</span>     mutex_lock(&amp;connection-&gt;mutex[DATA_STREAM]);</span><br><span class="line"><span class="number">0712</span>     have_mutex = <span class="literal">true</span>;</span><br><span class="line"><span class="number">0713</span>     transport-&gt;ops-&gt;set_rcvtimeo(transport, DATA_STREAM, ping_timeo * <span class="number">4</span> * HZ/<span class="number">10</span>);</span><br><span class="line"><span class="number">0714</span>     transport-&gt;ops-&gt;set_rcvtimeo(transport, CONTROL_STREAM, ping_int * HZ);</span><br></pre></td></tr></table></figure>
+
+<p>接下來嘗試去發送一些控制訊息給對面，譬如自己的DRBD版本的範圍，如下列<code>drbd_send_features</code>內所見</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">7332</span> <span class="type">static</span> <span class="type">int</span> <span class="title function_">drbd_send_features</span><span class="params">(<span class="keyword">struct</span> drbd_connection *connection)</span></span><br><span class="line">7333 &#123;</span><br><span class="line"><span class="number">7334</span>     <span class="class"><span class="keyword">struct</span> <span class="title">p_connection_features</span> *<span class="title">p</span>;</span></span><br><span class="line"><span class="number">7335</span></span><br><span class="line"><span class="number">7336</span>     p = __conn_prepare_command(connection, <span class="keyword">sizeof</span>(*p), DATA_STREAM);</span><br><span class="line"><span class="number">7337</span>     <span class="keyword">if</span> (!p)</span><br><span class="line"><span class="number">7338</span>         <span class="keyword">return</span> -EIO;</span><br><span class="line"><span class="number">7339</span>     <span class="built_in">memset</span>(p, <span class="number">0</span>, <span class="keyword">sizeof</span>(*p));</span><br><span class="line"><span class="number">7340</span>     p-&gt;protocol_min = cpu_to_be32(PRO_VERSION_MIN);</span><br><span class="line"><span class="number">7341</span>     p-&gt;protocol_max = cpu_to_be32(PRO_VERSION_MAX);</span><br><span class="line"><span class="number">7342</span>     p-&gt;sender_node_id = cpu_to_be32(connection-&gt;resource-&gt;res_opts.node_id);</span><br><span class="line"><span class="number">7343</span>     p-&gt;receiver_node_id = cpu_to_be32(connection-&gt;peer_node_id);</span><br><span class="line"><span class="number">7344</span>     p-&gt;feature_flags = cpu_to_be32(PRO_FEATURES);</span><br><span class="line"><span class="number">7345</span>     <span class="keyword">return</span> __send_command(connection, <span class="number">-1</span>, P_CONNECTION_FEATURES, DATA_STREAM);</span><br><span class="line"><span class="number">7346</span> &#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0716</span>     h = drbd_do_features(connection);</span><br><span class="line"><span class="number">0717</span>     <span class="keyword">if</span> (h &lt; <span class="number">0</span>)</span><br><span class="line"><span class="number">0718</span>         <span class="keyword">goto</span> <span class="built_in">abort</span>;</span><br><span class="line"><span class="number">0719</span>     <span class="keyword">if</span> (h == <span class="number">0</span>)</span><br><span class="line"><span class="number">0720</span>         <span class="keyword">goto</span> retry;</span><br></pre></td></tr></table></figure>
+<p>中間又重新設定了一下 receive 的 timeout，而且只有針對 <strong>DATA_STREAM</strong>，意義不明。<br>最後呼叫 <code>__drbd_send_protocol</code> 將一些 <strong>net_conf</strong> 內的資料送過去。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0732</span></span><br><span class="line"><span class="number">0733</span>     transport-&gt;ops-&gt;set_rcvtimeo(transport, DATA_STREAM, MAX_SCHEDULE_TIMEOUT);</span><br><span class="line"><span class="number">0734</span></span><br><span class="line"><span class="number">0735</span>     discard_my_data = test_bit(CONN_DISCARD_MY_DATA, &amp;connection-&gt;flags);</span><br><span class="line"><span class="number">0736</span></span><br><span class="line"><span class="number">0737</span>     <span class="keyword">if</span> (__drbd_send_protocol(connection, P_PROTOCOL) == -EOPNOTSUPP)</span><br><span class="line"><span class="number">0738</span>         <span class="keyword">goto</span> <span class="built_in">abort</span>;</span><br></pre></td></tr></table></figure>
+<p>最後面這段還不是很清楚在幹什麼，必須要更深入的理解細節，才能瞭解為什麼這邊又要跑一個 worker，裡面又會呼叫到 <strong>conn_connect2</strong> 來處理。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0767</span>     <span class="keyword">if</span> (connection-&gt;agreed_pro_version &gt;= <span class="number">110</span>) &#123;</span><br><span class="line"><span class="number">0768</span>         <span class="keyword">if</span> (resource-&gt;res_opts.node_id &lt; connection-&gt;peer_node_id) &#123;</span><br><span class="line"><span class="number">0769</span>             kref_get(&amp;connection-&gt;kref);</span><br><span class="line"><span class="number">0770</span>             kref_debug_get(&amp;connection-&gt;kref_debug, <span class="number">11</span>);</span><br><span class="line"><span class="number">0771</span>             connection-&gt;connect_timer_work.cb = connect_work;</span><br><span class="line"><span class="number">0772</span>             timeout = twopc_retry_timeout(resource, <span class="number">0</span>);</span><br><span class="line"><span class="number">0773</span>             drbd_debug(connection, <span class="string">&quot;Waiting for %ums to avoid transaction &quot;</span></span><br><span class="line"><span class="number">0774</span>                    <span class="string">&quot;conflicts\n&quot;</span>, jiffies_to_msecs(timeout));</span><br><span class="line"><span class="number">0775</span>             connection-&gt;connect_timer.expires = jiffies + timeout;</span><br><span class="line"><span class="number">0776</span>             add_timer(&amp;connection-&gt;connect_timer);</span><br><span class="line"><span class="number">0777</span>         &#125;</span><br><span class="line"><span class="number">0778</span>     &#125;</span><br></pre></td></tr></table></figure>
+
+
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><ul>
+<li>Kernel 這邊有非常多的 thread 在運行，同時還有很複雜的 state 狀態跑來跑去，要完整瞭解整個架構以及運作邏輯需要不少時間去測試。</li>
+<li>目前網路上幾乎沒有這方面的文件，就連官方網站也沒有文章說明底層的架構，這部分都只能依靠上層的應用說法與程式碼自己拼湊出這一切。</li>
+<li>整個 Coonection 內還包含了 <strong>DATA_STREAM</strong>與 <strong>DATA_STREAM</strong>，這部分的用途差異，實際上怎運過還必須要在更仔細地觀看相關函式以及 <strong>transport class TCP</strong> 底層的實作才有機會瞭解。</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/System/" rel="tag"># System</a>
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/SourceCode/" rel="tag"># SourceCode</a>
+              <a href="/tags/DRBD/" rel="tag"># DRBD</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/DRBD-v9-0-Network-Work-Flow.html" rel="prev" title="DRBD v9.0 Network Work Flow(i)">
+                  <i class="fa fa-chevron-left"></i> DRBD v9.0 Network Work Flow(i)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/DRBD-networking-structure.html" rel="next" title="Drbd Networking Structure Introduction">
+                  Drbd Networking Structure Introduction <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

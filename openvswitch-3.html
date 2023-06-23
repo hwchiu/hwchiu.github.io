@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="這篇文章中，我們決定透過閱讀原始碼的方式，來瞭解 OpenvSwitch 操作上最常使用的指令，也就是 add-port 這個指令每次運行時，整個系統到底怎麼運行的。藉由閱讀原始碼的方式來釐清整個 OpenvSwitch 的架構，從 User-space 的程序到 Kerenel Space 的 Module, 這中間到底是怎麼處理的。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenvSwitch source code(2)">
+<meta property="og:url" content="https://www.hwchiu.com/openvswitch-3.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="這篇文章中，我們決定透過閱讀原始碼的方式，來瞭解 OpenvSwitch 操作上最常使用的指令，也就是 add-port 這個指令每次運行時，整個系統到底怎麼運行的。藉由閱讀原始碼的方式來釐清整個 OpenvSwitch 的架構，從 User-space 的程序到 Kerenel Space 的 Module, 這中間到底是怎麼處理的。">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2013-12-13T01:18:00.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.634Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="SDN">
+<meta property="article:tag" content="SourceCode">
+<meta property="article:tag" content="OpenvSwitch">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/openvswitch-3.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/openvswitch-3.html","path":"openvswitch-3.html","title":"OpenvSwitch source code(2)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>OpenvSwitch source code(2) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#User-space"><span class="nav-number">1.1.</span> <span class="nav-text">User space</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Gereric-netlink"><span class="nav-number">1.2.</span> <span class="nav-text">Gereric netlink</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Kernel-space"><span class="nav-number">1.3.</span> <span class="nav-text">Kernel space</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">2.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/openvswitch-3.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="OpenvSwitch source code(2) | Hwchiu Learning Note">
+      <meta itemprop="description" content="這篇文章中，我們決定透過閱讀原始碼的方式，來瞭解 OpenvSwitch 操作上最常使用的指令，也就是 add-port 這個指令每次運行時，整個系統到底怎麼運行的。藉由閱讀原始碼的方式來釐清整個 OpenvSwitch 的架構，從 User-space 的程序到 Kerenel Space 的 Module, 這中間到底是怎麼處理的。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          OpenvSwitch source code(2)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2013-12-13 09:18:00" itemprop="dateCreated datePublished" datetime="2013-12-13T09:18:00+08:00">2013-12-13</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">這篇文章中，我們決定透過閱讀原始碼的方式，來瞭解 OpenvSwitch 操作上最常使用的指令，也就是 add-port 這個指令每次運行時，整個系統到底怎麼運行的。藉由閱讀原始碼的方式來釐清整個 OpenvSwitch 的架構，從 User-space 的程序到 Kerenel Space 的 Module, 這中間到底是怎麼處理的。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>當使用 <strong>ovs-vsctl add-port br0 eth1</strong>的時候，實際上會做什麼事情，這邊分成兩個層面來看</p>
+<ul>
+<li>User space</li>
+<li>Kernel space</li>
+</ul>
+<p>而這之中則會透過 <strong>generic netlink</strong>來溝通</p>
+<h2 id="User-space"><a href="#User-space" class="headerlink" title="User space"></a>User space</h2><p>這部分還有點卡住，對 <strong>ovsdb</strong> 有更瞭解後再補充<br>bridge_reconfigure<br>bridge_refresh_ofp_port<br>bridge_refresh_one_ofp_port<br>iface_create<br>iface_do_create<br>ofproto_port_add</p>
+<p>VLOG_INFO</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">int</span></span><br><span class="line"><span class="title function_">port_add</span><span class="params">(<span class="keyword">struct</span> ofproto *ofproto_, <span class="keyword">struct</span> netdev *netdev)</span></span><br><span class="line">&#123;</span><br><span class="line">...</span><br><span class="line">	error = dpif_port_add(ofproto-&gt;backer-&gt;dpif, netdev, &amp;port_no);</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span></span><br><span class="line"><span class="title function_">dpif_port_add</span><span class="params">(<span class="keyword">struct</span> dpif *dpif, <span class="keyword">struct</span> netdev *netdev, <span class="type">odp_port_t</span> *port_nop)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">const</span> <span class="type">char</span> *netdev_name = netdev_get_name(netdev);</span><br><span class="line">    <span class="type">odp_port_t</span> port_no = ODPP_NONE;</span><br><span class="line">    <span class="type">int</span> error;</span><br><span class="line"></span><br><span class="line">    COVERAGE_INC(dpif_port_add);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (port_nop) &#123;</span><br><span class="line">        port_no = *port_nop;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    error = dpif-&gt;dpif_class-&gt;port_add(dpif, netdev, &amp;port_no);</span><br><span class="line">    <span class="keyword">if</span> (!error) &#123;</span><br><span class="line">        VLOG_DBG_RL(&amp;dpmsg_rl, <span class="string">&quot;%s: added %s as port %&quot;</span>PRIu32,</span><br><span class="line">                    dpif_name(dpif), netdev_name, port_no);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        VLOG_WARN_RL(&amp;error_rl, <span class="string">&quot;%s: failed to add %s as port: %s&quot;</span>,</span><br><span class="line">                     dpif_name(dpif), netdev_name, ovs_strerror(error));</span><br><span class="line">        port_no = ODPP_NONE;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (port_nop) &#123;</span><br><span class="line">        *port_nop = port_no;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> error;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">void</span></span><br><span class="line"><span class="title function_">dp_initialize</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">ovsthread_once</span> <span class="title">once</span> =</span> OVSTHREAD_ONCE_INITIALIZER;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (ovsthread_once_start(&amp;once)) &#123;</span><br><span class="line">        <span class="type">int</span> i;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; ARRAY_SIZE(base_dpif_classes); i++) &#123;</span><br><span class="line">            dp_register_provider(base_dpif_classes[i]);</span><br><span class="line">        &#125;</span><br><span class="line">        ovsthread_once_done(&amp;once);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>這邊會去註冊每個 <strong>base_dipf_classes</strong>.</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">dpif_class</span> &#123;</span></span><br><span class="line">....</span><br><span class="line">    <span class="comment">/* Adds &#x27;netdev&#x27; as a new port in &#x27;dpif&#x27;.  If &#x27;*port_no&#x27; is not</span></span><br><span class="line"><span class="comment">     * UINT32_MAX, attempts to use that as the port&#x27;s port number.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * If port is successfully added, sets &#x27;*port_no&#x27; to the new port&#x27;s</span></span><br><span class="line"><span class="comment">     * port number.  Returns EBUSY if caller attempted to choose a port</span></span><br><span class="line"><span class="comment">     * number, and it was in use. */</span></span><br><span class="line">    <span class="type">int</span> (*port_add)(<span class="keyword">struct</span> dpif *dpif, <span class="keyword">struct</span> netdev *netdev,</span><br><span class="line">                    <span class="type">odp_port_t</span> *port_no);</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>dpif_class是一個base class,裡面存放的都是function pointer.</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">dpif_class</span> *<span class="title">base_dpif_classes</span>[] =</span> &#123;</span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> LINUX_DATAPATH</span></span><br><span class="line">    &amp;dpif_linux_class,</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">    &amp;dpif_netdev_class,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>這邊會根據type去實例化不同類型的 <strong>dpif_class</strong>,這邊我們關心的是 <strong>dpif_linux_class</strong>.</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">dpif_class</span> <span class="title">dpif_linux_class</span> =</span> &#123;</span><br><span class="line">    <span class="string">&quot;system&quot;</span>,</span><br><span class="line">    dpif_linux_enumerate,</span><br><span class="line">    <span class="literal">NULL</span>,</span><br><span class="line">    dpif_linux_open,</span><br><span class="line">    dpif_linux_close,</span><br><span class="line">    dpif_linux_destroy,</span><br><span class="line">    <span class="literal">NULL</span>,                       <span class="comment">/* run */</span></span><br><span class="line">    <span class="literal">NULL</span>,                       <span class="comment">/* wait */</span></span><br><span class="line">    dpif_linux_get_stats,</span><br><span class="line">    dpif_linux_port_add,</span><br><span class="line">    dpif_linux_port_del,</span><br><span class="line">    dpif_linux_port_query_by_number,</span><br><span class="line">    dpif_linux_port_query_by_name,</span><br><span class="line">    dpif_linux_get_max_ports,</span><br><span class="line">    dpif_linux_port_get_pid,</span><br><span class="line">    dpif_linux_port_dump_start,</span><br><span class="line">    dpif_linux_port_dump_next,</span><br><span class="line">    dpif_linux_port_dump_done,</span><br><span class="line">    dpif_linux_port_poll,</span><br><span class="line">    dpif_linux_port_poll_wait,</span><br><span class="line">    dpif_linux_flow_get,</span><br><span class="line">    dpif_linux_flow_put,</span><br><span class="line">    dpif_linux_flow_del,</span><br><span class="line">    dpif_linux_flow_flush,</span><br><span class="line">    dpif_linux_flow_dump_start,</span><br><span class="line">    dpif_linux_flow_dump_next,</span><br><span class="line">    dpif_linux_flow_dump_done,</span><br><span class="line">    dpif_linux_execute,</span><br><span class="line">    dpif_linux_operate,</span><br><span class="line">    dpif_linux_recv_set,</span><br><span class="line">    dpif_linux_queue_to_priority,</span><br><span class="line">    dpif_linux_recv,</span><br><span class="line">    dpif_linux_recv_wait,</span><br><span class="line">    dpif_linux_recv_purge,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>這邊定義了 dpif_class的一些操作function.</li>
+<li>我們關心的 <strong>port_add</strong> 實際上對應的是 <strong>dpif_linux_port_add</strong></li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">int</span></span><br><span class="line"><span class="title function_">dpif_linux_port_add</span><span class="params">(<span class="keyword">struct</span> dpif *dpif_, <span class="keyword">struct</span> netdev *netdev,</span></span><br><span class="line"><span class="params">                    <span class="type">odp_port_t</span> *port_nop)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">dpif_linux</span> *<span class="title">dpif</span> =</span> dpif_linux_cast(dpif_);</span><br><span class="line">    <span class="type">int</span> error;</span><br><span class="line"></span><br><span class="line">    ovs_mutex_lock(&amp;dpif-&gt;upcall_lock);</span><br><span class="line">    error = dpif_linux_port_add__(dpif_, netdev, port_nop);</span><br><span class="line">    ovs_mutex_unlock(&amp;dpif-&gt;upcall_lock);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> error;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>這邊會呼叫 **dpif_linux_port_add__**去創立vport.</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">int</span></span><br><span class="line"><span class="title function_">dpif_linux_port_add__</span><span class="params">(<span class="keyword">struct</span> dpif *dpif_, <span class="keyword">struct</span> netdev *netdev,</span></span><br><span class="line"><span class="params">                      <span class="type">odp_port_t</span> *port_nop)</span></span><br><span class="line">&#123;</span><br><span class="line">....</span><br><span class="line">    request.cmd = OVS_VPORT_CMD_NEW;</span><br><span class="line">    request.dp_ifindex = dpif-&gt;dp_ifindex;</span><br><span class="line">    request.type = netdev_to_ovs_vport_type(netdev);</span><br><span class="line">...</span><br><span class="line">	 error = dpif_linux_vport_transact(&amp;request, &amp;reply, &amp;buf);</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>這邊會設定request的cmd為 <strong>OVS_VPORT_CMD_NEW</strong></li>
+<li>使用 <strong>dpif_linux_vport_transact</strong> 把這個request透過netlink的方式送到kernel端，kernel端會再根據這個request的cmd來執行特定的function.</li>
+</ul>
+<h2 id="Gereric-netlink"><a href="#Gereric-netlink" class="headerlink" title="Gereric netlink"></a>Gereric netlink</h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">dp_register_genl</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">        <span class="type">int</span> n_registered;</span><br><span class="line">        <span class="type">int</span> err;</span><br><span class="line">        <span class="type">int</span> i;</span><br><span class="line"></span><br><span class="line">        n_registered = <span class="number">0</span>;</span><br><span class="line">        <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; ARRAY_SIZE(dp_genl_families); i++) &#123;</span><br><span class="line">                <span class="type">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">genl_family_and_ops</span> *<span class="title">f</span> =</span> &amp;dp_genl_families[i];</span><br><span class="line"></span><br><span class="line">                err = genl_register_family_with_ops(f-&gt;family, f-&gt;ops,</span><br><span class="line">                                                    f-&gt;n_ops);</span><br><span class="line">                <span class="keyword">if</span> (err)</span><br><span class="line">                        <span class="keyword">goto</span> error;</span><br><span class="line">                n_registered++;</span><br><span class="line"></span><br><span class="line">                <span class="keyword">if</span> (f-&gt;group) &#123;</span><br><span class="line">                        err = genl_register_mc_group(f-&gt;family, f-&gt;group);</span><br><span class="line">                        <span class="keyword">if</span> (err)</span><br><span class="line">                                <span class="keyword">goto</span> error;</span><br><span class="line">                &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">error:</span><br><span class="line">        dp_unregister_genl(n_registered);</span><br><span class="line">        <span class="keyword">return</span> err;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>當 <strong>datapath</strong> kernel module被載入的時候，會執行對應的 <strong>init</strong>,裡面會執行 <strong>dp_register_genl</strong>.</li>
+<li>這邊會呼叫所有的 <strong>dp_genl_families</strong> 來註冊 <strong>generic netlink</strong>相關的function.</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">genl_family_and_ops</span> <span class="title">dp_genl_families</span>[] =</span> &#123;</span><br><span class="line">        &#123; &amp;dp_datapath_genl_family,</span><br><span class="line">          dp_datapath_genl_ops, ARRAY_SIZE(dp_datapath_genl_ops),</span><br><span class="line">          &amp;ovs_dp_datapath_multicast_group &#125;,</span><br><span class="line">        &#123; &amp;dp_vport_genl_family,</span><br><span class="line">          dp_vport_genl_ops, ARRAY_SIZE(dp_vport_genl_ops),</span><br><span class="line">          &amp;ovs_dp_vport_multicast_group &#125;,</span><br><span class="line">        &#123; &amp;dp_flow_genl_family,</span><br><span class="line">          dp_flow_genl_ops, ARRAY_SIZE(dp_flow_genl_ops),</span><br><span class="line">          &amp;ovs_dp_flow_multicast_group &#125;,</span><br><span class="line">        &#123; &amp;dp_packet_genl_family,</span><br><span class="line">          dp_packet_genl_ops, ARRAY_SIZE(dp_packet_genl_ops),</span><br><span class="line">          <span class="literal">NULL</span> &#125;,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>這邊定義了所有 <strong>gerneric netlink</strong>相關type的結構成員 (dp,vport,flow,packet)</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">genl_ops</span> <span class="title">dp_vport_genl_ops</span>[] =</span> &#123;</span><br><span class="line">        &#123; .cmd = OVS_VPORT_CMD_NEW,</span><br><span class="line">          .flags = GENL_ADMIN_PERM, <span class="comment">/* Requires CAP_NET_ADMIN privilege. */</span></span><br><span class="line">          .policy = vport_policy,</span><br><span class="line">          .doit = ovs_vport_cmd_new</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123; .cmd = OVS_VPORT_CMD_DEL,</span><br><span class="line">          .flags = GENL_ADMIN_PERM, <span class="comment">/* Requires CAP_NET_ADMIN privilege. */</span></span><br><span class="line">          .policy = vport_policy,</span><br><span class="line">          .doit = ovs_vport_cmd_del</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123; .cmd = OVS_VPORT_CMD_GET,</span><br><span class="line">          .flags = <span class="number">0</span>,               <span class="comment">/* OK for unprivileged users. */</span></span><br><span class="line">          .policy = vport_policy,</span><br><span class="line">          .doit = ovs_vport_cmd_get,</span><br><span class="line">          .dumpit = ovs_vport_cmd_dump</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123; .cmd = OVS_VPORT_CMD_SET,</span><br><span class="line">          .flags = GENL_ADMIN_PERM, <span class="comment">/* Requires CAP_NET_ADMIN privilege. */</span></span><br><span class="line">          .policy = vport_policy,</span><br><span class="line">          .doit = ovs_vport_cmd_set,</span><br><span class="line">        &#125;,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>這邊定義了 <strong>gerneric netlink</strong> 相關的vport operation.</li>
+<li>當 cmd 是 <strong>OVS_VPORT_CMD_NEW</strong>的時候，就會執行對應的 function handler <strong>ovs_vport_cmd_new</strong></li>
+</ul>
+<h2 id="Kernel-space"><a href="#Kernel-space" class="headerlink" title="Kernel space"></a>Kernel space</h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">ovs_vport_cmd_new</span><span class="params">(<span class="keyword">struct</span> sk_buff *skb, <span class="keyword">struct</span> genl_info *info)</span></span><br><span class="line">&#123;</span><br><span class="line">...</span><br><span class="line">        parms.name = nla_data(a[OVS_VPORT_ATTR_NAME]);</span><br><span class="line">        parms.type = nla_get_u32(a[OVS_VPORT_ATTR_TYPE]);</span><br><span class="line">        parms.options = a[OVS_VPORT_ATTR_OPTIONS];</span><br><span class="line">        parms.dp = dp;</span><br><span class="line">        parms.port_no = port_no;</span><br><span class="line">        parms.upcall_portid = nla_get_u32(a[OVS_VPORT_ATTR_UPCALL_PID]);</span><br><span class="line"></span><br><span class="line">        vport = new_vport(&amp;parms);</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>struct vport_parms parms 用來記錄一些vport的資訊</li>
+<li>填寫相關訊息後，就呼叫 <strong>new_vport</strong>來創立 vport</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="keyword">struct</span> vport *<span class="title function_">new_vport</span><span class="params">(<span class="type">const</span> <span class="keyword">struct</span> vport_parms *parms)</span></span><br><span class="line">&#123;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">vport</span> *<span class="title">vport</span>;</span></span><br><span class="line"></span><br><span class="line">        vport = ovs_vport_add(parms);</span><br><span class="line">        <span class="keyword">if</span> (!IS_ERR(vport)) &#123;</span><br><span class="line">                <span class="class"><span class="keyword">struct</span> <span class="title">datapath</span> *<span class="title">dp</span> =</span> parms-&gt;dp;</span><br><span class="line">                <span class="class"><span class="keyword">struct</span> <span class="title">hlist_head</span> *<span class="title">head</span> =</span> vport_hash_bucket(dp, vport-&gt;port_no);</span><br><span class="line"></span><br><span class="line">                hlist_add_head_rcu(&amp;vport-&gt;dp_hash_node, head);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> vport;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>這邊會呼叫 *<strong>ovs_vport_add</strong> 來創立該vport</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> vport *<span class="title function_">ovs_vport_add</span><span class="params">(<span class="type">const</span> <span class="keyword">struct</span> vport_parms *parms)</span></span><br><span class="line">&#123;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">vport</span> *<span class="title">vport</span>;</span></span><br><span class="line">        <span class="type">int</span> err = <span class="number">0</span>;</span><br><span class="line">        <span class="type">int</span> i;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; ARRAY_SIZE(vport_ops_list); i++) &#123;</span><br><span class="line">                <span class="keyword">if</span> (vport_ops_list[i]-&gt;type == parms-&gt;type) &#123;</span><br><span class="line">                        <span class="class"><span class="keyword">struct</span> <span class="title">hlist_head</span> *<span class="title">bucket</span>;</span></span><br><span class="line"></span><br><span class="line">                        vport = vport_ops_list[i]-&gt;create(parms);</span><br><span class="line">                        <span class="keyword">if</span> (IS_ERR(vport)) &#123;</span><br><span class="line">                                err = PTR_ERR(vport);</span><br><span class="line">                                <span class="keyword">goto</span> out;</span><br><span class="line">                        &#125;</span><br><span class="line"></span><br><span class="line">                        bucket = hash_bucket(ovs_dp_get_net(vport-&gt;dp),</span><br><span class="line">                                             vport-&gt;ops-&gt;get_name(vport));</span><br><span class="line">                        hlist_add_head_rcu(&amp;vport-&gt;hash_node, bucket);</span><br><span class="line">                        <span class="keyword">return</span> vport;</span><br><span class="line">                &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        err = -EAFNOSUPPORT;</span><br><span class="line"></span><br><span class="line">out:</span><br><span class="line">        <span class="keyword">return</span> ERR_PTR(err);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>掃過所有 <strong>vport_ops_list</strong>, 如果那個ops的 <strong>type</strong>跟傳進來的type是一樣的，那就呼叫對應的 <strong>create</strong> function.</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">vport_ops</span> *<span class="title">vport_ops_list</span>[] =</span> &#123;</span><br><span class="line">        &amp;ovs_netdev_vport_ops,</span><br><span class="line">        &amp;ovs_internal_vport_ops,</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> IS_ENABLED(CONFIG_NET_IPGRE_DEMUX)</span></span><br><span class="line">        &amp;ovs_gre_vport_ops,</span><br><span class="line">        &amp;ovs_gre64_vport_ops,</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">        &amp;ovs_vxlan_vport_ops,</span><br><span class="line">        &amp;ovs_lisp_vport_ops,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>vport_ops 有多種type.這邊我們專注於 <strong>ovs_netdev_vport_ops</strong>這種type.</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">vport_ops</span> <span class="title">ovs_netdev_vport_ops</span> =</span> &#123;</span><br><span class="line">        .type           = OVS_VPORT_TYPE_NETDEV,</span><br><span class="line">        .create         = netdev_create,</span><br><span class="line">        .destroy        = netdev_destroy,</span><br><span class="line">        .get_name       = ovs_netdev_get_name,</span><br><span class="line">        .send           = netdev_send,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>vport當type是 <strong>netdev</strong>的時候，成員的function pointer就會按此設定為各個function.</li>
+<li>可以看到他的 <strong>create</strong> 對應到 <strong>netdev_create</strong></li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="keyword">struct</span> vport *<span class="title function_">netdev_create</span><span class="params">(<span class="type">const</span> <span class="keyword">struct</span> vport_parms *parms)</span></span><br><span class="line">...</span><br><span class="line">        err = netdev_rx_handler_register(netdev_vport-&gt;dev, netdev_frame_hook,</span><br><span class="line">                                         vport);</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>這邊註冊netdevice的receive handler, handler為 <strong>netdev_frame_hook</strong></li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">netdev_rx_handler_register</span><span class="params">(<span class="keyword">struct</span> net_device *dev,</span></span><br><span class="line"><span class="params">                                <span class="type">rx_handler_func_t</span> *rx_handler,</span></span><br><span class="line"><span class="params">                                <span class="type">void</span> *rx_handler_data)</span></span><br><span class="line">&#123;</span><br><span class="line">         ASSERT_RTNL();</span><br><span class="line"></span><br><span class="line">         <span class="keyword">if</span> (dev-&gt;rx_handler)</span><br><span class="line">                 <span class="keyword">return</span> -EBUSY;</span><br><span class="line"></span><br><span class="line">         <span class="comment">/* Note: rx_handler_data must be set before rx_handler */</span></span><br><span class="line">         rcu_assign_pointer(dev-&gt;rx_handler_data, rx_handler_data);</span><br><span class="line">         rcu_assign_pointer(dev-&gt;rx_handler, rx_handler);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>這邊會把設定該 <strong>net_device</strong>中的兩個pointer</li>
+<li><strong>rx_handler_data</strong> 這邊就設定成該vport.</li>
+<li><strong>rx_handler</strong> 接收到封包的處理函式，這邊就是netdev_frame_hook。</li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/SDN/" rel="tag"># SDN</a>
+              <a href="/tags/SourceCode/" rel="tag"># SourceCode</a>
+              <a href="/tags/OpenvSwitch/" rel="tag"># OpenvSwitch</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/openvswitch-source-2.html" rel="prev" title="OpenvSwitch - 2">
+                  <i class="fa fa-chevron-left"></i> OpenvSwitch - 2
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/openvswitch-overview.html" rel="next" title="OpenvSwitch - overview">
+                  OpenvSwitch - overview <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

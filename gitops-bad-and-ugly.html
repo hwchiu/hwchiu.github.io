@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本文翻譯自 Container-Solutions 的文章，探討 GitOps 實際操作上可能帶來的痛點與複雜度，最後作者帶出自己認為好的架構及設計以及推薦不同的思路來處理">
+<meta property="og:type" content="article">
+<meta property="og:title" content="GitOps 帶來的痛點與反思">
+<meta property="og:url" content="https://www.hwchiu.com/gitops-bad-and-ugly.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文翻譯自 Container-Solutions 的文章，探討 GitOps 實際操作上可能帶來的痛點與複雜度，最後作者帶出自己認為好的架構及設計以及推薦不同的思路來處理">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/LF7SaTV.png">
+<meta property="article:published_time" content="2020-09-08T05:27:36.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.614Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="DevOps">
+<meta property="article:tag" content="GitOps">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/LF7SaTV.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/gitops-bad-and-ugly.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/gitops-bad-and-ugly.html","path":"gitops-bad-and-ugly.html","title":"GitOps 帶來的痛點與反思"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>GitOps 帶來的痛點與反思 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%97%9B%E9%BB%9E"><span class="nav-number">2.</span> <span class="nav-text">痛點</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%8D%E9%81%A9%E5%90%88%E4%BD%BF%E7%94%A8%E6%96%BC%E7%A8%8B%E5%BC%8F%E5%8C%96%E7%9A%84%E6%9B%B4%E6%96%B0"><span class="nav-number">2.1.</span> <span class="nav-text">不適合使用於程式化的更新</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Git-Repo-%E5%A2%9E%E9%95%B7%E5%B8%B6%E4%BE%86%E7%9A%84%E5%95%8F%E9%A1%8C"><span class="nav-number">2.2.</span> <span class="nav-text">Git Repo 增長帶來的問題</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BC%BA%E4%B9%8F%E8%A6%96%E8%A6%BA%E5%8C%96"><span class="nav-number">2.3.</span> <span class="nav-text">缺乏視覺化</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Secret-%E7%9A%84%E7%AE%A1%E7%90%86%E5%95%8F%E9%A1%8C%E4%BE%9D%E7%84%B6%E6%B2%92%E6%9C%89%E8%A7%A3%E6%B1%BA"><span class="nav-number">2.4.</span> <span class="nav-text">Secret 的管理問題依然沒有解決</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BC%BA%E5%B0%91%E6%AA%94%E6%A1%88%E8%B3%87%E6%BA%90%E7%9A%84%E9%A9%97%E8%AD%89%E6%80%A7"><span class="nav-number">2.5.</span> <span class="nav-text">缺少檔案資源的驗證性</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%8D%E5%90%8C%E6%96%BC-GitOps-%E7%9A%84%E8%A7%A3%E6%B1%BA%E6%96%B9%E6%A1%88"><span class="nav-number">3.</span> <span class="nav-text">不同於 GitOps 的解決方案</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E5%BF%83%E5%BE%97"><span class="nav-number">4.</span> <span class="nav-text">個人心得:</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">5.</span> <span class="nav-text">個人資訊</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%83%E8%80%83%E4%BE%86%E6%BA%90"><span class="nav-number">6.</span> <span class="nav-text">參考來源</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/gitops-bad-and-ugly.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="GitOps 帶來的痛點與反思 | Hwchiu Learning Note">
+      <meta itemprop="description" content="本文翻譯自 Container-Solutions 的文章，探討 GitOps 實際操作上可能帶來的痛點與複雜度，最後作者帶出自己認為好的架構及設計以及推薦不同的思路來處理">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          GitOps 帶來的痛點與反思
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2020-09-08 13:27:36" itemprop="dateCreated datePublished" datetime="2020-09-08T13:27:36+08:00">2020-09-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本文翻譯自 Container-Solutions 的文章，探討 GitOps 實際操作上可能帶來的痛點與複雜度，最後作者帶出自己認為好的架構及設計以及推薦不同的思路來處理</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>Article Translated from <a target="_blank" rel="noopener" href="https://blog.container-solutions.com/gitops-the-bad-and-the-ugly">https://blog.container-solutions.com/gitops-the-bad-and-the-ugly</a>, with author’s permission<br>本文翻譯自 <a target="_blank" rel="noopener" href="https://blog.container-solutions.com/gitops-the-bad-and-the-ugly">https://blog.container-solutions.com/gitops-the-bad-and-the-ugly</a> 已獲得作者同意</p>
+<p>以下內容節錄自 <a target="_blank" rel="noopener" href="https://blog.container-solutions.com/gitops-the-bad-and-the-ugly">GitOps: The Bad and the Ugly</a> 並加上作者個人心得，有興趣瞭解<br>全文的人歡迎到上述網站去瞭解更多</p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>本篇文章非常有趣，作者本身是一個 GitOps 的擁護者，也有撰寫過相關的文章<a target="_blank" rel="noopener" href="https://blog.container-solutions.com/11-reasons-for-adopting-gitops">11-reasons-for-adopting-gitops</a> 來談論講為什麼要導入 GitOps,以及導入 GitOps 後能夠帶來的好處。</p>
+<p>但是最近一些專案的經驗，讓作者開始感覺到一些 GitOps 所帶來的極限與痛點，加上最近與 <a target="_blank" rel="noopener" href="https://humanitec.com/">Humanitec</a> 這套並非基於 GitOps 的解決方案的開發人員交談後，作者決定撰寫本篇文章來探討自己於實戰經驗中所感受到的 GitOps 缺陷與極限，並於最後分享一些不同的思路及可能的解決方法</p>
+<h1 id="痛點"><a href="#痛點" class="headerlink" title="痛點"></a>痛點</h1><h2 id="不適合使用於程式化的更新"><a href="#不適合使用於程式化的更新" class="headerlink" title="不適合使用於程式化的更新"></a>不適合使用於程式化的更新</h2><p>如果今天 CI 流水線本身結束後，會需要將測試的結果送入到測試的叢集中去更新，那就意味者我們要透過修改 Git Repo 的內容來觸發 GitOps 的更新，因此需要在 CI 流水線的最後面對 Git Repo 進行修改。</p>
+<p>然而 Git 這個工具的設計本身就不是很適合太自自動化的操作，特別是遇到衝突時，需要有人為的解讀來修復。所以當有多個 CI 流水線同時運作時，就會有機會導致有部分的 CI 流水線會遇到 Git 衝突導致沒有辦法順利完成作業。</p>
+<blockquote>
+<p>這部分的衝突通常只是 Git 的紀錄更新，必須要一次又一次的 Pull 來抓到最新版才可以Push. 現實中很難真的發生會有單一檔案的衝突</p>
+</blockquote>
+<p>為了解決這個問題，作者於他們的工作環境中又設計了其他的系統來不停重試這些環節，這過程花費大量的時間。</p>
+<h2 id="Git-Repo-增長帶來的問題"><a href="#Git-Repo-增長帶來的問題" class="headerlink" title="Git Repo 增長帶來的問題"></a>Git Repo 增長帶來的問題</h2><p>GitOps 強調一切都放在 Git Repo 上，因此隨者系統專案的增加， Git Repo 也會愈開愈多。而每一個 Repo 都需要進行相關設定，譬如權限，整合等</p>
+<p>作者的親身經歷是他們有 30% 以上的時間來設定相關的 Git Repo。<br>作者認為減少 Git Repo 的數量可以減少這種痛苦，譬如每一個環境就用一個 Git Repo, 裡面放置該環境會用到的全部應用程式，但是這種架構下帶來的反而是一個 Repo 本身的權責太大，擁有的東西過多，然後搭配(1)的問題，就會產生更多衝突</p>
+<h2 id="缺乏視覺化"><a href="#缺乏視覺化" class="headerlink" title="缺乏視覺化"></a>缺乏視覺化</h2><p>GitOps 強調一切都是 Git，所有的差異變化都可以透過 Git History 來追蹤，這也代表這些文字內容可以幫忙管理人員回答諸多部署的相關問題</p>
+<p>然而作者的經驗是當環境愈來愈複雜時，有更多問題是沒有辦法依賴 GitOps 的特性來回答的，譬如說「某個應用程式被部署的頻率」。</p>
+<p>作者認為 Git 內容的改動不太容易對應到特定應用程式的更動，舉例來說某些改動可能一次會觸發多個應用程式重新部署，而有些改動卻可能只有部分設定檔案改動，而沒有任何應用程式重新部署。</p>
+<h2 id="Secret-的管理問題依然沒有解決"><a href="#Secret-的管理問題依然沒有解決" class="headerlink" title="Secret 的管理問題依然沒有解決"></a>Secret 的管理問題依然沒有解決</h2><p>滿多的複雜應用環境都會遇到 Secret 的管理問題，特別是當 CI&#x2F;CD 的流水線放置於系統外部服務時，這些機密資訊到底該如何保存?<br>舉例來說，凡舉資料庫的密碼或是私有鑰匙等需高度保存的東西都需要有一個很好的解決方案來保護。作者認為透過 Hashicorp 的 Vault 來進行集中化管理是一個比較合理的解法。</p>
+<p>雖然 GitOps 本身沒有強調自己對於安全性管理有更好的效益與優勢，但是就實務經驗上來看，並沒有讓事情變得簡單。 畢竟 Git Repo 本身不是一個適合存放各種機密資訊的地方，就算透過加解密的方式只存放加密後的結果，這些過往的資訊還是會被 Git History 給永久保存。<br>此外當 Git Repo 的數量擴大變多時，這些加密後的機密資訊也就會散落愈多地方，會導致管理與追蹤這些機密資訊要花費更大的功夫來處理</p>
+<h2 id="缺少檔案資源的驗證性"><a href="#缺少檔案資源的驗證性" class="headerlink" title="缺少檔案資源的驗證性"></a>缺少檔案資源的驗證性</h2><p>作者認為 GitOps 的架構下, Git Repo 作為一個 Kubernetes 與 CI&#x2F;CD 流水線中間的介面，沒有一個很好的方式去驗證所有修改過的資源是否有效與合法。<br>此架構下，則是開發者要確保自己的 Helm&#x2F;Yaml 是否有格式問題，不然相關的修改被合併到 Git Repo 的話就會造成部署錯誤</p>
+<p>我認為這個問題倒是不大，因為不管透過哪種部署思維都會有這樣的問題，反而是 CI&#x2F;CD 的過程中能不能驗證 Yaml 的正確與否，如果可以提早驗證，並且阻止沒通過測試的程式碼被合併，那這些問題應該都不會發生</p>
+<h1 id="不同於-GitOps-的解決方案"><a href="#不同於-GitOps-的解決方案" class="headerlink" title="不同於 GitOps 的解決方案"></a>不同於 GitOps 的解決方案</h1><p>上述的問題只是作者遇到的實戰問題，並非代表 GitOps 就毫無用處。 GitOps 依然帶來了很多好的優點，作者強調大家只需要心中知道你可能會遇到這些問題，然後遇到的時候可以想想要怎麼解決這些問題。</p>
+<p>作者開始思考，什麼樣的解決方案可以保留 GitOps 的優點同事又可以增進上述的缺點，其心目中有一些基本要有的特性</p>
+<ol>
+<li>有能力記錄叢集環境上的一切變化</li>
+<li>使用宣告式(Declarative)的文件格式來描述或是設定環境上要用到的所有資源</li>
+<li>所有的環境變化都可支援審核機制，要通過審核才會往下運作</li>
+<li>權限控管，控制誰有能力去對環境資源進行更改</li>
+<li>有辦法針對 期望的狀態與運行的狀態進行比對</li>
+</ol>
+<p>作者也認為一個好的架構中會有一個代理人運行在所有的 Kubernetes 之前，然後所有的操作請求都不應該直接面對 Kubernetes，而是跟該代理人溝通<br>如下圖<br><img src="https://i.imgur.com/LF7SaTV.png"></p>
+<p>該代理人本身提供 API 介面來接受各式各樣的請求，最後把這些請求更新到後方管理的 Kubernetes 叢集。</p>
+<p>原文中還有更多關於這個架構的一些想法，有興趣的可以閱讀原文</p>
+<p>作者也提到這部分會花很多的時間在設計這套解決方案，重新實作這個專案花的成本可能比專心用 GitOps 還來得高</p>
+<p>剛好現在有一個專案 <a target="_blank" rel="noopener" href="https://spinnaker.io/">Spinnaker</a> 就是在實現上述的架構，其下一代開發 <a target="_blank" rel="noopener" href="https://humanitec.com/">Humanitec</a> 更是完全針對 Kubernetes 使用。<br>這些專案有上述架構提到的一些特性，有些還在開發藍圖，作者期望有一天他們能夠成為 GitOps 以外的選擇</p>
+<h1 id="個人心得"><a href="#個人心得" class="headerlink" title="個人心得:"></a>個人心得:</h1><p>作者提到的痛點我認為其實並不是每個使用 GitOps 的人都會遇到的，畢竟 GitOps 我認為是一個概念，底層要怎麼實作並沒有強烈限制。使用的開源軟體不同，最後的工作流程也會完全不同，因此不一定完全是 GitOps 的問題，更有可能是當前架構下的問題。</p>
+<p>此外 Secret 的管理問題也並非是 GitOps 才會有的，而是任何在玩 CI&#x2F;CD 的人都會遇到的問題，只是最後你要怎麼解決而已。</p>
+<p>我也同意沒有最好的部署策略與解決方案，還是要根據自己的使用環境跟內部架構來挑選適合的工具</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+
+<h1 id="參考來源"><a href="#參考來源" class="headerlink" title="參考來源"></a>參考來源</h1><p><a target="_blank" rel="noopener" href="https://blog.container-solutions.com/gitops-the-bad-and-the-ugly">https://blog.container-solutions.com/gitops-the-bad-and-the-ugly</a></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/GitOps/" rel="tag"># GitOps</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/ipvs-4.html" rel="prev" title="IPvS 學習手冊(四)">
+                  <i class="fa fa-chevron-left"></i> IPvS 學習手冊(四)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/cncf-tech-radar-cd.html" rel="next" title="CNCF Continuous Delivery 使用者調查報告">
+                  CNCF Continuous Delivery 使用者調查報告 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

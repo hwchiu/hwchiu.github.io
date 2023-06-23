@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="Binomial Heap是由一群 Binomail Tree所組成的**Binomial Tree(BT)**含有下列特性  高度為k的 BT共有2^k個node 高度為k的 BT可以看成 BT0~BTk-1的組合 再加上一個root組成">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Binomial Heap">
+<meta property="og:url" content="https://www.hwchiu.com/binomial-heap.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="Binomial Heap是由一群 Binomail Tree所組成的**Binomial Tree(BT)**含有下列特性  高度為k的 BT共有2^k個node 高度為k的 BT可以看成 BT0~BTk-1的組合 再加上一個root組成">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Binomial_Trees.svg/700px-Binomial_Trees.svg.png">
+<meta property="og:image" content="http://upload.wikimedia.org/wikipedia/commons/thumb/6/61/Binomial-heap-13.svg/498px-Binomial-heap-13.svg.png">
+<meta property="og:image" content="http://user-image.logdown.io/user/415/blog/415/post/173103/3x9u0iDPRN606rAy5Ir7_%E8%9E%A2%E5%B9%95%E6%88%AA%E5%9C%96%202014-01-03%2021.42.57.png">
+<meta property="og:image" content="http://user-image.logdown.io/user/415/blog/415/post/173103/4wzFb15nSdmxfVoiRPEm_%E8%9E%A2%E5%B9%95%E6%88%AA%E5%9C%96%202014-01-03%2022.49.08.png">
+<meta property="og:image" content="http://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Binomial_heap_merge1.svg/275px-Binomial_heap_merge1.svg.png">
+<meta property="og:image" content="http://user-image.logdown.io/user/415/blog/415/post/173103/IsA2xggSb2hfoKuPJ4N6_%E8%9E%A2%E5%B9%95%E6%88%AA%E5%9C%96%202014-01-03%2023.02.35.png">
+<meta property="article:published_time" content="2014-01-03T04:56:00.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.600Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="SDN">
+<meta property="article:tag" content="OpenvSwitch">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Binomial_Trees.svg/700px-Binomial_Trees.svg.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/binomial-heap.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/binomial-heap.html","path":"binomial-heap.html","title":"Binomial Heap"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Binomial Heap | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-overview-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/binomial-heap.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Binomial Heap | Hwchiu Learning Note">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Binomial Heap
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2014-01-03 12:56:00" itemprop="dateCreated datePublished" datetime="2014-01-03T12:56:00+08:00">2014-01-03</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p><strong>Binomial Heap</strong>是由一群 <strong>Binomail Tree</strong>所組成的<br>**Binomial Tree(BT)**含有下列特性</p>
+<ul>
+<li>高度為k的 BT共有2^k個node</li>
+<li>高度為k的 BT可以看成 BT0~BTk-1的組合 再加上一個root組成<br><img src="http://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Binomial_Trees.svg/700px-Binomial_Trees.svg.png"></li>
+</ul>
+<span id="more"></span>
+
+<p><strong>Binomial Heap</strong></p>
+<ul>
+<li>是 <strong>mergable heap</strong></li>
+<li>由一群 <strong>Binomial Tree</strong>組成，每個BT都滿足 min-heap的性質</li>
+<li>對於高度為k的BT只能存在最多一棵</li>
+<li>以二進位來看待的話，第K位就代表是否存在高度為K的BT<ul>
+<li>以下圖為例，就是11001 (右邊最小)</li>
+<li>因此任何數量的結點都可以用不同的BT給組合出來</li>
+</ul>
+</li>
+</ul>
+<p><img src="http://upload.wikimedia.org/wikipedia/commons/thumb/6/61/Binomial-heap-13.svg/498px-Binomial-heap-13.svg.png"></p>
+<p>##Implement##</p>
+<ul>
+<li>採用 <strong>Left-Child Right-sibling</strong>的方式來實現，左邊指向child,右邊指向同輩</li>
+<li>value: node的值</li>
+<li>degree: 以此node為root的BT的高度</li>
+<li>parent: 指向其parent<br><img src="http://user-image.logdown.io/user/415/blog/415/post/173103/3x9u0iDPRN606rAy5Ir7_%E8%9E%A2%E5%B9%95%E6%88%AA%E5%9C%96%202014-01-03%2021.42.57.png" alt="螢幕截圖 2014-01-03 21.42.57.png"><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Node</span>&#123;</span><br><span class="line">	<span class="keyword">public</span>:</span><br><span class="line">		Node* parent;</span><br><span class="line">		Node* child;</span><br><span class="line">		Node* sibling;</span><br><span class="line">		<span class="type">int</span> value;</span><br><span class="line">		<span class="type">int</span> degree;</span><br><span class="line">		<span class="built_in">Node</span>()&#123;</span><br><span class="line">			parent = <span class="literal">NULL</span>;</span><br><span class="line">			child = <span class="literal">NULL</span>;</span><br><span class="line">			sibling = <span class="literal">NULL</span>;</span><br><span class="line">			value = <span class="number">0</span>;</span><br><span class="line">			degree = <span class="number">0</span>;</span><br><span class="line">		&#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<p>##Functions##</p>
+<ul>
+<li>getMin</li>
+<li>size</li>
+<li>Travese (postorder)</li>
+<li>mergeHeap</li>
+<li>Insert</li>
+<li>deleteMin</li>
+</ul>
+<p>##getMin##<br>由於每個BT本身都已經是min-heap的特性了，因此只要針對每個BT的root比較其值即可</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">getMin</span><span class="params">()</span>&#123;</span><br><span class="line">  Node* x = head;</span><br><span class="line">  <span class="type">int</span> min = INT_MAX;</span><br><span class="line">  <span class="keyword">while</span>(x!=<span class="literal">NULL</span>)&#123;</span><br><span class="line">    <span class="keyword">if</span>(x-&gt;value &lt; min)</span><br><span class="line">    min = x-&gt;value;</span><br><span class="line">    x = x-&gt;sibling;</span><br><span class="line">  &#125;</span><br><span class="line">	<span class="keyword">return</span> min;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>##size##<br>由於 <strong>Binomial Heap</strong>內都是由 <strong>Binomial Tree</strong>組成，所以可以由每個BT的degree得到其node數量<br>再把所有加總即可。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">size</span><span class="params">()</span>&#123;</span><br><span class="line">	Node* tmp = head;</span><br><span class="line">	<span class="type">int</span> count=<span class="number">0</span>;</span><br><span class="line">	<span class="keyword">while</span>(tmp)&#123;</span><br><span class="line">		count+= (<span class="number">1</span>&lt;&lt;tmp-&gt;degree);  <span class="comment">// 2^degree</span></span><br><span class="line">		tmp = tmp-&gt;sibling;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> count;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>##Postorder##<br>這邊是每個BT都要獨立跑一次Postorder的結果，所以在遞迴的過程中要對root做一些控制</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//對每一棵BT都跑一次postorder</span></span><br><span class="line"><span class="type">void</span> <span class="title function_">postorder</span><span class="params">()</span>&#123;</span><br><span class="line">  Node* tmp = head;</span><br><span class="line">  <span class="keyword">while</span>(tmp)&#123;</span><br><span class="line">    _postorder(tmp);</span><br><span class="line">    tmp = tmp-&gt;sibling;</span><br><span class="line">&#125;</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">&quot;\n&quot;</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//用parent判斷是不是root,避免root跑去呼叫到別的BT</span></span><br><span class="line"><span class="type">void</span> _postorder(Node* node)&#123;</span><br><span class="line">	<span class="keyword">if</span>(!node)</span><br><span class="line">		<span class="keyword">return</span>;</span><br><span class="line">	_postorder(node-&gt;child);</span><br><span class="line">	<span class="keyword">if</span>(node-&gt;parent)</span><br><span class="line">		_postorder(node-&gt;sibling);</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">&quot;%d &quot;</span>,node-&gt;value);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>##MergeHeap##<br>要合併兩個 <strong>Binomial Heap</strong></p>
+<ul>
+<li>先把兩個 <strong>Binomail Heap</strong>的 BT list給重新串接起來，以degree為key做sorting.</li>
+<li>再根據這個新的BT list開始進行一系列的合併</li>
+<li>如果只有兩個高度相同的BT，就直接合併</li>
+<li>如果有三個高度相同的BT，就把後面兩棵合併(維持sorting)</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">MergeHeap</span><span class="params">(BinomialHeap &amp;bh)</span>&#123;</span><br><span class="line"></span><br><span class="line">	mergeHeap(bh);  <span class="comment">//先把BT list給重新串接起來</span></span><br><span class="line">	Node* prev = <span class="literal">NULL</span>;</span><br><span class="line">	Node* x = head;</span><br><span class="line">	Node* next = x-&gt;sibling;</span><br><span class="line">	<span class="keyword">while</span>(next)&#123;</span><br><span class="line">		<span class="keyword">if</span>( (x-&gt;degree != next-&gt;degree) || next-&gt;sibling &amp;&amp; next-&gt;sibling-&gt;degree == x-&gt;degree)&#123;</span><br><span class="line">			prev = x;  <span class="comment">//前後兩棵BT的高度不同 或是 後面三棵BT的高度都相同</span></span><br><span class="line">			x = next;  <span class="comment">//那就把指標往前移動，下次再合併</span></span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">else</span> <span class="keyword">if</span>( x-&gt;value &lt;= next-&gt;value)&#123;  <span class="comment">//前面BT的值比較小，所以後面的合併進來</span></span><br><span class="line">			x-&gt;sibling = next-&gt;sibling;</span><br><span class="line">			mergeTree(next,x);</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">else</span>&#123; <span class="comment">//前面那棵BT的值比較大，要往後合併，視情況也要更新 head指標</span></span><br><span class="line">			<span class="keyword">if</span>(!prev)&#123;</span><br><span class="line">				head = next;				<span class="comment">//更新head 指標</span></span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">else</span>&#123;</span><br><span class="line">				prev-&gt;sibling = next;</span><br><span class="line">			&#125;</span><br><span class="line">			mergeTree(x,next);			 <span class="comment">//合併</span></span><br><span class="line">			x = next;</span><br><span class="line">		&#125;</span><br><span class="line">		next = next-&gt;sibling;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>要把兩個 <strong>Binomial Heap</strong>的BT list給重新串接起來，採用 <strong>merge sort的方法</strong><br><img src="http://user-image.logdown.io/user/415/blog/415/post/173103/4wzFb15nSdmxfVoiRPEm_%E8%9E%A2%E5%B9%95%E6%88%AA%E5%9C%96%202014-01-03%2022.49.08.png" alt="螢幕截圖 2014-01-03 22.49.08.png"></p>
+<ul>
+<li>使用 <strong>newHead</strong>紀錄合併後的頭</li>
+<li>使用 <strong>newCurr</strong>來紀錄每次合併後的尾</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">mergeHeap</span><span class="params">(BinomialHeap &amp;bh)</span>&#123;</span><br><span class="line">	Node* head2 = bh.head;</span><br><span class="line">	Node* head1 = head;</span><br><span class="line"></span><br><span class="line">	Node* newHead, *newCurr;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span>(!head1)&#123;            <span class="comment">//如果本身是空的，就不需要合併，直接指向對方即可</span></span><br><span class="line">		head = head2;</span><br><span class="line">		<span class="keyword">return</span> ;</span><br><span class="line">	&#125;</span><br><span class="line">  <span class="keyword">else</span> <span class="keyword">if</span>(!head2)&#123; 			 <span class="comment">//對方是空的，也不需要合併</span></span><br><span class="line">  	<span class="keyword">return</span> ;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">//先行尋找誰的開頭比較小，當做新串列的頭</span></span><br><span class="line">	<span class="keyword">if</span>(head1-&gt;degree &gt; head2-&gt;degree)&#123;</span><br><span class="line">		newHead = newCurr = head2;</span><br><span class="line">		head2 = head2-&gt;sibling;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">else</span> &#123;</span><br><span class="line">		newHead = newCurr = head1;</span><br><span class="line">		head1 = head1-&gt;sibling;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">while</span>(head1 &amp;&amp; head2)&#123;</span><br><span class="line">		<span class="keyword">if</span>(head1-&gt;degree &lt; head2-&gt;degree)&#123;</span><br><span class="line">			newCurr-&gt;sibling = head1;</span><br><span class="line">			newCurr = head1;</span><br><span class="line">			head1 = head1-&gt;sibling;</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">else</span> &#123;</span><br><span class="line">			newCurr-&gt;sibling = head2;</span><br><span class="line">			newCurr = head2;</span><br><span class="line">			head2 = head2-&gt;sibling;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">while</span>(head1)&#123;</span><br><span class="line">		newCurr-&gt;sibling = head1;</span><br><span class="line">		newCurr = head1;</span><br><span class="line">		head1 = head1-&gt;sibling;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">while</span>(head2)&#123;</span><br><span class="line">		newCurr-&gt;sibling = head2;</span><br><span class="line">		newCurr = head2;</span><br><span class="line">		head2 = head2-&gt;sibling;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	head = newHead;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<p>合併兩個 <strong>Binomial Tree</strong>，由於我們是min-heap的特性，所以當兩棵高度相等的BT要合併時，根據root的值來決定誰是合併後的root.</p>
+<p><img src="http://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Binomial_heap_merge1.svg/275px-Binomial_heap_merge1.svg.png"></p>
+<p>假設已經知道BT(y)的值比BT(z)還要大，所以BT(z)會是合併後的root</p>
+<ul>
+<li>y的parent指到z</li>
+<li>y的sibling 指到 z本來的child</li>
+<li>z的child 指到y</li>
+<li>z的degree 加一</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">mergeTree</span><span class="params">(Node* y,Node* z)</span>&#123;</span><br><span class="line">	y-&gt;parent = z;</span><br><span class="line">	y-&gt;sibling = z-&gt;child;</span><br><span class="line">	z-&gt;child = y;</span><br><span class="line">	z-&gt;degree++;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<p>##Insert##<br>要插入一個新的元素，就是創見一個新的 <strong>Binomial Heap</strong>，然後跟原本的Heap執行合併即可</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">insert</span><span class="params">(<span class="type">int</span> value)</span>&#123;</span><br><span class="line">	BinomialHeap bh;</span><br><span class="line">	bh.head = new Node();</span><br><span class="line">	bh.head-&gt;value = value;</span><br><span class="line">	MergeHeap(bh);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>##Delete##<br>要從 <strong>BinomialHeap</strong>中刪除當前最小元素</p>
+<ul>
+<li>先找到最小元素所在的那棵BT</li>
+<li>把該BT從list裡面拔除</li>
+<li>把該BT的children給反向排序(degree為key)</li>
+<li>在跟原本的BT list合併</li>
+</ul>
+<p><img src="http://user-image.logdown.io/user/415/blog/415/post/173103/IsA2xggSb2hfoKuPJ4N6_%E8%9E%A2%E5%B9%95%E6%88%AA%E5%9C%96%202014-01-03%2023.02.35.png" alt="螢幕截圖 2014-01-03 23.02.35.png"></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">deleteMin</span><span class="params">()</span>&#123;</span><br><span class="line">	<span class="type">int</span> min = head-&gt;value;</span><br><span class="line">	Node* tmp = head;</span><br><span class="line">	Node* minPre = <span class="literal">NULL</span>;</span><br><span class="line">	Node* minCurr = head;</span><br><span class="line">	<span class="comment">// 找到最小的node位於何處，由於要將該BT給拔除，所以必須要記得該BT前面那棵BT</span></span><br><span class="line">	<span class="comment">// 如果最小棵的是第一棵，那也要一併更新 head 指標</span></span><br><span class="line">	<span class="keyword">while</span>(tmp-&gt;sibling)&#123;</span><br><span class="line">		<span class="keyword">if</span>(tmp-&gt;sibling-&gt;value &lt; min)&#123;</span><br><span class="line">			min = tmp-&gt;sibling-&gt;value;</span><br><span class="line">			minPre = tmp;</span><br><span class="line">			minCurr = tmp-&gt;sibling;</span><br><span class="line">		&#125;</span><br><span class="line">		tmp = tmp-&gt;sibling;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span>(!minPre &amp;&amp; minCurr) <span class="comment">//最小棵是第一個</span></span><br><span class="line">		head = minCurr-&gt;sibling;</span><br><span class="line">	<span class="keyword">else</span> <span class="keyword">if</span>(minPre &amp;&amp; minCurr)</span><br><span class="line">		minPre-&gt;sibling = minCurr-&gt;sibling;</span><br><span class="line"></span><br><span class="line">  <span class="comment">//H&#x27; Make-BINOMIAL-HEAP()</span></span><br><span class="line"></span><br><span class="line">	Node *pre,*curr;</span><br><span class="line">	<span class="comment">//用三個指標反轉一個 single link list</span></span><br><span class="line">	pre = tmp = <span class="literal">NULL</span>;</span><br><span class="line">	curr = minCurr-&gt;child;</span><br><span class="line">	<span class="keyword">while</span>(curr)&#123;</span><br><span class="line">		tmp = curr-&gt;sibling;</span><br><span class="line">		curr-&gt;sibling = pre;</span><br><span class="line">		curr-&gt;parent = <span class="literal">NULL</span>;</span><br><span class="line">		pre = curr;</span><br><span class="line">		curr = tmp;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">//創建一棵新的binomial heap,並且讓他的head 指向反轉後的BT list</span></span><br><span class="line">  BinomialHeap bh ;</span><br><span class="line">	bh.head = pre;</span><br><span class="line">	<span class="comment">//再度合併</span></span><br><span class="line">	MergeHeap(bh);</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>圖片來自</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="http://en.wikipedia.org/wiki/Binomial_heap">Binomial Wiki</a></li>
+<li>Introduction To Algorithms，Chapter 19 Binomial Heaps</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/SDN/" rel="tag"># SDN</a>
+              <a href="/tags/OpenvSwitch/" rel="tag"># OpenvSwitch</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/openvswitch-hmap.html" rel="prev" title="OpenvSwitch - hmap">
+                  <i class="fa fa-chevron-left"></i> OpenvSwitch - hmap
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/mongodb.html" rel="next" title="MongoDB">
+                  MongoDB <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

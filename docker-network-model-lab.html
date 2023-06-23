@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本篇文章探討 Docker Bridge 網路模型的運作過程，透過一次次的步驟手動搭建出一個 Linux Bridge，並且成功讓多個容器可以彼此互通">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker 網路入門篇(二) - Bridge 網路模型">
+<meta property="og:url" content="https://www.hwchiu.com/docker-network-model-lab.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本篇文章探討 Docker Bridge 網路模型的運作過程，透過一次次的步驟手動搭建出一個 Linux Bridge，並且成功讓多個容器可以彼此互通">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/FjI12FK.jpg">
+<meta property="og:image" content="https://i.imgur.com/KhXGcX4.jpg">
+<meta property="og:image" content="https://i.imgur.com/1Nk6epG.jpg">
+<meta property="og:image" content="https://i.imgur.com/FOJ7May.jpg">
+<meta property="og:image" content="https://i.imgur.com/gpSQTcw.jpg">
+<meta property="og:image" content="https://i.imgur.com/8OCa03Y.jpg">
+<meta property="article:published_time" content="2020-10-31T13:20:22.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.612Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="Docker">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/FjI12FK.jpg">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/docker-network-model-lab.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/docker-network-model-lab.html","path":"docker-network-model-lab.html","title":"Docker 網路入門篇(二) - Bridge 網路模型"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Docker 網路入門篇(二) - Bridge 網路模型 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BB%8B%E7%B4%B9"><span class="nav-number">2.</span> <span class="nav-text">介紹</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%92%B0%E5%A2%83"><span class="nav-number">3.</span> <span class="nav-text">環境</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%AD%A5%E9%A9%9F"><span class="nav-number">4.</span> <span class="nav-text">步驟</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%B5%E5%BB%BA%E5%85%A9%E5%80%8B-None-%E5%AE%B9%E5%99%A8"><span class="nav-number">4.1.</span> <span class="nav-text">創建兩個 None 容器</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%A4%BA%E7%AF%84%E7%A8%8B%E5%BC%8F%E7%A2%BC"><span class="nav-number">4.1.1.</span> <span class="nav-text">示範程式碼</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A8%A1%E5%9E%8B%E5%88%86%E6%9E%90"><span class="nav-number">4.1.2.</span> <span class="nav-text">模型分析</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%B5%E5%BB%BA-Linux-Bridge"><span class="nav-number">4.2.</span> <span class="nav-text">創建 Linux Bridge</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AF%84%E4%BE%8B%E7%A8%8B%E5%BC%8F%E7%A2%BC"><span class="nav-number">4.2.1.</span> <span class="nav-text">範例程式碼</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%B6%B2%E8%B7%AF%E6%A8%A1%E5%9E%8B"><span class="nav-number">4.2.2.</span> <span class="nav-text">網路模型</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%B5%E5%BB%BA-Veth-Pair"><span class="nav-number">4.3.</span> <span class="nav-text">創建 Veth Pair</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%A8%8B%E5%BC%8F%E7%A2%BC%E7%A4%BA%E7%AF%84"><span class="nav-number">4.3.1.</span> <span class="nav-text">程式碼示範</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%B6%B2%E8%B7%AF%E6%A8%A1%E5%9E%8B-1"><span class="nav-number">4.3.2.</span> <span class="nav-text">網路模型</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%A7%BB%E5%8B%95-Veth-%E5%88%B0%E5%AE%B9%E5%99%A8"><span class="nav-number">4.4.</span> <span class="nav-text">移動 Veth 到容器</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%A8%8B%E5%BC%8F%E7%A2%BC%E7%AF%84%E4%BE%8B"><span class="nav-number">4.4.1.</span> <span class="nav-text">程式碼範例</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%B6%B2%E8%B7%AF%E6%A8%A1%E5%9E%8B-2"><span class="nav-number">4.4.2.</span> <span class="nav-text">網路模型</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#veth-%E7%B6%81%E5%AE%9A-Bridge"><span class="nav-number">4.5.</span> <span class="nav-text">veth 綁定 Bridge</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%A8%8B%E5%BC%8F%E7%A2%BC%E7%AF%84%E4%BE%8B-1"><span class="nav-number">4.5.1.</span> <span class="nav-text">程式碼範例</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%B6%B2%E8%B7%AF%E6%A8%A1%E5%9E%8B-3"><span class="nav-number">4.5.2.</span> <span class="nav-text">網路模型</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A8%AD%E5%AE%9A-Container-IP"><span class="nav-number">4.6.</span> <span class="nav-text">設定 Container IP</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%A8%8B%E5%BC%8F%E7%A2%BC%E7%AF%84%E4%BE%8B-2"><span class="nav-number">4.6.1.</span> <span class="nav-text">程式碼範例</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Ping-%E6%B8%AC%E8%A9%A6"><span class="nav-number">4.7.</span> <span class="nav-text">Ping 測試</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%A8%8B%E5%BC%8F%E7%A2%BC%E6%A8%A1%E6%93%AC"><span class="nav-number">4.7.1.</span> <span class="nav-text">程式碼模擬</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%B6%B2%E8%B7%AF%E6%A8%A1%E5%9E%8B-4"><span class="nav-number">4.7.2.</span> <span class="nav-text">網路模型</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">5.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">6.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/docker-network-model-lab.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Docker 網路入門篇(二) - Bridge 網路模型 | Hwchiu Learning Note">
+      <meta itemprop="description" content="本篇文章探討 Docker Bridge 網路模型的運作過程，透過一次次的步驟手動搭建出一個 Linux Bridge，並且成功讓多個容器可以彼此互通">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Docker 網路入門篇(二) - Bridge 網路模型
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2020-10-31 21:20:22" itemprop="dateCreated datePublished" datetime="2020-10-31T21:20:22+08:00">2020-10-31</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本篇文章探討 Docker Bridge 網路模型的運作過程，透過一次次的步驟手動搭建出一個 Linux Bridge，並且成功讓多個容器可以彼此互通</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>上篇文章 <a href="https://www.hwchiu.com/docker-network-model.html">Docker Network - 網路模型
+</a> 中跟大家分享了 Docker 內幾種基本網路模型，從 None, Host, Bridge 到 Contianer 共享</p>
+<p>而今天這篇文章會繼續往下看，我們的最終目的是想要理解預設情況下，我們的 Container 是如何擁有對外網路存取能力的。</p>
+<h1 id="介紹"><a href="#介紹" class="headerlink" title="介紹"></a>介紹</h1><p>事實上，上篇文章介紹的那些模型，彼此之間是可以互相轉換的，只要你夠熟悉 Linux 上相關指令的操作與用法，你就有辦法自己打造這些模型，甚至轉換。</p>
+<p>今天這篇文章探討如何打造一個 Bridge 的網路模型，最後我們會基於基於該網路模型上使用多個容器，並且確保這些容器彼此可以互相存取</p>
+<p>本篇文章中還不會探討到容器是如何對外上網的，譬如存取 Google DNS server，而是先著重於底層的架構，以及容器間同網段的存取。</p>
+<h1 id="環境"><a href="#環境" class="headerlink" title="環境"></a>環境</h1><p>為了更好展示整個過程的變化，我們會先透過 <strong>None</strong> 的網路模型創造一個完全乾淨的容器，接下來則會透過 Linux 指令的方式將其改造為 <strong>Bridge</strong> 網路模型。</p>
+<p>最後，我們會根據上述步驟，打造兩個容器並且都採用 <strong>Bridge</strong> 網路模型，讓這兩個容器可以互通，但是還沒有辦法擁有對外上網的能力。</p>
+<p>相關程式碼都可以於這邊找到 <a target="_blank" rel="noopener" href="https://github.com/technologynoteniu/bloglab/tree/main/docker_network_basic_2">technologynoteniu&#x2F;bloglab-source code</a></p>
+<h1 id="步驟"><a href="#步驟" class="headerlink" title="步驟"></a>步驟</h1><p>接下來的步驟會伴隨著跟上次一樣的圖例，從不同角度來慢慢觀察每個步驟對系統產生的變化，同時每個步驟也會附上相關的程式碼，有興趣的人也可以於自己環境中測試。</p>
+<p>下述環境基於</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ lsb_release -a</span><br><span class="line">No LSB modules are available.</span><br><span class="line">Distributor ID: Ubuntu</span><br><span class="line">Description:    Ubuntu 18.04.3 LTS</span><br><span class="line">Release:        18.04</span><br><span class="line">Codename:       bionic</span><br><span class="line"></span><br><span class="line">$ uname -a</span><br><span class="line">Linux k8s-dev 4.15.0-72-generic #81-Ubuntu SMP Tue Nov 26 12:20:02 UTC 2019 x86_64 x86_64 x86_64 GNU/Linux</span><br><span class="line"></span><br><span class="line">$ docker --version</span><br><span class="line">Docker version 19.03.13, build 4484c46d9d</span><br></pre></td></tr></table></figure>
+
+<h2 id="創建兩個-None-容器"><a href="#創建兩個-None-容器" class="headerlink" title="創建兩個 None 容器"></a>創建兩個 None 容器</h2><p>首先，我們要先創造兩個乾淨的容器，最後目標是打造成 Bridge 的網路模型並確保這兩個容器能夠互相存取。</p>
+<p>這邊會先使用 <strong>–network&#x3D;none</strong> 的形式要求 Docker 不要對該網路模型動手腳，讓我們自己處理即可。</p>
+<p>這邊我們創造容器的時候，我們會特別給予一個參數 <strong>–privileged</strong> 來要求特別權限，原因後面會解釋，這邊先直接使用</p>
+<h3 id="示範程式碼"><a href="#示範程式碼" class="headerlink" title="示範程式碼"></a>示範程式碼</h3><p>透過下列的程式碼，我們會於系統中創造兩個容器，分別名為 c1 及 c2.<br>之後透過 docker 指令進去看，確認兩個容器內除了 <strong>lo</strong> 之外沒有其他任何網卡。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">$ docker run --privileged -d --network=none --name c1 hwchiu/netutils</span><br><span class="line">$ docker run --privileged -d --network=none --name c2 hwchiu/netutils</span><br><span class="line"></span><br><span class="line">$ docker ps</span><br><span class="line">CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                               NAMES</span><br><span class="line">868f54ee0b32        hwchiu/netutils     <span class="string">&quot;/bin/bash ./entrypo…&quot;</span>   11 minutes ago      Up 11 minutes                                           c2</span><br><span class="line">5df4ed8e756a        hwchiu/netutils     <span class="string">&quot;/bin/bash ./entrypo…&quot;</span>   11 minutes ago      Up 11 minutes                                           c1</span><br><span class="line"></span><br><span class="line">$ docker <span class="built_in">exec</span> c1 ifconfig</span><br><span class="line">lo        Link encap:Local Loopback</span><br><span class="line">          inet addr:127.0.0.1  Mask:255.0.0.0</span><br><span class="line">          UP LOOPBACK RUNNING  MTU:65536  Metric:1</span><br><span class="line">          RX packets:0 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:1000</span><br><span class="line">          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h3 id="模型分析"><a href="#模型分析" class="headerlink" title="模型分析"></a>模型分析</h3><p>這邊用兩張不同視角來看待這個行為，由於本篇文章都會採用相同的概念去解讀不同網路模型，因此這邊詳細介紹兩種視角的概念。</p>
+<p>圖左：這邊想要介紹的是以系統底層的角度去觀察網路，中間的灰色線將其分為上半部分的 UserSpace, 以及下半部分的 Kernel Space。<br>本範例中下圖會有不同顏色變化，代表不同的網路空間，每個網路空間彼此網路隔離。</p>
+<p>圖右：這邊提供一個比較簡略的介紹，主要會從使用者的角度去觀察，由圖例來說明網路元件的關係上有什麼變化。</p>
+<hr>
+<ol>
+<li>當我們透過 <strong>None</strong> 創建兩個容器時，同時也會於系統內創建兩個全新的 netns(Network Namespace)，如下圖黃色及淺綠色所述，而淺藍色則是原生宿主機所使用的。</li>
+<li>預設情況下，這些 netns 裡面都只會有 <strong>lo</strong> 這張預設網卡</li>
+<li>假設 <strong>eth0</strong> 是宿主機本身擁有的網卡</li>
+</ol>
+<p><img src="https://i.imgur.com/FjI12FK.jpg"></p>
+<h2 id="創建-Linux-Bridge"><a href="#創建-Linux-Bridge" class="headerlink" title="創建 Linux Bridge"></a>創建 Linux Bridge</h2><p>接下來我們先於系統中創建一個 Linux Bridge，這也是 Docker 預設網路模型的作法。</p>
+<p>這部份會需要使用 <strong>brctl</strong> 這個工具， Ubuntu 系統可以透過安裝 <strong>brctl-utils</strong> 來取得。</p>
+<h3 id="範例程式碼"><a href="#範例程式碼" class="headerlink" title="範例程式碼"></a>範例程式碼</h3><p>這邊我們會使用兩個 brctl 的指令來處理，分別是</p>
+<ol>
+<li>brctl add-br $name</li>
+<li>brctl show</li>
+</ol>
+<p>第一個指令會於系統中創建一個名為 $name 的 Linux Bridge<br>第二個指令則是會顯示目前系統中有多少 Linux Bridge，以及其相關資訊</p>
+<p>範例中我們會創立一個名為 <code>hwchiu0</code> 的 Linux Bridge，最後透過 <strong>ifconfig</strong> 這個指令讓 Bridge 給叫起來，讓他處於一個可運行的狀態。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ sudo brctl addbr hwchiu0</span><br><span class="line">$ sudo brctl show</span><br><span class="line">bridge name     bridge <span class="built_in">id</span>               STP enabled     interfaces</span><br><span class="line">hwchiu0         8000.000000000000       no</span><br><span class="line">$ sudo ifconfig hwchiu0 up</span><br></pre></td></tr></table></figure>
+
+<h3 id="網路模型"><a href="#網路模型" class="headerlink" title="網路模型"></a>網路模型</h3><p>執行完這個階段後，我們系統會於宿主機的 netns (Network Namespace) 中創造一個全新的 Linux Bridge (hwchiu0)。</p>
+<p>這時候的系統架構圖如下，基本上跟上述沒有太多變化，單純就是多了一個元件。</p>
+<p><img src="https://i.imgur.com/KhXGcX4.jpg"></p>
+<h2 id="創建-Veth-Pair"><a href="#創建-Veth-Pair" class="headerlink" title="創建 Veth Pair"></a>創建 Veth Pair</h2><p>目前我們擁有</p>
+<ol>
+<li>兩個空蕩蕩的容器，包含其本身的 netns</li>
+<li>一個 Linux Bridge</li>
+</ol>
+<p>因此接下來我們要做的就是想辦法將其串連起來，這邊我們會使用一個名為 <strong>veth</strong> 的特殊網路設備，透過該設備我們可以於系統中創造一條特殊的連結。<br>該連結會有兩個端口，分別都會有對應的網卡名稱，從一端進去的封包都會馬上從另外一端出來，可以想像成一個雙向水管的概念。</p>
+<p>因此這個步驟我們要先於宿主機上面創造兩條雙向水管，也就是兩條 veth pair.</p>
+<h3 id="程式碼示範"><a href="#程式碼示範" class="headerlink" title="程式碼示範"></a>程式碼示範</h3><p>這個範例中，我們需要透過 <strong>ip</strong> 這個指令來創建該 veth 水管，指令變化很多，這邊示範一種用法</p>
+<p><strong>ip link add dev ${name} type veth</strong></p>
+<p>上述指令會要求 kernel 幫忙創造一條基於 veth 型態的連結，並且其中一個端頭命名為 ${name}，至於另一端則讓 kernel 幫忙處理</p>
+<p>當該指令完畢後，系統中就會多出兩張虛擬網卡，分別是 <strong>${name}</strong> 以及 kernel 幫忙創造的，通常是 <strong>veth….</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ sudo ip <span class="built_in">link</span> add dev c1-eth0 <span class="built_in">type</span> veth</span><br><span class="line">$ sudo ip <span class="built_in">link</span> add dev c2-eth0 <span class="built_in">type</span> veth</span><br><span class="line">$ sudo ip <span class="built_in">link</span> | grep veth</span><br><span class="line">23: veth0@c1-eth0: &lt;BROADCAST,MULTICAST,M-DOWN&gt; mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000</span><br><span class="line">24: c1-eth0@veth0: &lt;BROADCAST,MULTICAST,M-DOWN&gt; mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000</span><br><span class="line">25: veth1@c2-eth0: &lt;BROADCAST,MULTICAST,M-DOWN&gt; mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000</span><br><span class="line">26: c2-eth0@veth1: &lt;BROADCAST,MULTICAST,M-DOWN&gt; mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000</span><br></pre></td></tr></table></figure>
+
+<p>透過上述的指令，我們創建了兩條基於 veth 的網卡，因此系統中產生了四個虛擬網卡，其配對分別為</p>
+<ol>
+<li><strong>veth1 –&gt; c2-eth0</strong></li>
+<li><strong>veth0 –&gt; c1-eth0</strong></li>
+</ol>
+<h3 id="網路模型-1"><a href="#網路模型-1" class="headerlink" title="網路模型"></a>網路模型</h3><p>網卡建立完畢後，這時候的網路模型如下</p>
+<p>左圖: 當前都是於宿主機內操作，所以四張虛擬網卡都坐落於宿主機的 netns 裡面，圖中用兩種不同顏色的連線來代表這些網卡的關係</p>
+<p>右圖: 系統創建完畢後，宿主機多出四張虛擬網卡，這四張虛擬網卡跟容器無關，跟 Linux 無關，可以想成四個孤兒</p>
+<p><img src="https://i.imgur.com/1Nk6epG.jpg"></p>
+<h2 id="移動-Veth-到容器"><a href="#移動-Veth-到容器" class="headerlink" title="移動 Veth 到容器"></a>移動 Veth 到容器</h2><p>當我們創建好相關的 veth 水管後，下一個步驟就是要將 veth 的一個端頭給放到容器之中，這樣我們就可以利用 veth 的特性於不同 netns 之中傳遞封包。</p>
+<p>上述創造的配對如下</p>
+<ol>
+<li><strong>veth1 –&gt; c2-eth0</strong></li>
+<li><strong>veth0 –&gt; c1-eth0</strong></li>
+</ol>
+<p>因此我們的目標就是</p>
+<ol>
+<li>將 <strong>c1-eth0</strong> 這個虛擬網卡放到 c1 容器</li>
+<li>將 <strong>c2-eth0</strong> 這個虛擬網卡放到 c2 容器</li>
+</ol>
+<p>然而，準確的說，我們其實不是要放到容器內，而是要放到容器所屬的 netns (network namespace) 內，所以我們要先有辦法接觸到這些容器所使用的 netns.</p>
+<p>這邊我們會使用 <strong>ip netns</strong> 指令來進行操作，這個指令預設會去讀取 <strong>&#x2F;var&#x2F;run&#x2F;netns</strong> 底下的資料來顯示相關的 <strong>netns</strong>。</p>
+<p>然而 <strong>docker</strong> 其本身設計預設則是會避開 <strong>&#x2F;var&#x2F;run&#x2F;netns</strong> 可能是怕有人直接用系統指令 ** ip netns** 來操作導致容器崩壞。<br>因此透過 docker 所創造的容器其所屬的 <strong>netns</strong> 都會放到 <strong>&#x2F;var&#x2F;run&#x2F;docker&#x2F;netns</strong>。</p>
+<p>這邊我們只需要透過一個 soft link 的方式將這兩個位置串接起來，我們就可以使用 <strong>ip netns</strong> 來觀察 c1,c2 兩個容器的 netns 了</p>
+<h3 id="程式碼範例"><a href="#程式碼範例" class="headerlink" title="程式碼範例"></a>程式碼範例</h3><p>根據上述概念，我們先執行 ln 指令來創造 soft link，然後透過 <strong>ip netns show</strong> 來展示出系統當前看到的 netns 名稱</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ sudo <span class="built_in">ln</span> -s /var/run/docker/netns /var/run/netns</span><br><span class="line">$ sudo ip netns show</span><br><span class="line">792fedcf97d8</span><br><span class="line">1bb2e0141544</span><br></pre></td></tr></table></figure>
+
+<p>這邊的兩個名稱其實是 docker 容器裡面的 <code>NetworkSettings.SnadboxID</code><br>我們可以透過下列指令來觀察</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ docker inspect c1 | jq <span class="string">&#x27;.[0].NetworkSettings.SandboxID&#x27;</span></span><br><span class="line"><span class="string">&quot;1bb2e0141544758fe79387ebf4b7297556fb65efacc7d9ed7e068099744babee&quot;</span></span><br><span class="line"></span><br><span class="line">$ docker inspect c2 | jq <span class="string">&#x27;.[0].NetworkSettings.SandboxID&#x27;</span></span><br><span class="line"><span class="string">&quot;792fedcf97d8ae10ec0a29f5aa41813ad00825ff8127fd4d9c25b66a5714d7ca&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>因此當前範例中， <strong>792fedcf97d8</strong> 代表是的 c2 容器的 netns，而 <strong>1bb2e0141544</strong> 則是 c1 容器的 netns。</p>
+<p>接下來終於要進入正題，把我們事先創建好的虛擬網卡(veth的一端)給放到對應的 netns 中，這邊要借助 <strong>ip link set</strong> 這指令，該指令可以把虛擬網卡給放到不同的 <strong>netns</strong> 內，同時也可以重新命名</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ sudo ip <span class="built_in">link</span> <span class="built_in">set</span> c1-eth0 netns 1bb2e0141544 name eth0</span><br><span class="line">$ sudo ip <span class="built_in">link</span> <span class="built_in">set</span> c2-eth0 netns 792fedcf97d8 name eth0</span><br></pre></td></tr></table></figure>
+
+<p>執行完畢上述指令後，我們接下來可以透過 docker 指令再次觀察是否有任何變化</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">$ sudo docker <span class="built_in">exec</span> c2 ifconfig -a</span><br><span class="line">eth0      Link encap:Ethernet  HWaddr ea:51:1c:2c:a4:15</span><br><span class="line">          BROADCAST MULTICAST  MTU:1500  Metric:1</span><br><span class="line">          RX packets:0 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:1000</span><br><span class="line">          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)</span><br><span class="line"></span><br><span class="line">lo        Link encap:Local Loopback</span><br><span class="line">          inet addr:127.0.0.1  Mask:255.0.0.0</span><br><span class="line">          UP LOOPBACK RUNNING  MTU:65536  Metric:1</span><br><span class="line">          RX packets:0 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:1000</span><br><span class="line">          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)</span><br><span class="line">$ sudo docker <span class="built_in">exec</span> c1 ifconfig -a</span><br><span class="line">eth0      Link encap:Ethernet  HWaddr be:a7:29:1b:e0:13</span><br><span class="line">          BROADCAST MULTICAST  MTU:1500  Metric:1</span><br><span class="line">          RX packets:0 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:1000</span><br><span class="line">          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)</span><br><span class="line"></span><br><span class="line">lo        Link encap:Local Loopback</span><br><span class="line">          inet addr:127.0.0.1  Mask:255.0.0.0</span><br><span class="line">          UP LOOPBACK RUNNING  MTU:65536  Metric:1</span><br><span class="line">          RX packets:0 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:1000</span><br><span class="line">          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)</span><br><span class="line">$ ip <span class="built_in">link</span> | grep veth</span><br><span class="line">23: veth0@if24: &lt;BROADCAST,MULTICAST&gt; mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000</span><br><span class="line">25: veth1@if26: &lt;BROADCAST,MULTICAST&gt; mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000</span><br></pre></td></tr></table></figure>
+
+<p>最後我們可以再次透過 <strong>ip link</strong> 指令觀察，可以發現宿主機上面的四張虛擬網卡只剩下兩張了，因為有兩張都被搬移到容器內。</p>
+<h3 id="網路模型-2"><a href="#網路模型-2" class="headerlink" title="網路模型"></a>網路模型</h3><p>當相關的虛擬網卡都被移動到對應的容器後，這時候的模型有一點點小小變化</p>
+<p>左圖: veth 的一端都被移動到所屬容器的 netns 內，並且重新命名為 <strong>eth0</strong>。</p>
+<p>右圖: 這邊的改變就是 veth 的端口被搬移到容器中，並且重新命名為 <strong>eth0</strong>。<br><img src="https://i.imgur.com/FOJ7May.jpg"></p>
+<h2 id="veth-綁定-Bridge"><a href="#veth-綁定-Bridge" class="headerlink" title="veth 綁定 Bridge"></a>veth 綁定 Bridge</h2><p>接下來，我們要將 veth 跟 Linux Bridge 給整合一起，希望藉由 Linux Bridge 的功能來幫我們轉發封包</p>
+<p>所以這邊的概念很簡單，就是把宿主機上面關於 veth 的網卡通通都綁到我們事先創造好的 Linux Bridge <strong>hwchiu0</strong> 身上</p>
+<h3 id="程式碼範例-1"><a href="#程式碼範例-1" class="headerlink" title="程式碼範例"></a>程式碼範例</h3><p>這邊我們會使用 <strong>brctl addif</strong> 這個指令來達成目標，該指令用法如下</p>
+<p><strong>brctl addif ${bridge_name} ${nic_name}</strong></p>
+<p>該指令會將名為 ${nic_name} 的網卡給加入到 ${bridge_name} 的 Linux Bridge 上。</p>
+<p>當加入完畢後，我們也順便透過 ifconfig (其實 ip link 也可以) 將 veth 虛擬網卡給叫起來讓其運作</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ sudo brctl addif hwchiu0 veth0</span><br><span class="line">$ sudo brctl addif hwchiu0 veth1</span><br><span class="line">$ sudo ifconfig veth0 up</span><br><span class="line">$ sudo ifconfig veth1 up</span><br><span class="line">$ sudo brctl show</span><br><span class="line">bridge name     bridge <span class="built_in">id</span>               STP enabled     interfaces</span><br><span class="line">hwchiu0         8000.266248dc8ca1       no              veth0</span><br><span class="line">                                                        veth1</span><br></pre></td></tr></table></figure>
+<p>最後我們可以透過 <strong>brctl show</strong> 來顯示當前系統上面關於 Linux Bridge 的資訊，可以觀察到 <strong>veth0</strong> 以及 <strong>veth1</strong> 都已經綁定上去。</p>
+<h3 id="網路模型-3"><a href="#網路模型-3" class="headerlink" title="網路模型"></a>網路模型</h3><p>這個步驟主要針對的是 veth 於宿主機內的搬移，將其綁到對應的 Linux Bridge 上。</p>
+<p>左圖&#x2F;右圖: 差異就是 veth 的兩個端頭現在都不流浪，而是歸屬於 Linux Bridge 底下</p>
+<p><img src="https://i.imgur.com/gpSQTcw.jpg"></p>
+<h2 id="設定-Container-IP"><a href="#設定-Container-IP" class="headerlink" title="設定 Container IP"></a>設定 Container IP</h2><p>現在我們幾乎已經將整個路線給串通了！剩下最後一個簡單步驟就是設定 IP</p>
+<p>我們兩個容器內的 <strong>eth0</strong> 網卡都還沒有 IP，因此這個步驟我們就來幫忙設定 IP，<br>IP 本身議題也很多，這邊我們為了避免更多問題，因此這兩個容器的 IP 我們設定同網段，就如同我們使用 Docker 容器般，大家都是同網段</p>
+<p>目標:</p>
+<ul>
+<li>c1 容器使用 10.55.66.2 的IP, 網段為 10.55.66.0&#x2F;24</li>
+<li>c2 容器使用 10.55.66.3 的IP, 網段為 10.55.66.0&#x2F;24</li>
+</ul>
+<h3 id="程式碼範例-2"><a href="#程式碼範例-2" class="headerlink" title="程式碼範例"></a>程式碼範例</h3><p>還記得一開始創造容器時有特別要求 <code>--privileged</code> 這個參數嗎?</p>
+<p>這是因為我們接下來要於容器內透過一些網路工具去修改網卡資訊，這部份我們會需要相關的權限，否則執行的時候會得到下列錯誤</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">SIOCSIFADDR: Operation not permitted</span><br><span class="line">SIOCSIFFLAGS: Operation not permitted</span><br><span class="line">SIOCSIFNETMASK: Operation not permitted</span><br><span class="line">SIOCSIFFLAGS: Operation not permitted</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">$ sudo docker <span class="built_in">exec</span> c1 ifconfig eth0 10.55.66.2 netmask 255.255.255.0 up</span><br><span class="line">$ sudo docker <span class="built_in">exec</span> c2 ifconfig eth0 10.55.66.3 netmask 255.255.255.0 up</span><br><span class="line">$ sudo docker <span class="built_in">exec</span> c1 ifconfig</span><br><span class="line">eth0      Link encap:Ethernet  HWaddr be:a7:29:1b:e0:13</span><br><span class="line">          inet addr:10.55.66.2  Bcast:10.55.66.255  Mask:255.255.255.0</span><br><span class="line">          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1</span><br><span class="line">          RX packets:11 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:1000</span><br><span class="line">          RX bytes:906 (906.0 B)  TX bytes:0 (0.0 B)</span><br><span class="line"></span><br><span class="line">lo        Link encap:Local Loopback</span><br><span class="line">          inet addr:127.0.0.1  Mask:255.0.0.0</span><br><span class="line">          UP LOOPBACK RUNNING  MTU:65536  Metric:1</span><br><span class="line">          RX packets:0 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:1000</span><br><span class="line">          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)</span><br><span class="line"></span><br><span class="line">$ sudo docker <span class="built_in">exec</span> c2 ifconfig</span><br><span class="line">eth0      Link encap:Ethernet  HWaddr ea:51:1c:2c:a4:15</span><br><span class="line">          inet addr:10.55.66.3  Bcast:10.55.66.255  Mask:255.255.255.0</span><br><span class="line">          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1</span><br><span class="line">          RX packets:10 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:1000</span><br><span class="line">          RX bytes:796 (796.0 B)  TX bytes:0 (0.0 B)</span><br><span class="line"></span><br><span class="line">lo        Link encap:Local Loopback</span><br><span class="line">          inet addr:127.0.0.1  Mask:255.0.0.0</span><br><span class="line">          UP LOOPBACK RUNNING  MTU:65536  Metric:1</span><br><span class="line">          RX packets:0 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:1000</span><br><span class="line">          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)</span><br></pre></td></tr></table></figure>
+
+<p>最後透過 ifconfig 等指令再次觀察，可以看到相關的網卡都起來了，同時 IP 等資訊也都有了，可以準備邁入最後階段</p>
+<h2 id="Ping-測試"><a href="#Ping-測試" class="headerlink" title="Ping 測試"></a>Ping 測試</h2><p>這個階段，我們要來透過 <strong>PING</strong> 的指令來打測試我們的連線，整個封包流程會是</p>
+<p>c1 容器內的 ping -&gt; c1 容器內的網卡 eth0 -&gt; 宿主機內的 veth0<br>-&gt; 宿主機內的 Linux Bridge -&gt; 宿主機內 Bridge 上的 veth1<br>-&gt; c2 容器內的網卡 eth0</p>
+<p>這部份我們直接進入到容器內執行 <strong>ping 10.55.66.3</strong> 指令即可</p>
+<h3 id="程式碼模擬"><a href="#程式碼模擬" class="headerlink" title="程式碼模擬"></a>程式碼模擬</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker <span class="built_in">exec</span> -it c1 ping 10.55.66.3 -c5</span><br></pre></td></tr></table></figure>
+
+<p>這時候你會發現網路不通， ping 都沒有反應，這部份我們執行下面的神祕指令</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ sudo iptables --policy FORWARD ACCEPT</span><br><span class="line">$ docker <span class="built_in">exec</span> -it c1 ping 10.55.66.3 -c5</span><br></pre></td></tr></table></figure>
+
+<p>你就會發現網路通了，一切都正常了，至於到底上面那個神祕指令做了什麼手腳，為什麼會影響封包，這部份等我們下一章節再來慢慢細談 iptables 的概念</p>
+<h3 id="網路模型-4"><a href="#網路模型-4" class="headerlink" title="網路模型"></a>網路模型</h3><p>最後這邊就用來顯示一下封包的流程，基本上就是概括了本章節提到的所有元件，包含了 veth, Linux Bridge, 容器 IP 等資訊。</p>
+<p><img src="https://i.imgur.com/8OCa03Y.jpg"></p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>到這邊為止，我們已經瞭解如何將一個什麼都沒有的容器給打造為使用 Bridge 模型的容器，然而現在這種情況下，我們的兩個容器只能彼此互相存取，還沒有辦法對外上網，譬如 <strong>ping 8.8.8.8</strong> 。</p>
+<p>所以下篇文章我們會來探討這後半部分，來把整個 Docker Bridge 網路模型給摸熟，透過這些步驟來瞭解到底每個容器起來時實際上系統做了什麼手腳</p>
+<p>題外話：<br>上述的流程中有一個部分其實不好處理，稱為 IPAM，也就是 IP 分配管理的相關議題，我們要如何對每個容器去分配一個不重複的 IP 地址，同時當容器掛掉時，也要能夠回收這些 IP。</p>
+<p>另外本篇文章的詳細內容其實跟 <a target="_blank" rel="noopener" href="https://github.com/containernetworking/plugins/tree/master/plugins/main/bridge">Bridge CNI</a> 的步驟大概有 80% 一樣, 差異只剩下 IP 分配問題，以及後續會探討到的 IP 路由表管理。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/Docker/" rel="tag"># Docker</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/docker-network-model.html" rel="prev" title="Docker Network - 網路模型">
+                  <i class="fa fa-chevron-left"></i> Docker Network - 網路模型
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-4.html" rel="next" title="鐵人賽系列文章- Day 4 - Helm 操作範例">
+                  鐵人賽系列文章- Day 4 - Helm 操作範例 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="In this post, I try to study the soruce code of openvswitch to learn how does the openvswitch kernel module works.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Openvswitch source code(1)">
+<meta property="og:url" content="https://www.hwchiu.com/openvswitch-2.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="In this post, I try to study the soruce code of openvswitch to learn how does the openvswitch kernel module works.">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2013-12-02T01:17:00.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.634Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="SDN">
+<meta property="article:tag" content="SourceCode">
+<meta property="article:tag" content="OpenvSwitch">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/openvswitch-2.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/openvswitch-2.html","path":"openvswitch-2.html","title":"Openvswitch source code(1)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Openvswitch source code(1) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#SourceCode"><span class="nav-number">2.</span> <span class="nav-text">SourceCode</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#datapath-c"><span class="nav-number">2.1.</span> <span class="nav-text">datapath.c</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#ovs-workqueues-init"><span class="nav-number">2.1.1.</span> <span class="nav-text">ovs_workqueues_init</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ovs-flow-init"><span class="nav-number">2.1.2.</span> <span class="nav-text">ovs_flow_init</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ovs-vport-init"><span class="nav-number">2.1.3.</span> <span class="nav-text">ovs_vport_init</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#register-pernet-device-amp-ovs-net-ops"><span class="nav-number">2.1.4.</span> <span class="nav-text">register_pernet_device(&amp;ovs_net_ops)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#register-netdevice-notifier"><span class="nav-number">2.1.5.</span> <span class="nav-text">register_netdevice_notifier</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#dp-register-genl"><span class="nav-number">2.1.6.</span> <span class="nav-text">dp_register_genl</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#schedule-delayed-work"><span class="nav-number">2.1.7.</span> <span class="nav-text">schedule_delayed_work</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#other"><span class="nav-number">2.1.8.</span> <span class="nav-text">other</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">3.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/openvswitch-2.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Openvswitch source code(1) | Hwchiu Learning Note">
+      <meta itemprop="description" content="In this post, I try to study the soruce code of openvswitch to learn how does the openvswitch kernel module works.">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Openvswitch source code(1)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2013-12-02 09:17:00" itemprop="dateCreated datePublished" datetime="2013-12-02T09:17:00+08:00">2013-12-02</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">In this post, I try to study the soruce code of openvswitch to learn how does the openvswitch kernel module works.</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>Openvswitch support two modes for user to config, user mode and kernel mode.<br>we will discuss the kernel mode in this article.</p>
+<p>Software version: openvswitch v.20</p>
+<span id="more"></span>
+
+
+<h1 id="SourceCode"><a href="#SourceCode" class="headerlink" title="SourceCode"></a>SourceCode</h1><h2 id="datapath-c"><a href="#datapath-c" class="headerlink" title="datapath.c"></a>datapath.c</h2><p>This file is the main part of the kernel module and it will be compiled to the datapath.ko.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">module_init(dp_init);</span><br><span class="line">module_exit(dp_cleanup);</span><br><span class="line"></span><br><span class="line">MODULE_DESCRIPTION(&quot;Open vSwitch switching datapath&quot;);</span><br><span class="line">MODULE_LICENSE(&quot;GPL&quot;);</span><br><span class="line">MODULE_VERSION(VERSION);</span><br></pre></td></tr></table></figure>
+
+<p>The kernel will call its init function <code>dp_init</code> after the kernel module has been loaded.</p>
+<p>The following is the work flow of the <code>dp_init</code>.</p>
+<ul>
+<li>ovs_workqueues_init()</li>
+<li>ovs_flow_init()</li>
+<li>ovs_vport_init</li>
+<li>register_pernet_device(&amp;ovs_net_ops);</li>
+<li>register_netdevice_notifier(&amp;ovs_dp_device_notifier);</li>
+<li>dp_register_genl();</li>
+<li>schedule_delayed_work(&amp;rehash_flow_wq, REHASH_FLOW_INTERVAL);</li>
+</ul>
+<h3 id="ovs-workqueues-init"><a href="#ovs-workqueues-init" class="headerlink" title="ovs_workqueues_init"></a>ovs_workqueues_init</h3><p><strong>workqueue.c</strong></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">task_struct</span> *<span class="title">workq_thread</span>;</span></span><br><span class="line">spin_lock_init(&amp;wq_lock);</span><br><span class="line">INIT_LIST_HEAD(&amp;workq);</span><br><span class="line">init_waitqueue_head(&amp;more_work);</span><br><span class="line"></span><br><span class="line">workq_thread = kthread_create(worker_thread, <span class="literal">NULL</span>, <span class="string">&quot;ovs_workq&quot;</span>);</span><br><span class="line"><span class="keyword">if</span> (IS_ERR(workq_thread))</span><br><span class="line"><span class="keyword">return</span> PTR_ERR(workq_thread);</span><br><span class="line"></span><br><span class="line">wake_up_process(workq_thread);</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>Initail the worker queue.</li>
+<li>   Create a kernel thread and the handler is <strong>worker_thread</strong></li>
+<li>start the kernel thread by calling <strong>wake_up_process</strong></li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">worker_thread</span><span class="params">(<span class="type">void</span> *dummy)</span></span><br><span class="line">&#123;</span><br><span class="line">        <span class="keyword">for</span> (;;) &#123;</span><br><span class="line">                wait_event_interruptible(more_work,</span><br><span class="line">                                (kthread_should_stop() || !list_empty(&amp;workq)));</span><br><span class="line"></span><br><span class="line">                <span class="keyword">if</span> (kthread_should_stop())</span><br><span class="line">                        <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">                run_workqueue();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>wait_event_interruptible make the thread hibernation and add into the queue more_work.</li>
+<li>The thread will wake up until the condition “kthread_should_stop() || !list_empty(&amp;workq))” is true.</li>
+<li>It will call the <code>run_workqueue</code> after it wake up.</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">void</span> <span class="title function_">run_workqueue</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">        spin_lock_irq(&amp;wq_lock);</span><br><span class="line">        <span class="keyword">while</span> (!list_empty(&amp;workq)) &#123;</span><br><span class="line">                <span class="class"><span class="keyword">struct</span> <span class="title">work_struct</span> *<span class="title">work</span> =</span> list_entry(workq.next,</span><br><span class="line">                                <span class="keyword">struct</span> work_struct, entry);</span><br><span class="line"></span><br><span class="line">                <span class="type">work_func_t</span> f = work-&gt;func;</span><br><span class="line">                list_del_init(workq.next);</span><br><span class="line">                current_work = work;</span><br><span class="line">                spin_unlock_irq(&amp;wq_lock);</span><br><span class="line"></span><br><span class="line">                work_clear_pending(work);</span><br><span class="line">                f(work);</span><br><span class="line"></span><br><span class="line">                BUG_ON(in_interrupt());</span><br><span class="line">                spin_lock_irq(&amp;wq_lock);</span><br><span class="line">                current_work = <span class="literal">NULL</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        spin_unlock_irq(&amp;wq_lock);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>Get the work from the workq list and call the fucntion.</li>
+</ul>
+<h3 id="ovs-flow-init"><a href="#ovs-flow-init" class="headerlink" title="ovs_flow_init"></a>ovs_flow_init</h3><p><strong>flow.c</strong></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* Initializes the flow module.</span></span><br><span class="line"><span class="comment"> * Returns zero if successful or a negative error code. */</span></span><br><span class="line"><span class="type">int</span> <span class="title function_">ovs_flow_init</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">        BUILD_BUG_ON(__alignof__(<span class="keyword">struct</span> sw_flow_key) % __alignof__(<span class="type">long</span>));</span><br><span class="line">        BUILD_BUG_ON(<span class="keyword">sizeof</span>(<span class="keyword">struct</span> sw_flow_key) % <span class="keyword">sizeof</span>(<span class="type">long</span>));</span><br><span class="line"></span><br><span class="line">        flow_cache = kmem_cache_create(<span class="string">&quot;sw_flow&quot;</span>, <span class="keyword">sizeof</span>(<span class="keyword">struct</span> sw_flow), <span class="number">0</span>,</span><br><span class="line">                                        <span class="number">0</span>, <span class="literal">NULL</span>);</span><br><span class="line">        <span class="keyword">if</span> (flow_cache == <span class="literal">NULL</span>)</span><br><span class="line">                <span class="keyword">return</span> -ENOMEM;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>use the <code>kmem_cache_create</code> to create a kernel cache with size <code>sw_flow</code></li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">sw_flow</span> &#123;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">rcu_head</span> <span class="title">rcu</span>;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">hlist_node</span> <span class="title">hash_node</span>[2];</span></span><br><span class="line">        u32 hash;</span><br><span class="line"></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">sw_flow_key</span> <span class="title">key</span>;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">sw_flow_key</span> <span class="title">unmasked_key</span>;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">sw_flow_mask</span> *<span class="title">mask</span>;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">sw_flow_actions</span> __<span class="title">rcu</span> *<span class="title">sf_acts</span>;</span></span><br><span class="line"></span><br><span class="line">        <span class="type">spinlock_t</span> lock;        <span class="comment">/* Lock for values below. */</span></span><br><span class="line">        <span class="type">unsigned</span> <span class="type">long</span> used;     <span class="comment">/* Last used time (in jiffies). */</span></span><br><span class="line">        u64 packet_count;       <span class="comment">/* Number of packets matched. */</span></span><br><span class="line">        u64 byte_count;         <span class="comment">/* Number of bytes matched. */</span></span><br><span class="line">        u8 tcp_flags;           <span class="comment">/* Union of seen TCP flags. */</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>This struct store the info of each flow, including count, flow_key and flow_mask.</li>
+</ul>
+<h3 id="ovs-vport-init"><a href="#ovs-vport-init" class="headerlink" title="ovs_vport_init"></a>ovs_vport_init</h3><p><strong>vport.c”</strong></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> *      ovs_vport_init - initialize vport subsystem</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * Called at module load time to initialize the vport subsystem.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">int</span> <span class="title function_">ovs_vport_init</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">        dev_table = kzalloc(VPORT_HASH_BUCKETS * <span class="keyword">sizeof</span>(<span class="keyword">struct</span> hlist_head),</span><br><span class="line">                            GFP_KERNEL);</span><br><span class="line">        <span class="keyword">if</span> (!dev_table)</span><br><span class="line">                <span class="keyword">return</span> -ENOMEM;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>Use <code>kzalloc</code> malloc the memory from kernel.</li>
+</ul>
+<h3 id="register-pernet-device-amp-ovs-net-ops"><a href="#register-pernet-device-amp-ovs-net-ops" class="headerlink" title="register_pernet_device(&amp;ovs_net_ops)"></a>register_pernet_device(&amp;ovs_net_ops)</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">register_pernet_device(&amp;ovs_net_ops);</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>Register a network device <code>ovs_net_ops</code></li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">pernet_operations</span> <span class="title">ovs_net_ops</span> =</span> &#123;</span><br><span class="line">        .init = ovs_init_net,</span><br><span class="line">        .<span class="built_in">exit</span> = ovs_exit_net,</span><br><span class="line">        .id   = &amp;ovs_net_id,</span><br><span class="line">        .size = <span class="keyword">sizeof</span>(<span class="keyword">struct</span> ovs_net),</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>ovs_net_ops inherent from <code>pernet_operations</code>, it should implement some function (init, exit)</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">int</span> __net_init <span class="title function_">ovs_init_net</span><span class="params">(<span class="keyword">struct</span> net *net)</span></span><br><span class="line">&#123;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">ovs_net</span> *<span class="title">ovs_net</span> =</span> net_generic(net, ovs_net_id);</span><br><span class="line"></span><br><span class="line">        INIT_LIST_HEAD(&amp;ovs_net-&gt;dps);</span><br><span class="line">        INIT_WORK(&amp;ovs_net-&gt;dp_notify_work, ovs_dp_notify_wq);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>Use <code>net_generic</code> get the pointer to ovs_net.</li>
+<li>Use <code>INIT_WORK</code> to create a worker and set the function (dp_notify_work) as its work.</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">ovs_net</span> &#123;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">dps</span>;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">vport_net</span> <span class="title">vport_net</span>;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">work_struct</span> <span class="title">dp_notify_work</span>;</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>need to study later.</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">ovs_dp_notify_wq</span><span class="params">(<span class="keyword">struct</span> work_struct *work)</span></span><br><span class="line">&#123;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">ovs_net</span> *<span class="title">ovs_net</span> =</span> container_of(work, <span class="keyword">struct</span> ovs_net, dp_notify_work);</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">datapath</span> *<span class="title">dp</span>;</span></span><br><span class="line"></span><br><span class="line">        ovs_lock();</span><br><span class="line">        list_for_each_entry(dp, &amp;ovs_net-&gt;dps, list_node) &#123;</span><br><span class="line">                <span class="type">int</span> i;</span><br><span class="line"></span><br><span class="line">                <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; DP_VPORT_HASH_BUCKETS; i++) &#123;</span><br><span class="line">                        <span class="class"><span class="keyword">struct</span> <span class="title">vport</span> *<span class="title">vport</span>;</span></span><br><span class="line">                        <span class="class"><span class="keyword">struct</span> <span class="title">hlist_node</span> *<span class="title">n</span>;</span></span><br><span class="line"></span><br><span class="line">                        hlist_for_each_entry_safe(vport, n, &amp;dp-&gt;ports[i], dp_hash_node) &#123;</span><br><span class="line">                                <span class="class"><span class="keyword">struct</span> <span class="title">netdev_vport</span> *<span class="title">netdev_vport</span>;</span></span><br><span class="line"></span><br><span class="line">                                <span class="keyword">if</span> (vport-&gt;ops-&gt;type != OVS_VPORT_TYPE_NETDEV)</span><br><span class="line">                                        <span class="keyword">continue</span>;</span><br><span class="line"></span><br><span class="line">                                netdev_vport = netdev_vport_priv(vport);</span><br><span class="line">                                <span class="keyword">if</span> (netdev_vport-&gt;dev-&gt;reg_state == NETREG_UNREGISTERED ||</span><br><span class="line">                                    netdev_vport-&gt;dev-&gt;reg_state == NETREG_UNREGISTERING)</span><br><span class="line">                                        dp_detach_port_notify(vport);</span><br><span class="line">                        &#125;</span><br><span class="line">                &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        ovs_unlock();</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>search datapathes and list all its vport.</li>
+<li>Delete the vport if its status is <code>UNREGISTERED</code> of <code>UNREGISTERING</code>.</li>
+</ul>
+<h3 id="register-netdevice-notifier"><a href="#register-netdevice-notifier" class="headerlink" title="register_netdevice_notifier"></a>register_netdevice_notifier</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">register_netdevice_notifier(&amp;ovs_dp_device_notifier);</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>Register the network notification chain, it will call <code>ovs_dp_device_notifier</code> when event occur.</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">notifier_block</span> <span class="title">ovs_dp_device_notifier</span> =</span> &#123;</span><br><span class="line">        .notifier_call = dp_device_event</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>ovs_dp_device_notifier</code> contains a function pointer which point to <code>dp_device_event</code>.</li>
+<li>This function will be call when the notification has occur.</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">dp_device_event</span><span class="params">(<span class="keyword">struct</span> notifier_block *unused, <span class="type">unsigned</span> <span class="type">long</span> event,</span></span><br><span class="line"><span class="params">                           <span class="type">void</span> *ptr)</span></span><br><span class="line">&#123;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">ovs_net</span> *<span class="title">ovs_net</span>;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">net_device</span> *<span class="title">dev</span> =</span> ptr;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">vport</span> *<span class="title">vport</span> =</span> <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (!ovs_is_internal_dev(dev))</span><br><span class="line">                vport = ovs_netdev_get_vport(dev);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (!vport)</span><br><span class="line">                <span class="keyword">return</span> NOTIFY_DONE;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (event == NETDEV_UNREGISTER) &#123;</span><br><span class="line">                ovs_net = net_generic(dev_net(dev), ovs_net_id);</span><br><span class="line">                queue_work(&amp;ovs_net-&gt;dp_notify_work);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> NOTIFY_DONE;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>Need to study.</li>
+</ul>
+<h3 id="dp-register-genl"><a href="#dp-register-genl" class="headerlink" title="dp_register_genl"></a>dp_register_genl</h3><p><strong>datapath.c</strong></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">dp_register_genl</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">        <span class="type">int</span> n_registered;</span><br><span class="line">        <span class="type">int</span> err;</span><br><span class="line">        <span class="type">int</span> i;</span><br><span class="line"></span><br><span class="line">        n_registered = <span class="number">0</span>;</span><br><span class="line">        <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; ARRAY_SIZE(dp_genl_families); i++) &#123;</span><br><span class="line">                <span class="type">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">genl_family_and_ops</span> *<span class="title">f</span> =</span> &amp;dp_genl_families[i];</span><br><span class="line"></span><br><span class="line">                err = genl_register_family_with_ops(f-&gt;family, f-&gt;ops,</span><br><span class="line">                                                    f-&gt;n_ops);</span><br><span class="line">                <span class="keyword">if</span> (err)</span><br><span class="line">                        <span class="keyword">goto</span> error;</span><br><span class="line">                n_registered++;</span><br><span class="line"></span><br><span class="line">                <span class="keyword">if</span> (f-&gt;group) &#123;</span><br><span class="line">                        err = genl_register_mc_group(f-&gt;family, f-&gt;group);</span><br><span class="line">                        <span class="keyword">if</span> (err)</span><br><span class="line">                                <span class="keyword">goto</span> error;</span><br><span class="line">                &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">error:</span><br><span class="line">        dp_unregister_genl(n_registered);</span><br><span class="line">        <span class="keyword">return</span> err;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>Register four types of gereric netlink (datapath, vport, flow, packet).</li>
+<li>You can see the detail info in <strong>dp_genl_families</strong></li>
+<li><code>genl_register_family_with_ops</code>  : register a generic netlink family with ops.</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">genl_family_and_ops</span> <span class="title">dp_genl_families</span>[] =</span> &#123;</span><br><span class="line">        &#123; &amp;dp_datapath_genl_family,</span><br><span class="line">          dp_datapath_genl_ops, ARRAY_SIZE(dp_datapath_genl_ops),</span><br><span class="line">          &amp;ovs_dp_datapath_multicast_group &#125;,</span><br><span class="line">        &#123; &amp;dp_vport_genl_family,</span><br><span class="line">          dp_vport_genl_ops, ARRAY_SIZE(dp_vport_genl_ops),</span><br><span class="line">          &amp;ovs_dp_vport_multicast_group &#125;,</span><br><span class="line">        &#123; &amp;dp_flow_genl_family,</span><br><span class="line">          dp_flow_genl_ops, ARRAY_SIZE(dp_flow_genl_ops),</span><br><span class="line">          &amp;ovs_dp_flow_multicast_group &#125;,</span><br><span class="line">        &#123; &amp;dp_packet_genl_family,</span><br><span class="line">          dp_packet_genl_ops, ARRAY_SIZE(dp_packet_genl_ops),</span><br><span class="line">          <span class="literal">NULL</span> &#125;,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">genl_family_and_ops</span> &#123;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">genl_family</span> *<span class="title">family</span>;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">genl_ops</span> *<span class="title">ops</span>;</span></span><br><span class="line">        <span class="type">int</span> n_ops;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">genl_multicast_group</span> *<span class="title">group</span>;</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>A genl_family_and_ops contains a pointer to its family and a pointer to its operations.</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">genl_family</span> <span class="title">dp_datapath_genl_family</span> =</span> &#123;</span><br><span class="line">        .id = GENL_ID_GENERATE,</span><br><span class="line">        .hdrsize = <span class="keyword">sizeof</span>(<span class="keyword">struct</span> ovs_header),</span><br><span class="line">        .name = OVS_DATAPATH_FAMILY,</span><br><span class="line">        .version = OVS_DATAPATH_VERSION,</span><br><span class="line">        .maxattr = OVS_DP_ATTR_MAX,</span><br><span class="line">        .netnsok = <span class="literal">true</span>,</span><br><span class="line">         SET_PARALLEL_OPS</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">genl_ops</span> <span class="title">dp_datapath_genl_ops</span>[] =</span> &#123;</span><br><span class="line">        &#123; .cmd = OVS_DP_CMD_NEW,</span><br><span class="line">          .flags = GENL_ADMIN_PERM, <span class="comment">/* Requires CAP_NET_ADMIN privilege. */</span></span><br><span class="line">          .policy = datapath_policy,</span><br><span class="line">          .doit = ovs_dp_cmd_new</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123; .cmd = OVS_DP_CMD_DEL,</span><br><span class="line">          .flags = GENL_ADMIN_PERM, <span class="comment">/* Requires CAP_NET_ADMIN privilege. */</span></span><br><span class="line">          .policy = datapath_policy,</span><br><span class="line">          .doit = ovs_dp_cmd_del</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123; .cmd = OVS_DP_CMD_GET,</span><br><span class="line">          .flags = <span class="number">0</span>,               <span class="comment">/* OK for unprivileged users. */</span></span><br><span class="line">          .policy = datapath_policy,</span><br><span class="line">          .doit = ovs_dp_cmd_get,</span><br><span class="line">          .dumpit = ovs_dp_cmd_dump</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123; .cmd = OVS_DP_CMD_SET,</span><br><span class="line">          .flags = GENL_ADMIN_PERM, <span class="comment">/* Requires CAP_NET_ADMIN privilege. */</span></span><br><span class="line">          .policy = datapath_policy,</span><br><span class="line">          .doit = ovs_dp_cmd_set,</span><br><span class="line">        &#125;,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>Take <strong>dp_datapath_genl_ops</strong> for example. when the event is <strong>OVS_DP_CMD_NEW</strong> it will call it function handler <strong>ovs_dp_cmd_new</strong>.</li>
+</ul>
+<h3 id="schedule-delayed-work"><a href="#schedule-delayed-work" class="headerlink" title="schedule_delayed_work"></a>schedule_delayed_work</h3><ul>
+<li>Need to study</li>
+</ul>
+<h3 id="other"><a href="#other" class="headerlink" title="other"></a>other</h3><ul>
+<li>pr_info is printk(KERN_INFO,pr_fmt(fmt), ##<strong>VA_ARGS</strong>)</li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/SDN/" rel="tag"># SDN</a>
+              <a href="/tags/SourceCode/" rel="tag"># SourceCode</a>
+              <a href="/tags/OpenvSwitch/" rel="tag"># OpenvSwitch</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/openvswitch-install.html" rel="prev" title="OpenVSwitch - Basic Install">
+                  <i class="fa fa-chevron-left"></i> OpenVSwitch - Basic Install
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/openvswitch-source-2.html" rel="next" title="OpenvSwitch - 2">
+                  OpenvSwitch - 2 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

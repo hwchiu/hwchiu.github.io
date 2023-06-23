@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本文要特別介紹基於 Kubernetes 所開發的 CRI 解決方案 CRI-O, CRI-O 所有的功能都是為了 kubernetes 而設計，不多不少剛剛好，完全最佳化於 kubernetes。此外由於不需要倚賴太多第三方的元件，譬如 docker, containerd 等，使用 CRI-O 可以減少元件之間 IPC 溝通的次數進而提升整體的效率。 本文主要會介紹 CRI-O 的概念並且透過">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Container Runtime - CRI-O">
+<meta property="og:url" content="https://www.hwchiu.com/kubernetes-runtime-crio.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文要特別介紹基於 Kubernetes 所開發的 CRI 解決方案 CRI-O, CRI-O 所有的功能都是為了 kubernetes 而設計，不多不少剛剛好，完全最佳化於 kubernetes。此外由於不需要倚賴太多第三方的元件，譬如 docker, containerd 等，使用 CRI-O 可以減少元件之間 IPC 溝通的次數進而提升整體的效率。 本文主要會介紹 CRI-O 的概念並且透過">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/nUAYZiq.png">
+<meta property="og:image" content="https://i.imgur.com/AeciXUs.png">
+<meta property="article:published_time" content="2019-09-21T22:47:35.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.629Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="ITHOME">
+<meta property="article:tag" content="Container">
+<meta property="article:tag" content="CRI">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/nUAYZiq.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/kubernetes-runtime-crio.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/kubernetes-runtime-crio.html","path":"kubernetes-runtime-crio.html","title":"Container Runtime - CRI-O"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Container Runtime - CRI-O | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BB%8B%E7%B4%B9"><span class="nav-number">2.</span> <span class="nav-text">介紹</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%89%B9%E8%89%B2"><span class="nav-number">3.</span> <span class="nav-text">特色</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E9%81%8B%E4%BD%9C%E6%B5%81%E7%A8%8B"><span class="nav-number">4.</span> <span class="nav-text">運作流程</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%AE%89%E8%A3%9D%E6%B8%AC%E8%A9%A6"><span class="nav-number">5.</span> <span class="nav-text">安裝測試</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%89%E8%A3%9D-CRI-O"><span class="nav-number">5.1.</span> <span class="nav-text">安裝 CRI-O</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%A8%AD%E5%AE%9A%E7%B3%BB%E7%B5%B1%E7%9B%B8%E9%97%9C%E8%B3%87%E8%A8%8A"><span class="nav-number">5.1.1.</span> <span class="nav-text">設定系統相關資訊</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%89%E8%A3%9D%E5%A5%97%E4%BB%B6"><span class="nav-number">5.1.2.</span> <span class="nav-text">安裝套件</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%89%E8%A3%9D-kubernetes"><span class="nav-number">5.2.</span> <span class="nav-text">安裝 kubernetes</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%89%E8%A3%9D%E5%A5%97%E4%BB%B6-1"><span class="nav-number">5.2.1.</span> <span class="nav-text">安裝套件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%BB%BA%E7%AB%8B%E5%8F%A2%E9%9B%86"><span class="nav-number">5.2.2.</span> <span class="nav-text">建立叢集</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B8%AC%E8%A9%A6"><span class="nav-number">5.3.</span> <span class="nav-text">測試</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summay"><span class="nav-number">6.</span> <span class="nav-text">Summay</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%83%E8%80%83"><span class="nav-number">7.</span> <span class="nav-text">參考</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">8.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/kubernetes-runtime-crio.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Container Runtime - CRI-O | Hwchiu Learning Note">
+      <meta itemprop="description" content="本文要特別介紹基於 Kubernetes 所開發的 CRI 解決方案 CRI-O, CRI-O 所有的功能都是為了 kubernetes 而設計，不多不少剛剛好，完全最佳化於 kubernetes。此外由於不需要倚賴太多第三方的元件，譬如 docker, containerd 等，使用 CRI-O 可以減少元件之間 IPC 溝通的次數進而提升整體的效率。 本文主要會介紹 CRI-O 的概念並且透過實際安裝的方式介紹如何幫 kubernetes 抽換 runtime 成 CRI-O">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Container Runtime - CRI-O
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-09-22 06:47:35" itemprop="dateCreated datePublished" datetime="2019-09-22T06:47:35+08:00">2019-09-22</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本文要特別介紹基於 Kubernetes 所開發的 CRI 解決方案 CRI-O, CRI-O 所有的功能都是為了 kubernetes 而設計，不多不少剛剛好，完全最佳化於 kubernetes。此外由於不需要倚賴太多第三方的元件，譬如 docker, containerd 等，使用 CRI-O 可以減少元件之間 IPC 溝通的次數進而提升整體的效率。 本文主要會介紹 CRI-O 的概念並且透過實際安裝的方式介紹如何幫 kubernetes 抽換 runtime 成 CRI-O</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前兩篇文章我們探討了關於 <code>kubernetes</code> 中 <code>Container Runtime</code> 的概念，並且架設一個 <code>kubernetes cluster</code> 來使用 <code>containerd</code> 而非常見的 <code>docker</code> 作為其背後 <code>Container Runtime</code> 的解決方案。</p>
+<p>然而如果你嘗試搜尋過關於 <code>CRI</code> 的文章·除了 <code>kubernetes</code>,<code>OCI</code> 等相關概念關鍵字會出現外，你可能也有看過一個名為 <code>cri-o</code> 的關鍵字。</p>
+<p>今天就要來跟大家聊聊 <code>CRI-O</code> 這個完全針對 <code>kubernetes</code> 環境開發的<code>Container Runtime</code> 解決方案。</p>
+<h1 id="介紹"><a href="#介紹" class="headerlink" title="介紹"></a>介紹</h1><p>我想直接透過一張圖來解釋 <code>CRI-O</code> 的角色與地位是最快且簡單的，透過與 <code>docker</code>, <code>containerd</code> 等相關的比較，</p>
+<p><img src="https://i.imgur.com/nUAYZiq.png"></p>
+<p>該圖片從縱軸來看，有兩條主要的黑線，代表的是不同的標準架構，分別是 <code>CRI</code> 以及 <code>OCI</code>。<br><code>kubelet</code> 本身透過 <code>CRI</code> 的介面與各式各樣相容於 <code>CRI</code> 的解決方案溝通，而這些解決方案最後都會透過符合 <code>OCI</code> 標準的 <code>OCI runtime</code> 去創造出真正的 <code>Container</code> 供使用者使用。</p>
+<p>從上而下分別是之前介紹過 <code>kubernetes</code> 內與 <code>docker</code> 以及 <code>contained</code> 的架構演進圖。</p>
+<ol>
+<li><code>kubelet</code> 透過 <code>Dockershim</code> 與 <code>docker engine</code> 連接，最後一路串接到 <code>containerd</code> 來創建 <code>container</code>。</li>
+<li>繞過 <code>Docker</code> 直接與後端的 <code>Containerd</code> 溝通，為了滿足這個需求也需要一個額外的應用程式 <code>CRI-Containerd</code> 來作為中間溝通的橋樑</li>
+<li>隨者 <code>containerd</code> 1.1 版本的發行， <code>CRI-Containerd</code> 本身的功能已經可以透過 <code>plugin</code> 的方式實現於 <code>containerd</code> 中，可以再少掉一層溝通的耗損，這也是上一篇所介紹的安裝環境。</li>
+<li>則是本篇所要介紹的重點 <code>cri-o</code>, 一個完全針對 <code>kubernetes</code> 需求的解決方案，讓整體的溝通變得更快速與簡單。</li>
+</ol>
+<p>看完上述比較後會對 <code>cri-o</code> 有個初步的理解，知道其被設計出來的目的就是要提供更好地整合，減少多餘的 <code>IPC</code> 溝通，並且作為一個針對 <code>kubernetes</code> 設計的解決方案。</p>
+<h1 id="特色"><a href="#特色" class="headerlink" title="特色"></a>特色</h1><p><code>CRI-O</code> 的標題開宗明義直接闡明</p>
+<blockquote>
+<p>CRI-O - OCI-based implementation of Kubernetes Container Runtime Interface</p>
+</blockquote>
+<p>作為一個滿足 <code>CRI</code> 標準且能夠產生出相容於 <code>OCI</code>  標準 <code>container</code> 的解決方案，從整個設計到特色全部都是針對 <code>kubernetes</code> 來打造</p>
+<ol>
+<li>本身的軟體版本與 <code>kubernetes</code> 一致，同時所有的測試都是基於 kubernetes 的使用去測試，確保穩定性。</li>
+<li>目標是支援所有相容於 <code>OCI Runtime</code> 的解決方案，譬如 <code>Runc, Kata Containers</code></li>
+<li>支援不同的 <code>container image</code>，譬如 <code>docker</code> 自己本身就有 <a target="_blank" rel="noopener" href="https://docs.docker.com/registry/spec/manifest-v2-1/">schema 2&#x2F;version 1</a> 與 <a target="_blank" rel="noopener" href="https://docs.docker.com/registry/spec/manifest-v2-2/">schema 2&#x2F;version 2</a></li>
+<li>使用 <code>Container Network Interface CNI</code> 來管理 <code>Container</code> 網路</li>
+</ol>
+<h1 id="運作流程"><a href="#運作流程" class="headerlink" title="運作流程"></a>運作流程</h1><p>整體的運作流程可以由下面這張圖片來說明</p>
+<p><img src="https://i.imgur.com/AeciXUs.png"><br>本圖擷取自<a target="_blank" rel="noopener" href="https://cri-o.io/#container-images">cri-o</a></p>
+<ol>
+<li>kubelet 決定要創建一個 <code>Pod</code>，於是透過 <code>gRPC</code> 的方式發送基於 <code>CRI</code> 標準的請求到 <code>cri-o</code></li>
+<li><code>cri-o</code> 基於 <code>containerts/image</code> 的函式庫去該 <code>Pod</code> 裡面描述的 <code>Container Image Registry</code> 抓取該 <code>container image</code></li>
+<li>下載下來的 <code>container image</code> 會被解開，接下來會透過 <code>containers/storage</code> 相關的函式庫去處理 <code>container</code> 本身的 <code>root filesystem</code>。</li>
+<li><code>CRI-O</code> 接者會使用 <code>OCI</code> 提供的工具去產生一個用來描述該 <code>container</code> 要如何運行的 <code>json</code> 檔案。</li>
+<li>接者會根據設定去運行相容於 <code>OCI Runtime</code> 的解決方案來執行該 <code>container</code>.</li>
+<li>每一個 <code>container</code> 都會被獨立的 process <code>conmon (container monitor)</code> 給監控，處理者關於 pseudotty, log, 以及 exit code。</li>
+<li>接下來會透過 <code>CNI</code> 的介面來幫該 <code>Pod</code> 建立網路<blockquote>
+<p>實際上 CNI 操作的對象是所謂的 infra container (pause container), 而非任何使用者請求的 container. 這部分會到 CNI 的章節在仔細介紹</p>
+</blockquote>
+</li>
+</ol>
+<p>整個 <code>OCI</code> 的概念相對於 <code>docker, containerd</code> 來得簡單，因為其目標就是支援 <code>kubernetes</code>，不相干的功能不實作，專心提供更好的相容性與穩定性。</p>
+<p>此外近來可以陸陸續續看到相關新聞在講述 <code>CRI-O</code> 的導入，譬如 OpenSuse&#x2F;RedHat 都幫自家的產品導入 <code>cri-o</code> 並且作為預設的運行環境，就是希望能夠讓 <code>kubernetes</code> 的效能更好更穩定。<br><a target="_blank" rel="noopener" href="https://kubic.opensuse.org/blog/2018-09-17-crio-default/">kubic.opensuse: CRI-O is now our default container runtime interface</a><br><a target="_blank" rel="noopener" href="https://www.redhat.com/en/blog/red-hat-openshift-container-platform-4-now-defaults-cri-o-underlying-container-engine">Red Hat OpenShift Container Platform 4 now defaults to CRI-O as underlying container engine</a></p>
+<p>看完了 <code>cri-o</code> 的概念介紹後，接下來我們仿造上篇 <code>containerd</code> 的概念一樣打造一樣的環境試試看，並且觀察相關的 <code>process</code> 運作。</p>
+<h1 id="安裝測試"><a href="#安裝測試" class="headerlink" title="安裝測試"></a>安裝測試</h1><h2 id="安裝-CRI-O"><a href="#安裝-CRI-O" class="headerlink" title="安裝 CRI-O"></a>安裝 CRI-O</h2><p>基本上安裝的過程跟 <code>containerd</code> 大同小異，只是安裝的套件不同，同時最後設定 <code>kubelet</code> 的方式不同。</p>
+<h3 id="設定系統相關資訊"><a href="#設定系統相關資訊" class="headerlink" title="設定系統相關資訊"></a>設定系統相關資訊</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">modprobe overlay</span><br><span class="line">modprobe br_netfilter</span><br><span class="line"><span class="built_in">echo</span> 1 &gt; /proc/sys/net/bridge/bridge-nf-call-iptables</span><br><span class="line"><span class="built_in">echo</span> 1 &gt; /proc/sys/net/ipv4/ip_forward</span><br><span class="line"><span class="built_in">echo</span> 1 &gt; /proc/sys/net/bridge/bridge-nf-call-ip6tables</span><br></pre></td></tr></table></figure>
+
+
+<h3 id="安裝套件"><a href="#安裝套件" class="headerlink" title="安裝套件"></a>安裝套件</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">apt-get update</span><br><span class="line">apt-get install software-properties-common</span><br><span class="line"></span><br><span class="line">add-apt-repository ppa:projectatomic/ppa</span><br><span class="line">apt-get update</span><br><span class="line">apt-get install cri-o-1.15</span><br><span class="line">systemctl start cri-o</span><br></pre></td></tr></table></figure>
+
+<p>如果執行錯誤發現因為找不到相關的 <code>/usr/local/libexec/crio/crio-wipe/crio-wipe.bash</code> 這個檔案的話，可以手動幫忙建立個 <code>soft link</code></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo <span class="built_in">ln</span> -s /usr/libexec /usr/local/libexec</span><br></pre></td></tr></table></figure>
+
+<p>這個問題在 <a target="_blank" rel="noopener" href="https://github.com/cri-o/cri-o/issues/2779">github</a> 上面已經被回報，但是不確定是什麼時候會修復到打包的 <code>deb</code> 之中，至少我<code>2019/09/18</code>測試的時候還是壞掉的。</p>
+<p>最後透過指令確認 cri-o 有正確運行</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo systemctl status cri-o</span><br><span class="line">● crio.service - Container Runtime Interface <span class="keyword">for</span> OCI (CRI-O)</span><br><span class="line">   Loaded: loaded (/usr/lib/systemd/system/crio.service; disabled; vendor preset: enabled)</span><br><span class="line">   Active: active (running) since Thu 2019-09-19 03:31:32 UTC; 20min ago</span><br><span class="line">     Docs: https://github.com/cri-o/cri-o</span><br><span class="line"> Main PID: 28333 (crio)</span><br><span class="line">    Tasks: 16</span><br><span class="line">   Memory: 870.2M</span><br><span class="line">      CPU: 28.468s</span><br><span class="line">   CGroup: /system.slice/crio.service</span><br><span class="line">           └─28333 /usr/bin/crio</span><br><span class="line"></span><br><span class="line">Sep 19 03:31:32 k8s-dev systemd[1]: Starting Open Container Initiative Daemon...</span><br><span class="line">Sep 19 03:31:32 k8s-dev systemd[1]: Started Open Container Initiative Daemon.</span><br><span class="line">Sep 19 03:31:57 k8s-dev systemd[1]: Started Open Container Initiative Daemon.</span><br><span class="line">Sep 19 03:32:10 k8s-dev systemd[1]: Started Container Runtime Interface <span class="keyword">for</span> OCI (CRI-O).</span><br></pre></td></tr></table></figure>
+
+
+
+
+<h2 id="安裝-kubernetes"><a href="#安裝-kubernetes" class="headerlink" title="安裝 kubernetes"></a>安裝 kubernetes</h2><h3 id="安裝套件-1"><a href="#安裝套件-1" class="headerlink" title="安裝套件"></a>安裝套件</h3><p>安裝 <code>kubeadm/kubelet/kubectl</code> 相關檔案工具，不再撰述其過程</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">apt-get update &amp;&amp; apt-get install -y apt-transport-https curl</span><br><span class="line">curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -</span><br><span class="line"><span class="built_in">cat</span> &lt;&lt;<span class="string">EOF &gt;/etc/apt/sources.list.d/kubernetes.list</span></span><br><span class="line"><span class="string">deb https://apt.kubernetes.io/ kubernetes-xenial main</span></span><br><span class="line"><span class="string">EOF</span></span><br><span class="line">apt-get update</span><br><span class="line">apt-get install -y kubelet kubeadm kubectl</span><br></pre></td></tr></table></figure>
+
+<p>接下來要使用 <code>kubeadm</code> 進行安裝·安裝步驟與之前 <code>containerd</code> 大同小異</p>
+<p>由於部分需要的設定只能透過 <code>config</code> 的方式來修改，並不能像之前 <code>containerd</code> 的方式去改 systemd 裡面的環境變數，因此請增加 <code>/etc/default/kubelet</code> 這個檔案，內容如下</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ <span class="built_in">cat</span> /etc/default/kubelet</span><br><span class="line">KUBELET_EXTRA_ARGS=--feature-gates=<span class="string">&quot;AllAlpha=false,RunAsGroup=true&quot;</span> --container-runtime=remote --cgroup-driver=systemd --container-runtime-endpoint=<span class="string">&#x27;unix:///var/run/crio/crio.sock&#x27;</span> --runtime-request-timeout=5m</span><br></pre></td></tr></table></figure>
+
+<h3 id="建立叢集"><a href="#建立叢集" class="headerlink" title="建立叢集"></a>建立叢集</h3><p>透過下列指令依序建立叢集</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">sudo swapoff -a &amp;&amp; sudo sysctl -w vm.swappiness=0</span><br><span class="line">sudo kubeadm init --pod-network-cidr=10.244.0.0/16</span><br><span class="line"><span class="built_in">mkdir</span> -p <span class="variable">$HOME</span>/.kube</span><br><span class="line">sudo <span class="built_in">cp</span> -i /etc/kubernetes/admin.conf <span class="variable">$HOME</span>/.kube/config</span><br><span class="line">sudo <span class="built_in">chown</span> $(<span class="built_in">id</span> -u):$(<span class="built_in">id</span> -g) <span class="variable">$HOME</span>/.kube/config</span><br><span class="line">kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/a70459be0084506e4ec919aa1c114638878db11b/Documentation/kube-flannel.yml</span><br><span class="line">kubectl taint nodes --all node-role.kubernetes.io/master-</span><br></pre></td></tr></table></figure>
+
+
+<p>如果 <code>cri-o</code> 沒有正確安裝的話，會因為找不到相關的 <code>unix socket</code>，使得 <code>kubelet</code> 會嘗試去找 <code>docker</code> 來使用，但是因為我系統上面沒有 <code>docker</code>，因此會使得安裝失敗，訊息如下。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo kubeadm init --pod-network-cidr=10.244.0.0/16</span><br><span class="line"></span><br><span class="line">[init] Using Kubernetes version: v1.16.0</span><br><span class="line">[preflight] Running pre-flight checks</span><br><span class="line">[preflight] WARNING: Couldn<span class="string">&#x27;t create the interface used for talking to the container runtime: docker is required for container runtime: exec: &quot;docker&quot;:</span></span><br><span class="line"><span class="string"> executable file not found in $PATH</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="測試"><a href="#測試" class="headerlink" title="測試"></a>測試</h2><p>因為 <code>cri-o</code> 就是完全針對 <code>cri</code> + <code>kubernetes</code> 打造的，所以前述的 <code>crictl</code> 相關的工具都還是可以繼續使用</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo crictl images</span><br><span class="line">IMAGE                                TAG                 IMAGE ID            SIZE</span><br><span class="line">k8s.gcr.io/coredns                   1.6.2               bf261d1579144       44.2MB</span><br><span class="line">k8s.gcr.io/etcd                      3.3.15-0            b2756210eeabf       248MB</span><br><span class="line">k8s.gcr.io/kube-apiserver            v1.16.0             b305571ca60a5       219MB</span><br><span class="line">k8s.gcr.io/kube-controller-manager   v1.16.0             06a629a7e51cd       165MB</span><br><span class="line">k8s.gcr.io/kube-proxy                v1.16.0             c21b0c7400f98       87.9MB</span><br><span class="line">k8s.gcr.io/kube-scheduler            v1.16.0             301ddc62b80b1       88.8MB</span><br><span class="line">k8s.gcr.io/pause                     3.1                 da86e6ba6ca19       747kB</span><br><span class="line">quay.io/coreos/flannel               v0.11.0-amd64       ff281650a721f       55.4MB</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ sudo crictl ps</span><br><span class="line">CONTAINER ID        IMAGE                                                              CREATED             STATE               NAME                      ATTEMPT             POD ID</span><br><span class="line">72d22f82eca39       ff281650a721f46bbe2169292c91031c66411554739c88c861ba78475c1df894   29 minutes ago      Running             kube-flannel              0                   8c7db4df0ae25</span><br><span class="line">bf7f4886d1a59       c21b0c7400f988db4777858edd13b6d3930d62d7ccf026d2415485a52037f384   38 minutes ago      Running             kube-proxy                0                   ead4354c566f9</span><br><span class="line">fa3d24cb95896       b2756210eeabf84f3221da9959e9483f3919dc2aaab4cd45e7cd072fcbde27ed   39 minutes ago      Running             etcd                      0                   b219a7e8b9d52</span><br><span class="line">983924dffa404       301ddc62b80b16315d3c2653cf3888370394277afb3187614cfa20edc352ca0a   39 minutes ago      Running             kube-scheduler            0                   6d1c2c8035d10</span><br><span class="line">a04f0f3b253a6       06a629a7e51cdcc81a5ed6a3e6650348312f20c954ac52ee489a023628ec9c7d   39 minutes ago      Running             kube-controller-manager   0                   5fa8e74c08bac</span><br><span class="line">a48e40de9a05b       b305571ca60a5a7818bda47da122683d75e8a1907475681ee8b1efbd06bff12e   39 minutes ago      Running             kube-apiserver            0                   014ba57340bf8</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>這時候透過 <code>ps</code> 等指令觀察一下系統中運行的指令</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo ps -x -awo <span class="built_in">command</span> | grep cri</span><br><span class="line">/usr/bin/crio</span><br><span class="line">/usr/bin/kubelet --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf --config=/var/lib/kubelet/config.yaml --container-runtime=remote --container-runtime-endpoint=/var/run/crio/crio.sock --feature-gates=AllAlpha=<span class="literal">false</span>,RunAsGroup=<span class="literal">true</span> --container-runtime=remote --cgroup-driver=systemd --container-runtime-endpoint=unix:///var/run/crio/crio.sock --runtime-request-timeout=5m</span><br><span class="line">/usr/libexec/crio/conmon -s -c 014ba57340bf8afd3b2ce6982b760ffac82ce1bc2861a2b02f8069c8becde304 -n k8s_POD_kube-apiserver-k8s-dev_kube-system_b00230a3af5f91e5d10118aee4d054c4_0 -u 014ba57340bf8afd3b2ce6982b760ffac82ce1bc2861a2b02f8069c8becde304 -r /usr/lib/cri-o-runc/sbin/runc -b /var/run/containers/s</span><br><span class="line">torage/overlay-containers/014ba57340bf8afd3b2ce6982b760ffac82ce1bc2861a2b02f8069c8becde304/userdata -p /var/run/containers/storage/overlay-containers/014ba57340bf8afd3b2ce6982b760ffac82ce1bc2861a2b02f8069c8becde304/userdata/pidfile -l /var/log/pods/kube-system_kube-apiserver-k8s-dev_b00230a3af5f91e5d10118aee4d054c4/014ba57340bf8afd3b2ce6982b760ffac82ce1bc2861a2b02f8069c8becde304.<span class="built_in">log</span> --exit-dir /var/run/crio/exits --socket-dir-path /var/run/crio --log-level error --runtime-arg --root=/run/runc</span><br></pre></td></tr></table></figure>
+
+<p>可以觀察到</p>
+<ol>
+<li>有一個名為 <code>crio</code> 的 daemon 運行</li>
+<li>kubelet 的參數都修改為去取 <code>cri-o</code> 配合</li>
+<li><code>crio</code> 本身會 <code>fork/exec</code> 一個名為 <code>conmon</code> 的 process ，也因為這個 跟 <code>kubernetes</code> 是直接配合的，可以看到很多參數都直接跟 <code>kubernetes</code> 有關，譬如名稱是 <code>k8s_POD_kube-apiserver-k8s-dev_kube-system_b00230a3af5f91e5d10118aee4d054c4_0</code>，裡面描述了其 <code>pod</code> 的名稱，還有<code>namespace</code>。</li>
+</ol>
+<h1 id="Summay"><a href="#Summay" class="headerlink" title="Summay"></a>Summay</h1><p>到這邊為止，我們已經架設過基於 <code>containerd</code> 與 <code>cri-o</code> 等不同相容於 <code>CRI</code> 的解決方案，唯一可惜的就是我們的背後都是基於 <code>runc</code> 這套純 <code>container</code> 的運行方式。</p>
+<p>因此接下來的數天我們將針對這一塊去探討其他滿足 <code>OCI Runtime</code> 卻不同於 <code>runc</code> 的解決方案，特別會開始跟 <code>Virtual Machine</code> 牽扯到一起。</p>
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://cri-o.io/">https://cri-o.io</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/cri-o/cri-o/blob/master/tutorials/kubeadm.md">https://github.com/cri-o/cri-o/blob/master/tutorials/kubeadm.md</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.opencontainers.org/blog/2018/06/20/cri-o-how-standards-power-a-container-runtime">https://www.opencontainers.org/blog/2018/06/20/cri-o-how-standards-power-a-container-runtime</a></li>
+<li><a target="_blank" rel="noopener" href="https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#configure-cgroup-driver-used-by-kubelet-on-master-node">https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#configure-cgroup-driver-used-by-kubelet-on-master-node</a></li>
+<li><a target="_blank" rel="noopener" href="https://kubernetes.io/docs/setup/production-environment/container-runtimes/">https://kubernetes.io/docs/setup/production-environment/container-runtimes/</a></li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+              <a href="/tags/Container/" rel="tag"># Container</a>
+              <a href="/tags/CRI/" rel="tag"># CRI</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/kubernetes-cri-ii.html" rel="prev" title="Kubernetes & CRI (II) - containerd">
+                  <i class="fa fa-chevron-left"></i> Kubernetes & CRI (II) - containerd
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/container-runtime-security-container.html" rel="next" title="Container Runtime - Security Container">
+                  Container Runtime - Security Container <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

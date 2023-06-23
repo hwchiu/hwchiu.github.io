@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="kubelet 上關於資源控管的幾個參數探討">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kubernetes, system-reserved, kube-reserved, cgroup 與 capacity, allocatable 的複雜關係">
+<meta property="og:url" content="https://www.hwchiu.com/k8s-capacity-allocatable.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="kubelet 上關於資源控管的幾個參數探討">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/Okle0jI.png">
+<meta property="og:image" content="https://i.imgur.com/h5xkn15.png">
+<meta property="article:published_time" content="2022-01-12T15:33:12.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.624Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="Kubernetes">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/Okle0jI.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/k8s-capacity-allocatable.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/k8s-capacity-allocatable.html","path":"k8s-capacity-allocatable.html","title":"Kubernetes, system-reserved, kube-reserved, cgroup 與 capacity, allocatable 的複雜關係"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Kubernetes, system-reserved, kube-reserved, cgroup 與 capacity, allocatable 的複雜關係 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#System-Reserved"><span class="nav-number">2.</span> <span class="nav-text">System-Reserved</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Kube-Reserved"><span class="nav-number">3.</span> <span class="nav-text">Kube-Reserved</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Evicition-Thresholds"><span class="nav-number">4.</span> <span class="nav-text">Evicition-Thresholds</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Enfore-Node-Allocatable"><span class="nav-number">5.</span> <span class="nav-text">Enfore Node Allocatable</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">6.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/k8s-capacity-allocatable.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Kubernetes, system-reserved, kube-reserved, cgroup 與 capacity, allocatable 的複雜關係 | Hwchiu Learning Note">
+      <meta itemprop="description" content="kubelet 上關於資源控管的幾個參數探討">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Kubernetes, system-reserved, kube-reserved, cgroup 與 capacity, allocatable 的複雜關係
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2022-01-12 23:33:12" itemprop="dateCreated datePublished" datetime="2022-01-12T23:33:12+08:00">2022-01-12</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">kubelet 上關於資源控管的幾個參數探討</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>玩過 Kubernetes 的玩家大概都知道 Pod 裡面都可以透過 Request&#x2F;Limit 的方式來限制單一Pod 針對 CPU, Memory 的用量，而 Kubernetes<br>會根據這些使用量幫忙分發這些 Pod 到符合需求的節點上，不考慮其他各種條件下，一個最基本的條件就是節點上要有足夠的 CPU&#x2F;Memory 供目標 Pod 使用。</p>
+<p>透過 kubectl describe node 可以觀察到每個節點上的資源分配，其中關於資源分配有兩個重要的概念分別是 Capacity 與 Allocatable，而本篇文章就來仔細研究一下這兩個<br>概念的差異以及實務上要注意的地方有哪些。</p>
+<p>對於一個 Kubernetes 的節點來說，資源量通常會包含 CPU, Memory, Ephemeral-Storage 等，而節點本身擁有的總量就會稱為 Capacity，而能夠分配給 Kubernetes Pod 的總量則會稱為<br>Allocatable。</p>
+<p>透過 kubectl describe node 都可以到這些資料，譬如透過 kubeadm 安裝的預設叢集資訊如下<br>註: 本篇文章所有環境都基於 Kubernetes v1.21.8</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">Capacity:</span><br><span class="line">  cpu:                2</span><br><span class="line">  ephemeral-storage:  64800356Ki</span><br><span class="line">  hugepages-2Mi:      0</span><br><span class="line">  memory:             4039556Ki</span><br><span class="line">  pods:               110</span><br><span class="line">Allocatable:</span><br><span class="line">  cpu:                2</span><br><span class="line">  ephemeral-storage:  59720007991</span><br><span class="line">  hugepages-2Mi:      0</span><br><span class="line">  memory:             3937156Ki</span><br><span class="line">  pods:               110</span><br></pre></td></tr></table></figure>
+
+<p>上述的資料是由每個節點上的 kubelet 維護而回傳的，以 kubelet 來說， Capacity 與 Applicatable 之間的關係是如下</p>
+<p><code>Capacity = Allocatable + System-Reserved + Kube-Reserved + Eviction-Thresholds</code></p>
+<p><img src="https://i.imgur.com/Okle0jI.png"></p>
+<h1 id="System-Reserved"><a href="#System-Reserved" class="headerlink" title="System-Reserved"></a>System-Reserved</h1><p>作為一個 Kubernetes 節點，其本身除了幫 Kubernetes 運行各種容器外本身系統上也會有一些服務要運行，譬如 sshd, dhclient 等各種系統服務，以 CPU 的概念來說<br>如果今天將節點上所有的 CPU 都分配給 Kubernetes Pod 使用，那有沒有可能節點上的系統應用，如 sshd 等就沒有足夠的 CPU 去維持基本運作？<br>而上述的 System-Reserved 就是針對這個情境設計的，主要是讓 kubelet 知道請預留一些系統資源給系統相關服務，不要將所有的節點資源都分配給 Pod 使用。</p>
+<p>預設值: 除非特別指定，否則預設不開<br>設定: kubelet 透過 –system-reserved 來設定不同資源量</p>
+<h1 id="Kube-Reserved"><a href="#Kube-Reserved" class="headerlink" title="Kube-Reserved"></a>Kube-Reserved</h1><p>與 System-Reserved 概念完全一樣，不過 Kube-Reserved 的目的則是針對任何與 Kubernetes 互動的應用，最簡單的範例就是 kubelet 這個應用程式，透過這個參數可以稍微地讓<br>kubelet 彈性一點的去設計資源用量，針對 system(系統應用)與 kube(k8s 相關應用)等資源控制</p>
+<p>預設值: 除非特別指令，否則預設不開<br>設定: kubelet 透過 –kube-reserved 來設定不同資源量</p>
+<h1 id="Evicition-Thresholds"><a href="#Evicition-Thresholds" class="headerlink" title="Evicition-Thresholds"></a>Evicition-Thresholds</h1><p>舉例來說，當節點上 Memory 使用過多時，就有可能會產生 OOM 的情況導致系統上的正在運行的 K8s Pod 被 Kernel 給刪除，為了盡量減少這個問題的發生可能性， kubelet<br>發現節點資源快不夠時就會開始將運行的 Pod 給踢出去，讓 Scheudler 想辦法將該 Pod 給調度到其他資源比較充沛的節點去運行。<br>所以 Eviction Thresholds 就是一個資源門檻，當系統資源低於該門檻時就會觸發剔除機制</p>
+<p>預設值: 預設打開，Memory 是 100MiB, Ephemeral-Storage 是 10%<br>設定: kubelet 透過 –eviction-hard 來設定不同資源量</p>
+<p>有了基本概念後來看一下上述的概念</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">Capacity:</span><br><span class="line">  cpu:                2</span><br><span class="line">  ephemeral-storage:  64800356Ki</span><br><span class="line">  hugepages-2Mi:      0</span><br><span class="line">  memory:             4039556Ki</span><br><span class="line">  pods:               110</span><br><span class="line">Allocatable:</span><br><span class="line">  cpu:                2</span><br><span class="line">  ephemeral-storage:  59720007991</span><br><span class="line">  hugepages-2Mi:      0</span><br><span class="line">  memory:             3937156Ki</span><br><span class="line">  pods:               110</span><br></pre></td></tr></table></figure>
+
+<p>這邊分析幾個重要的節點資源</p>
+<ul>
+<li>CPU: 沒有差異</li>
+<li>Memory: 4039556Ki-3937156Ki, 差額是 102400Ki, 也就是 100Mi</li>
+<li>Ephemeral-Storage: 64800356Ki - 59720007991 Byte, 先將前者轉為 Byte 乘上 12，這時候就是<br><code>Capacity:66355564544</code>, <code>Allocatable: 59720007991</code>, 所以 59720007991&#x2F;66355564544 大約是 0.8999999851 也就是 0.9<br>所以真正能夠配置的容量只有 90%</li>
+</ul>
+<p>註: Mi, Ki, Gi 都是基於 1024</p>
+<p>前述的 Memory&#x2F;Ephemeral-Storage 的基本用量都是被 Evicition Threshold 給佔走。<br>這時候嘗試針對 Kube-Reserved, System-Reserved 以及 evictionHard 三個參數來設定看看</p>
+<p>註: Eviction Threshold 的設定實際上透過 evictionHard 的參數</p>
+<p>針對 &#x2F;var&#x2F;lib&#x2F;kubelet&#x2F;config.yaml 加入下列內容</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">systemReserved:</span></span><br><span class="line">  <span class="attr">memory:</span> <span class="string">500Mi</span></span><br><span class="line">  <span class="attr">cpu:</span> <span class="string">250m</span></span><br><span class="line"><span class="attr">kubeReserved:</span></span><br><span class="line">  <span class="attr">memory:</span> <span class="string">1Gi</span></span><br><span class="line">  <span class="attr">cpu:</span> <span class="string">500m</span></span><br><span class="line"><span class="attr">evictionHard:</span></span><br><span class="line">  <span class="attr">memory.available:</span> <span class="string">200Mi</span></span><br><span class="line">  <span class="attr">nodefs.available:</span> <span class="string">20Gi</span></span><br></pre></td></tr></table></figure>
+<p>並且透過 <code>sudo systemctl restart kubelet</code> 重啟 kubelet 來載入新設定，一切都完畢後就透過 <code>kubectl describe node</code> 觀察一下變化</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">Capacity:</span><br><span class="line">  cpu:                2</span><br><span class="line">  ephemeral-storage:  64800356Ki</span><br><span class="line">  hugepages-2Mi:      0</span><br><span class="line">  memory:             4039556Ki</span><br><span class="line">  pods:               110</span><br><span class="line">Allocatable:</span><br><span class="line">  cpu:                1250m</span><br><span class="line">  ephemeral-storage:  43828836Ki</span><br><span class="line">  hugepages-2Mi:      0</span><br><span class="line">  memory:             2274180Ki</span><br><span class="line">  pods:               110</span><br></pre></td></tr></table></figure>
+
+<p>先計算一下我們的設定會使用多少系統資源如下表<br>注意的是 Memory 有 Gi 與 Mi，而 1Gi 則是 1024 Mi，所以總額是 1724 Mi</p>
+<p>| 資源類型  | SystemReserved | KubeReserved | EvictionHard |   總共 |<br>| ——–  | ————– | ———— | ———— | – — |<br>| CPU     | 250m     | 500m     |  0 | 750m |<br>| Memory     | 500Mi     | 1Gi     |  200Mi | 1724Mi |<br>| Ephemeral-storage     | 0     | 0     |  20Gi | 20Gi |</p>
+<p>有個基本概念後就來計算一下實際上的差異吧</p>
+<ul>
+<li>CPU 部分 2 代表 2000m, 所以差額很簡單就是 750m</li>
+<li>Memory 部分先使用 Ki 進行運算，相減得到 1765376 Ki, Ki&#x2F;1024 會得到 Mi，所以 1765376Ki&#x2F;1024 &#x3D; 1724 Mi</li>
+<li>Storage 的話也是先用 Ki 運算會得到 20971520Ki, 將這個 Ki&#x2F;1024&#x2F;1024 會得到 Gi，所以 20971520&#x2F;1024&#x2F;1024&#x3D; 20Gi</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>資源類型</th>
+<th>Capacity</th>
+<th>Allocatable</th>
+<th>差額</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>CPU</td>
+<td>2</td>
+<td>1250m</td>
+<td>750m</td>
+</tr>
+<tr>
+<td>Memory</td>
+<td>4039556Ki</td>
+<td>2274180Ki</td>
+<td>1724Mi</td>
+</tr>
+<tr>
+<td>Ephemeral-storage</td>
+<td>64800356Ki</td>
+<td>43828836Ki</td>
+<td>20Gi</td>
+</tr>
+</tbody></table>
+<p>經過驗算結果完全符合預期，以一張圖來概括上述的概念</p>
+<p><img src="https://i.imgur.com/h5xkn15.png"></p>
+<h1 id="Enfore-Node-Allocatable"><a href="#Enfore-Node-Allocatable" class="headerlink" title="Enfore Node Allocatable"></a>Enfore Node Allocatable</h1><p>上述瞭解了基本 Capacity 與 Allocatable 的基本概念與計算方式後，下一個來瞭解的就是更為細節的應用程式控管。</p>
+<p>實際上 system-reserved 與 kube-reserved 這兩個參數的含義是<br>「請求 kubelet 根據 system-reserved 與 kube-reserved 的參數幫我預留系統資源，避免 Kubernetes Pod 佔用過多資源。」</p>
+<p>這時候先問幾個問題來思考</p>
+<ol>
+<li>系統應用程式或是 Kubernetes 相關應用程式如果用超過設定(system-reserved, kube-reserved) 的系統資源，會發生什麼事情？</li>
+<li>什麼樣的應用程式歸類於 system-reserved? 什麼樣的應用程式歸類於 kube-reserved?</li>
+<li>自行開發的應用程式可以加入到其中一個類別嗎？</li>
+</ol>
+<p>預設情況下，上述的答案是</p>
+<ol>
+<li>沒有事情，什麼都不會發生</li>
+<li>因為超過也不會發生任何事情，所以到底有誰也沒有意義</li>
+<li>因為超過也不會發生任何事情，所以自己的應用程式要不要被納管也沒有意義</li>
+</ol>
+<p>如果希望(1)可以有所作為，譬如應用程式用太多就把他砍掉，那該怎麼做？</p>
+<p>這時候就要使用 kubelet 的另外一個參數 <code>--enforce-node-allocatable </code>，這個參數有三個參數可以組合使用，分別是<br>pods, system-reserved 以及 kube-reserved 。</p>
+<p>該參數的意義是「哪些類型的資源超過用量要被系統幹掉」，預設值是 Pods，這也是為什麼 Pod 如果有透過 request&#x2F;limit 等設定一些用量但是卻超過時可能就會觸發 OOM 然後被系統直接砍掉<br>而 system-reserved 與 kube-reserved 預設都不會被設定，所以用超過量也沒有任何問題。</p>
+<p>而實作上 kubelet 也不參與任何監控與刪除應用程式的決策，只是單純根據設定把一切都交給 cgroup，讓 kernel 來幫忙處理，所以如果你看文件的話會告說如果想要於 enforce-node-allocatable<br>中設定 system-reserved 與 kube-reserved 的話，你也必須要設定 –kube-reserved-cgroup, –system-reserved-cgroup 這兩個參數。</p>
+<p>註:</p>
+<ul>
+<li>上述兩個參數預設都是空白，所以要使用一定要設定</li>
+<li>本文就不介紹 cgroup 的概念，直接假設讀者都有基本概念</li>
+</ul>
+<p>加入以下資料到 &#x2F;var&#x2F;lib&#x2F;kubelet&#x2F;config.yaml</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">systemReservedCgroup:</span> <span class="string">/system.slice</span></span><br><span class="line"><span class="attr">enforceNodeAllocatable:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">pods</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">system-reserved</span></span><br></pre></td></tr></table></figure>
+
+<p>上述範例是告訴 kubelet 請幫我針對 system-reserved 群組的應用程式進行容量控管，另外 system-reserved 的定義就是所以 &#x2F;system.slice 這個 cgroup 路徑下的應用程式。<br>我的 Ubuntu 18.04 環境中， &#x2F;system.slice 關於 CPU 則有下列應用程式</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br></pre></td><td class="code"><pre><span class="line">○ → lscgroup cpu:/system.slice</span><br><span class="line">cpu,cpuacct:/system.slice/</span><br><span class="line">cpu,cpuacct:/system.slice/irqbalance.service</span><br><span class="line">cpu,cpuacct:/system.slice/systemd-update-utmp.service</span><br><span class="line">cpu,cpuacct:/system.slice/vboxadd-service.service</span><br><span class="line">cpu,cpuacct:/system.slice/lvm2-monitor.service</span><br><span class="line">cpu,cpuacct:/system.slice/systemd-journal-flush.service</span><br><span class="line">cpu,cpuacct:/system.slice/containerd.service</span><br><span class="line">cpu,cpuacct:/system.slice/systemd-sysctl.service</span><br><span class="line">cpu,cpuacct:/system.slice/systemd-networkd.service</span><br><span class="line">cpu,cpuacct:/system.slice/systemd-udevd.service</span><br><span class="line">cpu,cpuacct:/system.slice/lxd-containers.service</span><br><span class="line">cpu,cpuacct:/system.slice/cron.service</span><br><span class="line">cpu,cpuacct:/system.slice/sys-fs-fuse-connections.mount</span><br><span class="line">cpu,cpuacct:/system.slice/networking.service</span><br><span class="line">cpu,cpuacct:/system.slice/sys-kernel-config.mount</span><br><span class="line">cpu,cpuacct:/system.slice/docker.service</span><br><span class="line">cpu,cpuacct:/system.slice/polkit.service</span><br><span class="line">cpu,cpuacct:/system.slice/systemd-remount-fs.service</span><br><span class="line">cpu,cpuacct:/system.slice/networkd-dispatcher.service</span><br><span class="line">cpu,cpuacct:/system.slice/sys-kernel-debug.mount</span><br><span class="line">cpu,cpuacct:/system.slice/accounts-daemon.service</span><br><span class="line">cpu,cpuacct:/system.slice/systemd-tmpfiles-setup.service</span><br><span class="line">cpu,cpuacct:/system.slice/kubelet.service</span><br><span class="line">cpu,cpuacct:/system.slice/console-setup.service</span><br><span class="line">cpu,cpuacct:/system.slice/vboxadd.service</span><br><span class="line">cpu,cpuacct:/system.slice/systemd-journald.service</span><br><span class="line">cpu,cpuacct:/system.slice/atd.service</span><br><span class="line">cpu,cpuacct:/system.slice/systemd-udev-trigger.service</span><br><span class="line">cpu,cpuacct:/system.slice/lxd.socket</span><br><span class="line">cpu,cpuacct:/system.slice/ssh.service</span><br><span class="line">cpu,cpuacct:/system.slice/dev-mqueue.mount</span><br><span class="line">cpu,cpuacct:/system.slice/ufw.service</span><br><span class="line">cpu,cpuacct:/system.slice/systemd-random-seed.service</span><br><span class="line">cpu,cpuacct:/system.slice/snapd.seeded.service</span><br><span class="line">cpu,cpuacct:/system.slice/rsyslog.service</span><br><span class="line">cpu,cpuacct:/system.slice/systemd-modules-load.service</span><br><span class="line">cpu,cpuacct:/system.slice/blk-availability.service</span><br><span class="line">cpu,cpuacct:/system.slice/systemd-tmpfiles-setup-dev.service</span><br><span class="line">cpu,cpuacct:/system.slice/rpcbind.service</span><br><span class="line">cpu,cpuacct:/system.slice/lxcfs.service</span><br><span class="line">cpu,cpuacct:/system.slice/grub-common.service</span><br><span class="line">cpu,cpuacct:/system.slice/ebtables.service</span><br><span class="line">cpu,cpuacct:/system.slice/snapd.socket</span><br><span class="line">cpu,cpuacct:/system.slice/kmod-static-nodes.service</span><br><span class="line">cpu,cpuacct:/system.slice/run-rpc_pipefs.mount</span><br><span class="line">cpu,cpuacct:/system.slice/lvm2-lvmetad.service</span><br><span class="line">cpu,cpuacct:/system.slice/docker.socket</span><br><span class="line">cpu,cpuacct:/system.slice/apport.service</span><br><span class="line">cpu,cpuacct:/system.slice/apparmor.service</span><br><span class="line">cpu,cpuacct:/system.slice/systemd-resolved.service</span><br><span class="line">cpu,cpuacct:/system.slice/system-lvm2\x2dpvscan.slice</span><br><span class="line">cpu,cpuacct:/system.slice/dev-hugepages.mount</span><br><span class="line">cpu,cpuacct:/system.slice/dbus.service</span><br><span class="line">cpu,cpuacct:/system.slice/system-getty.slice</span><br><span class="line">cpu,cpuacct:/system.slice/keyboard-setup.service</span><br><span class="line">cpu,cpuacct:/system.slice/systemd-user-sessions.service</span><br><span class="line">cpu,cpuacct:/system.slice/systemd-logind.service</span><br><span class="line">cpu,cpuacct:/system.slice/setvtrgb.service</span><br></pre></td></tr></table></figure>
+
+<p>從上述的檔案名稱應該可以看到滿滿的系統服務。</p>
+<p>修改完畢 kubelet 後重啟會發現 kubelet 啟動失敗，觀察 log 會得到一個告知 <code>/system.slice</code> 路徑不存在的錯誤</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubelet.go:1391] <span class="string">&quot;Failed to start ContainerManager&quot;</span> err=<span class="string">&quot;Failed to enforce System Reserved Cgroup Limits on \&quot;/system.slice\&quot;: [\&quot;system.slice\&quot;] cgroup does not exist&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>實際上這個問題是 <code>kubelet 會嘗試從眾多 cgroup 子系統去找，只要有一個沒有存在就直接當錯誤</code>，根據下列的<a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/c1e69551be1a72f0f8db6778f20658199d3a686d/pkg/kubelet/cm/cgroup_manager_linux.go#L257-L305">原始碼</a></p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(m *cgroupManagerImpl)</span></span> Exists(name CgroupName) <span class="type">bool</span> &#123;</span><br><span class="line">	<span class="keyword">if</span> libcontainercgroups.IsCgroup2UnifiedMode() &#123;</span><br><span class="line">		cgroupPath := m.buildCgroupUnifiedPath(name)</span><br><span class="line">		neededControllers := getSupportedUnifiedControllers()</span><br><span class="line">		enabledControllers, err := readUnifiedControllers(cgroupPath)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">false</span></span><br><span class="line">		&#125;</span><br><span class="line">		difference := neededControllers.Difference(enabledControllers)</span><br><span class="line">		<span class="keyword">if</span> difference.Len() &gt; <span class="number">0</span> &#123;</span><br><span class="line">			klog.V(<span class="number">4</span>).InfoS(<span class="string">&quot;The cgroup has some missing controllers&quot;</span>, <span class="string">&quot;cgroupName&quot;</span>, name, <span class="string">&quot;controllers&quot;</span>, difference)</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">false</span></span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">true</span></span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// Get map of all cgroup paths on the system for the particular cgroup</span></span><br><span class="line">	cgroupPaths := m.buildCgroupPaths(name)</span><br><span class="line"></span><br><span class="line">	<span class="comment">// the presence of alternative control groups not known to runc confuses</span></span><br><span class="line">	<span class="comment">// the kubelet existence checks.</span></span><br><span class="line">	<span class="comment">// ideally, we would have a mechanism in runc to support Exists() logic</span></span><br><span class="line">	<span class="comment">// scoped to the set control groups it understands.  this is being discussed</span></span><br><span class="line">	<span class="comment">// in https://github.com/opencontainers/runc/issues/1440</span></span><br><span class="line">	<span class="comment">// once resolved, we can remove this code.</span></span><br><span class="line">	allowlistControllers := sets.NewString(<span class="string">&quot;cpu&quot;</span>, <span class="string">&quot;cpuacct&quot;</span>, <span class="string">&quot;cpuset&quot;</span>, <span class="string">&quot;memory&quot;</span>, <span class="string">&quot;systemd&quot;</span>, <span class="string">&quot;pids&quot;</span>)</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> _, ok := m.subsystems.MountPoints[<span class="string">&quot;hugetlb&quot;</span>]; ok &#123;</span><br><span class="line">		allowlistControllers.Insert(<span class="string">&quot;hugetlb&quot;</span>)</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">var</span> missingPaths []<span class="type">string</span></span><br><span class="line">	<span class="comment">// If even one cgroup path doesn&#x27;t exist, then the cgroup doesn&#x27;t exist.</span></span><br><span class="line">	<span class="keyword">for</span> controller, path := <span class="keyword">range</span> cgroupPaths &#123;</span><br><span class="line">		<span class="comment">// ignore mounts we don&#x27;t care about</span></span><br><span class="line">		<span class="keyword">if</span> !allowlistControllers.Has(controller) &#123;</span><br><span class="line">			<span class="keyword">continue</span></span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">if</span> !libcontainercgroups.PathExists(path) &#123;</span><br><span class="line">			missingPaths = <span class="built_in">append</span>(missingPaths, path)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> <span class="built_in">len</span>(missingPaths) &gt; <span class="number">0</span> &#123;</span><br><span class="line">		klog.V(<span class="number">4</span>).InfoS(<span class="string">&quot;The cgroup has some missing paths&quot;</span>, <span class="string">&quot;cgroupName&quot;</span>, name, <span class="string">&quot;paths&quot;</span>, missingPaths)</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">false</span></span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="literal">true</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>kubelet 會於我的系統中去找 cpu, cpuacct, cpuset, memory, systemd, pids, hugetlb 這些子系統，很不幸我的系統中<br>cpuset, hugetlb, systemd 並沒有包含 &#x2F;system.slice 這個路徑，這邊可以透過 mkdir -p 的方式創建 cgroup 的關係</p>
+<p>這意味如果要使用這個參數來控制時，要好好設定目標的 cgroup 路徑才可以正常啟動 kubelet</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">○ → <span class="built_in">mkdir</span> -p /sys/fs/cgroup/hugetlb/system.slice</span><br><span class="line">○ → <span class="built_in">mkdir</span> -p /sys/fs/cgroup/cpuset/system.slice</span><br><span class="line">○ → <span class="built_in">mkdir</span> -p /sys/fs/cgroup/systemd/system.slice</span><br><span class="line">○ → systemctl restart kubelet</span><br></pre></td></tr></table></figure>
+
+<p>一切都正常執行完畢後就可以透過 cgroup 的指令來檢查前述設定的 system-reserved 資源是否都有被設定到對應的 cgroup 上</p>
+<p>先複習一下先前的表格</p>
+<table>
+<thead>
+<tr>
+<th>資源類型</th>
+<th>SystemReserved</th>
+<th>KubeReserved</th>
+<th>EvictionHard</th>
+<th>總共</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>CPU</td>
+<td>250m</td>
+<td>500m</td>
+<td>0</td>
+<td>750m</td>
+</tr>
+<tr>
+<td>Memory</td>
+<td>500Mi</td>
+<td>1Gi</td>
+<td>200Mi</td>
+<td>1724Mi</td>
+</tr>
+<tr>
+<td>Ephemeral-storage</td>
+<td>0</td>
+<td>0</td>
+<td>20Gi</td>
+<td>20Gi</td>
+</tr>
+</tbody></table>
+<p>SystemReserved 的 cpu 是 250m, 而 Memory 是 500Mi</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">○ → <span class="built_in">cat</span> /sys/fs/cgroup/cpu/system.slice/cpu.shares</span><br><span class="line">256</span><br><span class="line">○ → <span class="built_in">cat</span> /sys/fs/cgroup/memory/system.slice/memory.limit_in_bytes</span><br><span class="line">524288000</span><br></pre></td></tr></table></figure>
+
+<p>這邊可以看到 CPU 是 256，以 1024 為單位去計算就是 25% 也就是 250m 的單位<br>而 Memory 的單位是 bytes，524288000&#x2F;1024&#x2F;1024 &#x3D; 500Mi<br>可以看到 CPU 的設定完全與前述的設定一致，為了二次求證打開 kubelet 設定修改成不同的數值再次觀察</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">systemReserved:</span></span><br><span class="line">  <span class="attr">memory:</span> <span class="string">1Gi</span></span><br><span class="line">  <span class="attr">cpu:</span> <span class="string">&quot;1&quot;</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">○ → <span class="built_in">cat</span> /sys/fs/cgroup/cpu/system.slice/cpu.shares</span><br><span class="line">1024</span><br><span class="line">○ → <span class="built_in">cat</span> /sys/fs/cgroup/memory/system.slice/memory.limit_in_bytes</span><br><span class="line">1073741824</span><br></pre></td></tr></table></figure>
+
+<p>這時候可以看到 cpu.shares 符合設定的 “1”，而 memory 則是 1024^3，也就是 1Gi.</p>
+<p>所以這種情況下該 cgroup &#x2F;system.slice 就會受到 cgroup 的控管確保其使用資源量不會超過設定。</p>
+<p>講了這麼多回到前述三個問題</p>
+<ol>
+<li>系統應用程式或是 Kubernetes 相關應用程式如果用超過設定(system-reserved, kube-reserved) 的系統資源，會發生什麼事情？</li>
+<li>什麼樣的應用程式歸類於 system-reserved? 什麼樣的應用程式歸類於 kube-reserved?</li>
+<li>自行開發的應用程式可以加入到其中一個類別嗎？</li>
+</ol>
+<p>充分理解後答案就是</p>
+<ol>
+<li>看你有沒有透過 enforce-node-allocatable 讓 kubelet 請 kernel cgroup 幫忙控管</li>
+<li>透過 system-reserved-cgroup 與 kube-reseved-cgroup 兩個參數來指定 cgroup 路徑</li>
+<li>將你的應用程式加入到對應的 cgroup 群組，請記得不同的資源是不同的路徑</li>
+</ol>
+<p>最後，如果你對這些設定有興趣也認為似乎可以更佳控管系統資源用量，請務必先行測試並且確認自己了解 cgroup 的一切概念，以免未來除錯時完全不知道該從何下手<br>此外，針對 system-reserved, kube-reserved 等應用程式的系統用量，請先用監控系統長期觀察獲得一個概念後再來設定<br>同時要抱持者一旦開啟這兩個設定，這些應用程式是有機會被 OOM 移除的心理準備與認知，以免到時候發生問題時一問三不知，不知道發生什麼事情</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>詳細可以參閱<br>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/read-notes-5.html" rel="prev" title="閱讀筆記: 「NPM 的 colors modules 打亂一堆人...」">
+                  <i class="fa fa-chevron-left"></i> 閱讀筆記: 「NPM 的 colors modules 打亂一堆人...」
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/read-notes-6.html" rel="next" title="閱讀筆記: 「The pains of GitOps 1.0」">
+                  閱讀筆記: 「The pains of GitOps 1.0」 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

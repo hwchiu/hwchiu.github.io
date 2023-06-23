@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="在前述中我們已經學過了什麼是 kubernetes service, 一般情況下都會採用 ClusterIP 的形態幫特定的容器應用程式提供 Service 的服務. 本文會針對 ClusterIP 的概念進行更深入的探討,並且嘗試從系統層面的設計與應用來研究到底 ClusterIP 底層是怎麼實作的,這部分的實作包含了1) ClusterIP 到底在那裡？ 2) 如果有多個 Endpoints">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Kubernetes] How to Implement Kubernetes Service - ClusterIP">
+<meta property="og:url" content="https://www.hwchiu.com/kubernetes-service-ii.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="在前述中我們已經學過了什麼是 kubernetes service, 一般情況下都會採用 ClusterIP 的形態幫特定的容器應用程式提供 Service 的服務. 本文會針對 ClusterIP 的概念進行更深入的探討,並且嘗試從系統層面的設計與應用來研究到底 ClusterIP 底層是怎麼實作的,這部分的實作包含了1) ClusterIP 到底在那裡？ 2) 如果有多個 Endpoints">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/osNqxlw.png">
+<meta property="og:image" content="https://i.imgur.com/74jQEiM.png">
+<meta property="og:image" content="https://i.imgur.com/tpSFwKg.png">
+<meta property="og:image" content="https://i.imgur.com/xoPvipq.png">
+<meta property="article:published_time" content="2018-08-21T16:56:15.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.630Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="Iptables">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/osNqxlw.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/kubernetes-service-ii.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/kubernetes-service-ii.html","path":"kubernetes-service-ii.html","title":"[Kubernetes] How to Implement Kubernetes Service - ClusterIP"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>[Kubernetes] How to Implement Kubernetes Service - ClusterIP | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Introduction"><span class="nav-number">2.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Kube-Proxy-Mode"><span class="nav-number">3.</span> <span class="nav-text">Kube-Proxy Mode</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Iptables"><span class="nav-number">4.</span> <span class="nav-text">Iptables</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Kubernetes-Service"><span class="nav-number">5.</span> <span class="nav-text">Kubernetes Service</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Endpoints"><span class="nav-number">5.1.</span> <span class="nav-text">Endpoints</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Custom-Chain"><span class="nav-number">5.2.</span> <span class="nav-text">Custom Chain</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#iptables-save"><span class="nav-number">5.3.</span> <span class="nav-text">iptables-save</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#ClusterIP"><span class="nav-number">6.</span> <span class="nav-text">ClusterIP</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Access-By-FQDN"><span class="nav-number">6.1.</span> <span class="nav-text">Access By FQDN</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Cluster-Only"><span class="nav-number">6.2.</span> <span class="nav-text">Cluster Only</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Loab-Balancing"><span class="nav-number">6.3.</span> <span class="nav-text">Loab Balancing</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">7.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">8.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/kubernetes-service-ii.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="[Kubernetes] How to Implement Kubernetes Service - ClusterIP | Hwchiu Learning Note">
+      <meta itemprop="description" content="在前述中我們已經學過了什麼是 kubernetes service, 一般情況下都會採用 ClusterIP 的形態幫特定的容器應用程式提供 Service 的服務. 本文會針對 ClusterIP 的概念進行更深入的探討,並且嘗試從系統層面的設計與應用來研究到底 ClusterIP 底層是怎麼實作的,這部分的實作包含了1) ClusterIP 到底在那裡？ 2) 如果有多個 Endpoints 的話, 是如何選擇當前連線的最終目標. 這些研究的內容包含了常見了網路概念，如 NAT(Network Address Translation) 以及 iptables 本身的設計及使用，如 table/chian 等概念有初步的認知,這樣對於本文的探討會更明白與瞭解.">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          [Kubernetes] How to Implement Kubernetes Service - ClusterIP
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-08-22 00:56:15" itemprop="dateCreated datePublished" datetime="2018-08-22T00:56:15+08:00">2018-08-22</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">在前述中我們已經學過了什麼是 kubernetes service, 一般情況下都會採用 ClusterIP 的形態幫特定的容器應用程式提供 Service 的服務. 本文會針對 ClusterIP 的概念進行更深入的探討,並且嘗試從系統層面的設計與應用來研究到底 ClusterIP 底層是怎麼實作的,這部分的實作包含了1) ClusterIP 到底在那裡？ 2) 如果有多個 Endpoints 的話, 是如何選擇當前連線的最終目標. 這些研究的內容包含了常見了網路概念，如 NAT(Network Address Translation) 以及 iptables 本身的設計及使用，如 table/chian 等概念有初步的認知,這樣對於本文的探討會更明白與瞭解.</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>本文章是屬於 <code>kubernetes</code> service 系列文之一，該系列文希望能夠與大家討論下列兩個觀念</p>
+<ol>
+<li>什麼是 <code>Kubernetes Service</code>, 為什麼我們需要它？ 它能夠幫忙解決什麼問題</li>
+<li><code>Kubernetes Service</code> 是怎麼實現的?， 讓我們用 iptables 來徹徹底底的理解他</li>
+</ol>
+<p>相關文章:<br><a href="https://www.hwchiu.com/kubernetes-service-i.html">[Kubernetes] What is Service</a><br><a href="https://www.hwchiu.com/kubernetes-service-iii.html">[Kubernetes] How To Implement Kubernetes Service - NodePort</a><br><a href="https://www.hwchiu.com/kubernetes-service-iiii.html">[Kubernetes] How To Implement Kubernetes Service - SessionAffinity</a></p>
+<p>本篇文章著重於後者，透過對系統上的分析來探討 <code>kubernetes service</code> 實作的原理。<br>由於篇幅有限，本文會將基本概念都說明一遍，並且透過 <code>ClusterIP</code> 這個形式來解釋其運作原理。<br>待下篇文章在來解釋 <code>NodePort</code> 以及 <code>SessionAffinity</code> 是如何實現的。</p>
+<p>很多人在學習一個新的系統的時候，最初接觸的都是如何使用，如何操作，然而對其背後的實現原理卻沒有太多的著墨。<br>為什麼要學習實現的原理？<br>很簡單，因為「知己知彼，百戰百勝」<br>當我們理解這些功能背後的實現方式後，我們不但可以學習到其背後的設計理念與方式，同時當問題出現時。<br>我們可以比一般使用者用更廣的角度去思考問題，同時也可以採用更系統的方式去除錯找出問題的根本，這更能體現出你相對於一般人的價值。</p>
+<h1 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h1><p>在前篇文章 <a href="https://www.hwchiu.com/kubernetes-service-i.html">[Kubernetes] What is Service</a> 我們已經學習到關於 <code>Kubernetes Service</code> 的基本概念與用法<br>而本篇文章則是想要探討在預設安裝情況下， <code>kubernetes</code> 是如何實現 <code>service</code> 的功能。</p>
+<span id="more"></span>
+
+<h1 id="Kube-Proxy-Mode"><a href="#Kube-Proxy-Mode" class="headerlink" title="Kube-Proxy Mode"></a>Kube-Proxy Mode</h1><p>目前的 <code>Kubernetes</code> 裡面總共有三種方法去實現 <code>Service</code>，分別是</p>
+<ol>
+<li>kube-Proxy (old)</li>
+<li>iptables (default)</li>
+<li>ipvs (experimental)</li>
+</ol>
+<p>簡單敘述一下這三種的差異</p>
+<ol>
+<li>kube-Proxy 是指透過<code>kube-proxy</code>本身程式內部的邏輯來實現 <code>service</code>，由於 <code>kube-proxy</code> 是 <code>user-space</code> 的應用程式，所以效率非常低落，但是因為是程式化的結果，彈性比較高。</li>
+<li>iptables 的話，則是讓 <code>kube-proxy</code> 去維護跟 <code>service</code>有關的邏輯部分，真正所有封包轉送都交由 <code>kernel-space</code> 的 <code>iptables</code> 來處理。 效率比(1)來得強，但是在使用上則是會受限於 <code>iptables</code> 的規則與框架。</li>
+<li>ipvs(IP virtual switch) 與(2)類似，只是在 <code>kernel-space</code> 裡面採用 <code>ipvs</code> 的方式來轉送封包，相對於 <code>iptables</code> 本身效率更高，同時也不會受限於<code>iptables</code> 的使用規則</li>
+</ol>
+<p>我們可以藉由設定 <code>kube-proxy</code> 裡面的 <code>--proxy-mode</code> 這個參數來決定要使用哪一種實現方式</p>
+<p>kube-proxy 本身會透過 <code>daemonset</code> 的方式部屬到每一個節點上，有興趣的可以透過<br>kubectl -n kube-system describe ds kube-proxy 指令觀察一下相關的內容</p>
+<p>回歸正題，本文主要探討的對象是 <code>iptables</code>，看看這個歷史悠久且功能強大的 <code>iptables</code> 框架是如何完成 <code>kubernetes service</code> 所需要的各種功能</p>
+<h1 id="Iptables"><a href="#Iptables" class="headerlink" title="Iptables"></a>Iptables</h1><p><code>iptables</code> 本身真正講起來，其實是透過 <code>user-space</code> 的管理工具<code>iptables</code> 搭配 <code>kernel-space</code> 的 <code>netfilter</code> 網路子系統兩者組合來提供各式各樣的功能。</p>
+<p>想要更加瞭解 <code>iptables</code> 的介紹可以參閱我在 <a target="_blank" rel="noopener" href="https://www.slideshare.net/hongweiqiu/understand-the-iptables-step-by-step-109650841">COSCUP x GNOME.Asia x openSUSE.Asia 2018</a> 所講授的透過閱讀原始碼的方式來更加瞭解 <code>iptables</code>.<br>此外我之後也會撰寫跟 <code>iptables</code> 相關的文章，到時候會整理相關的內容讓大家更容易去理解這套強大的工具。</p>
+<p>為了理解本篇文章接下來的內容，我們必須要對 <code>iptables</code> 有一些基本的認識，這邊幫大家整理一下需要的概念。</p>
+<ol>
+<li>在 <code>iptables</code> 裡面每個規則面對的對象都是一個個的網路封包</li>
+<li>每條規則的邏輯大抵上如下<ul>
+<li>請問該封包有沒有符合 <code>Match</code> 條件</li>
+<li>如果有 <code>Match</code>, 則執行目標 <code>Action(Target)</code></li>
+</ul>
+</li>
+<li>每條規則都屬於一個 <code>chain</code>, 一個 <code>chain</code> 可以有多條規則</li>
+<li>除了內建的 <code>chain</code> 之外, 管理者可以自定義新的 <code>chain</code> 方便管理</li>
+</ol>
+<p>有了基本概念後，我們就可以開始來探討 <code>kubernetes serivce</code> 如何實作了</p>
+<p>若需要真正完全理解這一切，還需要搭配 <code>PREROTUING</code>,<code>FORWARD</code>,<code>POSTRING</code> 等不同 <code>table</code> 的先後關係與概念，不但對於理解有更加的幫助，對於除錯找問題也是有很大的效益。<br>有興趣的讀者可自行上網尋找相關文章學習，或是等我哪天會寫出相關的文章來介紹這些資訊。</p>
+<h1 id="Kubernetes-Service"><a href="#Kubernetes-Service" class="headerlink" title="Kubernetes Service"></a>Kubernetes Service</h1><p>在我們開始前，我們要先定義幾個相關的名詞，方便之後閱讀的時候可以順利的理解前後文的關係與概念。</p>
+<p>這邊先借用 <a href="https://www.hwchiu.com/kubernetes-service-i.htmlvvv">[Kubernetes] What is Service</a> 內最後展示範例使用的概念圖<br><img src="https://i.imgur.com/osNqxlw.png" alt="Imgur"></p>
+<h2 id="Endpoints"><a href="#Endpoints" class="headerlink" title="Endpoints"></a>Endpoints</h2><p>在 <code>kubernetes</code> 內有一個名為 <code>endpoints</code> 的資源，其代表的是 <code>service</code> 所關注目標服務實際上真正運行<code>Pod</code>的 <code>IP</code> 地址</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:02:00:28 [~/go/src/github.com/hwchiu/kubeDemo](master)vagrant</span><br><span class="line"><span class="variable">$kubectl</span> get endpoints</span><br><span class="line">NAME                ENDPOINTS                                      AGE</span><br><span class="line">k8s-nginx-cluster   10.244.0.88:80,10.244.0.89:80,10.244.0.90:80   9h</span><br><span class="line">k8s-nginx-node      10.244.0.88:80,10.244.0.89:80,10.244.0.90:80   9h</span><br><span class="line">kubernetes          172.17.8.100:6443                              11d</span><br></pre></td></tr></table></figure>
+
+<p>可以從上述的輸出結果看到每個 <code>service</code> 都會對應到多組的 <code>endpoints</code>，所以當叢集內的容器有任何 <code>IP</code> 更動的時候，這邊的數據都會自動更新，以確保 <code>service</code> 有辦法存取後端真正的服務</p>
+<p>有在使用 <code>Service</code> 的讀者，以後若有遇到 <code>service</code> 不通的情況，可以嘗試先看看該 <code>service</code> 是否有對應的 <code>endpoints</code>，沒有的話可能是 <code>selector</code> 寫錯或是目標服務根本沒有運行起來。</p>
+<h2 id="Custom-Chain"><a href="#Custom-Chain" class="headerlink" title="Custom Chain"></a>Custom Chain</h2><p><code>kubenetes</code> 使用 iptables 時為了更有效管理不同的功能與規則的歸屬，建立的大量的 <code>custom chain</code></p>
+<h2 id="iptables-save"><a href="#iptables-save" class="headerlink" title="iptables-save"></a>iptables-save</h2><p>這是一個 <code>iptables</code> 相關的指令，我個人很喜歡用它來觀察 <code>iptables</code> 的規則，本文的所有範例都會是使用該指令進行展示</p>
+<h1 id="ClusterIP"><a href="#ClusterIP" class="headerlink" title="ClusterIP"></a>ClusterIP</h1><p>我們已經知道 <code>ClusterIP</code> 的作用範圍只有<code>叢集內</code>的應用程式&#x2F;節點，所以在本段落我們會著重於三個概念來理解</p>
+<p>叢集內節點是的存取比較尷尬，的確可以透過 <code>ClusterIP</code> 地址來存取，但是預設情況下是沒有辦法解析<code>FQDN</code>取得對應的 <code>ClusterIP</code> 地址。</p>
+<ol>
+<li>如何透過 <code>FQDN</code> 輾轉存取到目標容器們(Endpoints)</li>
+<li>如何做到只有<code>叢集內</code>的應用程式&#x2F;節點才可以存取</li>
+<li>假設有多個目標容器(Endpoints), 這中間的選擇方式是怎麼處理?</li>
+</ol>
+<h2 id="Access-By-FQDN"><a href="#Access-By-FQDN" class="headerlink" title="Access By FQDN"></a>Access By FQDN</h2><p>我們都知道 <code>Service</code> 本身會提供一組對應的 <code>FQDN</code> 供應用程式使用<br>實際上這組<code>FQDN</code> 只有 <code>kube-dns</code> 能夠理解，而且其對應的 <code>IP</code> 地址其實就是每個 <code>Service</code> 提供的 <code>ClusterIP</code><br>這邊的ClusterIP剛好跟 <code>Type</code> 的ClusterIP 名稱一樣，但是這邊要表示的真的是個<code>IP</code>地址</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:05:36:40 [~/go/src/github.com/hwchiu/kubeDemo](master)vagrant</span><br><span class="line"><span class="variable">$kubectl</span> get svc</span><br><span class="line">NAME                TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)        AGE</span><br><span class="line">k8s-nginx-cluster   ClusterIP   10.98.51.150   &lt;none&gt;        80/TCP         1d</span><br><span class="line">k8s-nginx-node      NodePort    10.99.157.45   &lt;none&gt;        80:32293/TCP   1d</span><br></pre></td></tr></table></figure>
+
+<p>在此範例中，可以看到不論是 <code>ClusterIP</code> 或是 <code>NodePort</code> 實際上都會有一組 <code>Cluster-IP</code> 的 <code>IP</code> 地址。</p>
+<p>這個<code>Cluster-IP</code>最大的特性就是他是一個虛擬的<code>IP</code>地址，在整個<code>kubernetes</code>叢集內是找不到任何一張網卡擁有這個<code>IP</code>地址的。</p>
+<p>所有針對該<code>Cluster-IP</code>發送的封包，在滿足特定的條件下，都會被透過<code>DNAT(Destination Network Address Translation)</code> 進行轉換，在<code>service</code>  其實就會是被轉換到其中一個 <code>EndPoints</code> 的真正 <code>IP</code> 地址</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:05:43:50 [~/go/src/github.com/hwchiu/kubeDemo](master)vagrant</span><br><span class="line"><span class="variable">$sudo</span> iptables-save -t nat | grep nginx-cluster | grep DNAT</span><br><span class="line">-A KUBE-SEP-7MBJVYFMXTKOJUKD -p tcp -m comment --comment <span class="string">&quot;default/k8s-nginx-cluster:&quot;</span> -m tcp -j DNAT --to-destination 10.244.0.88:80</span><br><span class="line">-A KUBE-SEP-ARZAHNE3T3EMMTGB -p tcp -m comment --comment <span class="string">&quot;default/k8s-nginx-cluster:&quot;</span> -m tcp -j DNAT --to-destination 10.244.0.90:80</span><br><span class="line">-A KUBE-SEP-O3CWA7STMVCKFPRY -p tcp -m comment --comment <span class="string">&quot;default/k8s-nginx-cluster:&quot;</span> -m tcp -j DNAT --to-destination 10.244.0.89:80</span><br><span class="line"></span><br><span class="line">vortex-dev:05:43:54 [~/go/src/github.com/hwchiu/kubeDemo](master)vagrant</span><br><span class="line"><span class="variable">$kubectl</span> get endpoints k8s-nginx-cluster</span><br><span class="line">NAME                ENDPOINTS                                      AGE</span><br><span class="line">k8s-nginx-cluster   10.244.0.88:80,10.244.0.89:80,10.244.0.90:80   1d</span><br></pre></td></tr></table></figure>
+
+<p>透過 <code>iptables</code> 的觀察，我們可以看到在某些 <code>custom chain</code> 中會透過 <code>DNAT</code> 的方式把封包的目標<code>IP</code> 位址轉換到這些<code>endpoints</code> 擁有的<code>IP</code>地址。<br>實際上這個 <code>custom chain</code> 就是 <code>KUBE-SEP-XXXX</code>, 每個 <code>Endpoints</code> 都有一條屬於自己的 <code>custom chain</code>. 而 <code>KUBE-SEP</code> 我想其含意應該就是 <code>KUBE Service Endpoint</code> 吧。</p>
+<p>剛剛我們對<code>iptables</code>規則的理解，每個規則都是<code>符合條件</code>,<code>做一件事情</code>，因此背後有多少個<code>endpoints</code>,實際上就會有多少條規則在處理<code>DNAT</code>。</p>
+<p>到這邊我們還有一些疑問還沒有解開，只要先記住下面的結論就好。</p>
+<ol>
+<li>每個<code>service</code>的<code>FQDN</code>都會對應到一組<code>Cluster-IP</code> <code>IP</code> 地址，該地址其實是虛擬<code>IP</code>地址。</li>
+<li>送往該<code>Cluster-IP</code> 的封包在滿足特定的情況下，會透過<code>DNAT</code>的方式轉換成其中一個<code>endpoints</code>容器上的真實<code>IP</code>地址</li>
+</ol>
+<h2 id="Cluster-Only"><a href="#Cluster-Only" class="headerlink" title="Cluster Only"></a>Cluster Only</h2><p>現在我們要來討論一下，到底所謂的只有<code>叢集內</code>的應用程式&#x2F;節點才可以存取<code>clusterIP</code>這到底是怎麼運作的。</p>
+<p>我們複習一下前面的某個敘述<br>送往該<code>Cluster-IP</code> 的封包在滿足特定的情況下，會透過<code>DNAT</code>的方式轉換成其中一個<code>endpoints</code>容器上的真實<code>IP</code>地址</p>
+<p>這邊提到要滿足特定的情況才會走到<code>DNAT</code>轉到對應的<code>EndPoints</code>。<br>所以<br><strong>只有<code>叢集內</code>的應用程式&#x2F;節點才可以存取</strong> 其實就是 <strong>特定的情況</strong></p>
+<p>我們都知道 <code>iptables</code> 的規則可以根據封包的一些資訊來做比對，所以我們能不能做出一種規則是<br>只有 **封包的來源<code>IP</code>地址是來自<code>叢集內的應用程式/節點</code>**，符合這種規則的才有資格去進行 <code>DNAT</code> 進行轉發</p>
+<p>實際上使用的概念是更簡單，這邊透過 <code>iptables build-in chain</code> 裡面的 <code>OUTPUT/PREROUTING</code> 兩個 <code>chain</code> 來達成<br><strong>只有<code>叢集內</code>的應用程式&#x2F;節點</strong><br>這個功能</p>
+<p>這邊我直接講明</p>
+<ul>
+<li>OUTPUT: 本地節點送出去的封包都會先走到這邊</li>
+<li>PREROUTING: 本地網卡收到封包後會走到這邊，包含了<code>Contaienr</code>出來的封包都會走到</li>
+</ul>
+<p>接下我們來透過 <code>iptables</code> 的指令來觀察一下這些規則。</p>
+<p>根據前面的查詢，我們知道 <code>ClusterIP</code> 地址是 <code>10.98.51.150</code>,</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:04:24:49 [~/go/src/github.com/hwchiu/kubeDemo](master)vagrant</span><br><span class="line"><span class="variable">$sudo</span> iptables-save | grep k8s-nginx-cluster</span><br><span class="line">....</span><br><span class="line">-A KUBE-SERVICES -d 10.98.51.150/32 -p tcp -m comment --comment <span class="string">&quot;default/k8s-nginx-cluster: cluster IP&quot;</span> -m tcp --dport 80 -j KUBE-SVC-3FL7SSXCKTCXAYCR</span><br><span class="line">....</span><br></pre></td></tr></table></figure>
+<p>上述的規則我們來仔細看一下每個參數的意義</p>
+<ul>
+<li>-A <code>KUBE-SERVICES</code><ul>
+<li>這是一個 <code>Custom Chain</code>, 所有跟 <code>Kubernetes Service</code> 有關的第一到防線規則都在這邊</li>
+</ul>
+</li>
+<li>-d 10.98.51.150&#x2F;32<ul>
+<li>目標位置是 <code>ClusterIP</code> 的話</li>
+</ul>
+</li>
+<li>-p tcp<ul>
+<li>目標是 TCP 協定</li>
+</ul>
+</li>
+<li>-m comment<ul>
+<li>就是註解</li>
+</ul>
+</li>
+<li>-m tcp –dport 80<ul>
+<li>使用外掛模組來解析TCP裡面的資訊，希望 TCP port 是80</li>
+</ul>
+</li>
+<li>-j KUBE-SVC-3FL7SSXCKTCXAYCR<ul>
+<li>上述所有條件都符合，就會跳入另外一個<code>custom chain</code>來執行後續任務</li>
+</ul>
+</li>
+</ul>
+<p>後面的部份我們先不管他，我們來看一下什麼情況下的封包會進入到 <code>KUBE-SERVICES</code> 這個 <code>custom chain</code>.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable">$sudo</span> iptables-save -c | grep KUBE-SERVICES</span><br><span class="line">:KUBE-SERVICES - [0:0]</span><br><span class="line">[2376:171145] -A PREROUTING -m comment --comment <span class="string">&quot;kubernetes service portals&quot;</span> -j KUBE-SERVICES</span><br><span class="line">[3706:223392] -A OUTPUT -m comment --comment <span class="string">&quot;kubernetes service portals&quot;</span> -j KUBE-SERVICES</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>這邊可以看到有兩條規則，分別對應到原生的 <code>OUTPUT</code> 以及 <code>PREROUTING</code>，直接透過 <code>-j</code> 直接跳入到 <code>KUBE-SERVICES</code> 來進行後續處理。</p>
+<p>其實夠熟悉 iptables 的朋友應該已經可以猜到，在此規則狀況下，我只要有辦法讓流向<code>ClusterIP</code>的封包透過一些網路規則的方式流向到叢集內的節點，依然可以順利的存取背後的服務。<br>只是因為這些<code>ClusterIP</code>本身不存在網路之中，所以需要針對整個網路的路由表規則額外設定<br>這部份就是額外有興趣的人可以自己研究，這邊就不再多敘述。</p>
+<p>我們先用下圖來幫助目前的概念做一個整理</p>
+<ul>
+<li>橘色底的代表是封包的來源，在此案例中其實就代表<code>叢集內的節點/應用程式</code></li>
+<li>綠色底代表的是<code>iptables build-in chain</code>，主要用來處理叢集內應用程式&#x2F;節點上的封包傳輸</li>
+<li>藍色的則是<code>kubernetes</code> 的 <code>custom chain</code>.</li>
+<li>紫色的則是代表 <code>iptables</code> 的描述規則</li>
+<li>紅色則是我們知道最後會在 <code>KUBE-SEP-XXX</code> 透過 <code>DNAT</code> 把封包轉換到其中一個<code>endpoints</code>之中。</li>
+<li>???則是代表我們還沒有研究到的，只知道這中間還有一部分的謎團等待解開</li>
+</ul>
+<p><img src="https://i.imgur.com/74jQEiM.png" alt="Imgur"></p>
+<ol>
+<li>每個<code>service</code>的<code>FQDN</code>都會對應到一組<code>ClusterIP</code> <code>IP</code> 地址，該地址其實是虛擬<code>IP</code>地址。</li>
+<li>透過 <code>iptablse</code> 的 <code>OUTPUT/PREROUTING</code>，其有能力去匹配所有叢集內的應用程式&#x2F;節點所送出的封包</li>
+<li>最後透過去比對封包的目的地位址是否是 <code>ClusterIP</code> 來決定要不要往下跳到其他<code>custom chain</code> 去處理。</li>
+<li>封包最後會透過<code>DNAT</code>的方式轉換成其中一個<code>endpoints</code>容器上的真實<code>IP</code>地址</li>
+</ol>
+<h2 id="Loab-Balancing"><a href="#Loab-Balancing" class="headerlink" title="Loab Balancing"></a>Loab Balancing</h2><p>現在我們要來看看最後一個部分了，到底要怎麼從眾多的 <code>Endpoints</code> 中挑選出一個可用的 <code>Pod</code> 來使用。</p>
+<p>根據前面的分析，當我們的封包符合叢集內使用的規則後，會跳到一個<code>KUBE-SVC-3FL7SSXCKTCXAYCR</code> 的 <code>custom chain</code>.<br>實際上 <code>KUBE-SVC-XXXX</code> 的 <code>custom chain</code> 就是用來處理挑選 <code>Endpoints</code> 用的，會根據每個 <code>kubernetes service</code> 創造一條屬於其的 <code>chain</code>.</p>
+<p>我們先重新認真看一下這條規則</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-A KUBE-SERVICES -d 10.98.51.150/32 -p tcp -m comment --comment <span class="string">&quot;default/k8s-nginx-cluster: cluster IP&quot;</span> -m tcp --dport 80 -j KUBE-SVC-3FL7SSXCKTCXAYCR</span><br></pre></td></tr></table></figure>
+
+<p>當封包滿足叢集內的條件時，就會跳到一個名為<code>KUBE-SVC-3FL7SSXCKTCXAYCR</code>的 <code>custom chain</code>.</p>
+<p>這時候來仔細檢視其內容</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">-A KUBE-SVC-3FL7SSXCKTCXAYCR -m comment --comment <span class="string">&quot;default/k8s-nginx-cluster:&quot;</span> -m statistic --mode random --probability 0.33332999982 -j KUBE-SEP-POVAFWTN5ECIRK7J</span><br><span class="line">-A KUBE-SVC-3FL7SSXCKTCXAYCR -m comment --comment <span class="string">&quot;default/k8s-nginx-cluster:&quot;</span> -m statistic --mode random --probability 0.50000000000 -j KUBE-SEP-AQWRPA7WRPWQAWLR</span><br><span class="line">-A KUBE-SVC-3FL7SSXCKTCXAYCR -m comment --comment <span class="string">&quot;default/k8s-nginx-cluster:&quot;</span> -j KUBE-SEP-XPSDT7KEI65EZ2WI</span><br></pre></td></tr></table></figure>
+
+<p>我們可以觀察到裡面有幾個重點</p>
+<ol>
+<li>有 <code>-m statistic</code>, <code>random</code>, <code>probability</code> 這些跟機率相關的文字。</li>
+<li>滿足特定條件後，都會跳到 <code>KUBE-SEP-XXXXX</code> 這些 <code>custom chain</code>. 這就如同我們之前所觀察到會執行 <code>DNAT</code> 的 <code>custom chain</code> 了</li>
+</ol>
+<p>接下來說明一下到底那群跟機率有關的規則是怎麼運作的。<br>我們先前已經說明過，<code>iptables</code>的運作方式是<strong>符合條件</strong>, <strong>就做一件事情</strong><br>所以並沒有很簡單的在一條規則內，幫你選出對應的<strong>Endpoints</strong>.<br>於是這邊的作法是，假設我有三個 <strong>Endpoint</strong>，挑選的流程如下</p>
+<ol>
+<li>請問機率大神，給我一個數字<ul>
+<li>若該數字&lt;0.33, 則使用第一個<strong>endpoints</strong></li>
+<li>否則重新問機率大神，從剩下的 <strong>endpoints</strong> 挑選</li>
+</ul>
+</li>
+<li>請問機率大神，再次給我一個數字<ul>
+<li>若該數字&lt;0.5, 則使用第二個 <strong>endpoints</strong></li>
+<li>否則直接使用地三個 <strong>endpoints</strong>.</li>
+</ul>
+</li>
+</ol>
+<p>用下圖的方式來重新解釋這個流程，假設今天有四個 <code>Endpoints</code> 要選擇<br><img src="https://i.imgur.com/tpSFwKg.png" alt="Imgur"></p>
+<ol>
+<li>一開始要從四個裡面選擇，所以機率只有 <strong>1&#x2F;4</strong>, 若符合了就採用第一個 <code>Endpoint</code></li>
+<li>因為前面沒有符合，所以接下來要從三個裡面繼續選擇下一個 <strong>endpoints</strong>，這時候的機率就是<strong>1&#x2F;3</strong>,但是因為要走到這步必須(1)沒有成功，所以機率是(3&#x2F;4*1&#x2F;3), 就是 <strong>1&#x2F;4</strong></li>
+<li>一此類推，每個 <strong>Endpoints</strong> 的機率都是 <strong>1&#x2F;4</strong></li>
+<li>運氣最不好的 <strong>endpoints</strong> 必須要進行 <strong>n-1</strong> 次的規則比對 (n是endpoints的數量)</li>
+<li>運氣最好的只需要一次比對就可以找到。</li>
+</ol>
+<p>當找到要使用的 <strong>Endpoints</strong> 的時候，就會跳到對應的 <strong>KUBE-SEP-XXXX</strong> 去進行 <strong>DNAT</strong> 的轉換。</p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>最後一塊拼圖也已經完成了，到這邊已經可以大概知道是如何透過 <code>iptables</code> 來完成 <code>clusterIP</code> 的轉發。<br>在這種實作架構中，每個節點的 <code>iptables</code> 都會自行去負責尋找 <code>endpoints</code> 來處理，而<code>ClusterIP</code> 這個不存在的<code>IP</code>地址只是幫助我們讓<code>iptables</code>有個好依據來處理。</p>
+<p>就用下圖來幫這篇文章做個最後的結尾。<br>下篇文章在來仔細看看 <code>NodePort</code> 以及 <code>SessionAffinity</code> 這些功能如何透過 <code>iptables</code> 來實現。</p>
+<p><img src="https://i.imgur.com/xoPvipq.png" alt="Imgur"></p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/Iptables/" rel="tag"># Iptables</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/kubernetes-service-i.html" rel="prev" title="[Kubernetes] What Is Service?">
+                  <i class="fa fa-chevron-left"></i> [Kubernetes] What Is Service?
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/kubernetes-service-iii.html" rel="next" title="[Kubernetes] How to Implement Kubernetes Service - NodePort">
+                  [Kubernetes] How to Implement Kubernetes Service - NodePort <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

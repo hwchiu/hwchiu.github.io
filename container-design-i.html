@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本文針對 Container 的概念進行探討，特別是其相關標準 Open Container Initiative (OCI), OCI 中定義了兩項規格，分別是 Runtime specification 以及 Image specification. 本文粗略地介紹一下彼此的概念以及各自負責的功能">
+<meta property="og:type" content="article">
+<meta property="og:title" content="淺談 Container 實現原理, 以 Docker 為例(I)">
+<meta property="og:url" content="https://www.hwchiu.com/container-design-i.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文針對 Container 的概念進行探討，特別是其相關標準 Open Container Initiative (OCI), OCI 中定義了兩項規格，分別是 Runtime specification 以及 Image specification. 本文粗略地介紹一下彼此的概念以及各自負責的功能">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/acGSy8O.png">
+<meta property="article:published_time" content="2019-09-16T08:15:16.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.607Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Docker">
+<meta property="article:tag" content="ITHOME">
+<meta property="article:tag" content="Container">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/acGSy8O.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/container-design-i.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/container-design-i.html","path":"container-design-i.html","title":"淺談 Container 實現原理, 以 Docker 為例(I)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>淺談 Container 實現原理, 以 Docker 為例(I) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Container"><span class="nav-number">2.</span> <span class="nav-text">Container</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Open-Container-Initiative-OCI"><span class="nav-number">3.</span> <span class="nav-text">Open Container Initiative (OCI)</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Runtime-Spec"><span class="nav-number">3.1.</span> <span class="nav-text">Runtime Spec</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Configuration"><span class="nav-number">3.1.0.1.</span> <span class="nav-text">Configuration</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Image-Spec"><span class="nav-number">3.2.</span> <span class="nav-text">Image Spec</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Summary"><span class="nav-number">3.3.</span> <span class="nav-text">Summary</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Reference"><span class="nav-number">4.</span> <span class="nav-text">Reference</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">5.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/container-design-i.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="淺談 Container 實現原理, 以 Docker 為例(I) | Hwchiu Learning Note">
+      <meta itemprop="description" content="本文針對 Container 的概念進行探討，特別是其相關標準 Open Container Initiative (OCI), OCI 中定義了兩項規格，分別是 Runtime specification 以及 Image specification. 本文粗略地介紹一下彼此的概念以及各自負責的功能">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          淺談 Container 實現原理, 以 Docker 為例(I)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-09-16 16:15:16" itemprop="dateCreated datePublished" datetime="2019-09-16T16:15:16+08:00">2019-09-16</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本文針對 Container 的概念進行探討，特別是其相關標準 Open Container Initiative (OCI), OCI 中定義了兩項規格，分別是 Runtime specification 以及 Image specification. 本文粗略地介紹一下彼此的概念以及各自負責的功能</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前篇文章中，我們探討了 <code>kubernetes</code> 的基本架構，只有稍微粗淺的介紹，並沒有仔細深入到各自的標準介面中。</p>
+<p>再我們往下探索各類標準前，我們必須要先瞭解如何打造 <code>Container</code>，因為這些 <code>kubernetes</code> 與標準介面溝通的過程，其實與 <code>如何打造一個 Container</code> 息息相關。</p>
+<p>為了避免混淆，接下來的探討都會基於下列環境</p>
+<ol>
+<li>作業系統採用 <code>Linux</code></li>
+<li><code>Container</code> 的實作選擇使用 <code>Docker</code>.</li>
+</ol>
+<h1 id="Container"><a href="#Container" class="headerlink" title="Container"></a>Container</h1><p>隨者 <code>Docker</code> 過去數年的蓬勃發展，就算不曾用過 Docker 也必定聽過所謂的 <code>容器(Container)</code>，雖然 <code>Container</code> 的概念其實不算新，不論是 <code>jail</code>, <code>chroot</code> 或是 <code>lxc</code> 都能夠提供輕量虛擬化的效益。</p>
+<p>但是真正將其落地並且廣泛被接受的我認為還是歸功於 <code>Docker</code>， <code>Docker</code> 簡化了整體的複雜性，讓整個使用起來更加簡單，透過 <code>Image</code> 的方式重複使用各式各樣的環境為整個生態性帶來了廣泛的討論。</p>
+<p>早期大家總是 <code>docker</code>, <code>Container</code> 兩個名詞交替的互相使用，然而到了 2019 的這個階段，這兩個詞所代表的意義是完全不同的。</p>
+<p><code>Container</code> 作為一個概念，本身背後則有一個相關的標準在支持與制定，而 <code>docker</code> 作為一個 <code>Container</code> 的解決方案。因此再探討各式各樣的議題的時候，我認為需要仔細地確認自己想要表達的含義到底是 <code>Container</code> 還是 <code>docker</code>。<br>的。</p>
+<h1 id="Open-Container-Initiative-OCI"><a href="#Open-Container-Initiative-OCI" class="headerlink" title="Open Container Initiative (OCI)"></a>Open Container Initiative (OCI)</h1><p>前述提到 <code>Container</code> 本身是種概念，背後有標準規範其相關設定與運作，透過標準的制定能夠讓各個 <code>Contaienr</code> 相關的解決方案能夠有更高的相容性，就譬如我們可以很輕鬆的再 <code>Kubernetes</code> 的環境內替換各種不同的 <code>Container</code> 實作(此內容會到第五篇 CRI 詳細介紹)</p>
+<p>在 <code>Container</code> 的世界中，該介面就是所謂的 <code>Open Container Iinitiative (OCI)</code></p>
+<ul>
+<li>隸屬於 Linux Foundation 專案底下</li>
+<li>2015&#x2F;01&#x2F;22 專案啟動</li>
+<li>目標希望能夠提供基於作業系統層級的虛擬化介面</li>
+<li>主要定義兩大標準<ul>
+<li>Runtime Specification (運行標準)</li>
+<li>Image Specification (容器映像檔案標準)</li>
+</ul>
+</li>
+</ul>
+<p>熟悉 <code>Docker</code> 的人應該對於 <code>docker images</code> 相關指令不陌生，透過 <code>docker images/pull/push</code> 等指令能夠讓所有的使用者與開發者享受與分享各種已經建置好的虛擬化環境，減少重複打造輪子的困境與時間，帶來的好處可是說也說不完。<br>此外使用者也可以透過 <code>docker build</code> 建置自己的環境來使用，這一切的操作都與所謂的 <code>image</code> 脫不了關係，如果有仔細看過 <code>docker images</code>, <code>docker pull</code> 的內容應該會觀察到一層又一層的 <code>layer</code>， 而所謂的 <code>Image Spec</code> 就是用來規範 <code>Image</code> 的格式。</p>
+<p>而 <code>Runtime Spec</code> 則是規範如何控制所謂的 <code>Container</code>, 包含了 <code>Container</code> 生命週期的操作，如 <code>create/delete/start/stop</code> 或者是運行時期的互動，如 <code>attach/exec</code> 等，這些需要的資訊與參數都在 <code>Runtime Spec</code> 裡面去制定。</p>
+<p><code>Docker</code> 底層用到的相關元件都有滿足 <code>OCI</code> 的需求，所以如果今天有其他的解決方案也都遵循 <code>OCI</code> 的標準來設計，則理論上他們之間的容器映像檔案 <code>Container Image</code> 要可以交替使用而不影響功能。</p>
+<p>接下來細看一下所謂的 <code>Runtime Spec</code> 以及 <code>Image Spec</code> 到底規範了什麼資訊與設定。</p>
+<h2 id="Runtime-Spec"><a href="#Runtime-Spec" class="headerlink" title="Runtime Spec"></a>Runtime Spec</h2><p><code>Runetime Spec</code> 的文件可以在  <a target="_blank" rel="noopener" href="https://github.com/opencontainers/runtime-spec/blob/master/spec.md">Github</a> 上參閱， <code>Runtime Spec</code> 規範的範疇有三，分別是</p>
+<ol>
+<li>設定檔案格式<ul>
+<li>該內容基本上會根據不同平台而有不同的規範，同時也明確表示創建該平台上 <code>container</code> 所需要的一切參數。</li>
+</ul>
+</li>
+<li>執行環境一致<ul>
+<li>確保 <code>container</code> 運行期間能夠有一致的運行環境。</li>
+</ul>
+</li>
+<li><code>Container</code>的生命週期<ul>
+<li>必須支持下列的操作行為，這邊不再贅述，可以到此<a target="_blank" rel="noopener" href="https://github.com/opencontainers/runtime-spec/blob/master/runtime.md#operations">閱覽</a><ul>
+<li>Query State</li>
+<li>Create</li>
+<li>Start</li>
+<li>Delete</li>
+<li>Kill</li>
+<li>Hooks</li>
+</ul>
+</li>
+</ul>
+</li>
+</ol>
+<h4 id="Configuration"><a href="#Configuration" class="headerlink" title="Configuration"></a>Configuration</h4><p>講到設定檔案的部分，我們可以稍微看一下到底在 <code>Linux</code> 上創建一個 <code>Container</code> 會需要哪些<a target="_blank" rel="noopener" href="https://github.com/opencontainers/runtime-spec/blob/master/config-linux.md">設定</a>。</p>
+<p>首先是資源隔離，這部分是仰賴 <code>Linux Kernel</code> 內的 <code>namespace</code> 來完成的，藉由資源隔離可以達到讓 <code>namespace</code> 內部與 <code>host</code> 本身互相使用該資源卻不衝突的優點。</p>
+<p>根據上述的規範，會需要用到的 <code>namespace</code> 如下。</p>
+<ul>
+<li>pid<ul>
+<li>process 相關的隔離。不知道大家是否有觀察到在 <code>docker container</code> 的世界內，用 <code>ps auxw</code> 能夠看到的 <code>process</code> 比想像中的少?</li>
+</ul>
+</li>
+<li>network<ul>
+<li>精準來說是 <code>Network Stack</code> 的隔離，體現出來簡單的範例就是 <code>網卡</code>,<code>iptables 規則</code> 等諸多與網路有關的資源。</li>
+</ul>
+</li>
+<li>ipc<ul>
+<li><code>Inter Process Communication</code> 意味者 <code>namespace</code> 內的 <code>process</code> 只能跟同 <code>namespace</code> 內的其他 <code>process</code> 透過 <code>IPC</code> 的機制溝通</li>
+</ul>
+</li>
+<li>mount<ul>
+<li>常常使用 <code>mount</code> 指令的人就可以發現到 <code>docker container</code> 內與外面看到的結果不同也是因為該 <code>namespace</code> 將資源區隔了</li>
+</ul>
+</li>
+<li>uts<ul>
+<li><code>UNIX Timesharing System</code> 主要負責的就是 <code>hostname</code>, 包含給 <code>NIS</code> 使用的 <code>domain name</code></li>
+</ul>
+</li>
+<li>user<ul>
+<li>使用者與群組清單，透過 <code>id</code> 指令等對應到的 <code>UID/GID</code> 都是獨立的</li>
+</ul>
+</li>
+<li>cgroup<ul>
+<li><code>Control Group</code>，主要是跟資源存取限制有關，譬如 <code>CPU</code>，<code>Memory</code> 等資源的存取上限。再 <code>docker container</code> 的使用中就可以透過該機制設定一些 <code>soft, hard/limit memory</code> 等設定來避免 <code>OOM</code> 或是減少 <code>CPU</code> 存取。</li>
+</ul>
+</li>
+</ul>
+<p>每個 <code>namespace</code> 都有自己的設定檔案，因此 <code>Configuration</code> 在設定的時候則必須要仔細的設定每個 <code>namespace</code> 的資訊。 譬如</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;pid&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;path&quot;</span><span class="punctuation">:</span> <span class="string">&quot;/proc/1234/ns/pid&quot;</span></span><br><span class="line"><span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;network&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;path&quot;</span><span class="punctuation">:</span> <span class="string">&quot;/var/run/netns/neta&quot;</span></span><br><span class="line"><span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;mount&quot;</span></span><br><span class="line"><span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;ipc&quot;</span></span><br><span class="line"><span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;uts&quot;</span></span><br><span class="line"><span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;user&quot;</span></span><br><span class="line"><span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;cgroup&quot;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>除了 <code>namespace</code> 之外，<code>container</code> 內部也還有許多的資源需要設定，譬如 <code>Devices</code>, <code>Sysctl</code>, <code>Seccomp(SECure COMPuting)</code>，有興趣的請記得參閱<a target="_blank" rel="noopener" href="https://github.com/opencontainers/runtime-spec/blob/master/config-linux.md">官方文件</a>。</p>
+<p>到這邊對於 <code>Runtime Spec</code> 已經有一些基本的認知，用來定義不同平台上如何管理 <code>Container</code>，為了管理這些 <code>Container</code> 必須要有一些相關的設定來描述該 <code>Container</code> 的資訊，而這些設定本身並非跨平台，需要針對每個平台去獨立設計來描述如何產生一個符合需求的 <code>Container</code>.</p>
+<h2 id="Image-Spec"><a href="#Image-Spec" class="headerlink" title="Image Spec"></a>Image Spec</h2><p>接下來來看一下到底所謂的 <code>Image</code> 是什麼，我們常用的 <code>Docker pull/push/build/images</code> 所產生的 <code>image</code> 檔案是怎麼被定義的。</p>
+<p>下圖片清楚明瞭的說明到底 <code>Image</code> 要處理什麼事情<br><img src="https://i.imgur.com/acGSy8O.png"><br>(圖片擷取自：<a target="_blank" rel="noopener" href="https://github.com/opencontainers/image-spec/blob/master/spec.md">GitHub opencontainers&#x2F;image-spec</a>)</p>
+<p>一個簡單的 <code>Java</code> 應用程式包裝成 <code>Container</code> 後，整個 <code>Image Layer</code> 處理了下列事情</p>
+<ol>
+<li><code>Layer</code>: 相關的檔案系統配置，檔案的位置&#x2F;內容&#x2F;權限</li>
+<li><code>Image Index</code>: 用來描述該 <code>Image</code> 的檔案</li>
+<li><code>Configuration</code>: 應用程式相關的設定檔案，包含了使用的參數，用到的環境變數等</li>
+</ol>
+<p>如果仔細去研究的話，其實總共會有<a target="_blank" rel="noopener" href="https://github.com/opencontainers/image-spec/blob/master/spec.md#understanding-the-specification">7大相關的類別</a>被標準化，分別是</p>
+<ul>
+<li>Image Manifest - a document describing the components that make up a container image</li>
+<li>Image Index - an annotated index of image manifests</li>
+<li>Image Layout - a filesystem layout representing the contents of an image</li>
+<li>Filesystem Layer - a changeset that describes a container’s filesystem</li>
+<li>Image Configuration - a document determining layer ordering and configuration of the image suitable for translation into a runtime bundle</li>
+<li>Conversion - a document describing how this translation should occur</li>
+<li>Descriptor - a reference that describes the type, metadata and content address of referenced content</li>
+</ul>
+<p>如果以前有稍微留意過 <code>Docker Images</code> 的話就會觀察到有很多個 <code>Layer</code> 的產生，每個 <code>Layer</code> 都有獨立的 <code>Image ID</code>，這邊有興趣的可以參閱 <a target="_blank" rel="noopener" href="https://github.com/opencontainers/image-spec/blob/master/layer.md">Filesystem Layer</a> 來了解更多，到底這些 <code>Layer</code> 代表甚麼，以及底層到底怎麼實現。</p>
+<p>每個類別在官方文件中都由獨立的檔案去描述，有興趣的可以自行參閱來理解每個部分實際上的關係。</p>
+<h2 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h2><p><code>Open Container Initiative (OCI)</code> 定義了 <code>Runtime</code> 以及 <code>Image</code> 兩大標準來規範 <code>Container</code> 的介面，本文中跟各位探討了 <code>Runtime/Image</code> 這兩標準大致上想要完成什麼，以及要如何完成。</p>
+<p>下篇文章將會跟大家分享如果今天想要開發一個符合 <code>OCI</code> 標準的 <code>Container</code> 解決方案，到底有什麼工具可以直接使用而避免重造輪子，同時也能夠透過這些工具來理解到底 <code>Docker</code> 目前是怎麼與 <code>OCI</code> 標準銜接的。</p>
+<h1 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://www.slideshare.net/jeevachelladhurai/runc-open-container-initiative">https://www.slideshare.net/jeevachelladhurai/runc-open-container-initiative</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/opencontainers/runtime-spec/blob/master/config-linux.md">https://github.com/opencontainers/runtime-spec/blob/master/config-linux.md</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/opencontainers/image-spec/blob/master/spec.md">https://github.com/opencontainers/image-spec/blob/master/spec.md</a></li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Docker/" rel="tag"># Docker</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+              <a href="/tags/Container/" rel="tag"># Container</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/kubernetes-design.html" rel="prev" title="淺談 Kubernetes 設計原理">
+                  <i class="fa fa-chevron-left"></i> 淺談 Kubernetes 設計原理
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/container-design-ii.html" rel="next" title="淺談 Container 實現原理, 以 Docker 為例(II)">
+                  淺談 Container 實現原理, 以 Docker 為例(II) <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

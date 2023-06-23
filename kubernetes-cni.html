@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="Container Network Interface 的標準制定後，接下來要探討 kubernetes 本身與 CNI 的整合，這部分就如同 Contaienr Runtime Interface 一樣，可以透過 kubelet 的方式告知 kubernetes cluster 該啟用什麼樣的設定來設定 cluster 的網路，同時系統上也有相關的參數用來設定 CNI 相關的檔案，譬如執行檔以及">
+<meta property="og:type" content="article">
+<meta property="og:title" content="kubernetes 與 CNI 的互動">
+<meta property="og:url" content="https://www.hwchiu.com/kubernetes-cni.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="Container Network Interface 的標準制定後，接下來要探討 kubernetes 本身與 CNI 的整合，這部分就如同 Contaienr Runtime Interface 一樣，可以透過 kubelet 的方式告知 kubernetes cluster 該啟用什麼樣的設定來設定 cluster 的網路，同時系統上也有相關的參數用來設定 CNI 相關的檔案，譬如執行檔以及">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/K95n3LP.png">
+<meta property="article:published_time" content="2019-09-25T20:52:37.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.627Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="CNI">
+<meta property="article:tag" content="ITHOME">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/K95n3LP.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/kubernetes-cni.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/kubernetes-cni.html","path":"kubernetes-cni.html","title":"kubernetes 與 CNI 的互動"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>kubernetes 與 CNI 的互動 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Kubernetes"><span class="nav-number">2.</span> <span class="nav-text">Kubernetes</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Vagrant"><span class="nav-number">2.1.</span> <span class="nav-text">Vagrant</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#kubelet"><span class="nav-number">2.2.</span> <span class="nav-text">kubelet</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#CNI"><span class="nav-number">2.2.1.</span> <span class="nav-text">CNI</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Kubenet"><span class="nav-number">2.2.2.</span> <span class="nav-text">Kubenet</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Pause-Container"><span class="nav-number">2.3.</span> <span class="nav-text">Pause Container</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#CRI-Impact"><span class="nav-number">2.4.</span> <span class="nav-text">CRI Impact</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">3.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">4.</span> <span class="nav-text">個人資訊</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%83%E8%80%83"><span class="nav-number">5.</span> <span class="nav-text">參考</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/kubernetes-cni.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="kubernetes 與 CNI 的互動 | Hwchiu Learning Note">
+      <meta itemprop="description" content="Container Network Interface 的標準制定後，接下來要探討 kubernetes 本身與 CNI 的整合，這部分就如同 Contaienr Runtime Interface 一樣，可以透過 kubelet 的方式告知 kubernetes cluster 該啟用什麼樣的設定來設定 cluster 的網路，同時系統上也有相關的參數用來設定 CNI 相關的檔案，譬如執行檔以及設定檔，同時要注意的是 CNI 是基於節點為單位，所以設定的時候是每台機器都要設定。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          kubernetes 與 CNI 的互動
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-09-26 04:52:37" itemprop="dateCreated datePublished" datetime="2019-09-26T04:52:37+08:00">2019-09-26</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">Container Network Interface 的標準制定後，接下來要探討 kubernetes 本身與 CNI 的整合，這部分就如同 Contaienr Runtime Interface 一樣，可以透過 kubelet 的方式告知 kubernetes cluster 該啟用什麼樣的設定來設定 cluster 的網路，同時系統上也有相關的參數用來設定 CNI 相關的檔案，譬如執行檔以及設定檔，同時要注意的是 CNI 是基於節點為單位，所以設定的時候是每台機器都要設定。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前篇文章探討了 <code>CNI</code> 的基本概念，包含了</p>
+<ul>
+<li>CNI 呼叫的範例</li>
+<li>設定檔案的格式</li>
+<li>執行流程</li>
+<li>Sanbox Container</li>
+</ul>
+<p>接下來本篇文章要著重在如何把上述概念跟 Kubernetes 融會貫通，來瞭解到底 kubernete 是如何透過 CNI 讓每個 Pod 都有網路可以使用的。</p>
+<h1 id="Kubernetes"><a href="#Kubernetes" class="headerlink" title="Kubernetes"></a>Kubernetes</h1><h2 id="Vagrant"><a href="#Vagrant" class="headerlink" title="Vagrant"></a>Vagrant</h2><p>這邊先跟大家分享一下自己平常使用的 <code>Vagrant</code> 腳本，我習慣在 MAC 上面透過 Vagrant 的方式去創建一個單機的 Kubernetes Cluster 來進行測試，主要是快速且方便，且該腳本中還會透過 kubeadm 的方式自動建立 kubernetes cluster ，安裝 Flannel CNI 以及透過 taint 的方式允與 master node 運行 Pod。</p>
+<figure class="highlight ruby"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># -*- mode: ruby -*-</span></span><br><span class="line"><span class="comment"># vi: set ft=ruby :</span></span><br><span class="line"></span><br><span class="line"><span class="title class_">Vagrant</span>.configure(<span class="string">&quot;2&quot;</span>) <span class="keyword">do</span> |<span class="params">config</span>|</span><br><span class="line">  config.vm.box = <span class="string">&quot;bento/ubuntu-18.04&quot;</span></span><br><span class="line">  config.vm.hostname = <span class="string">&#x27;k8s-dev&#x27;</span></span><br><span class="line">  config.vm.define vm_name = <span class="string">&#x27;k8s&#x27;</span></span><br><span class="line"></span><br><span class="line">  config.vm.provision <span class="string">&quot;shell&quot;</span>, <span class="symbol">privileged:</span> <span class="literal">false</span>, <span class="symbol">inline:</span> <span class="string">&lt;&lt;-SHELL</span></span><br><span class="line"><span class="string">    set -e -x -u</span></span><br><span class="line"><span class="string">    export DEBIAN_FRONTEND=noninteractive</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    #change the source.list</span></span><br><span class="line"><span class="string">    sudo apt-get update</span></span><br><span class="line"><span class="string">    sudo apt-get install -y vim git cmake build-essential tcpdump tig jq</span></span><br><span class="line"><span class="string">    # Install ntp</span></span><br><span class="line"><span class="string">    sudo apt-get install -y ntp</span></span><br><span class="line"><span class="string">    # Install Docker</span></span><br><span class="line"><span class="string">    # kubernetes official max validated version: 17.03.2~ce-0~ubuntu-xenial</span></span><br><span class="line"><span class="string">    export DOCKER_VERSION=&quot;18.06.3~ce~3-0~ubuntu&quot;</span></span><br><span class="line"><span class="string">    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -</span></span><br><span class="line"><span class="string">    sudo add-apt-repository &quot;deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable&quot;</span></span><br><span class="line"><span class="string">    sudo apt-get update</span></span><br><span class="line"><span class="string">    sudo apt-get install -y docker-ce=$&#123;DOCKER_VERSION&#125;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    # Install Kubernetes</span></span><br><span class="line"><span class="string">    export KUBE_VERSION=&quot;1.13.5&quot;</span></span><br><span class="line"><span class="string">    export NET_IF_NAME=&quot;enp0s8&quot;</span></span><br><span class="line"><span class="string">    curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -</span></span><br><span class="line"><span class="string">    echo &quot;deb http://apt.kubernetes.io/ kubernetes-xenial main&quot; | sudo tee --append /etc/apt/sources.list.d/kubernetes.list</span></span><br><span class="line"><span class="string">    sudo apt-get update</span></span><br><span class="line"><span class="string">    sudo apt-get install -y kubeadm=$&#123;KUBE_VERSION&#125;-00 kubelet=$&#123;KUBE_VERSION&#125;-00 kubectl=$&#123;KUBE_VERSION&#125;-00 kubernetes-cni=0.7.5-00</span></span><br><span class="line"><span class="string">    # Disable swap</span></span><br><span class="line"><span class="string">    sudo swapoff -a &amp;&amp; sudo sysctl -w vm.swappiness=0</span></span><br><span class="line"><span class="string">    sudo sed &#x27;/swap.img/d&#x27; -i /etc/fstab</span></span><br><span class="line"><span class="string">    sudo kubeadm init --kubernetes-version v$&#123;KUBE_VERSION&#125; --apiserver-advertise-address=172.17.8.101 --pod-network-cidr=10.244.0.0/16</span></span><br><span class="line"><span class="string">    mkdir -p $HOME/.kube</span></span><br><span class="line"><span class="string">    sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config</span></span><br><span class="line"><span class="string">    sudo chown $(id -u):$(id -g) $HOME/.kube/config</span></span><br><span class="line"><span class="string">    kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/a70459be0084506e4ec919aa1c114638878db11b/Documentation/kube-flannel.yml</span></span><br><span class="line"><span class="string">    kubectl taint nodes --all node-role.kubernetes.io/master-</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">  SHELL</span></span><br><span class="line"></span><br><span class="line">  config.vm.network <span class="symbol">:private_network</span>, <span class="symbol">ip:</span> <span class="string">&quot;172.17.8.101&quot;</span></span><br><span class="line">  config.vm.provider <span class="symbol">:virtualbox</span> <span class="keyword">do</span> |<span class="params">v</span>|</span><br><span class="line">      v.customize [<span class="string">&quot;modifyvm&quot;</span>, <span class="symbol">:id</span>, <span class="string">&quot;--cpus&quot;</span>, <span class="number">2</span>]</span><br><span class="line">      v.customize [<span class="string">&quot;modifyvm&quot;</span>, <span class="symbol">:id</span>, <span class="string">&quot;--memory&quot;</span>, <span class="number">4096</span>]</span><br><span class="line">      v.customize [<span class="string">&#x27;modifyvm&#x27;</span>, <span class="symbol">:id</span>, <span class="string">&#x27;--nicpromisc1&#x27;</span>, <span class="string">&#x27;allow-all&#x27;</span>]</span><br><span class="line">  <span class="keyword">end</span></span><br><span class="line"><span class="keyword">end</span></span><br></pre></td></tr></table></figure>
+<p>接下來我的操作環境都會基於這個範例去操作，唯一要注意的就是如果要修改 kubernetes 版本的話，要注意 flannel 的 yaml 是否支援當前版本。 譬如 kubernetes 1.16  中 daemonset 就類型就要修改成 apps&#x2F;v1。</p>
+<h2 id="kubelet"><a href="#kubelet" class="headerlink" title="kubelet"></a>kubelet</h2><p>kubernetes 目前在網路方面提供兩者設定，再啟動 <code>kubelet</code>  的時候可以透過參數 <strong>–network-plugin</strong> 的方式來決定要如何設定該 kubernetes cluster 的網路解決方案<br>目前支援兩種設定</p>
+<ol>
+<li>cni</li>
+<li>kubenet</li>
+</ol>
+<p>接下來針對這兩種選項討論一下彼此的用法與架構</p>
+<h3 id="CNI"><a href="#CNI" class="headerlink" title="CNI"></a>CNI</h3><p><code>CNI</code> 顧名思義就是使用各式各樣的 <code>CNI</code> 解決方案來為 Kubernetes cluster 提供網路能力， 前述文章討論 CNI 的時候，有提到兩個跟檔案有關的概念，一個是 <code>CNI</code> 解決方案的 binary，另外一個則是基於 json 格式的 <code>CNI</code> 設定檔案。</p>
+<p>有這些檔案就會有檔案存取的問題需要處理，因此 kubelet 這邊就必須要針對上述兩種類型的檔案設定其系統位置。 該兩個參數分別是</p>
+<ol>
+<li>–cni-bin-dir<br>預設情況是在 &#x2F;opt&#x2F;cni&#x2F;bin，用來存放各式各樣的 CNI 解決方案的執行檔</li>
+<li>–cni-conf-dir<br>預設情況是在 &#x2F;etc&#x2F;cni&#x2F;net.d&#x2F;，用來存放當前要提供給 CNI 使用的設定檔案，檔案格式就如同前篇討論過的 <strong>Network Configuration</strong>  或是 <strong>Network Configuration List</strong>。</li>
+</ol>
+<p>我們先來觀察一下當前 kubelet 的設定</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ ps axuw | grep kubelet | grep cni</span><br><span class="line">root      2433  2.0  2.2 1346404 90016 ?       Ssl  00:37   4:21 /usr/bin/kubelet</span><br><span class="line">--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf</span><br><span class="line">--kubeconfig=/etc/kubernetes/kubelet.conf --config=/var/lib/kubelet/config.yaml</span><br><span class="line">--cgroup-driver=cgroupfs --network-plugin=cni</span><br><span class="line">--pod-infra-container-image=k8s.gcr.io/pause:3.1 --resolv-conf=/run/systemd/resolve/resolv.conf</span><br></pre></td></tr></table></figure>
+
+<p>可以觀察到預設情況下， kubeadm 會使用 <code>cni</code> 的方式作為 network-plugin 的選項，此時我們來看看上述提到的兩個資料夾到底放了什麼檔案</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo <span class="built_in">ls</span> /opt/cni/bin/</span><br><span class="line">bridge  dhcp  flannel  host-device  host-local  ipvlan  loopback  macvlan  portmap  ptp  sample  tuning  vlan</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ file /opt/cni/bin/*</span><br><span class="line">/opt/cni/bin/bridge:      ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, with debug_info, not stripped</span><br><span class="line">/opt/cni/bin/dhcp:        ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, with debug_info, not stripped</span><br><span class="line">/opt/cni/bin/flannel:     ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, with debug_info, not stripped</span><br><span class="line">/opt/cni/bin/host-device: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, with debug_info, not stripped</span><br><span class="line">/opt/cni/bin/host-local:  ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, with debug_info, not stripped</span><br><span class="line">/opt/cni/bin/ipvlan:      ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, with debug_info, not stripped</span><br><span class="line">/opt/cni/bin/loopback:    ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, with debug_info, not stripped</span><br><span class="line">/opt/cni/bin/macvlan:     ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, with debug_info, not stripped</span><br><span class="line">/opt/cni/bin/portmap:     ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, with debug_info, not stripped</span><br><span class="line">/opt/cni/bin/ptp:         ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, with debug_info, not stripped</span><br><span class="line">/opt/cni/bin/sample:      ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, with debug_info, not stripped</span><br><span class="line">/opt/cni/bin/tuning:      ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, with debug_info, not stripped</span><br><span class="line">/opt/cni/bin/vlan:        ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, with debug_info, not stripped</span><br></pre></td></tr></table></figure>
+
+<p>首先我們先觀察 <strong>–cni-bin-dir</strong> 設定的資料夾，裡面放置了各式各樣的執行檔，每個執行檔案的名稱必須與 <strong>Network Configuration</strong> 裡面的 <strong>type</strong> 一致。</p>
+<p>上述所有的執行檔除了 <strong>flannel</strong> 外都是內建的，其他的執行檔都是 <a target="_blank" rel="noopener" href="https://github.com/containernetworking/plugins/tree/master/plugins/main">ContainerNetworking GitHub</a> 官方維護的，算是提供一些最基本的 <code>CNI</code> 解決方案給其他的開發者重複利用。<br>所以如果今天需要自行開發一套 CNI，則必須要將該執行檔也放入到這個資料夾中才可以被使用。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo <span class="built_in">ls</span> /etc/cni/net.d/</span><br><span class="line">10-flannel.conflist</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ sudo <span class="built_in">cat</span> /etc/cni/net.d/10-flannel.conflist</span><br><span class="line">&#123;</span><br><span class="line">  <span class="string">&quot;name&quot;</span>: <span class="string">&quot;cbr0&quot;</span>,</span><br><span class="line">  <span class="string">&quot;plugins&quot;</span>: [</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="string">&quot;type&quot;</span>: <span class="string">&quot;flannel&quot;</span>,</span><br><span class="line">      <span class="string">&quot;delegate&quot;</span>: &#123;</span><br><span class="line">        <span class="string">&quot;hairpinMode&quot;</span>: <span class="literal">true</span>,</span><br><span class="line">        <span class="string">&quot;isDefaultGateway&quot;</span>: <span class="literal">true</span></span><br><span class="line">      &#125;</span><br><span class="line">    &#125;,</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="string">&quot;type&quot;</span>: <span class="string">&quot;portmap&quot;</span>,</span><br><span class="line">      <span class="string">&quot;capabilities&quot;</span>: &#123;</span><br><span class="line">        <span class="string">&quot;portMappings&quot;</span>: <span class="literal">true</span></span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  ]</span><br><span class="line">&#125;</span><br><span class="line">vagrant@k8s-dev:~$</span><br></pre></td></tr></table></figure>
+<p>首先我們先觀察 <strong>–cni-conf-dir</strong> 設定的資料夾，裡面只有放置一個檔案 <strong>10-flannel.conflist</strong>， 這個檔案是安裝 <code>flannel</code> 時一併安裝進來的。預設情況下該資料夾是完全空的，不會有任何設定。</p>
+<p>所以這個運作流程是欲使用的 <code>CNI</code> 解決方案必須要</p>
+<ol>
+<li>安裝欲使用的 binary 檔案放到 –cni-bin-dir 的位置</li>
+<li>將要使用的 CNI 設定檔案(json) 放到 –cni-conf-dir 的位置</li>
+</ol>
+<p>同時這邊要注意的是 <strong>CNI</strong> 是伴隨 <strong>kubelet</strong> 去運行的，因此 kubernetes cluster 內的所有節點都要獨立進行上述的設定，所以其實也是可以做到每一台節點使用不同的 CNI 解決方案或是相同解決方案但是採用不同的設定檔案。</p>
+<p>另外上述 <strong>flannel</strong> 安裝的檔案 <strong>10-flannel.conflist</strong> 是一個 <strong>Network Configuration List</strong> 的格式</p>
+<p>其裡面描述了兩個要<strong>依序</strong>執行的 <code>CNI</code> binary,分別是 <strong>flannel</strong> 以及 <strong>portmap</strong>，所以也要確認這兩個檔案都有在 <strong>–cni-bin-dir</strong> 的位置內。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">&quot;plugins&quot;</span>: [</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="string">&quot;type&quot;</span>: <span class="string">&quot;flannel&quot;</span>,</span><br><span class="line">    <span class="string">&quot;delegate&quot;</span>: &#123;</span><br><span class="line">      <span class="string">&quot;hairpinMode&quot;</span>: <span class="literal">true</span>,</span><br><span class="line">      <span class="string">&quot;isDefaultGateway&quot;</span>: <span class="literal">true</span></span><br><span class="line">    &#125;</span><br><span class="line">  &#125;,</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="string">&quot;type&quot;</span>: <span class="string">&quot;portmap&quot;</span>,</span><br><span class="line">    <span class="string">&quot;capabilities&quot;</span>: &#123;</span><br><span class="line">      <span class="string">&quot;portMappings&quot;</span>: <span class="literal">true</span></span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+
+<p>由這邊可以觀察到 <strong>flannel</strong> 本身並不是單純只依賴自己的 binary 去完成所需功能的，實際上背後用到的 binary 數量更多，之後會有篇文章詳細介紹 <strong>flannel</strong> 的運作原理與安裝過程。</p>
+<p>所以用一個流程來描述一下當前環境內的 CNI 運作流程</p>
+<ol>
+<li>使用者發送創建 Pod 的請求，最後送到 Kubelet</li>
+<li>Kubelet 透過 dockershim + docker-containerd 的方式創建出需要的 container</li>
+<li>當 Pod 創建完畢後， kubelet 準備透過 CNI 的流程來設定該 Pod 內的網路<br> a. 去搜尋 –cni-conf-dir 資料夾下的所有檔案，依照字母排序的方式找到第一個合法的設定檔案，這個範例就是 <strong>10-flannel.conflist</strong><br> b. 解讀該設定檔案的內容 <strong>Network Configuration List</strong>， 接者針對每個該陣列內的內容去解讀，讀取到第一個項目的 <strong>type</strong> 是 <strong>flannel</strong><br> c. 將所有需要的參數準備，呼叫 –cni-bin-dir 底下的 <strong>flannel</strong> binary<br> d. 執行完畢將相關的 STDOUT 準備好，然後再次呼叫 –cni-bin-dir 底下的 <strong>portmap</strong> binary</li>
+<li>CNI 相關程序執行完畢</li>
+</ol>
+<h3 id="Kubenet"><a href="#Kubenet" class="headerlink" title="Kubenet"></a>Kubenet</h3><p>剛剛前述談了這麼多，接下來看一下另外一個 <strong>network-plugin</strong> 的選項 <strong>kubenet</strong></p>
+<p><strong>kubenet</strong> 是個非常簡單的 L2 Bridge 實現，背後的實現也還是透過基本的 CNI 解決方案來建立一個非常簡單的環境，這個環境簡單到根本不能實現節點對節點溝通，只能用在單一節點或是你有其他的方式去設定節點間的網路路由問題。</p>
+<p>使用這個 <strong>Kubenet</strong> 選項的話，也是要確認系統上 <strong>–cni-bin-conf</strong> 裡面有下列的 binary</p>
+<ul>
+<li>bridge</li>
+<li>lo</li>
+<li>host-local</li>
+</ul>
+<p>所以基本上這個選項就是拿來測試用，不會拿來商用現在也不是預設選項，有興趣的瞭解更多細節的細節可以參考<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/#kubenet">官網說明</a></p>
+<h2 id="Pause-Container"><a href="#Pause-Container" class="headerlink" title="Pause Container"></a>Pause Container</h2><p>上篇文章有討論過所有的 Sandbox Container 的概念，作為一個創世 container，讓使用者的 container 都跟其共享 <code>network namespace</code>，藉此滿足多個 container 可以共用</p>
+<ul>
+<li>網卡名稱</li>
+<li>IP 地址</li>
+<li>IPtables 規則</li>
+<li>路由規則</li>
+<li>…等各種網路資源</li>
+</ul>
+<p><img src="https://i.imgur.com/K95n3LP.png"><br>上圖節錄自<a target="_blank" rel="noopener" href="https://kubernetes.io/blog/2017/11/containerd-container-runtime-options-kubernetes/">Containerd Brings More Container Runtime Options for Kubernetes
+</a></p>
+<p>而 <strong>kubernetes</strong> 之中也是用了相同概念的方式去實現所謂的 <strong>Pod</strong>，而這個 <strong>Sandbox Contaienr</strong> 也被稱為 <strong>Infrastructure Container</strong>。</p>
+<p>如果仔細觀察 <strong>kubelet</strong> 的設定參數就會看到一個相關的設定</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ ps axuw | grep kubelet | grep cni</span><br><span class="line">root      2433  2.0  2.2 1346404 90016 ?       Ssl  00:37   4:21 /usr/bin/kubelet</span><br><span class="line">--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf</span><br><span class="line">--kubeconfig=/etc/kubernetes/kubelet.conf --config=/var/lib/kubelet/config.yaml</span><br><span class="line">--cgroup-driver=cgroupfs --network-plugin=cni</span><br><span class="line">--pod-infra-container-image=k8s.gcr.io/pause:3.1 --resolv-conf=/run/systemd/resolve/resolv.conf</span><br></pre></td></tr></table></figure>
+
+<p>上述的設定中將 <strong>–pod-infra-container-image</strong> 設定成 k8s.gcr.io&#x2F;pause:3.1, 這個是其 container image 的位置，代表 kubernetes 會透過這個 image 創立一個 sandbox container 當做基底，接下來才把使用者規劃的 container 都與其共享 <strong>network namespace</strong></p>
+<p>這時候如果透過 <strong>docekr ps</strong> 的指令去觀察，可以觀察到有非常多的 <strong>pause</strong> container 被創立，而其 container name 都是一個一個的 <strong>Pod</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo docker ps | grep pause</span><br><span class="line">10a6fcd1692d        k8s.gcr.io/pause:3.1   <span class="string">&quot;/pause&quot;</span>                 6 hours ago         Up 6 hours                              k8s_POD_coredns-86c58d9df4-srncw_kube-system_a448c5f9-dc93-11e9-9d35-080027c2be11_3</span><br><span class="line">104bb6a0c83e        k8s.gcr.io/pause:3.1   <span class="string">&quot;/pause&quot;</span>                 6 hours ago         Up 6 hours                              k8s_POD_coredns-86c58d9df4-v8f5d_kube-system_a449ee4f-dc93-11e9-9d35-080027c2be11_4</span><br><span class="line">4581173892a6        k8s.gcr.io/pause:3.1   <span class="string">&quot;/pause&quot;</span>                 6 hours ago         Up 6 hours                              k8s_POD_kube-proxy-dl4bm_kube-system_a46016b1-dc93-11e9-9d35-080027c2be11_1</span><br><span class="line">209b3af9308c        k8s.gcr.io/pause:3.1   <span class="string">&quot;/pause&quot;</span>                 6 hours ago         Up 6 hours                              k8s_POD_kube-flannel-ds-amd64-5xmgf_kube-system_a4626d19-dc93-11e9-9d35-080027c2be11_1</span><br><span class="line">1710678a5a02        k8s.gcr.io/pause:3.1   <span class="string">&quot;/pause&quot;</span>                 6 hours ago         Up 6 hours                              k8s_POD_kube-scheduler-k8s-dev_kube-system_15c129447b0aa0f760fe2d7ba217ecd4_1</span><br><span class="line">c63c097c20c5        k8s.gcr.io/pause:3.1   <span class="string">&quot;/pause&quot;</span>                 6 hours ago         Up 6 hours                              k8s_POD_kube-controller-manager-k8s-dev_kube-system_8a8f55dd50b2821b309adc83a00139ff_1</span><br><span class="line">3bee914719b2        k8s.gcr.io/pause:3.1   <span class="string">&quot;/pause&quot;</span>                 6 hours ago         Up 6 hours                              k8s_POD_kube-apiserver-k8s-dev_kube-system_d834af7c4c9483e2d999ded255dd7798_1</span><br><span class="line">82aa2e03cec9        k8s.gcr.io/pause:3.1   <span class="string">&quot;/pause&quot;</span>                 6 hours ago         Up 6 hours                              k8s_POD_etcd-k8s-dev_kube-system_71e763946160f2ea04d6946ece43e176_1</span><br></pre></td></tr></table></figure>
+
+<p>Pause container 的原始內容都可以在 <a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/pause.c">GitHub</a> 這邊找到，其實作非常簡單，就是一個攔截相關系統訊號後透過 system call 進行 <strong>pause</strong> 的應用程式而已，相關內容如下。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">Copyright 2016 The Kubernetes Authors.</span></span><br><span class="line"><span class="comment">Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span></span><br><span class="line"><span class="comment">you may not use this file except in compliance with the License.</span></span><br><span class="line"><span class="comment">You may obtain a copy of the License at</span></span><br><span class="line"><span class="comment">    http://www.apache.org/licenses/LICENSE-2.0</span></span><br><span class="line"><span class="comment">Unless required by applicable law or agreed to in writing, software</span></span><br><span class="line"><span class="comment">distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span></span><br><span class="line"><span class="comment">WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span></span><br><span class="line"><span class="comment">See the License for the specific language governing permissions and</span></span><br><span class="line"><span class="comment">limitations under the License.</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;signal.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;stdlib.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;string.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;sys/wait.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> STRINGIFY(x) #x</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> VERSION_STRING(x) STRINGIFY(x)</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">ifndef</span> VERSION</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> VERSION HEAD</span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">void</span> <span class="title function_">sigdown</span><span class="params">(<span class="type">int</span> signo)</span> &#123;</span><br><span class="line">  psignal(signo, <span class="string">&quot;Shutting down, got signal&quot;</span>);</span><br><span class="line">  <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">void</span> <span class="title function_">sigreap</span><span class="params">(<span class="type">int</span> signo)</span> &#123;</span><br><span class="line">  <span class="keyword">while</span> (waitpid(<span class="number">-1</span>, <span class="literal">NULL</span>, WNOHANG) &gt; <span class="number">0</span>)</span><br><span class="line">    ;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">(<span class="type">int</span> argc, <span class="type">char</span> **argv)</span> &#123;</span><br><span class="line">  <span class="type">int</span> i;</span><br><span class="line">  <span class="keyword">for</span> (i = <span class="number">1</span>; i &lt; argc; ++i) &#123;</span><br><span class="line">    <span class="keyword">if</span> (!strcasecmp(argv[i], <span class="string">&quot;-v&quot;</span>)) &#123;</span><br><span class="line">      <span class="built_in">printf</span>(<span class="string">&quot;pause.c %s\n&quot;</span>, VERSION_STRING(VERSION));</span><br><span class="line">      <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (getpid() != <span class="number">1</span>)</span><br><span class="line">    <span class="comment">/* Not an error because pause sees use outside of infra containers. */</span></span><br><span class="line">    <span class="built_in">fprintf</span>(<span class="built_in">stderr</span>, <span class="string">&quot;Warning: pause should be the first process\n&quot;</span>);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (sigaction(SIGINT, &amp;(<span class="keyword">struct</span> sigaction)&#123;.sa_handler = sigdown&#125;, <span class="literal">NULL</span>) &lt; <span class="number">0</span>)</span><br><span class="line">    <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">  <span class="keyword">if</span> (sigaction(SIGTERM, &amp;(<span class="keyword">struct</span> sigaction)&#123;.sa_handler = sigdown&#125;, <span class="literal">NULL</span>) &lt; <span class="number">0</span>)</span><br><span class="line">    <span class="keyword">return</span> <span class="number">2</span>;</span><br><span class="line">  <span class="keyword">if</span> (sigaction(SIGCHLD, &amp;(<span class="keyword">struct</span> sigaction)&#123;.sa_handler = sigreap,</span><br><span class="line">                                             .sa_flags = SA_NOCLDSTOP&#125;,</span><br><span class="line">                <span class="literal">NULL</span>) &lt; <span class="number">0</span>)</span><br><span class="line">    <span class="keyword">return</span> <span class="number">3</span>;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">for</span> (;;)</span><br><span class="line">    pause();</span><br><span class="line">  <span class="built_in">fprintf</span>(<span class="built_in">stderr</span>, <span class="string">&quot;Error: infinite loop terminated\n&quot;</span>);</span><br><span class="line">  <span class="keyword">return</span> <span class="number">42</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<h2 id="CRI-Impact"><a href="#CRI-Impact" class="headerlink" title="CRI Impact"></a>CRI Impact</h2><p>最後來分享的是 <strong>CRI</strong> 對 <strong>CNI</strong> 的關係</p>
+<p><strong>CNI</strong> 作為完成整體 Container 創建的一部份，所以都是由 CRI 解決方案那邊去處理相關流程，因此不同的 <strong>CRI</strong> 解決方案對於 <strong>CNI</strong> 的處理流程也就不一定相似。<br>譬如上述有提到於 <strong>dockershime</strong> 的環境下，會將 <strong>–cni-conf-dir</strong> 內的設定檔案進行排序，並且使用第一個合法的設定檔案。</p>
+<p>相關的原始碼可以參考 <a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/master/pkg/kubelet/dockershim/network/cni/cni.go#L154-L216">GitHub</a></p>
+<p>而如果採用的是基於 <code>containerd</code> 或是 <code>cri-o</code> 這種解決方案的話，最後都會透過 <strong>ocicni</strong> 這個工具去處理，而同樣的流程其運作過程就不太一樣，反而會是一次讀取全部的資料進來，之後再慢慢處理</p>
+<p>相關的原始碼可以參考 <a target="_blank" rel="noopener" href="https://github.com/cri-o/ocicni/blob/master/pkg/ocicni/ocicni.go#L266">GitHub</a></p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>本篇文章跟大家討論了下 Kubernets 與 CNI 相關的設定，只要對這些資料夾有基本的理解，以後看到任何 kubernetes cluster 都能夠有辦法粗略的看一下這個 cluster 是用哪套  CNI 來提供服務的。<br>特別的是如果你今天使用的是公有雲的服務，譬如 GKE, AKS, EKS 等服務，你也可以嘗試去看看這些公有雲到底是用哪套 CNI, 其設定檔案又是如何，接者可以搭配他們的文件或是原始碼去理解其其運作原理。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni">https://github.com/containernetworking/cni</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/master/pkg/kubelet/dockershim/network/cni/cni.go">https://github.com/kubernetes/kubernetes/blob/master/pkg/kubelet/dockershim/network/cni/cni.go</a></li>
+<li><a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/">https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/containernetworking/plugins/tree/master/plugins/main">https://github.com/containernetworking/plugins/tree/master/plugins/main</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/master/build/pause/pause.c">https://github.com/kubernetes/kubernetes/blob/master/build/pause/pause.c</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/CNI/" rel="tag"># CNI</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/cni.html" rel="prev" title="Container Network Interface 介紹">
+                  <i class="fa fa-chevron-left"></i> Container Network Interface 介紹
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/cni-golnag.html" rel="next" title="使用 golang 開發第一個 CNI 程式">
+                  使用 golang 開發第一個 CNI 程式 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

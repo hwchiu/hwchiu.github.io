@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="前述分享了關於不少 Container Storage Interface 的事情，接下來我們直接使用 NFS 作為範例，來看看要如何透過 CSI 的架構來掛載 NFS 到 kubernetes cluster 中供運算資源使用">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Container Storage Interface(CSI) - NFS 初體驗">
+<meta property="og:url" content="https://www.hwchiu.com/csi-nfs.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="前述分享了關於不少 Container Storage Interface 的事情，接下來我們直接使用 NFS 作為範例，來看看要如何透過 CSI 的架構來掛載 NFS 到 kubernetes cluster 中供運算資源使用">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/sx31Z1w.png">
+<meta property="article:published_time" content="2019-10-05T10:10:08.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.611Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="Storage">
+<meta property="article:tag" content="ITHOME">
+<meta property="article:tag" content="CSI">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/sx31Z1w.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/csi-nfs.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/csi-nfs.html","path":"csi-nfs.html","title":"Container Storage Interface(CSI) - NFS 初體驗"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Container Storage Interface(CSI) - NFS 初體驗 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#NFS"><span class="nav-number">2.</span> <span class="nav-text">NFS</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%92%B0%E5%A2%83%E5%BB%BA%E7%BD%AE"><span class="nav-number">3.</span> <span class="nav-text">環境建置</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%89%E8%A3%9D%E5%85%A7%E5%AE%B9"><span class="nav-number">3.1.</span> <span class="nav-text">安裝內容</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Controller"><span class="nav-number">3.1.1.</span> <span class="nav-text">Controller</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Node"><span class="nav-number">3.1.2.</span> <span class="nav-text">Node</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Nginx"><span class="nav-number">3.1.3.</span> <span class="nav-text">Nginx</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A7%80%E5%AF%9F"><span class="nav-number">3.2.</span> <span class="nav-text">觀察</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#CSIDriver"><span class="nav-number">3.2.1.</span> <span class="nav-text">CSIDriver</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CSINodes"><span class="nav-number">3.2.2.</span> <span class="nav-text">CSINodes</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#VolumeAttachments"><span class="nav-number">3.2.3.</span> <span class="nav-text">VolumeAttachments</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">4.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%83%E8%80%83"><span class="nav-number">5.</span> <span class="nav-text">參考</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">6.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/csi-nfs.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Container Storage Interface(CSI) - NFS 初體驗 | Hwchiu Learning Note">
+      <meta itemprop="description" content="前述分享了關於不少 Container Storage Interface 的事情，接下來我們直接使用 NFS 作為範例，來看看要如何透過 CSI 的架構來掛載 NFS 到 kubernetes cluster 中供運算資源使用">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Container Storage Interface(CSI) - NFS 初體驗
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-10-05 18:10:08" itemprop="dateCreated datePublished" datetime="2019-10-05T18:10:08+08:00">2019-10-05</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">前述分享了關於不少 Container Storage Interface 的事情，接下來我們直接使用 NFS 作為範例，來看看要如何透過 CSI 的架構來掛載 NFS 到 kubernetes cluster 中供運算資源使用</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>本文會透過使用 <strong>CSI</strong> 的方式於 kubernetes 內使用 NFS 作為儲存解決方案，並且嘗試觀察各種與  CSI 有關的概念與架構，嘗試將實際部署的結果與前篇文章探討的架構與文件結合。</p>
+<h1 id="NFS"><a href="#NFS" class="headerlink" title="NFS"></a>NFS</h1><p>先前我有寫過一篇關於 <strong>NFS</strong> 各種用法的文章，有興趣的人可以前往閱讀 <a href="https://www.hwchiu.com/kubernetes-storage-ii.html">NFS 於 Kubernetes 內的各種應用
+</a><br>在該篇文章裡面我描述了兩種 <strong>NFS</strong> 的用法，第一種就是最基本的架設一個 <strong>NFS</strong> 服務器，接者將其分享出來的空間直接掛載到欲使用的 <strong>Pod</strong>，這種情況下就是 <strong>NFS</strong>服務器上面有什麼樣的資源與檔案，則 <strong>Pod</strong> 裡面看到的也就是相同的資源。這種用法也是最常見的使用方法。</p>
+<p>而第二種方法則是希望採用 <strong>StorageClass</strong> 的方式來使用 <strong>NFS</strong> 伺服器，這種情況下就是 <strong>NFS</strong>服務器本身也是會分享一個空間，但是每次透過 <strong>StorageClass</strong> 以及 <strong>PVC</strong> 綁定的情況下，會在 <strong>NFS</strong> 分享的資料夾內在創建一個資料夾，專屬給該 <strong>PVC</strong> 去使用，使用起來的感覺就像是動態分割空間一樣，這部分過去是仰賴額外的 <strong>NFS Provisioner</strong> 來實現。</p>
+<p>而本文要討論的架構屬於第一種，所以到時候掛載的 <strong>Pod</strong> 內部觀看到的資料就會與 <strong>NFS</strong> 本身分享的資料一致。</p>
+<h1 id="環境建置"><a href="#環境建置" class="headerlink" title="環境建置"></a>環境建置</h1><p>本文環境基於</p>
+<ol>
+<li>kubernetes: 1.15.3</li>
+<li>CSI: 1.0.0</li>
+<li>NFS CSI Driver: <a target="_blank" rel="noopener" href="https://github.com/hwchiu/csi-driver-nfs">https://github.com/hwchiu/csi-driver-nfs</a><br>從官方 fork 過來，但是稍微調整了一下 nfs 掛載的位置以及相關的 image tag</li>
+</ol>
+<p>上述的環境已經整理成一個 <strong>Vagrant</strong> 的檔案</p>
+<figure class="highlight ruby"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># -*- mode: ruby -*-</span></span><br><span class="line"><span class="comment"># vi: set ft=ruby :</span></span><br><span class="line"></span><br><span class="line"><span class="title class_">Vagrant</span>.configure(<span class="string">&quot;2&quot;</span>) <span class="keyword">do</span> |<span class="params">config</span>|</span><br><span class="line">  config.vm.box = <span class="string">&quot;bento/ubuntu-18.04&quot;</span></span><br><span class="line">  config.vm.hostname = <span class="string">&#x27;k8s-dev&#x27;</span></span><br><span class="line">  config.vm.define vm_name = <span class="string">&#x27;k8s&#x27;</span></span><br><span class="line"></span><br><span class="line">  config.vm.provision <span class="string">&quot;shell&quot;</span>, <span class="symbol">privileged:</span> <span class="literal">false</span>, <span class="symbol">inline:</span> <span class="string">&lt;&lt;-SHELL</span></span><br><span class="line"><span class="string">    set -e -x -u</span></span><br><span class="line"><span class="string">    export DEBIAN_FRONTEND=noninteractive</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    #change the source.list</span></span><br><span class="line"><span class="string">    sudo apt-get update</span></span><br><span class="line"><span class="string">    sudo apt-get install -y vim git cmake build-essential tcpdump tig jq</span></span><br><span class="line"><span class="string">    # Install ntp</span></span><br><span class="line"><span class="string">    sudo apt-get install -y ntp</span></span><br><span class="line"><span class="string">    # Install Docker</span></span><br><span class="line"><span class="string">    # kubernetes official max validated version: 17.03.2~ce-0~ubuntu-xenial</span></span><br><span class="line"><span class="string">    export DOCKER_VERSION=&quot;18.06.3~ce~3-0~ubuntu&quot;</span></span><br><span class="line"><span class="string">    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -</span></span><br><span class="line"><span class="string">    sudo add-apt-repository &quot;deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable&quot;</span></span><br><span class="line"><span class="string">    sudo apt-get update</span></span><br><span class="line"><span class="string">    sudo apt-get install -y docker-ce=$&#123;DOCKER_VERSION&#125;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    # Install Kubernetes</span></span><br><span class="line"><span class="string">    export KUBE_VERSION=&quot;1.15.3&quot;</span></span><br><span class="line"><span class="string">    export NET_IF_NAME=&quot;enp0s8&quot;</span></span><br><span class="line"><span class="string">    curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -</span></span><br><span class="line"><span class="string">    echo &quot;deb http://apt.kubernetes.io/ kubernetes-xenial main&quot; | sudo tee --append /etc/apt/sources.list.d/kubernetes.list</span></span><br><span class="line"><span class="string">    sudo apt-get update</span></span><br><span class="line"><span class="string">    sudo apt-get install -y kubeadm=$&#123;KUBE_VERSION&#125;-00 kubelet=$&#123;KUBE_VERSION&#125;-00 kubectl=$&#123;KUBE_VERSION&#125;-00 kubernetes-cni=0.7.5-00</span></span><br><span class="line"><span class="string">    # Disable swap</span></span><br><span class="line"><span class="string">    sudo swapoff -a &amp;&amp; sudo sysctl -w vm.swappiness=0</span></span><br><span class="line"><span class="string">    sudo sed &#x27;/swap.img/d&#x27; -i /etc/fstab</span></span><br><span class="line"><span class="string">    sudo kubeadm init --kubernetes-version v$&#123;KUBE_VERSION&#125; --apiserver-advertise-address=172.17.8.101 --pod-network-cidr=10.244.0.0/16</span></span><br><span class="line"><span class="string">    mkdir -p $HOME/.kube</span></span><br><span class="line"><span class="string">    sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config</span></span><br><span class="line"><span class="string">    sudo chown $(id -u):$(id -g) $HOME/.kube/config</span></span><br><span class="line"><span class="string">    kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/a70459be0084506e4ec919aa1c114638878db11b/Documentation/kube-flannel.yml</span></span><br><span class="line"><span class="string">    kubectl taint nodes --all node-role.kubernetes.io/master-</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    sudo apt-get install -qqy nfs-kernel-server</span></span><br><span class="line"><span class="string">    sudo mkdir /nfsshare</span></span><br><span class="line"><span class="string">    sudo mkdir /nfsshare/mongodb</span></span><br><span class="line"><span class="string">    sudo mkdir /nfsshare/influxdb</span></span><br><span class="line"><span class="string">    sudo mkdir /nfsshare/user</span></span><br><span class="line"><span class="string">    echo &quot;/nfsshare *(rw,sync,no_root_squash)&quot; | sudo tee /etc/exports</span></span><br><span class="line"><span class="string">    sudo exportfs -r</span></span><br><span class="line"><span class="string">    sudo showmount -e</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    git clone https://github.com/hwchiu/csi-driver-nfs.git</span></span><br><span class="line"><span class="string">    kubectl apply -f csi-driver-nfs/deploy/kubernetes/</span></span><br><span class="line"><span class="string">    kubectl apply -f csi-driver-nfs/examples/kubernetes/nginx.yaml</span></span><br><span class="line"><span class="string">  SHELL</span></span><br><span class="line"></span><br><span class="line">  config.vm.network <span class="symbol">:private_network</span>, <span class="symbol">ip:</span> <span class="string">&quot;172.17.8.101&quot;</span></span><br><span class="line">  config.vm.provider <span class="symbol">:virtualbox</span> <span class="keyword">do</span> |<span class="params">v</span>|</span><br><span class="line">      v.customize [<span class="string">&quot;modifyvm&quot;</span>, <span class="symbol">:id</span>, <span class="string">&quot;--cpus&quot;</span>, <span class="number">2</span>]</span><br><span class="line">      v.customize [<span class="string">&quot;modifyvm&quot;</span>, <span class="symbol">:id</span>, <span class="string">&quot;--memory&quot;</span>, <span class="number">4096</span>]</span><br><span class="line">      v.customize [<span class="string">&#x27;modifyvm&#x27;</span>, <span class="symbol">:id</span>, <span class="string">&#x27;--nicpromisc1&#x27;</span>, <span class="string">&#x27;allow-all&#x27;</span>]</span><br><span class="line">  <span class="keyword">end</span></span><br><span class="line"><span class="keyword">end</span></span><br></pre></td></tr></table></figure>
+
+<p>該檔案會自動架設一個基於 <strong>1.15.3</strong> 的 <strong>kubernetes cluster</strong>，同時也會自動安裝 <strong>NFS</strong> 伺服器，並且將其底下的 <strong>&#x2F;nfsshare</strong> 資料夾分享出去。</p>
+<p>此外也會自動部署 <strong>NFS CSI</strong> 解決方案的相關檔案，並且最後部署一個使用該 <strong>NFS</strong> 服務的 <strong>nginx</strong> 作為一個範例。</p>
+<p>如果遇到下列錯誤，就進到機器後重新創建一次 <strong>nginx</strong> 相關的檔案即可</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">k8s: Error from server (Forbidden): error when creating <span class="string">&quot;csi-driver-nfs/examples/kubernetes/nginx.yaml&quot;</span>: pods <span class="string">&quot;nginx&quot;</span> is forbidden: error looking up service account default/default: serviceaccount <span class="string">&quot;default&quot;</span> not found</span><br><span class="line"><span class="comment">####</span></span><br><span class="line">$ kubectl apply -f csi-driver-nfs/examples/kubernetes/nginx.yaml</span><br></pre></td></tr></table></figure>
+
+<h2 id="安裝內容"><a href="#安裝內容" class="headerlink" title="安裝內容"></a>安裝內容</h2><p>接下來我們來看一下剛剛安裝的過程到底裝了哪些資源到系統中，這邊我們就忽略其他資源，專注於跟儲存有關的資源上</p>
+<h3 id="Controller"><a href="#Controller" class="headerlink" title="Controller"></a>Controller</h3><p>首先我們先看一下所謂的 <strong>CSI</strong> Controller  相關的設定檔案，如之前所述，這種情況通常會使用 <strong>StatefulSet</strong> 來設定，除非你的 <strong>Controller</strong> 本身有額外實現多實例的架構，可確保同時只有會一個副本正在運行。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line">kind: StatefulSet</span><br><span class="line">apiVersion: apps/v1beta1</span><br><span class="line">metadata:</span><br><span class="line">  name: csi-attacher-nfsplugin</span><br><span class="line">spec:</span><br><span class="line">  serviceName: <span class="string">&quot;csi-attacher&quot;</span></span><br><span class="line">  replicas: 1</span><br><span class="line">  template:</span><br><span class="line">    metadata:</span><br><span class="line">      labels:</span><br><span class="line">        app: csi-attacher-nfsplugin</span><br><span class="line">    spec:</span><br><span class="line">      serviceAccount: csi-attacher</span><br><span class="line">      containers:</span><br><span class="line">        - name: csi-attacher</span><br><span class="line">          image: quay.io/k8scsi/csi-attacher:v1.0.1</span><br><span class="line">          args:</span><br><span class="line">            - <span class="string">&quot;--v=5&quot;</span></span><br><span class="line">            - <span class="string">&quot;--csi-address=<span class="subst">$(ADDRESS)</span>&quot;</span></span><br><span class="line">          <span class="built_in">env</span>:</span><br><span class="line">            - name: ADDRESS</span><br><span class="line">              value: /csi/csi.sock</span><br><span class="line">          imagePullPolicy: <span class="string">&quot;IfNotPresent&quot;</span></span><br><span class="line">          volumeMounts:</span><br><span class="line">            - name: socket-dir</span><br><span class="line">              mountPath: /csi</span><br><span class="line"></span><br><span class="line">        - name: nfs</span><br><span class="line">          image: quay.io/k8scsi/nfsplugin:canary</span><br><span class="line">          args :</span><br><span class="line">            - <span class="string">&quot;--nodeid=<span class="subst">$(NODE_ID)</span>&quot;</span></span><br><span class="line">            - <span class="string">&quot;--endpoint=<span class="subst">$(CSI_ENDPOINT)</span>&quot;</span></span><br><span class="line">          <span class="built_in">env</span>:</span><br><span class="line">            - name: NODE_ID</span><br><span class="line">              valueFrom:</span><br><span class="line">                fieldRef:</span><br><span class="line">                  fieldPath: spec.nodeName</span><br><span class="line">            - name: CSI_ENDPOINT</span><br><span class="line">              value: unix://plugin/csi.sock</span><br><span class="line">          imagePullPolicy: <span class="string">&quot;IfNotPresent&quot;</span></span><br><span class="line">          volumeMounts:</span><br><span class="line">            - name: socket-dir</span><br><span class="line">              mountPath: /plugin</span><br><span class="line">      volumes:</span><br><span class="line">        - name: socket-dir</span><br><span class="line">          emptyDir:</span><br></pre></td></tr></table></figure>
+
+<p>該 <strong>Pod</strong> 中運行了兩個 <strong>Container</strong>，分別是</p>
+<ol>
+<li>quay.io&#x2F;k8scsi&#x2F;nfsplugin:canary</li>
+<li>quay.io&#x2F;k8scsi&#x2F;csi-attacher:v1.0.1</li>
+</ol>
+<p>第一個則是關於基於 <strong>NFS</strong> 所實現相容於 <strong>CSI Controller</strong> 的解決方案，而第二個則是由官方推出便於發開者的 <strong>sidecar container</strong>，用來監聽相關的 kubernetes 事件並且透過 <strong>gRPC</strong> 的方式告知第一個容器。</p>
+<p>這邊同時可以觀察到</p>
+<ol>
+<li>系統上透過 <strong>emptyDir</strong> 的方式創建了一個空間，並且讓兩個 <strong>container</strong> 都共同使用，而該檔案則是其實背後就是創建出來的 <strong>unix:&#x2F;&#x2F;plugin&#x2F;csi.sock</strong>， 因此這兩個 <strong>container</strong> 就會透過這種方式來進行 IPC 的交談。</li>
+</ol>
+<h3 id="Node"><a href="#Node" class="headerlink" title="Node"></a>Node</h3><p>接下來觀察一下另外一個部署，使用 <strong>DaemonSet</strong> 來部署，對應的就是之前提到的 <strong>CSI Node</strong> 服務，是必須每台需要使用儲存方案的節點都要部署的。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">kind:</span> <span class="string">DaemonSet</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1beta2</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">csi-nodeplugin-nfsplugin</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">csi-nodeplugin-nfsplugin</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">csi-nodeplugin-nfsplugin</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">serviceAccount:</span> <span class="string">csi-nodeplugin</span></span><br><span class="line">      <span class="attr">hostNetwork:</span> <span class="literal">true</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">node-driver-registrar</span></span><br><span class="line">          <span class="attr">image:</span> <span class="string">quay.io/k8scsi/csi-node-driver-registrar:v1.0.2</span></span><br><span class="line">          <span class="attr">lifecycle:</span></span><br><span class="line">            <span class="attr">preStop:</span></span><br><span class="line">              <span class="attr">exec:</span></span><br><span class="line">                <span class="attr">command:</span> [<span class="string">&quot;/bin/sh&quot;</span>, <span class="string">&quot;-c&quot;</span>, <span class="string">&quot;rm -rf /registration/csi-nfsplugin /registration/csi-nfsplugin-reg.sock&quot;</span>]</span><br><span class="line">          <span class="attr">args:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">--v=5</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">--csi-address=/plugin/csi.sock</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">--kubelet-registration-path=/var/lib/kubelet/plugins/csi-nfsplugin/csi.sock</span></span><br><span class="line">          <span class="attr">env:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">KUBE_NODE_NAME</span></span><br><span class="line">              <span class="attr">valueFrom:</span></span><br><span class="line">                <span class="attr">fieldRef:</span></span><br><span class="line">                  <span class="attr">fieldPath:</span> <span class="string">spec.nodeName</span></span><br><span class="line">          <span class="attr">volumeMounts:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">plugin-dir</span></span><br><span class="line">              <span class="attr">mountPath:</span> <span class="string">/plugin</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">registration-dir</span></span><br><span class="line">              <span class="attr">mountPath:</span> <span class="string">/registration</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">nfs</span></span><br><span class="line">          <span class="attr">securityContext:</span></span><br><span class="line">            <span class="attr">privileged:</span> <span class="literal">true</span></span><br><span class="line">            <span class="attr">capabilities:</span></span><br><span class="line">              <span class="attr">add:</span> [<span class="string">&quot;SYS_ADMIN&quot;</span>]</span><br><span class="line">            <span class="attr">allowPrivilegeEscalation:</span> <span class="literal">true</span></span><br><span class="line">          <span class="attr">image:</span> <span class="string">quay.io/k8scsi/nfsplugin:canary</span></span><br><span class="line">          <span class="attr">args :</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">&quot;--nodeid=$(NODE_ID)&quot;</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">&quot;--endpoint=$(CSI_ENDPOINT)&quot;</span></span><br><span class="line">          <span class="attr">env:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">NODE_ID</span></span><br><span class="line">              <span class="attr">valueFrom:</span></span><br><span class="line">                <span class="attr">fieldRef:</span></span><br><span class="line">                  <span class="attr">fieldPath:</span> <span class="string">spec.nodeName</span></span><br><span class="line">                <span class="bullet">-</span> <span class="attr">name:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">CSI_ENDPOINT</span></span><br><span class="line">              <span class="attr">value:</span> <span class="string">unix://plugin/csi.sock</span></span><br><span class="line">          <span class="attr">imagePullPolicy:</span> <span class="string">&quot;IfNotPresent&quot;</span></span><br><span class="line">          <span class="attr">volumeMounts:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">plugin-dir</span></span><br><span class="line">              <span class="attr">mountPath:</span> <span class="string">/plugin</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">pods-mount-dir</span></span><br><span class="line">              <span class="attr">mountPath:</span> <span class="string">/var/lib/kubelet/pods</span></span><br><span class="line">              <span class="attr">mountPropagation:</span> <span class="string">&quot;Bidirectional&quot;</span></span><br><span class="line">      <span class="attr">volumes:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">plugin-dir</span></span><br><span class="line">          <span class="attr">hostPath:</span></span><br><span class="line">            <span class="attr">path:</span> <span class="string">/var/lib/kubelet/plugins/csi-nfsplugin</span></span><br><span class="line">            <span class="attr">type:</span> <span class="string">DirectoryOrCreate</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">pods-mount-dir</span></span><br><span class="line">          <span class="attr">hostPath:</span></span><br><span class="line">            <span class="attr">path:</span> <span class="string">/var/lib/kubelet/pods</span></span><br><span class="line">            <span class="attr">type:</span> <span class="string">Directory</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">hostPath:</span></span><br><span class="line">            <span class="attr">path:</span> <span class="string">/var/lib/kubelet/plugins_registry</span></span><br><span class="line">            <span class="attr">type:</span> <span class="string">Directory</span></span><br><span class="line">          <span class="attr">name:</span> <span class="string">registration-dir</span></span><br></pre></td></tr></table></figure>
+
+<p>該 <strong>Pod</strong> 中也是部署了兩個 <strong>Container</strong>，分別是</p>
+<ol>
+<li>quay.io&#x2F;k8scsi&#x2F;csi-node-driver-registrar:v1.0.2</li>
+<li>quay.io&#x2F;k8scsi&#x2F;nfsplugin:canary</li>
+</ol>
+<p>跟 <strong>Controller</strong> 的部署一樣，其中一個是自行解決方案的設計，另外一個則是官方提供的好用輔助容器。</p>
+<p>首先看一下<strong>Volume</strong> 的部分，這邊有三個資料夾並且都是透過 <strong>hostpath</strong> 的方式來使用</p>
+<ol>
+<li>&#x2F;var&#x2F;lib&#x2F;kubelet&#x2F;plugins&#x2F;csi-nfsplugin</li>
+<li>&#x2F;var&#x2F;lib&#x2F;kubelet&#x2F;pods</li>
+<li>&#x2F;var&#x2F;lib&#x2F;kubelet&#x2F;plugins_registry</li>
+</ol>
+<p>第一個 <strong>&#x2F;var&#x2F;lib&#x2F;kubelet&#x2F;plugins&#x2F;csi-nfsplugin</strong> 根據觀察可以發現最後其實是用來指定相關的 <strong>unix socket</strong>。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo <span class="built_in">ls</span> /var/lib/kubelet/plugins/csi-nfsplugin</span><br><span class="line">csi.sock</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ sudo file /var/lib/kubelet/plugins/csi-nfsplugin/csi.sock</span><br><span class="line">/var/lib/kubelet/plugins/csi-nfsplugin/csi.sock: socket</span><br></pre></td></tr></table></figure>
+
+<p>第二個 <strong>&#x2F;var&#x2F;lib&#x2F;kubelet&#x2F;pods</strong> 比較特別，這個資料夾是 <strong>kubelet</strong> 用來存放跟 <strong>pod</strong> 相關的資訊，其中該目錄底下都是基於 <strong>pod ID</strong> 來區隔的。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo <span class="built_in">ls</span> /var/lib/kubelet/pods/</span><br><span class="line">16010371-22a4-4152-af23-712def2a764d  7a5a5fa4-ea62-4106-8e2e-69f3a0abf48d  8bf65cf7-a02a-4829-9fab-784355fe5ba5  af50052304877bc1d4cd4d3409c6be5a      c3aedceb2d751faeb02f85ebcec869a6      db52b7d4-c828-49d8-b899-e52be600f0b5</span><br><span class="line">28f76958a7cfb29c8091821d6746ddea      7d5d3c0a6786e517a8973fa06754cb75      9f7d3f8c-63a8-46b9-8d69-d70656caf0b7  bd4f816d-01f0-4217-a66c-27bd4893c130  c9da1474-797c-4386-acb1-f7c74cc30dbd</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ sudo docker ps | grep nginx</span><br><span class="line">2107ec8d04e1        maersk/nginx                               <span class="string">&quot;nginx&quot;</span>                  10 hours ago        Up 10 hours                             k8s_nginx_nginx_default_8bf65cf7-a02a-4829-9fab-784355fe5ba5_0</span><br><span class="line">dad41423889e        k8s.gcr.io/pause:3.1                       <span class="string">&quot;/pause&quot;</span>                 10 hours ago        Up 10 hours                             k8s_POD_nginx_default_8bf65cf7-a02a-4829-9fab-784355fe5ba5_0</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ sudo <span class="built_in">ls</span> /var/lib/kubelet/pods/8bf65cf7-a02a-4829-9fab-784355fe5ba5</span><br><span class="line">containers  etc-hosts  plugins  volumes</span><br><span class="line">vagrant@k8s-dev:~$</span><br></pre></td></tr></table></figure>
+
+<p>可以看到基於測試的 <strong>nginx pod</strong> 底下有個 volumes 的資料夾，接下來往下去看裡面有什麼資訊</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo tree /var/lib/kubelet/pods/8bf65cf7-a02a-4829-9fab-784355fe5ba5/volumes</span><br><span class="line">/var/lib/kubelet/pods/8bf65cf7-a02a-4829-9fab-784355fe5ba5/volumes</span><br><span class="line">├── kubernetes.io~csi</span><br><span class="line">│ └── data-nfsplugin</span><br><span class="line">|     ├── mount</span><br><span class="line">│     │ ├── influxdb</span><br><span class="line">│     │ ├── mongodb</span><br><span class="line">│     │ ├── test1</span><br><span class="line">│     │ └── user</span><br><span class="line">│     └── vol_data.json</span><br><span class="line">└── kubernetes.io~secret</span><br><span class="line">    └── default-token-6bcvc</span><br><span class="line">        ├── ca.crt -&gt; ..data/ca.crt</span><br><span class="line">        ├── namespace -&gt; ..data/namespace</span><br><span class="line">        └── token -&gt; ..data/token</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ sudo <span class="built_in">cat</span> /var/lib/kubelet/pods/8bf65cf7-a02a-4829-9fab-784355fe5ba5/volumes//kubernetes.io~csi/data-nfsplugin/vol_data.json | jq</span><br><span class="line">&#123;</span><br><span class="line">  <span class="string">&quot;attachmentID&quot;</span>: <span class="string">&quot;csi-f642ae48557f63a1f4377a265c43d6afe2e8d859837925fef2331b9e541e31a3&quot;</span>,</span><br><span class="line">  <span class="string">&quot;driverMode&quot;</span>: <span class="string">&quot;persistent&quot;</span>,</span><br><span class="line">  <span class="string">&quot;driverName&quot;</span>: <span class="string">&quot;csi-nfsplugin&quot;</span>,</span><br><span class="line">  <span class="string">&quot;nodeName&quot;</span>: <span class="string">&quot;k8s-dev&quot;</span>,</span><br><span class="line">  <span class="string">&quot;specVolID&quot;</span>: <span class="string">&quot;data-nfsplugin&quot;</span>,</span><br><span class="line">  <span class="string">&quot;volumeHandle&quot;</span>: <span class="string">&quot;data-id&quot;</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>同時也可以看到上述的 <strong>mount</strong>  資料夾內有之前設定的 <strong>NFS</strong> 相關的分享資料夾內容，這部分引起我的好奇心，所以透過 <strong>mount</strong> 再次觀察。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ mount | grep nfsshare</span><br><span class="line">127.0.0.1:/nfsshare on /var/lib/kubelet/pods/8bf65cf7-a02a-4829-9fab-784355fe5ba5/volumes/kubernetes.io~csi/data-nfsplugin/mount <span class="built_in">type</span> nfs4 (rw,relatime,vers=4.1,rsize=524288,wsize=524288,namlen=255,hard,proto=tcp,timeo=600,retrans=2,sec=sys,clientaddr=127.0.0.1,local_lock=none,addr=127.0.0.1)</span><br></pre></td></tr></table></figure>
+<p>大概可以瞭解整個運作原理了，先透過 <strong>CSI</strong> 的方式把目標的解決方案掛載到相關節點上，而掛載的地點必須是 <strong>&#x2F;var&#x2F;lib&#x2F;kubelet&#x2F;pods&#x2F;${pod_id}&#x2F;volumes&#x2F;kubernetes.io~csi&#x2F;${csi_name}</strong> 這個位置，當這邊處理完畢後。一旦 <strong>Pod</strong> 開始啟用後，就會透過 <strong>mount namespace</strong> 的方式再度的把這個空間給掛載到 <strong>Pod</strong> 裡面去使用。</p>
+<p>最後的 <strong>&#x2F;var&#x2F;lib&#x2F;kubelet&#x2F;plugins_registry</strong> 看名稱就跟註冊有關，的確也是專門給 <strong>Register</strong> 這個額外的容器使用。<br>根據該<a target="_blank" rel="noopener" href="https://github.com/kubernetes-csi/node-driver-registrar">專案說明</a></p>
+<blockquote>
+<p>Registration socket:<br>Registers the driver with kubelet.<br>Created by the node-driver-registrar.<br>Exposed on a Kubernetes node via hostpath in the Kubelet plugin registry. (typically &#x2F;var&#x2F;lib&#x2F;kubelet&#x2F;plugins_registry&#x2F;&lt;drivername.example.com&gt;-reg.sock). The hostpath volume must be mounted at &#x2F;registration.</p>
+</blockquote>
+<p>所以可以看到這算是一個該容器的標準用法，如果要將該CSI解決方案註冊到 <strong>Node</strong> 上，就直接透過這個容器加上 <strong>Unix socket</strong> 與 <strong>kubelet</strong> 溝通，就算是完成註冊相關的功能了。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo <span class="built_in">ls</span> /var/lib/kubelet/plugins_registry</span><br><span class="line">csi-nfsplugin-reg.sock</span><br><span class="line">vagrant@k8s-dev:~$ sudo file /var/lib/kubelet/plugins_registry/csi-nfsplugin-reg.sock</span><br><span class="line">/var/lib/kubelet/plugins_registry/csi-nfsplugin-reg.sock: socket</span><br></pre></td></tr></table></figure>
+
+
+<p>根據官方提供的參考部署架構圖<br><img src="https://i.imgur.com/sx31Z1w.png"><br>該圖節錄自<a href="kubernetes.io/blog/2019/01/15/container-storage-interface-ga/">Recommended Mechanism for Deploying CSI Drivers on Kubernetes
+</a></p>
+<p>可以對應到上述所描述的部署方式以及相關的 <strong>volume</strong> 操作，同時對於整體的運作邏輯有更清晰的表達。</p>
+<h3 id="Nginx"><a href="#Nginx" class="headerlink" title="Nginx"></a>Nginx</h3><p>作為一個使用者 <strong>Pod</strong> 來說，這邊採用 <strong>PV&#x2F;PVC</strong> 這種預先配置的方式來使用前述部署完畢的 <strong>CSI</strong> 環境，其中只有 <strong>PV</strong> 的部分使用方式跟過往不同，剩下的 <strong>PVC&#x2F;Pod</strong> 都沒有任何變化。</p>
+<p>可以看到 <strong>PV</strong> 之中必須要採用 <strong>csi</strong> 的架構，並且透過 <strong>volumeAttrivutes</strong> 傳遞每個解決方案需要的參數過去，以 <strong>NFS</strong> 為範例，就是目標伺服器的 <strong>IP</strong> 地址以及欲分享的資料夾。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">PersistentVolume</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">data-nfsplugin</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">data-nfsplugin</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">accessModes:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">ReadWriteMany</span></span><br><span class="line">  <span class="attr">capacity:</span></span><br><span class="line">    <span class="attr">storage:</span> <span class="string">100Gi</span></span><br><span class="line">  <span class="attr">csi:</span></span><br><span class="line">    <span class="attr">driver:</span> <span class="string">csi-nfsplugin</span></span><br><span class="line">    <span class="attr">volumeHandle:</span> <span class="string">data-id</span></span><br><span class="line">    <span class="attr">volumeAttributes:</span></span><br><span class="line">      <span class="attr">server:</span> <span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span></span><br><span class="line">      <span class="attr">share:</span> <span class="string">/nfsshare</span></span><br><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">PersistentVolumeClaim</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">data-nfsplugin</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">accessModes:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">ReadWriteMany</span></span><br><span class="line">  <span class="attr">resources:</span></span><br><span class="line">    <span class="attr">requests:</span></span><br><span class="line">      <span class="attr">storage:</span> <span class="string">100Gi</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchExpressions:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">name</span></span><br><span class="line">      <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">      <span class="attr">values:</span> [<span class="string">&quot;data-nfsplugin&quot;</span>]</span><br><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">nginx</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">image:</span> <span class="string">maersk/nginx</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">Always</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">nginx</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">containerPort:</span> <span class="number">80</span></span><br><span class="line">      <span class="attr">protocol:</span> <span class="string">TCP</span></span><br><span class="line">    <span class="attr">volumeMounts:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">mountPath:</span> <span class="string">/var/www</span></span><br><span class="line">        <span class="attr">name:</span> <span class="string">data-nfsplugin</span></span><br><span class="line">  <span class="attr">volumes:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">data-nfsplugin</span></span><br><span class="line">    <span class="attr">persistentVolumeClaim:</span></span><br><span class="line">      <span class="attr">claimName:</span> <span class="string">data-nfsplugin</span></span><br></pre></td></tr></table></figure>
+
+
+<h2 id="觀察"><a href="#觀察" class="headerlink" title="觀察"></a>觀察</h2><p>環境都架設完畢之後，第一步先觀察 <strong>NFS</strong> 是否如預期般的運作</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl <span class="built_in">exec</span> nginx <span class="built_in">ls</span> /var/www</span><br><span class="line">influxdb</span><br><span class="line">mongodb</span><br><span class="line">user</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ <span class="built_in">ls</span> /nfsshare/</span><br><span class="line">influxdb  mongodb  user</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ sudo <span class="built_in">touch</span> /nfsshare/test1</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ kubectl <span class="built_in">exec</span> nginx <span class="built_in">ls</span> /var/www</span><br><span class="line">influxdb</span><br><span class="line">mongodb</span><br><span class="line">test1</span><br><span class="line">user</span><br></pre></td></tr></table></figure>
+
+<p>看起來非常順利，基本的 <strong>NFS</strong> 掛載已經成功，接下來我們就要來觀察基於 <strong>CSI</strong> 的環境有什麼不同</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl api-resources | grep -i storage</span><br><span class="line">csidrivers                                     storage.k8s.io                 <span class="literal">false</span>        CSIDriver</span><br><span class="line">csinodes                                       storage.k8s.io                 <span class="literal">false</span>        CSINode</span><br><span class="line">storageclasses                    sc           storage.k8s.io                 <span class="literal">false</span>        StorageClass</span><br><span class="line">volumeattachments                              storage.k8s.io                 <span class="literal">false</span>        VolumeAttachment</span><br></pre></td></tr></table></figure>
+
+<p>我們透過 <strong>kubectl api-resources</strong> 去觀察系統上目前有哪些跟 <strong>storage</strong> 有關的資源，發現除了過往的 <strong>storageclasses</strong> 之外，還多出了三個資源，分別是 <strong>csidrivers</strong>, <strong>csinodes</strong> 以及 <strong>volumeattachmenets</strong>。</p>
+<h3 id="CSIDriver"><a href="#CSIDriver" class="headerlink" title="CSIDriver"></a>CSIDriver</h3><p>非常不幸的，我們的範例中並沒有創建任何資源於這個物件類別下</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl get csidrivers</span><br><span class="line">No resources found.</span><br></pre></td></tr></table></figure>
+<p>根據<a target="_blank" rel="noopener" href="https://kubernetes-csi.github.io/docs/csi-driver-object.html">官方開發指南</a>，裡面對於 <strong>CSIDriver</strong> 的描述是</p>
+<blockquote>
+<p>The CSIDriver Kubernetes API object serves two purposes:<br>Simplify driver discovery<br>If a CSI driver creates a CSIDriver object, Kubernetes users can easily discover the CSI Drivers installed on their cluster (simply by issuing kubectl get CSIDriver)<br>Customizing Kubernetes behavior<br>Kubernetes has a default set of behaviors when dealing with CSI Drivers (for example, it calls the Attach&#x2F;Detach operations by default). This object<br>allows CSI drivers to specify how Kubernetes should interact with it.</p>
+</blockquote>
+<p>簡單來說這個資源不一定會有，主要取決於 <strong>CSI</strong> 解決方案有沒有要創建，創建的話提供兩個好處</p>
+<ol>
+<li>使用者更容易的觀察到系統上安裝了哪些 <strong>CSI</strong> 解決方案<br>我認為這滿方便的，但是能夠強制要求創建該物件就更棒了</li>
+<li>讓 <strong>CSI</strong>解決方案能夠有機會對 <strong>kubelet</strong> 進行控制，去管理整個 <strong>CSI</strong> 的運作邏輯。</li>
+</ol>
+<p>一個合法的內容可能如下</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">storage.k8s.io/v1beta1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">CSIDriver</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">mycsidriver.example.com</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">attachRequired:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">podInfoOnMount:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">volumeLifecycleModes:</span> <span class="comment"># added in Kubernetes 1.16</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">Persistent</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">Ephemeral</span></span><br></pre></td></tr></table></figure>
+
+<p>其中 <strong>volumeLifycecleModes</strong> 甚至是 <strong>kubernetes 1.16</strong> 所加入的，有興趣的可以自行參閱<a target="_blank" rel="noopener" href="https://kubernetes-csi.github.io/docs/csi-driver-object.html#what-fields-does-the-csidriver-object-have">開發指南</a> 去瞭解每個欄位的定義。</p>
+<h3 id="CSINodes"><a href="#CSINodes" class="headerlink" title="CSINodes"></a>CSINodes</h3><p>透過 <strong>kubectl describe</strong> 我們可以看到更多關於 <strong>CSINodes</strong> 的資料。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl get csinodes</span><br><span class="line">NAME      CREATED AT</span><br><span class="line">k8s-dev   2019-09-29T07:19:27Z</span><br><span class="line">vagrant@k8s-dev:~$ kubectl describe csinodes k8s-dev</span><br><span class="line">Name:         k8s-dev</span><br><span class="line">Namespace:</span><br><span class="line">Labels:       &lt;none&gt;</span><br><span class="line">Annotations:  &lt;none&gt;</span><br><span class="line">API Version:  storage.k8s.io/v1beta1</span><br><span class="line">Kind:         CSINode</span><br><span class="line">Metadata:</span><br><span class="line">  Creation Timestamp:  2019-09-29T07:19:27Z</span><br><span class="line">  Owner References:</span><br><span class="line">    API Version:     v1</span><br><span class="line">    Kind:            Node</span><br><span class="line">    Name:            k8s-dev</span><br><span class="line">    UID:             8ed067fe-dbe7-4297-8177-c8a9da227962</span><br><span class="line">  Resource Version:  540</span><br><span class="line">  Self Link:         /apis/storage.k8s.io/v1beta1/csinodes/k8s-dev</span><br><span class="line">  UID:               1fd550dd-194a-4f20-8d41-fd1f42fbe16a</span><br><span class="line">Spec:</span><br><span class="line">  Drivers:</span><br><span class="line">    Name:           csi-nfsplugin</span><br><span class="line">    Node ID:        k8s-dev</span><br><span class="line">    Topology Keys:  &lt;nil&gt;</span><br><span class="line">Events:             &lt;none&gt;</span><br></pre></td></tr></table></figure>
+
+<p>其中最重要的就是 <strong>spec.drivers</strong> 內的資料，包含了</p>
+<ol>
+<li>該解決方案的名稱，定義於該解決方案內的程式碼。</li>
+<li>該節點的名稱，因為 <strong>CSI</strong> 裡面有很多的介面都會需要 <strong>NodeID</strong> 來進行一些處理，特別是 <strong>Controller</strong> 端的介面。</li>
+</ol>
+<p>根據 <a target="_blank" rel="noopener" href="https://kubernetes-csi.github.io/docs/csi-node-object.html#what-is-the-csinode-object">官方開發指南</a> 內的描述， CSINode 有下列的事項要注意</p>
+<ol>
+<li><strong>CSI</strong> 解決方案本身不需要自行創造，只要透過上篇介紹過的開發小幫手 - sidecar containers 中的 <strong>node-device-register</strong> 就會自動創造該物件</li>
+<li>該物件創立的目的是希望提供下列資訊<ul>
+<li>將 kubernetes node 的名稱轉換至 CSI node name</li>
+<li>透過相關物件判斷特定節點上是否有註冊相關的 CSI 解決方案</li>
+</ul>
+</li>
+</ol>
+<h3 id="VolumeAttachments"><a href="#VolumeAttachments" class="headerlink" title="VolumeAttachments"></a>VolumeAttachments</h3><p>這個物件是用來描述 <strong>CSI</strong> 使用過程中去掛載 <strong>Volume</strong> 的相關資訊。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl get volumeattachments</span><br><span class="line">NAME                                                                   ATTACHER        PV               NODE      ATTACHED   AGE</span><br><span class="line">csi-f642ae48557f63a1f4377a265c43d6afe2e8d859837925fef2331b9e541e31a3   csi-nfsplugin   data-nfsplugin   k8s-dev   <span class="literal">true</span>       20m</span><br><span class="line">vagrant@k8s-dev:~$ kubectl describe volumeattachments</span><br><span class="line">Name:         csi-f642ae48557f63a1f4377a265c43d6afe2e8d859837925fef2331b9e541e31a3</span><br><span class="line">Namespace:</span><br><span class="line">Labels:       &lt;none&gt;</span><br><span class="line">Annotations:  &lt;none&gt;</span><br><span class="line">API Version:  storage.k8s.io/v1</span><br><span class="line">Kind:         VolumeAttachment</span><br><span class="line">Metadata:</span><br><span class="line">  Creation Timestamp:  2019-09-29T07:19:49Z</span><br><span class="line">  Resource Version:    577</span><br><span class="line">  Self Link:           /apis/storage.k8s.io/v1/volumeattachments/csi-f642ae48557f63a1f4377a265c43d6afe2e8d859837925fef2331b9e541e31a3</span><br><span class="line">  UID:                 991d3c32-0d4f-43e8-bcdc-c5a5d038cd38</span><br><span class="line">Spec:</span><br><span class="line">  Attacher:   csi-nfsplugin</span><br><span class="line">  Node Name:  k8s-dev</span><br><span class="line">  Source:</span><br><span class="line">    Persistent Volume Name:  data-nfsplugin</span><br><span class="line">Status:</span><br><span class="line">  Attached:  <span class="literal">true</span></span><br><span class="line">Events:      &lt;none&gt;</span><br></pre></td></tr></table></figure>
+
+<p>譬如從 <strong>spec</strong> 可以看到有一個掛載的行為是</p>
+<ol>
+<li>透過 Attacher <strong>csi-nfsplugin</strong> 於 node <strong>k8s-dev</strong> 上掛載一個 <strong>volume</strong>，而該 <strong>volume</strong> 的來源是名為 <strong>data-nfsplugin</strong> 的 <strong>PVC</strong> 所定義的。</li>
+</ol>
+<p>這些資訊都可以幫忙釐清與確認當前是否 <strong>CSI</strong> 的儲存功能有正常運作，我覺得相對於之前單純的 <strong>PV&#x2F;PVC</strong> 有來得清楚一些。</p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>本文基於 <strong>CSI</strong> 架構下部署了一個 <strong>NFS</strong> 的儲存方案，並且用一個 <strong>Pod</strong> 作為掛載的範例，來實際部署的流程與架構，同時觀察整個 kubernetes 本身是否有新增加的資源與內容。</p>
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/kubernetes-csi/csi-driver-nfs">https://github.com/kubernetes-csi/csi-driver-nfs</a></li>
+<li><a target="_blank" rel="noopener" href="https://kubernetes-csi.github.io/docs">https://kubernetes-csi.github.io/docs</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/kubernetes-csi/node-driver-registrar">https://github.com/kubernetes-csi/node-driver-registrar</a></li>
+<li>kubernetes.io&#x2F;blog&#x2F;2019&#x2F;01&#x2F;15&#x2F;container-storage-interface-ga&#x2F;</li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/Storage/" rel="tag"># Storage</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+              <a href="/tags/CSI/" rel="tag"># CSI</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/csi-k8s.html" rel="prev" title="Container Storage Interface 與 kubernetes">
+                  <i class="fa fa-chevron-left"></i> Container Storage Interface 與 kubernetes
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/csi-iii.html" rel="next" title="CSI 雜談">
+                  CSI 雜談 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

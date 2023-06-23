@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="Introduction RDMA (Remote Direct Memory Access) is a mechanism which allow the host to accessing(read, write) memory on a remote host without interrupting CPU. The advantage of RDMA Zero-copy Kernel b">
+<meta property="og:type" content="article">
+<meta property="og:title" content="How to enable Ceph with RDMA">
+<meta property="og:url" content="https://www.hwchiu.com/ceph-with-rdma.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="Introduction RDMA (Remote Direct Memory Access) is a mechanism which allow the host to accessing(read, write) memory on a remote host without interrupting CPU. The advantage of RDMA Zero-copy Kernel b">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2017-05-02T18:47:00.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.602Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Ceph">
+<meta property="article:tag" content="RDMA">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/ceph-with-rdma.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/ceph-with-rdma.html","path":"ceph-with-rdma.html","title":"How to enable Ceph with RDMA"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>How to enable Ceph with RDMA | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Introduction"><span class="nav-number">1.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Install"><span class="nav-number">2.</span> <span class="nav-text">Install</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#ceph-deploy"><span class="nav-number">2.1.</span> <span class="nav-text">ceph-deploy</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Manually-build"><span class="nav-number">2.2.</span> <span class="nav-text">Manually build</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Enable-RDMA"><span class="nav-number">3.</span> <span class="nav-text">Enable RDMA</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#RDMA-environment"><span class="nav-number">3.1.</span> <span class="nav-text">RDMA environment</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Systemd-config"><span class="nav-number">3.2.</span> <span class="nav-text">Systemd config</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ceph-conf"><span class="nav-number">3.3.</span> <span class="nav-text">ceph.conf</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Reference"><span class="nav-number">4.</span> <span class="nav-text">Reference</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ceph-with-rdma.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="How to enable Ceph with RDMA | Hwchiu Learning Note">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          How to enable Ceph with RDMA
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2017-05-03 02:47:00" itemprop="dateCreated datePublished" datetime="2017-05-03T02:47:00+08:00">2017-05-03</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><ul>
+<li>RDMA (Remote Direct Memory Access) is a mechanism which allow the host to accessing(read, write) memory on a remote host without interrupting CPU.</li>
+<li>The advantage of RDMA<ol>
+<li>Zero-copy</li>
+<li>Kernel bypass</li>
+<li>No CPU involvement&#96;</li>
+</ol>
+</li>
+<li>With RDMA, our data can transfer without the involvement of the linux kernel network stack and provide hight performance, low latency, low CPU consumption.</li>
+<li>This article focus on how to enable the ceph with RDMA, including how to install ceph and enable the RDMA function.</li>
+</ul>
+<span id="more"></span>
+
+
+<h2 id="Install"><a href="#Install" class="headerlink" title="Install"></a>Install</h2><ul>
+<li>I introduce two ways to install the ceph with RDMA, one is use widly used tool <code>ceph-deploy</code> and the other is manually build the ceph.</li>
+</ul>
+<h3 id="ceph-deploy"><a href="#ceph-deploy" class="headerlink" title="ceph-deploy"></a>ceph-deploy</h3><ul>
+<li>If you use the <code>ceph-deploy</code> to install the ceph, you must make sure the source package  you installed is configure with <code>-DWITH_RDMA=ON</code>.</li>
+<li>You can use the argument <strong>–dev</strong> and <strong>-dev–commit</strong> to select the source packet form the official ceph build phase.<ul>
+<li>you can find those avaliabe repos in the <a target="_blank" rel="noopener" href="https://shaman.ceph.com/repos/ceph/">ceph site</a></li>
+<li>choose the one you want to install and clink it into the next page, you will see something like this <strong>Repos ceph &gt; wip-jd-testing &gt; da2c3dabdad80c01ec3d3258b51640cc0a93e842 &gt; default</strong></li>
+<li><strong>wip-jd-testing</strong> is for <strong>–dev</strong> and <strong>da2c3…</strong> is for <strong>–dev-commit</strong>.</li>
+<li>use the following command to install the ceph from above repos.<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ceph-deploy install --dev=wip-jd-testing --dev-commit=da2c3dabdad80c01ec3d3258b51640cc0a93e842</span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+</ul>
+<h3 id="Manually-build"><a href="#Manually-build" class="headerlink" title="Manually build"></a>Manually build</h3><ul>
+<li>Refer to followings step to build the ceph with RDMA.<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">cd ceph</span><br><span class="line">./install-deps.sh</span><br><span class="line">./do_cmake.sh -DWITH_RDMA=ON</span><br><span class="line">cd build</span><br><span class="line">time make -j54</span><br><span class="line">sudo make install</span><br></pre></td></tr></table></figure></li>
+<li>You can add any other options in command <strong>do_cmake.sh</strong></li>
+<li>And than you should install the ceph to you environment and set up the monitor&#x2F;osd by yourself.</li>
+</ul>
+<h2 id="Enable-RDMA"><a href="#Enable-RDMA" class="headerlink" title="Enable RDMA"></a>Enable RDMA</h2><ul>
+<li><p>Before we enable the RDMA, there’re something we need prepare for, including the RDMA environment, systemd config (if you need) and the ceph.conf</p>
+</li>
+<li><p>Before we enable the RDMA, we must setup the RDMA environment, you should install the NIC driver and validate RDMA functionalities</p>
+</li>
+</ul>
+<h3 id="RDMA-environment"><a href="#RDMA-environment" class="headerlink" title="RDMA environment"></a>RDMA environment</h3><ul>
+<li>I use the mellanox <strong>ConnectX-3 Pro</strong> in my environment and you can refer to <a target="_blank" rel="noopener" href="https://community.mellanox.com/docs/DOC-2086">HowTo Enable, Verify and Troubleshoot RDMA</a></li>
+<li>Use rdma tools to make sure your RDMA work well.</li>
+</ul>
+<h3 id="Systemd-config"><a href="#Systemd-config" class="headerlink" title="Systemd config"></a>Systemd config</h3><ul>
+<li>If you want to use the <strong>systemd</strong> to manage the ceph daemons, you should modify the systemd config to make it support RDMA because of the default config will fail for some access permission problem.<ul>
+<li>You can wait the official <a target="_blank" rel="noopener" href="https://github.com/ceph/ceph/pull/14107/files">PR</a> and use the next version.</li>
+<li>Refer to this <a target="_blank" rel="noopener" href="https://github.com/ceph/ceph/pull/13305">PR</a> to modfiy the systemd config by yourself, and you can use <code>systemctl</code> reload the systemd config if you need.</li>
+</ul>
+</li>
+</ul>
+<h3 id="ceph-conf"><a href="#ceph-conf" class="headerlink" title="ceph.conf"></a>ceph.conf</h3><ul>
+<li>Modify the <strong>ms_type</strong> to <strong>async+rdma</strong>, which tell the ceph use the <strong>AsyncMessenger + RDMA</strong> as your message type.</li>
+<li>You can use <strong>ms_cluster_type</strong> and <strong>ms_public_type</strong> to indicate the message type for your cluster network or public network.</li>
+<li>Use the command <code>ibdev2netdev</code> to get your device name and use it for <strong>ms_async_rdma_device_name</strong></li>
+<li>If your want to use the port 2 in your NIC for RDMA, set the <strong>ms_async_rdma_port_num</strong> to 2.</li>
+<li>You can also use <strong>ms_async_rdma_buffer_size</strong>, <strong>ms_async_rdma_send_buffers</strong> and <strong>ms_async_rdma_receive_buffers</strong> to set the memory you want to allocate for RDMA.<ul>
+<li><strong>ms_async_rdma_send_buffers</strong> and <strong>ms_async_rdma_receive_buffers</strong> are how many work requestes for RDMA send&#x2F;receive queue respectively.</li>
+<li>ms_async_rdma_buffer_size is the size os a single registered buffer.</li>
+<li>the total memory we allocate for each application is ms_async_rdma_buffer_size * (ms_async_rdma_send_buffers + ms_async_rdma_receive_buffers) and you can refer to <a target="_blank" rel="noopener" href="https://github.com/ceph/ceph/pull/13510">here</a> to know more about it.</li>
+</ul>
+</li>
+</ul>
+<p>Example ceph.conf</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[global]</span><br><span class="line">...</span><br><span class="line">ms_type=async+rdma</span><br><span class="line">ms_async_rdma_device_name=mlx4_0</span><br><span class="line">ms_async_rdma_send_buffers=1024</span><br><span class="line">ms_async_rdma_receive_buffers=1024</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>Update the ceph.conf for each node and restart all daemons, after that, the ceph cluster will use the RDMA for all public&#x2F;cluster network.<br>If you want ot make sure the RDMA works, you can use the following method to dump the RDMA packet and use the wireshark to open it.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">1. echo &quot;options mlx4_core log_num_mgm_entry_size=-1&quot; || sudo -a tee /etc/modprobe.d/mlx4.conf</span><br><span class="line">2. sudo  /etc/init.d/openibd restart</span><br><span class="line">3. ibdump</span><br></pre></td></tr></table></figure>
+
+<h2 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://community.mellanox.com/docs/DOC-2693">Mellanox-HowTo Configure Ceph RDMA</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Ceph/" rel="tag"># Ceph</a>
+              <a href="/tags/RDMA/" rel="tag"># RDMA</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2017-03-01-leetcode-314.html" rel="prev" title="LeetCode - 314">
+                  <i class="fa fa-chevron-left"></i> LeetCode - 314
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/curl-malloc.html" rel="next" title="curl with fewer malloc">
+                  curl with fewer malloc <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

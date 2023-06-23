@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="隨者愈來愈多的 CI&#x2F;CD 工具被開發出來，對於維運&#x2F;開發者來說，到底要選擇哪一套 CI&#x2F;CD 工具來使用? 本文介紹了其中一款 SaaS 服務, CircleCI。 本文簡單介紹一下作者自己在選擇工具時會考慮的問題與情境，以及在什麼情境下選擇了使用 CircleCI, 最後介紹了幾個覺得好用的功能。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CircleCI 使用經驗談">
+<meta property="og:url" content="https://www.hwchiu.com/circleci.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="隨者愈來愈多的 CI&#x2F;CD 工具被開發出來，對於維運&#x2F;開發者來說，到底要選擇哪一套 CI&#x2F;CD 工具來使用? 本文介紹了其中一款 SaaS 服務, CircleCI。 本文簡單介紹一下作者自己在選擇工具時會考慮的問題與情境，以及在什麼情境下選擇了使用 CircleCI, 最後介紹了幾個覺得好用的功能。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/eAf1aMN.png">
+<meta property="og:image" content="https://i.imgur.com/4WFNFM9.png">
+<meta property="og:image" content="https://i.imgur.com/lgZz9YJ.png">
+<meta property="article:published_time" content="2019-04-21T00:21:59.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.603Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="DevOps">
+<meta property="article:tag" content="CI&#x2F;CD">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/eAf1aMN.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/circleci.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/circleci.html","path":"circleci.html","title":"CircleCI 使用經驗談"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>CircleCI 使用經驗談 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Why-CircleCI"><span class="nav-number">2.</span> <span class="nav-text">Why CircleCI</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Features"><span class="nav-number">3.</span> <span class="nav-text">Features</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#SSH-Debug"><span class="nav-number">3.1.</span> <span class="nav-text">SSH Debug</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Executors"><span class="nav-number">3.2.</span> <span class="nav-text">Executors</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Commands"><span class="nav-number">4.</span> <span class="nav-text">Commands</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Orbs"><span class="nav-number">5.</span> <span class="nav-text">Orbs</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Cache"><span class="nav-number">6.</span> <span class="nav-text">Cache</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">7.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">8.</span> <span class="nav-text">個人資訊</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Reference"><span class="nav-number">9.</span> <span class="nav-text">Reference</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/circleci.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="CircleCI 使用經驗談 | Hwchiu Learning Note">
+      <meta itemprop="description" content="隨者愈來愈多的 CI/CD 工具被開發出來，對於維運/開發者來說，到底要選擇哪一套 CI/CD 工具來使用? 本文介紹了其中一款 SaaS 服務, CircleCI。 本文簡單介紹一下作者自己在選擇工具時會考慮的問題與情境，以及在什麼情境下選擇了使用 CircleCI, 最後介紹了幾個覺得好用的功能。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          CircleCI 使用經驗談
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-04-21 08:21:59" itemprop="dateCreated datePublished" datetime="2019-04-21T08:21:59+08:00">2019-04-21</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">隨者愈來愈多的 CI/CD 工具被開發出來，對於維運/開發者來說，到底要選擇哪一套 CI/CD 工具來使用? 本文介紹了其中一款 SaaS 服務, CircleCI。 本文簡單介紹一下作者自己在選擇工具時會考慮的問題與情境，以及在什麼情境下選擇了使用 CircleCI, 最後介紹了幾個覺得好用的功能。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>2019&#x2F;04&#x2F;20 很榮幸有機會參加 <a target="_blank" rel="noopener" href="https://devops.kktix.cc/events/pipeline-tools-battle">DevOps Taiwan - CI &#x2F; CD &#x2F; DevOps Pipeline Tools 大亂鬥</a> 並且於該大亂鬥中跟大家分享我平常自己 Side Project 使用的一套 CI 工具, <code>CircleCI</code>.</p>
+<p>本文的內容主要是基於該場大亂鬥中的<a target="_blank" rel="noopener" href="https://www.slideshare.net/hongweiqiu/introduction-to-circleci">投影片</a>進行更詳細的說明與範例</p>
+<h1 id="Why-CircleCI"><a href="#Why-CircleCI" class="headerlink" title="Why CircleCI"></a>Why CircleCI</h1><p>在使用 <code>CircleCI</code> 之前，我也有使用過不少套類似的 <code>CI/CD</code> 的服務與工具，譬如 <code>TravisCI</code>, <code>Jenkins</code>, <code>Drone</code>, <code>Keel</code>, <code>Spinnaker</code>, <code>Argo</code> 等</p>
+<p>其中工具有些是針對 <code>kubernetes</code> 去設計，有些則專注於 <code>CI</code>, 有些則是專注於 <code>CD</code>, 有的專注於 <code>Pipeline</code> 流程的設計。</p>
+<p>對我來說目前也沒有看到任何一套能夠滿足所有需求的工具存在，每次選擇一套工具的時候腦中往往會浮現出下列各式各樣的問題</p>
+<ol>
+<li>預計使用該工具的人數會有多少? 有成本考量嗎?<ul>
+<li>團隊內的人會需要操作嗎?</li>
+</ul>
+</li>
+<li>團隊內成員的平均素質如何，能夠接受什麼樣的使用方式?<ul>
+<li>有些人喜歡有簡單明瞭的 <code>UI</code> 操作，有些人喜歡什麼都要使用指令列操作，能不離開終端機最好。</li>
+</ul>
+</li>
+<li>能否預估使用情境，評斷該工具的特色是否可以滿足需求?<ul>
+<li>簡單使用的往往彈性不足，彈性足的往往設定以及維運複雜。</li>
+</ul>
+</li>
+<li>該工具是否能夠與現存的其他工具整合?<ul>
+<li>VCS: Github&#x2F;Github Enterprise&#x2F;Bitbucket&#x2F;GitLab&#x2F;..etc</li>
+<li>Jira&#x2F;Trello&#x2F;..etc</li>
+<li>IDE?</li>
+</ul>
+</li>
+<li>管理與維護是否方便? 若多人同時管理的情況下，有沒有辦法可以知道任何的設定跟動<code>是誰</code>造於<code>何時</code>造成的?</li>
+<li>該工具的維護團隊是否活躍？ 使用者生態系是否龐大? 有問題時是否容易尋找到解答 ?</li>
+</ol>
+<span id="more"></span>
+<p>所以根據不同的使用情境以及不同的工作環境&#x2F;團隊，上述的問題都會有不同的答案，最後會導出不同的選擇結果</p>
+<p>而我自己在一些 <code>SideProject</code> 的使用中，我評估了上述的問題後則選擇了 <code>CircleCI</code> 來採用，原因如下</p>
+<ol>
+<li><code>SideProject</code> 基本上是我自己使用為主，所以我自己使用要舒服</li>
+<li>基於 <code>Yaml</code> 格式的設定，每個專案都會有一個屬於自己的設定檔案，意味可以透過 <code>版本控制</code> 的方式來控制該專案的 <code>CI</code> 流程，有任何跟動都可以透過 <code>版本控制</code> 的流程來追蹤<ul>
+<li>個人不太喜歡只能透過 <code>UI</code> 設定的流程，因為團隊夠大的時候，往往會有人自行跑去修改了部分設定，年久失修後後會變成沒人知道為什麼會有這個設定，以及該設定的理由與原因</li>
+</ul>
+</li>
+<li>所有的流程都是基於 <code>Yaml</code> 內的流程來設計，根據自己的需求去完成</li>
+<li>與 <code>Github</code> 整合</li>
+<li>提供 <code>SSH</code> 的方式提供偵錯方式，可減少無謂的錯誤的嘗試</li>
+<li>免費版本提供最多同時一個 <code>Job</code> 運行的使用量，對於 <code>SideProject</code> 的專案來說足夠了。</li>
+<li>採用 <code>CircleCI</code> 公司提供的 SaaS，本身不需要維護相關的機器，可專注於程式開發</li>
+<li><code>CI</code> 的運行環境支援 <code>Container</code> 與 <code>Virtual Machine</code>, 符合我開發上的需求。</li>
+</ol>
+<p>基於上述的理由，我最後選擇了 <code>CircleCI</code> 來使用，接下來就來跟大家分享我使用上的一些心得</p>
+<h1 id="Features"><a href="#Features" class="headerlink" title="Features"></a>Features</h1><h2 id="SSH-Debug"><a href="#SSH-Debug" class="headerlink" title="SSH Debug"></a>SSH Debug</h2><p>過往使用一些工具時，常常遇到設定出錯然後需要通靈的情況，因為也許該指令在自己的測試環境都可以正常運行，但是跑到 SaaS 服務上則不通，可能因為系統版本差異，軟體版本差異甚至是系統有些相關的 <code>Service</code> 本身沒開啟。</p>
+<p>這種情況下要除錯都非常麻煩，幸好 <code>CircleCI</code> 提供了 <code>SSH Server</code> 的概念，讓開發者可以直接進去 <code>CI</code> 運行的環境進行操作，不但可以進行偵錯，也可以嘗試在該環境中將 <code>CI</code> 想要運行的指令都先行測試一遍，這樣要撰寫後續的設定檔就會相對輕鬆</p>
+<p>於 Workflow 右上方可以重新運行該 Workflow, 並且開啟 SSH 的功能<br><img src="https://i.imgur.com/eAf1aMN.png"></p>
+<p>接者可以觀察到原先的 Jobs 中被加入了一個新的 <code>Enable SSH</code>，點開該 <code>Job</code> 即可得到連接資訊<br><img src="https://i.imgur.com/4WFNFM9.png"></p>
+<p>我本身的 <code>Github</code> 帳戶有設定 <code>SSH Key</code> 的綁定，因此將 <code>CircleCI</code> 與 <code>Github</code> 綁定整合後，創建的 <code>SSH</code> 環境會只能接受 <code>CircleCI</code> 綁定的私鑰進行登入</p>
+<p>實際透過 <code>ssh指令</code> 登入到該環境後即可看到相關專案的內容，此時就可以在這個環境下去進行偵錯與測試。<br><img src="https://i.imgur.com/lgZz9YJ.png"></p>
+<h2 id="Executors"><a href="#Executors" class="headerlink" title="Executors"></a>Executors</h2><p><code>CircleCI</code> 的運行環境中大部分都是基於 <code>Container</code> 來運行的，譬如下述的範例</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">jobs:</span></span><br><span class="line">  <span class="attr">build:</span></span><br><span class="line">    <span class="attr">docker:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">image:</span> <span class="string">circleci/golang:1.12</span></span><br><span class="line"></span><br><span class="line">    <span class="attr">steps:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">checkout</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">run:</span></span><br><span class="line">          <span class="attr">name:</span> <span class="string">Build</span> <span class="string">Code</span></span><br><span class="line">          <span class="attr">command:</span>  <span class="string">|</span></span><br><span class="line"><span class="string">            sleep 10</span></span><br><span class="line"><span class="string">            echo &quot;Build Done&quot;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line">  <span class="attr">deploy:</span></span><br><span class="line">    <span class="attr">docker:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">image:</span> <span class="string">circleci/golang:1.12</span></span><br></pre></td></tr></table></figure>
+<p>這個範例內我會針對不同的 <code>Job</code> 去設定該 <code>Job</code> 要運行的環境，範例中都使用了官方提供的 <code>golang:1.12</code> 容器。</p>
+<p>就如同寫程式一樣，相同的部分如果可以抽象一層對於後續的維護跟修改會相對的輕鬆一點，這一點上 <code>CircleCI</code> 則提供了 <code>Executor</code> 的語法讓開發者管理其設定檔案</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">executors:</span></span><br><span class="line">  <span class="attr">golang-ci:</span></span><br><span class="line">    <span class="attr">working_directory:</span> <span class="string">~/repo</span></span><br><span class="line">    <span class="attr">docker:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">image:</span> <span class="string">circleci/golang:1.12</span></span><br><span class="line"></span><br><span class="line"><span class="attr">jobs:</span></span><br><span class="line">  <span class="attr">build:</span></span><br><span class="line">    <span class="attr">executor:</span> <span class="string">golang-ci</span></span><br><span class="line">    <span class="attr">steps:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">checkout</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">run:</span></span><br><span class="line">          <span class="attr">name:</span> <span class="string">Build</span> <span class="string">Code</span></span><br><span class="line">          <span class="attr">command:</span>  <span class="string">|</span></span><br><span class="line"><span class="string">            sleep 10</span></span><br><span class="line"><span class="string">            echo &quot;Build Done&quot;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line">  <span class="attr">deploy:</span></span><br><span class="line">    <span class="attr">executor:</span> <span class="string">golang-ci</span></span><br></pre></td></tr></table></figure>
+
+<p>這個範例中我們透過 <code>Executor</code> 的方式創造了一個名為 <code>golang-ci</code> 的運行環境，該環境中描述其使用的容器是 <code>circleci/golang:1.12</code>.<br>之後只要這些不同的 Job 會使用的環境都一致的話，可以繼續專注維護 <code>executors</code> 的部分即可。</p>
+<p>此外由於所有的運行環境都是基於容器，所以其實可以自行客製化自行的運行環境，將必定會使用的工具與環境事先設定完畢，譬如透過 <code>pip3</code>, <code>apt-get</code>, <code>yarn</code>, <code>apk</code>, <code>dnf</code> 等各式各樣的工具來預先安裝需要的套件與工具，最後將這個環境打包成新的容器映像檔案。<br>最後再將該環境套用到自行的 <code>CircleCI</code> 運行環境中，就可以減少一些不必要的安裝動作，藉此減少每次運行所需要的時間。</p>
+<h1 id="Commands"><a href="#Commands" class="headerlink" title="Commands"></a>Commands</h1><p>雖然 <code>Yaml</code> 本身已經有 <a target="_blank" rel="noopener" href="https://medium.com/@kinghuang/docker-compose-anchors-aliases-extensions-a1e4105d70bd">Anchors</a> 這種機制來避免重複撰寫設定的方式，然後 <code>Anchors</code> 裡面會用到大量的 <code>&amp;</code>,<code>*</code> 這類型的符號，其實看了不是很順眼，同時 <code>Anchors</code> 是針對完全相同的設定來處理，若本身有參數的差異時就沒有辦法透過這個機制來處理。</p>
+<p><code>CircleCI</code> 提供了 <code>Commands</code> 的概念，可讓開發者將 <code>Jobs</code> 的描述方式撰寫成類似 <code>Function</code> 的概念，可設定呼叫所需要的參數，以及這些參數的型態與預設值。</p>
+<p>下列的 <code>yaml</code> 則是一個簡單的範例，創建了兩個 <code>Commands</code>, 分別叫做 <code>setup_env</code> 以及 <code>deploy_env</code>.<br>這兩個 <code>Commands</code> 都有設定相關的參數以及對應的型態與預設值<br>最後可以透過 <code>CircleCI</code> 規範的使用方式 <code>&lt;&lt; parameters.$NAME &gt;&gt;</code> 的方式來存取。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">commands:</span></span><br><span class="line">  <span class="attr">setup_env:</span></span><br><span class="line">    <span class="attr">parameters:</span></span><br><span class="line">      <span class="attr">environment:</span></span><br><span class="line">        <span class="attr">type:</span> <span class="string">string</span></span><br><span class="line">        <span class="attr">default:</span> <span class="string">&quot;dev&quot;</span></span><br><span class="line">    <span class="attr">steps:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">run:</span></span><br><span class="line">          <span class="attr">name:</span> <span class="string">&quot;Setup the environment &lt;&lt; parameters.environment &gt;&gt;&quot;</span></span><br><span class="line">          <span class="attr">command:</span> <span class="string">|</span></span><br><span class="line"><span class="string">            echo  &lt;&lt; parameters.environment &gt;&gt;</span></span><br><span class="line"><span class="string"></span>  <span class="attr">deploy_env:</span></span><br><span class="line">    <span class="attr">parameters:</span></span><br><span class="line">      <span class="attr">environment:</span></span><br><span class="line">        <span class="attr">type:</span> <span class="string">string</span></span><br><span class="line">        <span class="attr">default:</span> <span class="string">&quot;dev&quot;</span></span><br><span class="line">      <span class="attr">seconds:</span></span><br><span class="line">        <span class="attr">type:</span> <span class="string">string</span></span><br><span class="line">        <span class="attr">default:</span> <span class="string">&quot;5&quot;</span></span><br><span class="line">    <span class="attr">steps:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">run:</span></span><br><span class="line">          <span class="attr">name:</span> <span class="string">&quot;Deploy to environment &lt;&lt; parameters.environment &gt;&gt;&quot;</span></span><br><span class="line">          <span class="attr">command:</span> <span class="string">|</span></span><br><span class="line"><span class="string">            sleep &lt;&lt; parameters.seconds &gt;&gt;</span></span><br><span class="line"><span class="string">            echo  &lt;&lt; parameters.environment &gt;&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>接下每個 Jobs 中就可以針對上述的 <code>Commands</code> 名稱直接使用，針對需要的部分可以傳遞參數覆蓋預設值，或是直接採用預設值即可</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">deploy:</span></span><br><span class="line">  <span class="attr">executor:</span> <span class="string">golang-ci</span></span><br><span class="line">  <span class="attr">steps:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">checkout</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">setup_env</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">deploy_env</span></span><br><span class="line"></span><br><span class="line"><span class="attr">deploy-staging:</span></span><br><span class="line">  <span class="attr">docker:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">image:</span> <span class="string">circleci/golang:1.12</span></span><br><span class="line">  <span class="attr">steps:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">checkout</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">setup_env:</span></span><br><span class="line">        <span class="attr">environment:</span> <span class="string">staging</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">deploy_env:</span></span><br><span class="line">        <span class="attr">environment:</span> <span class="string">staging</span></span><br><span class="line">        <span class="attr">seconds:</span> <span class="string">&quot;10&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>藉由 <code>Commands</code> 的方式能夠讓你好好的思緒有沒有辦法將你的 <code>Pipepline</code> 流程給設計的更模組化，將相同的部分抽出，透過不同變數的方式來減少重複撰寫的手續，同時也提高維護的方便性。</p>
+<h1 id="Orbs"><a href="#Orbs" class="headerlink" title="Orbs"></a>Orbs</h1><p>當有了 <code>Commands</code> 的概念後，就可以將滿多常見的功能給模組化，模組化的下一個步驟就是分享。這個概念其實與其他工具的 <code>Plugin</code> 雷同，只是在 <code>CircleCI</code> 中使用 <code>Orbs</code> 這個詞來表示。</p>
+<p>可以到 <a target="_blank" rel="noopener" href="https://circleci.com/orbs/registry/">Orbs Registry</a> 看看目前提供的 <code>Orbs</code></p>
+<p>這邊我們以 <a target="_blank" rel="noopener" href="https://circleci.com/orbs/registry/orb/circleci/slack">Slack Orbs</a> 為範例，有自行撰寫過 <code>Slack</code> 相關通知的開發者就會知道在 <code>Bash</code> 中要透過 <code>Curl</code> 等方式去描述 <code>Json</code> 物件有多煩瑣。</p>
+<p>我們可以看一下 <code>slack orbs</code> 裡面怎處理的</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br></pre></td><td class="code"><pre><span class="line"><span class="bullet">-</span> <span class="attr">run:</span></span><br><span class="line">    <span class="attr">command:</span> <span class="string">|</span></span><br><span class="line"><span class="string">      # Provide error if no webhook is set and error. Otherwise continue</span></span><br><span class="line"><span class="string">      if [ -z &quot;&lt;&lt; parameters.webhook &gt;&gt;&quot; ]; then</span></span><br><span class="line"><span class="string">        echo &quot;NO SLACK WEBHOOK SET&quot;</span></span><br><span class="line"><span class="string">        echo &quot;Please input your SLACK_WEBHOOK value either in the settings for this project, or as a parameter for this orb.&quot;</span></span><br><span class="line"><span class="string">        exit 1</span></span><br><span class="line"><span class="string">      else</span></span><br><span class="line"><span class="string">        # Webhook properly set.</span></span><br><span class="line"><span class="string">        echo Notifying Slack Channel</span></span><br><span class="line"><span class="string">        #Create Members string</span></span><br><span class="line"><span class="string">        if [ -n &quot;&lt;&lt; parameters.mentions &gt;&gt;&quot; ]; then</span></span><br><span class="line"><span class="string">          IFS=&quot;,&quot; read -ra SLACK_MEMBERS \&lt;&lt;&lt; &quot;&lt;&lt; parameters.mentions &gt;&gt;&quot;</span></span><br><span class="line"><span class="string">          for i in &quot;$&#123;SLACK_MEMBERS[@]&#125;&quot;; do</span></span><br><span class="line"><span class="string">            if [ $(echo $&#123;i&#125; | head -c 1) == &quot;S&quot; ]; then</span></span><br><span class="line"><span class="string">              SLACK_MENTIONS=&quot;$&#123;SLACK_MENTIONS&#125;&lt;!subteam^$&#123;i&#125;&gt; &quot;</span></span><br><span class="line"><span class="string">            elif echo $&#123;i&#125; | grep -E &quot;^(here|channel|everyone)$&quot; &gt; /dev/null; then</span></span><br><span class="line"><span class="string">              SLACK_MENTIONS=&quot;$&#123;SLACK_MENTIONS&#125;&lt;!$&#123;i&#125;&gt; &quot;</span></span><br><span class="line"><span class="string">            else</span></span><br><span class="line"><span class="string">              SLACK_MENTIONS=&quot;$&#123;SLACK_MENTIONS&#125;&lt;@$&#123;i&#125;&gt; &quot;</span></span><br><span class="line"><span class="string">            fi</span></span><br><span class="line"><span class="string">          done</span></span><br><span class="line"><span class="string">        fi</span></span><br><span class="line"><span class="string">        curl -X POST -H &#x27;Content-type: application/json&#x27; \</span></span><br><span class="line"><span class="string">          --data \</span></span><br><span class="line"><span class="string">          &quot;&#123; \</span></span><br><span class="line"><span class="string">            \&quot;attachments\&quot;: [ \</span></span><br><span class="line"><span class="string">              &#123; \</span></span><br><span class="line"><span class="string">                \&quot;fallback\&quot;: \&quot;&lt;&lt; parameters.message &gt;&gt; - $CIRCLE_BUILD_URL\&quot;, \</span></span><br><span class="line"><span class="string">                \&quot;text\&quot;: \&quot;&lt;&lt; parameters.message &gt;&gt; $SLACK_MENTIONS\&quot;, \</span></span><br><span class="line"><span class="string">                \&quot;author_name\&quot;: \&quot;&lt;&lt; parameters.author_name &gt;&gt;\&quot;, \</span></span><br><span class="line"><span class="string">                \&quot;author_link\&quot;: \&quot;&lt;&lt; parameters.author_link &gt;&gt;\&quot;, \</span></span><br><span class="line"><span class="string">                \&quot;title\&quot;: \&quot;&lt;&lt; parameters.title &gt;&gt;\&quot;, \</span></span><br><span class="line"><span class="string">                \&quot;title_link\&quot;: \&quot;&lt;&lt; parameters.title_link &gt;&gt;\&quot;, \</span></span><br><span class="line"><span class="string">                \&quot;footer\&quot;: \&quot;&lt;&lt; parameters.footer &gt;&gt;\&quot;, \</span></span><br><span class="line"><span class="string">                \&quot;ts\&quot;: \&quot;&lt;&lt; parameters.ts &gt;&gt;\&quot;, \</span></span><br><span class="line"><span class="string">                \&quot;fields\&quot;: [ \</span></span><br><span class="line"><span class="string">                  &lt;&lt;# parameters.include_project_field &gt;&gt;</span></span><br><span class="line"><span class="string">                  &#123; \</span></span><br><span class="line"><span class="string">                    \&quot;title\&quot;: \&quot;Project\&quot;, \</span></span><br><span class="line"><span class="string">                    \&quot;value\&quot;: \&quot;$CIRCLE_PROJECT_REPONAME\&quot;, \</span></span><br><span class="line"><span class="string">                    \&quot;short\&quot;: true \</span></span><br><span class="line"><span class="string">                  &#125;, \</span></span><br><span class="line"><span class="string">                  &lt;&lt;/ parameters.include_project_field &gt;&gt;</span></span><br><span class="line"><span class="string">                  &lt;&lt;# parameters.include_job_number_field &gt;&gt;</span></span><br><span class="line"><span class="string">                  &#123; \</span></span><br><span class="line"><span class="string">                    \&quot;title\&quot;: \&quot;Job Number\&quot;, \</span></span><br><span class="line"><span class="string">                    \&quot;value\&quot;: \&quot;$CIRCLE_BUILD_NUM\&quot;, \</span></span><br><span class="line"><span class="string">                    \&quot;short\&quot;: true \</span></span><br><span class="line"><span class="string">                  &#125; \</span></span><br><span class="line"><span class="string">                  &lt;&lt;/ parameters.include_job_number_field &gt;&gt;</span></span><br><span class="line"><span class="string">                ], \</span></span><br><span class="line"><span class="string">                \&quot;actions\&quot;: [ \</span></span><br><span class="line"><span class="string">                  &lt;&lt;# parameters.include_visit_job_action &gt;&gt;</span></span><br><span class="line"><span class="string">                  &#123; \</span></span><br><span class="line"><span class="string">                    \&quot;type\&quot;: \&quot;button\&quot;, \</span></span><br><span class="line"><span class="string">                    \&quot;text\&quot;: \&quot;Visit Job\&quot;, \</span></span><br><span class="line"><span class="string">                    \&quot;url\&quot;: \&quot;$CIRCLE_BUILD_URL\&quot; \</span></span><br><span class="line"><span class="string">                  &#125; \</span></span><br><span class="line"><span class="string">                  &lt;&lt;/ parameters.include_visit_job_action &gt;&gt;</span></span><br><span class="line"><span class="string">                ], \</span></span><br><span class="line"><span class="string">                \&quot;color\&quot;: \&quot;&lt;&lt; parameters.color &gt;&gt;\&quot; \</span></span><br><span class="line"><span class="string">              &#125; \</span></span><br><span class="line"><span class="string">            ] \</span></span><br><span class="line"><span class="string">          &#125;&quot; &lt;&lt; parameters.webhook &gt;&gt;</span></span><br><span class="line"><span class="string">      fi</span></span><br><span class="line"><span class="string"></span>    <span class="attr">name:</span> <span class="string">Slack</span> <span class="string">Notification</span></span><br><span class="line">    <span class="attr">shell:</span> <span class="string">/bin/bash</span></span><br></pre></td></tr></table></figure>
+
+<p>可以看到滿滿的跳脫字元處理，整個使用與除錯想到就麻煩。</p>
+<p>但是透過 <code>orbs</code> 的設計，我們可以重複使用上列的功能而不需要去管實作細節，整個使用範例如下</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">orbs:</span></span><br><span class="line">  <span class="attr">slack:</span> <span class="string">circleci/slack@2.4.0</span></span><br><span class="line"></span><br><span class="line">  <span class="attr">deploy:</span></span><br><span class="line">    <span class="attr">executor:</span> <span class="string">golang-ci</span></span><br><span class="line">    <span class="attr">environment:</span></span><br><span class="line">      <span class="attr">SLACK_WEBHOOK:</span> <span class="string">https://hooks.slack.com/services/xxxxxxxxxxxxxxxxxxxxxxxx</span></span><br><span class="line">    <span class="attr">steps:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">checkout</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">setup_env</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">deploy_env</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">slack/notify:</span></span><br><span class="line">          <span class="attr">message:</span> <span class="string">Deploy</span> <span class="string">dev</span> <span class="string">done</span></span><br></pre></td></tr></table></figure>
+
+<p>根據 <code>Slack Orbs</code> 的文件解說，我們最需要的就是 <code>SLACK_WEBHOOK</code> 的設定，剩下都可以依據預設值來處理，這邊我針對訊息的部分進行了覆蓋。</p>
+<p>透過這些語法與生態系，我們能夠讓整個設定檔更加的精簡與組織。</p>
+<p><code>CircleCI</code> 這部分發展的比較晚，目前提供的 <code>Orbs</code> 只有數十多個，為數不多，且目前沒有提供 <code>Private Orbs</code> 的使用。<br>這意味如果你有多個 Project 想要共用這些模組，你只能公開這些模組不然就是在每個 Project 的設定內去撰寫相同的 <code>Commands</code>。</p>
+<h1 id="Cache"><a href="#Cache" class="headerlink" title="Cache"></a>Cache</h1><p><code>CircleCI</code> 本身有提供 <code>Cache</code> 的機制，可以讓你在不同的 <code>Workflow</code> 中傳遞檔案與資料夾。 透過這個機制我們可以將一些中間產物給保存下來，譬如 <code>go build</code>, <code>npm build</code> 等建置後產生的檔案給共享，藉此降低下次執行相同 <code>Workflow</code> 所需要的時間。</p>
+<p>使用上分成兩個概念</p>
+<ol>
+<li>save_to_cache</li>
+<li>restore_cahce</li>
+</ol>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="bullet">-</span> <span class="attr">restore_cache:</span></span><br><span class="line">    <span class="attr">keys:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">go-mod-v4-&#123;&#123;</span> <span class="string">checksum</span> <span class="string">&quot;go.sum&quot;</span> <span class="string">&#125;&#125;</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">run:</span> <span class="string">make</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">save_cache:</span></span><br><span class="line">    <span class="attr">key:</span> <span class="string">go-mod-v4-&#123;&#123;</span> <span class="string">checksum</span> <span class="string">&quot;go.sum&quot;</span> <span class="string">&#125;&#125;</span></span><br><span class="line">    <span class="attr">paths:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;/go/pkg/mod&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>通常的使用邏輯都是產生這些中間產物後，透過 <code>save_cache</code> 的方式將特定路徑下的檔案給保存起來。同時我們需要針對這份 <code>cache</code> 給一個名稱。<br>使用上都會搭配 <code>checksum</code> 的方式來幫這份 <code>cache</code> 上一個跟其內容有關的名稱。</p>
+<p>這樣下次運行的時候，透過 <code>restore_cache</code> 搭配特定的 <code>key</code> 就可以從眾多的 <code>cache</code> 中取出該資料並且覆蓋回去該系統中。</p>
+<p>上述的範例可以這樣解讀，只要 <code>go.sum</code> 這個描述中間產物來源的檔案本身沒有跟動，那我們就可以放心的繼續採用相同的 <code>cache</code>. 但是一旦本次的更動有改變到 <code>go.sum</code>，不論是新的 library 或是版本的更新，都會導致 <code>go.sum</code> checksum 的改變，所以就會要到一個不存在的 <code>cache</code>. 最後就會迫使 <code>workflow</code> 去產生一份全新的 <code>cache</code> 供未來使用。</p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>除了上述的功能外，還有一些滿多內建功能可以使用，譬如 <code>store_artifacts</code>, <code>store_test_results</code> 等，這部分就是有需要的時候再到官方文件查詢即可。</p>
+<p>再次重申，沒有最完美的工具能夠適合各種情境，只有想清楚自己的需求與情境，在針對需求去選擇適合自己的工具。此外需求確定的情況下來尋找合適的工具也可以避免踩入一套工具最後卻很難抽身的情況。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+<h1 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://circleci.com/docs/">CircleCI</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/CI-CD/" rel="tag"># CI/CD</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/aks-cni-i.html" rel="prev" title="Azure Kubernetes Service (AKS) - CNI (I)">
+                  <i class="fa fa-chevron-left"></i> Azure Kubernetes Service (AKS) - CNI (I)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/aws-profile.html" rel="next" title="Management AWS Profiles">
+                  Management AWS Profiles <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

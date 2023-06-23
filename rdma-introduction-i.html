@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="有鑑於之前有誤打誤撞不小心看完 ceph 整個底層 networking 實作的程式碼，就順便學習了一下 RDMA 這個概念，因此在這邊分享我所學習到關於 RDMA 的認知。這系列文章主要會分成兩篇來講述，第一篇比較偏向科普的方式來介紹 RDMA，而第二篇則是會比較偏向程式設計師的角度，瞭解 RDMA 與傳統的 BSD Socket API 的差異。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="RDMA Introduction (一)">
+<meta property="og:url" content="https://www.hwchiu.com/rdma-introduction-i.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="有鑑於之前有誤打誤撞不小心看完 ceph 整個底層 networking 實作的程式碼，就順便學習了一下 RDMA 這個概念，因此在這邊分享我所學習到關於 RDMA 的認知。這系列文章主要會分成兩篇來講述，第一篇比較偏向科普的方式來介紹 RDMA，而第二篇則是會比較偏向程式設計師的角度，瞭解 RDMA 與傳統的 BSD Socket API 的差異。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://linuxcluster.files.wordpress.com/2012/10/rdma_communication.jpg">
+<meta property="og:image" content="http://i.imgur.com/qRmM40C.png">
+<meta property="og:image" content="http://i.imgur.com/qkGVXyA.png">
+<meta property="og:image" content="http://i.imgur.com/OjJtedB.png">
+<meta property="og:image" content="http://i.imgur.com/PZYFllQ.jpg">
+<meta property="article:published_time" content="2017-07-11T19:56:02.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.638Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="DRBD">
+<meta property="article:tag" content="Ceph">
+<meta property="article:tag" content="RDMA">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://linuxcluster.files.wordpress.com/2012/10/rdma_communication.jpg">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/rdma-introduction-i.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/rdma-introduction-i.html","path":"rdma-introduction-i.html","title":"RDMA Introduction (一)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>RDMA Introduction (一) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Introduction-RDMA"><span class="nav-number">1.</span> <span class="nav-text">Introduction RDMA</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Advantages"><span class="nav-number">2.</span> <span class="nav-text">Advantages</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Zero-Copy"><span class="nav-number">2.1.</span> <span class="nav-text">Zero-Copy</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Kernel-bypass"><span class="nav-number">2.2.</span> <span class="nav-text">Kernel bypass</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#No-CPU-involvement"><span class="nav-number">2.3.</span> <span class="nav-text">No CPU involvement</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Message-based-transactions"><span class="nav-number">2.4.</span> <span class="nav-text">Message based transactions</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Scatter-x2F-Gather-entries-support"><span class="nav-number">2.5.</span> <span class="nav-text">Scatter&#x2F;Gather entries support</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Architecture"><span class="nav-number">3.</span> <span class="nav-text">Architecture</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Architecture-1"><span class="nav-number">3.1.</span> <span class="nav-text">Architecture</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#BSD-Socket"><span class="nav-number">3.1.1.</span> <span class="nav-text">BSD Socket</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#RDMA-Side"><span class="nav-number">3.1.2.</span> <span class="nav-text">RDMA Side</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Protocol"><span class="nav-number">3.1.3.</span> <span class="nav-text">Protocol</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Use-Case"><span class="nav-number">4.</span> <span class="nav-text">Use-Case</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Ceph"><span class="nav-number">4.1.</span> <span class="nav-text">Ceph</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#DRBD"><span class="nav-number">4.2.</span> <span class="nav-text">DRBD</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Summary"><span class="nav-number">5.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Reference"><span class="nav-number">6.</span> <span class="nav-text">Reference</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number"></span> <span class="nav-text">個人資訊</span></a></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/rdma-introduction-i.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="RDMA Introduction (一) | Hwchiu Learning Note">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          RDMA Introduction (一)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2017-07-12 03:56:02" itemprop="dateCreated datePublished" datetime="2017-07-12T03:56:02+08:00">2017-07-12</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>有鑑於之前有誤打誤撞不小心看完 <strong>ceph</strong> 整個底層 <strong>networking</strong> 實作的程式碼，就順便學習了一下 <strong>RDMA</strong> 這個概念，因此在這邊分享我所學習到關於 <strong>RDMA</strong> 的認知。<br>這系列文章主要會分成兩篇來講述，第一篇比較偏向科普的方式來介紹 RDMA，而第二篇則是會比較偏向程式設計師的角度，瞭解 <strong>RDMA</strong> 與傳統的 <strong>BSD Socket API</strong> 的差異。</p>
+<span id="more"></span>
+
+<h2 id="Introduction-RDMA"><a href="#Introduction-RDMA" class="headerlink" title="Introduction RDMA"></a>Introduction RDMA</h2><p>RDMA，全名 Remote Direct Memory Access，顧名思義就是遠端直接記憶體存取，此技術其實是源自於 DMA (Direct Memory Access)，能夠在不牽扯到 CPU 的前提下直接存取本機上面的記憶體。因此 RDMA 則是在此情提上增加了 <strong>Remote</strong> 的功能，亦即可以遠端存取其他機器上面的記憶體。</p>
+<p><img src="https://linuxcluster.files.wordpress.com/2012/10/rdma_communication.jpg"></p>
+<p>所以 <strong>RDMA</strong> 到底有什麼優點？ 從 <a target="_blank" rel="noopener" href="http://www.rdmamojo.com/">rdmamojo</a> 引用來看，至少有五個優點值得我們去探究</p>
+<h2 id="Advantages"><a href="#Advantages" class="headerlink" title="Advantages"></a>Advantages</h2><h3 id="Zero-Copy"><a href="#Zero-Copy" class="headerlink" title="Zero-Copy"></a>Zero-Copy</h3><p>此特性在 <strong>DMA</strong> 中就已經有了，我們用一個簡單的範例來說明其用途。<br>在傳統的網路應用程式中，一個封包的轉送會經過下列步驟</p>
+<ul>
+<li>封包透過媒介送到網路卡，隨後透過 driver 層的處理到達了 <strong>kernel space</strong></li>
+<li><strong>kernel space</strong> 內檢視該封包與相關資訊，找到該封包所屬的 <strong>user space application</strong>，並且準備將此封包轉送上去</li>
+<li><strong>user space application</strong> 收到封包內容，進行處理後，準備將封包送出去</li>
+<li><strong>user space application</strong> 想要送出的封包會先到達 <strong>kernel space</strong>，在 <strong>kernel</strong> 一層一層處理，最後透過網路卡將此封包透過媒介送出去。</li>
+</ul>
+<p>在上述的過程中，當封包在 <strong>kernel space</strong> 與 <strong>user space</strong> 之間轉換時，由於其記憶體空間的規範不同，因此所有的資料都必須要複製一份新後才能夠往上&#x2F;下處理，所以這樣至少就會有兩次資料複製的行為會出現。<br>而 <strong>Zero-Copy</strong> 強調的是能夠減少這些資料複製的行為，甚至將該次數給降低到完全不需要，這部分若有硬體的幫助，則甚至封包都不會在 <strong>kernel</strong> 內進行 copy.<br>詳細地內容可以參考 <a target="_blank" rel="noopener" href="http://stenlyho.blogspot.tw/2008/08/zero-copy.html">史丹利部落格 - 什麼是Zero-Copy?</a></p>
+<h3 id="Kernel-bypass"><a href="#Kernel-bypass" class="headerlink" title="Kernel bypass"></a>Kernel bypass</h3><p>此特性強調 <strong>user space application</strong> 能夠不牽扯到 <strong>kernel</strong> 的前提下直接處理資料，以 <strong>RDMA</strong> 來說，其應用程式可以直接跟網卡溝通直接取得資料，而該資料則不需要再經過 <strong>kernel</strong> 內一層又一層的 <strong>network stack</strong>，這樣也可以減少不必要的 CPU 運算。<br>其他技術如 <strong>DPDK</strong>, <strong>mmap</strong> 也是有一樣的特性。</p>
+<h3 id="No-CPU-involvement"><a href="#No-CPU-involvement" class="headerlink" title="No CPU involvement"></a>No CPU involvement</h3><p><strong>application</strong> 可以在不消耗遠方機器 CPU 的前提下直接對遠方機器上的記憶體進行操作。此外，由於遠方機器根本不會知道某些記憶體已經被修改了，所以 CPU read cache 也不會有任何的修改。<br>當然前提是兩方要事先有溝通過，彼此掌握一把鑰匙後，才可以這樣進行修改。</p>
+<h3 id="Message-based-transactions"><a href="#Message-based-transactions" class="headerlink" title="Message based transactions"></a>Message based transactions</h3><p>這部分則是比較偏向程式設計者要注意的部分， <strong>RDMA</strong> 的封包會以 <strong>message</strong> 的方式去傳遞，而不是 <strong>stream</strong> 的方式，意味者應用程式不需要自己去解析整個資料串流來取得每一次傳送的內容。</p>
+<h3 id="Scatter-x2F-Gather-entries-support"><a href="#Scatter-x2F-Gather-entries-support" class="headerlink" title="Scatter&#x2F;Gather entries support"></a>Scatter&#x2F;Gather entries support</h3><p>此特性也是從 <strong>DMA</strong> 就已經有的，應用程式可以透過此透性一口氣連續的從多個緩衝區讀取資料，然後透過資料串流的方式寫出去。或是從資料串流讀取資料，並且將讀進來的資料給寫入多個緩衝區中。詳細的介紹可以參考 <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Vectored_I/O">Vectored_I&#x2F;O</a></p>
+<p>所以有了上述的特色， <strong>RDMA</strong> 到底能帶來什麼樣的優勢？</p>
+<ol>
+<li>low-latency:</li>
+<li>high-throughput:</li>
+<li>low-CPU usage: 透過 <strong>RDMA</strong> 減少CPU對於網路功能的消耗，讓 <strong>CPU</strong> 能夠處理更多其他的事情。</li>
+</ol>
+<p>不過這些 <strong>RDMA</strong> 並沒有保證上述的三個特性是能夠<strong>同時</strong>擁有的，<br>可以從 <a target="_blank" rel="noopener" href="http://www.rdmamojo.com/2013/06/08/tips-and-tricks-to-optimize-your-rdma-code/">Tips and tricks to optimize your RDMA code</a> 這邊看到，針對不同的特性， <strong>RDMA</strong> 的使用方式都會有所不同，然而這些方法是互相抵觸的。<br>至於這些細節在下面文章會再次提到。</p>
+<h2 id="Architecture"><a href="#Architecture" class="headerlink" title="Architecture"></a>Architecture</h2><h3 id="Architecture-1"><a href="#Architecture-1" class="headerlink" title="Architecture"></a>Architecture</h3><p>這邊使用一張從<a target="_blank" rel="noopener" href="https://labs.vmware.com/vmtj/toward-a-paravirtual-vrdma-device-for-vmware-esxi-guests">網路</a>上找到的圖來說明 <strong>RDMA</strong> 的架構。<br>該圖分成上下兩個部分來看，上部分由 <strong>Application&#x2F;User&#x2F;Kernel</strong> 來組成，而下部分就是剩下部分。</p>
+<p><img src="http://i.imgur.com/qRmM40C.png"></p>
+<h4 id="BSD-Socket"><a href="#BSD-Socket" class="headerlink" title="BSD Socket"></a>BSD Socket</h4><p>上半部分這邊採用對比的方式去呈現，左邊的部分是當 <strong>Application</strong> 要採用 BSD Socket API 時要走的路線。首先，在 <strong>Application</strong> 會有本地自己的 <strong>Buffers</strong>，接下來想要將該<strong>Buffer</strong>內的資料送出去，所以這時候通常會使用 <strong>Send&#x2F;Write..etc</strong> 之類的 API 將封包送出去。而這些封包透過 <strong>System_Call</strong> 的方式到達 <strong>kernel</strong> 之後，必須要先跑過整個 <strong>Kernel Space</strong>內的 <strong>Network Stack</strong>，包含了 <strong>Layer4&#x2F;Later3&#x2F;Layer2</strong> 以及 <strong>Socket</strong> 這一層的處理，在一層一層的過程中，封包的雛形會逐漸產生，對應的 <strong>Header</strong> 會被逐漸加上去。</p>
+<h4 id="RDMA-Side"><a href="#RDMA-Side" class="headerlink" title="RDMA Side"></a>RDMA Side</h4><p>最後當此封包到達 <strong>Driver</strong> 這層之後，就會順利的送出去了。<br>右邊的部分則是在描述 <strong>RDMA</strong> 的情況，可以看到有兩個不一樣</p>
+<ol>
+<li>User-Space 採用的 API 不同，這邊採用的是 <strong>RDMA Verbs API</strong></li>
+<li>透過上述的 API, 封包內的東西會直接送到 <strong>Device Driver</strong> 去處理，直接略過本來的 <strong>Network Stack</strong>，最後到達 <strong>Host CHannel Adapter</strong> 後再根據不同的方式走不同的協議出去。</li>
+</ol>
+<h4 id="Protocol"><a href="#Protocol" class="headerlink" title="Protocol"></a>Protocol</h4><p>下半部分出現了三個名詞，分別是 <strong>InfiniBand</strong>, <strong>iWARP</strong> 以及 <strong>RoCE</strong>。<br>RDMA此技術要建立在這三種傳輸協議上，這三種協議不同點在於</p>
+<ol>
+<li>架設環境不同，所需要的硬體支援能力也不同</li>
+<li>用來傳送RDMA的封包格式也不同，有的會多包TCP，有的包UDP。</li>
+</ol>
+<p>所以從圖中可以觀察到左邊 <strong>InfiniBand</strong> 有強調需要搭配 <strong>InfiniBand Switch</strong> 才可以正常運作，而右邊兩種協定則只需要 <strong>Ethernet Switch</strong> 即可運作。</p>
+<p>這邊稍微提一下 <strong>RoCE (RDMA over Converged Ethernet)<strong>這個協定，此協定本身也有所謂的版本的演進，最早期的 <strong>v1</strong> 版本中只會添加</strong>Ethernet Header</strong>，而沒有更上層的 <strong>IP</strong>, <strong>TCP&#x2F;UDP</strong>，所以只能用來 <strong>Layer2</strong> 的轉發。到了 <strong>v2</strong> 的版本，則是疊加了 <strong>IP</strong> 以及 <strong>UDP</strong> 兩種 <strong>header</strong>。詳細的介紹可以參考<br><a target="_blank" rel="noopener" href="http://weibo.com/p/1001603936363903889917">两种以太网 RDMA 协议： iWARP 和 RoCE</a></p>
+<p>針對 <strong>RoCE</strong> 有個有趣的議題就是 <strong>lossless network</strong>, 在整個封包的傳輸過程中，當發送端無止盡的將封包送往對面時，若對面的沒有足夠的能力去承受這些封包，就有可能發生封包被丟棄的狀態，這就會導致封包遺失。<br>若封包愈少遺失，則整體效能愈加。所以這部分從上層的<br>TCP Congestion Control 到 Ethernet IEEE 802.3x 規範的 <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Ethernet_flow_control">Ethernet Flow Control</a>都在致力於減少上述情況。</p>
+<p>因此在 <strong>RoCE</strong> 的環境中，由於沒有 <strong>TCP</strong> 的幫助，甚至在 <strong>V1</strong> 的環境下只有 <strong>Ethernet</strong> 的存在，要如何達到 <strong>lossless network</strong> 就是一個有趣的議題。<br>在這篇 Mellanox 的文章 <a target="_blank" rel="noopener" href="http://www.mellanox.com/blog/2016/07/resilient-roce-relaxes-rdma-requirements/">resilient-roce-relaxes-rdma-requirements</a> 以及 <a target="_blank" rel="noopener" href="https://community.mellanox.com/docs/DOC-2086#jive_content_id_Global_Pause_Flow_Control">HowTo Enable, Verify and Troubleshoot RDMA</a> 中介紹了三種方法來達成 <strong>lossless network</strong>。分別是</p>
+<ol>
+<li>Ethernet Flow Control (802.3x)</li>
+<li>PFC (Priority Flow Control)</li>
+<li>ECN (Explicit Congestion Notification)</li>
+</ol>
+<p>三種詳細的介紹可以在上述連結看到，有興趣的可以自行參閱學習。</p>
+<p>當 <strong>RoCE</strong> 發展到 2016 年時，已經發展成為了 <strong>Resilient RoCE</strong>，在此規格下，<strong>RoCE</strong>對於 <strong>PFC</strong>&#x2F;<strong>ENC</strong> 可以同時開啟，也可以只開啟一個，並沒有規定一定要有 <strong>PFC</strong> 才能夠運行。<br>就如同文章內所述。</p>
+<blockquote>
+<p>RoCE can be deployed with ECN only, PFC only, or both, if you want to ensure your pants (or network flows) won’t fall down.</p>
+</blockquote>
+<h2 id="Use-Case"><a href="#Use-Case" class="headerlink" title="Use-Case"></a>Use-Case</h2><p>看了上述這麼多 <strong>RDMA</strong> 的優點，我們來看看一些為什麼採用 <strong>RDMA</strong> 的實際案例。</p>
+<h3 id="Ceph"><a href="#Ceph" class="headerlink" title="Ceph"></a>Ceph</h3><p>這邊借用了 <strong>Haomai Wang</strong>於 OPENFABRICS ALLIANCE 2017 上的投影片 <a target="_blank" rel="noopener" href="https://www.openfabrics.org/images/eventpresos/2017presentations/103_Ceph_HWang.pdf">CEPH RDMA UPDATE</a></p>
+<p>第一張圖說明了目前 TCP 的效能瓶頸問題，不過這也不能怪 TCP，畢竟 TCP 當初設計時所考慮的情況本來就沒有辦法符合所有的使用要求，不然 <strong>google</strong> 怎麼會在今年公開 <strong>BBR</strong> 演算法進一步提升 <strong>TCP</strong> 在某些情況下的效能呢。<br>此外這邊也有特別提到 TCP 的 latency，由於 <strong>Ceph</strong> 分散式架構上每個節點之間都透過網路來傳送訊息，不論是控制封包或是資料封包，其 <strong>latency</strong>能夠愈低當然是愈好。<br><img src="http://i.imgur.com/qkGVXyA.png"></p>
+<p>第二張圖就比較有意思，透過 <strong>perf</strong> 進一段時間 <strong>smaple</strong> 後的視覺化的結果，可以觀察到當透過 <strong>network</strong> 去跟其他 <strong>node</strong> 讀取資料時，目測至少有20%的時間都花費在 <strong>TCP</strong> 本身傳送封包的處理上。<br>這也意味者<strong>Networking</strong>這邊至少有20%的部分可以投資去加強，可以嘗試減少其 <strong>CPU Usage</strong>。<br><img src="http://i.imgur.com/OjJtedB.png"></p>
+<p><strong>CEPH</strong> 為了解決目前 <strong>TCP</strong> 造成的效能瓶頸，在 <strong>Networking</strong> 則提供了 DPDK 的使用，(最早之前其實 Ceph 就有支援 RDMA 了，不過這邊是牽扯到第三方函式庫 <strong>Accelio</strong>，所以不歸類在 <strong>RDMA</strong> 原生架構下的支持)</p>
+<p>後來經由大陸公司 <strong>XSKY</strong> 的幫忙，推出了 SPDK + DPDK 的組合，也幫 <strong>Ceph</strong> 提供了另外一種選擇。</p>
+<p>不過目前 <strong>SPDK</strong> 會用到 <strong>DPDK</strong> 且 <strong>DPDK</strong> 本身後來版本的 API 改動，使得 <strong>SPDK</strong> 這邊在連結 <strong>DPDK</strong> 的部分有點小問題，要使用上更需要花一些時間去修正。</p>
+<p><strong>XSKY</strong> 完成 <strong>DPDK</strong> + <strong>SDPK</strong> 後，就如同其投影片裡面述說的問題</p>
+<p><img src="http://i.imgur.com/PZYFllQ.jpg"></p>
+<p>於是乎 <strong>RDMA</strong> 的開發就成了另外一條新闢的路徑，而這邊目前也還在持續開發中，從 2016~2017 ceph mailling list 上面的討論可以觀察到目前 <strong>Ceph With RDMA</strong> 還在成長中，目前先追求穩定性，穩定後再求效能。</p>
+<p>使用 2017&#x2F;04 年左右 <strong>master</strong> 版本進行 RDMA 效能測試得到的數據顯示，目前的 <strong>RDMA</strong> 還沒有辦法帶來太多的優勢，不論是降低 <strong>latency</strong> 或是減少 CPU 使用量，這部分都還要依靠社群內繼續開發使其成熟。</p>
+<h3 id="DRBD"><a href="#DRBD" class="headerlink" title="DRBD"></a>DRBD</h3><p>DRBD(distributed replicated block device) 也是一個知名的分散式 <strong>block</strong> 層級的複製技術（軟體?)。由於是分散式的架構，其中間資料的傳輸也是依賴網路來處理。 DRBD 一開始只有提供 <strong>TCP</strong> 作為其傳輸協定，直到了 2015 年才開始提供了 <strong>RDMA</strong> 的方式來處理。<br>不過相對於 <strong>CEPH</strong> 的開放， <strong>DRBD with RDMA</strong> 則是一個商業版本才有的支援（就是要付錢$$$)，所以這邊沒有辦法針對其效能進行測量來評測看看其效果。<br>不過官方網站上倒是有不少篇文章在講 <strong>RDMA</strong>，包括了</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.linbit.com/en/what-is-rdma/">what-is-rdma</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.linbit.com/en/drbd-9-over-rdma-with-micron-ssds/">drbd-9-over-rdma-with-micron-ssds</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.linbit.com/en/rdma-performance/">rdma-performance</a></li>
+</ul>
+<p>這兩個分散式軟體在其網路傳輸中都有提供 <strong>RDMA</strong> 的方式，除了其開放程度的不同外，兩者在實作的層級也不太一樣。<br><strong>CEPH</strong> 將 RDMA 實作在 <strong>User-space</strong>，而 <strong>DRBD</strong> 則實作在 <strong>Kernel-space</strong>，並且以 <strong>kernel module</strong> 的方式提供此功能，因此若有跟 <strong>linbit</strong> 談好相關的商業行為，就可以獲得擁有 <strong>RDMA</strong> 功能的 <strong>kernel module</strong>來使用。</p>
+<h2 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h2><p>本篇文章主要是以概念的方式來介紹 <strong>RDMA</strong>，比較屬於科普方面的介紹。<br>接下來則會有一篇文章會以 <strong>Programmer</strong> 的角度去看待 <strong>RDMA</strong>，包含其三種 <strong>Operation</strong>(<strong>SEND&#x2F;RECEIVE</strong>, <strong>RDMA Write</strong> 以及 <strong>RDMA Read</strong>) 以及透過 <strong>ceph</strong> 此 <strong>Project</strong> 為範例來學習要如何撰寫一個 <strong>RDMA</strong> 的應用程式。</p>
+<h2 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h2><p><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Vectored_I/O">Vectored_I&#x2F;O</a><br><a target="_blank" rel="noopener" href="http://stenlyho.blogspot.tw/2008/08/zero-copy.html">史丹利部落格</a><br><a target="_blank" rel="noopener" href="http://www.rdmamojo.com/">rdmamojo</a><br><a target="_blank" rel="noopener" href="https://www.openfabrics.org/images/eventpresos/2017presentations/103_Ceph_HWang.pdf">Openfabrics-Ceph RDMA Update</a><br><a target="_blank" rel="noopener" href="https://labs.vmware.com/vmtj/toward-a-paravirtual-vrdma-device-for-vmware-esxi-guests">toward-a-paravirtual-vrdma-device-for-vmware-esxi-guests</a><br><a target="_blank" rel="noopener" href="http://www.mellanox.com/blog/2016/07/resilient-roce-relaxes-rdma-requirements/">resilient-roce-relaxes-rdma-requirements</a><br><a target="_blank" rel="noopener" href="http://weibo.com/p/1001603936363903889917">两种以太网 RDMA 协议： iWARP 和 RoCE</a><br><a target="_blank" rel="noopener" href="https://linuxcluster.wordpress.com/category/network/rdma/">Linux Cluster</a></p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/DRBD/" rel="tag"># DRBD</a>
+              <a href="/tags/Ceph/" rel="tag"># Ceph</a>
+              <a href="/tags/RDMA/" rel="tag"># RDMA</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/setup-mininet-like-environment.html" rel="prev" title="手把手打造仿 mininet 網路">
+                  <i class="fa fa-chevron-left"></i> 手把手打造仿 mininet 網路
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/anki-tutorial.html" rel="next" title="Anki 使用感想 (tutorial)">
+                  Anki 使用感想 (tutorial) <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

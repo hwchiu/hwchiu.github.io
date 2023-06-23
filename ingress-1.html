@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="Kubernetes 本身提供了非常多好用且方便的資源，其中專於網路存取的部分除了 Service 是常用元件以外， Ingress 也是一個熱門且重度發展的項目。本文詳細的介紹了 Kubernetes Ingress 的架構並且實際以 Nginx Ingress Controller 作為一個範例去架設測試環境。該測試環計中會實驗基於 Host 與 Path 等不同方式的路由設定，並且解釋該測試">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Introduction to Kubernetes Ingress (Nginx)">
+<meta property="og:url" content="https://www.hwchiu.com/ingress-1.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="Kubernetes 本身提供了非常多好用且方便的資源，其中專於網路存取的部分除了 Service 是常用元件以外， Ingress 也是一個熱門且重度發展的項目。本文詳細的介紹了 Kubernetes Ingress 的架構並且實際以 Nginx Ingress Controller 作為一個範例去架設測試環境。該測試環計中會實驗基於 Host 與 Path 等不同方式的路由設定，並且解釋該測試">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/DSlMKh9.png">
+<meta property="og:image" content="https://i.imgur.com/8pBjUoc.png">
+<meta property="og:image" content="https://i.imgur.com/XxZVgHc.png">
+<meta property="og:image" content="https://i.imgur.com/8IL2Vh5.png">
+<meta property="og:image" content="https://i.imgur.com/CBolbM0.png">
+<meta property="article:published_time" content="2019-01-05T23:44:23.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.616Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Kubernetes">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/DSlMKh9.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/ingress-1.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/ingress-1.html","path":"ingress-1.html","title":"Introduction to Kubernetes Ingress (Nginx)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Introduction to Kubernetes Ingress (Nginx) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Introduction"><span class="nav-number">2.</span> <span class="nav-text">Introduction</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Architecture"><span class="nav-number">2.1.</span> <span class="nav-text">Architecture</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Annotation"><span class="nav-number">2.1.1.</span> <span class="nav-text">Annotation</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Compare"><span class="nav-number">2.2.</span> <span class="nav-text">Compare</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Example"><span class="nav-number">3.</span> <span class="nav-text">Example</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Nginx-Controller"><span class="nav-number">3.1.</span> <span class="nav-text">Nginx Controller</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Outside-Internet-Access"><span class="nav-number">3.2.</span> <span class="nav-text">Outside Internet Access</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Backend-Servers"><span class="nav-number">3.3.</span> <span class="nav-text">Backend Servers</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Jupyter"><span class="nav-number">3.3.1.</span> <span class="nav-text">Jupyter</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Nginx"><span class="nav-number">3.3.2.</span> <span class="nav-text">Nginx</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Deploy-Ingress"><span class="nav-number">3.3.3.</span> <span class="nav-text">Deploy Ingress</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Check-Nginx"><span class="nav-number">3.3.4.</span> <span class="nav-text">Check Nginx</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Access-the-Nginx-Server"><span class="nav-number">3.3.5.</span> <span class="nav-text">Access the Nginx Server</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">4.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">5.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ingress-1.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Introduction to Kubernetes Ingress (Nginx) | Hwchiu Learning Note">
+      <meta itemprop="description" content="Kubernetes 本身提供了非常多好用且方便的資源，其中專於網路存取的部分除了 Service 是常用元件以外， Ingress 也是一個熱門且重度發展的項目。本文詳細的介紹了 Kubernetes Ingress 的架構並且實際以 Nginx Ingress Controller 作為一個範例去架設測試環境。該測試環計中會實驗基於 Host 與 Path 等不同方式的路由設定，並且解釋該測試環境的運作原理，讓讀者更能夠直接瞭解到 Ingress 的運作方式。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Introduction to Kubernetes Ingress (Nginx)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-01-06 07:44:23" itemprop="dateCreated datePublished" datetime="2019-01-06T07:44:23+08:00">2019-01-06</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">Kubernetes 本身提供了非常多好用且方便的資源，其中專於網路存取的部分除了 Service 是常用元件以外， Ingress 也是一個熱門且重度發展的項目。本文詳細的介紹了 Kubernetes Ingress 的架構並且實際以 Nginx Ingress Controller 作為一個範例去架設測試環境。該測試環計中會實驗基於 Host 與 Path 等不同方式的路由設定，並且解釋該測試環境的運作原理，讓讀者更能夠直接瞭解到 Ingress 的運作方式。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>為了能夠讓使用者能夠更直接順利的存取到 <code>kubernetes</code> 眾多運行的 <code>Pods</code>, <code>kubernetes</code> 花了很大把的精力在網路架構與使用這方面，之前已經詳細介紹過 <code>Kubernetes Service</code> 的<a href="https://www.hwchiu.com/kubernetes-service-i.html">用法以及原理</a><br>這篇要來跟大家介紹另外一個相輔相成且好用的概念，也就是所謂的 <code>Ingress</code>. 透過 <code>Ingress</code> 我們能夠提供一些更方便的伺服器存取，不論是基於 <code>URL</code> 的存取導向，亦或是簡化整個 <code>SSL</code> 憑證部署的方式<br>都能夠簡單地完成。 為了能夠順利使用 <code>SSL</code> 憑證，我們也可以搭配 <a href="https://www.hwchiu.com/cert-manager.html">Cert-Manager</a> 來進行憑證的處理，並且將其與 <code>Ingress</code> 給整合。</p>
+<p>本文主要會從 <code>Ingress</code> 的基本概念出發，介紹其基本架構並且從最常用的 <code>Ingress Nginx</code> 作為一個使用範例，來介紹實際上整個 <code>Kubernetes</code> 集群內是如何運作的</p>
+<h1 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h1><p><code>Kubernetes</code> 有一個非常有趣且迷人的地方，就是大量的抽象化，部分的功能則是公開其介面，依賴第三方廠商自行實現該介面來提供此功能。<br>譬如以前有提過的 <code>Network Policy</code> 就是這樣的一種概念，不同的<code>網路解決方案提供者</code>可以針對自己的應用特性來實現對應的 <code>Network Policy</code> 進而提供多一層的網路保護。<br>而 <code>Ingress</code> 也是一個類似的架構，接下來會仔細介紹一下其架構以及如何使用。最後則是會使用 <code>Nginx Ingress Controller</code> 當作一個範例來解釋整個運作</p>
+<h2 id="Architecture"><a href="#Architecture" class="headerlink" title="Architecture"></a>Architecture</h2><p><code>Kubernetes</code> 的<code>Ingress</code> 裡面我們可以設定一些如何轉發封包的選項，範例如下</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">extensions/v1beta1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Ingress</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">annotations:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">nginx-demo</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">rules:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">host:</span> <span class="string">nginx.example.com</span></span><br><span class="line">    <span class="attr">http:</span></span><br><span class="line">      <span class="attr">paths:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">path:</span> <span class="string">/v1</span></span><br><span class="line">        <span class="attr">backend:</span></span><br><span class="line">          <span class="attr">serviceName:</span> <span class="string">nginx</span></span><br><span class="line">          <span class="attr">servicePort:</span> <span class="string">http</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">path:</span> <span class="string">/v2</span></span><br><span class="line">        <span class="attr">backend:</span></span><br><span class="line">          <span class="attr">serviceName:</span> <span class="string">nginx-v2</span></span><br><span class="line">          <span class="attr">servicePort:</span> <span class="string">http</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">host:</span> <span class="string">note.example.com</span></span><br><span class="line">    <span class="attr">http:</span></span><br><span class="line">      <span class="attr">paths:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">path:</span> <span class="string">/</span></span><br><span class="line">        <span class="attr">backend:</span></span><br><span class="line">          <span class="attr">serviceName:</span> <span class="string">jupyter</span></span><br><span class="line">          <span class="attr">servicePort:</span> <span class="string">http</span></span><br></pre></td></tr></table></figure>
+
+<p><code>Ingress</code> 內我們可以針對 <code>Host</code> 或是 <code>Path</code> 不同的選項來決定該封包要怎麼轉發。以上述範例來說，我們希望達到的是</p>
+<ol>
+<li>如果看到的是 <code>note.example.com</code> 可以送給特定的 <code>service</code></li>
+<li>如果看到的是 <code>nginx.example.com</code> ，則根據後面的 <code>path (v1/v2)</code> 來決定最後要怎麼轉發。</li>
+</ol>
+<p>這邊要特別注意的是，對於 <code>Kubernetes</code> 來說， <code>Ingress</code> 物件本身只有描述的功用，實際上並不會真的把使用者所描述與敘述的功能給實現完畢，這部分需要依賴剩下的元件來補足。</p>
+<p>接下來我們使用下列這張圖示來解釋一下一個完整 <code>Ingress</code> 的架構。</p>
+<p><img src="https://i.imgur.com/DSlMKh9.png" alt="Imgur"></p>
+<p>圖中標示為 <code>Ingress Resource</code> 的元件就是使用者們透過 <code>Ingress Yaml</code> 去描述預期行為的設定檔，也就是上圖的部分。<br>綠色的 <code>Backend server</code> 則是後端不同類型的服務器，使用者會預期 <code>Ingress</code> 可以根據 <code>Host/Path</code> 等不同的規則將對應的封包轉發到後端真正服務的 <code>Backend Server</code>.</p>
+<p>接下來真正重要的就是 <code>Ingress-Controller</code> 以及 <code>Ingress-Server</code>.<br><code>Ingress-Server</code> 普遍上來說，就是一個能夠接受 <code>HTTP/HTTPS</code> 連線的網路伺服器，以本篇文章來說就是 <code>Nginx</code>.<br>過往的使用經驗上，我們的確可以透過 <code>nginx.conf</code> 的方式來設定 <code>nginx server</code>. 來達到根據不同的情況來決定不同的封包轉發等行為。<br>但是在 <code>kubernetes ingress</code> 的架構下，使用者並不一定熟悉 <code>nginx.conf</code> 的格式與撰寫，而熟悉的只有 <code>Kubernetes Ingress</code> 的格式。<br>在此條件下，我們需要一個轉換者，該轉換者能夠將 <code>Ingress Resource</code> 的設定轉換成 <code>Ingress-Server (Nginx)</code> 所能夠處理的格式。<br>這個角色也就是所謂的 <code>Ingress-Controller</code>.</p>
+<p>將上述的設定與使用流程以順序來看</p>
+<ol>
+<li>使用者透過 <code>yaml</code> 部署 <code>ingress</code> 設定到 <code>kubernetes</code> 裡面</li>
+<li><code>Ingress-Controller</code> 偵測到 <code>Ingress Resource</code> 的更動，讀取該設定後產生對應的 <code>Nginx.conf</code> 供 <code>Ingress-Server</code> 使用</li>
+<li>外部使用者嘗試存取服務，該封包會先到達 <code>Ingress-Server(Nginx)</code>.</li>
+<li><code>Ingrss-Server(Nginx)</code> 根據 <code>nginx.conf</code> 的設定決定將該封包轉發到後段的服務器 <code>backend server</code>.</li>
+</ol>
+<p>從上述的概念來說，我們可以簡單歸納一下 <code>Ingress</code> 的架構</p>
+<ol>
+<li><code>Kubernetes</code> 本身只提供一個統一的 <code>Ingress</code> 介面，本身不參與該介面的實作</li>
+<li>服務提供者本身必須要實現 <code>Ingress-Server</code> 以及 <code>Ingress-Controller</code> 這兩個元件將使用者描述的抽象概念轉換成實際上可以運作的設定</li>
+</ol>
+<p>所以可以看到目前現實上有非常多的 <code>Ingress</code> 實作，不論是 <code>Traefik </code>, <code>Kong</code>, <code>Nginx</code> 甚至是各個公有雲(GKE&#x2F;AKS&#x2F;EKS)都有跟自行架構更加整合的實現。</p>
+<p>關於 <code>Ingress</code> 更多的概念可以參考<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/services-networking/ingress/#types-of-ingress">官方文件</a></p>
+<h3 id="Annotation"><a href="#Annotation" class="headerlink" title="Annotation"></a>Annotation</h3><p>有實際上使用過 <code>Ingress</code> 的玩家會發現在 <code>Yaml</code> 內有各式各樣的 <code>annotation</code> 要使用，譬如</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">annotations:</span></span><br><span class="line">  <span class="attr">kubernetes.io/ingress.class:</span> <span class="string">nginx</span></span><br><span class="line">  <span class="attr">nginx.ingress.kubernetes.io/rewrite-target:</span> <span class="string">/</span></span><br></pre></td></tr></table></figure>
+
+<p>首先，根據上述的架構概念，我們可以知道 <code>Ingress-Controller</code> 會去讀取 <code>Ingress</code> 的設定，然後來進行後續的動作。<br>假想一個情況，系統內同時有多個 <code>Ingress-Controller</code> 的實現，使用者要如何指派該 <code>Ingress</code> 要使用哪一個 <code>Ingress-Controller</code> 來使用?</p>
+<p>再者個情況下，我們可以透過 <code>annotations</code> 的方式來加註一些額外的資訊，當然這些資訊不是標準的，反而是各個 <code>Ingress-Controller</code> 自行決定看到什麼樣的資訊來進行什麼處理。</p>
+<p>此外，不同的 <code>Ingress-Server</code> 提供的功能與使用方式都不同，基本上 <code>Ingress Resource</code> 很難有一個完美的介面來滿足所有的實現，因此大部分的情況下，不同的 <code>Ingress-Controller/Ingress-Server</code> 都會要求使用者在 <code>Annotation</code> 的部分使用特定的字眼來描述額外的功能，譬如</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">nginx.ingress.kubernetes.io/rewrite-target:</span> <span class="string">/</span></span><br></pre></td></tr></table></figure>
+
+<p>所以在選擇 <code>Ingess</code> 的使用上，遇到任何問題的時候，如果是 <code>Ingress Resource</code> 的介面問題，則可以尋求 <code>Kubernetes</code> 官方文件的幫助，如果是更細緻的需求，則該查詢 <code>Ingress-Controller</code> 的說明文件，看看自己的需求與相對應的設定是否有辦法完成。</p>
+<h2 id="Compare"><a href="#Compare" class="headerlink" title="Compare"></a>Compare</h2><p>跟 <code>Kubernetes Service</code> 比較起來，兩者都在提供便捷的<code>網路存取</code>服務<br><code>Server</code> 針對的單位主要是 <code>Pod(Container)</code>, 提供一個更方便的方式讓用戶端可以不用在意後端 <code>Pod(Container)</code> 的真實 <code>IP</code> 地址。<br>而 <code>Ingress</code> 目前的使用上更偏向是 <code>HTTP/HTTPS</code> 的應用，在上述的 <code>Service</code> 上搭建一層更方便的服務，可以根據 <code>Host(NameBasd Virtaul Hosting)</code> 或是 <code>Path(Fanout)</code> 來決定後續真正轉發的對象，而該對象則是不同後端服務所搭建起來的 <code>Service</code>.</p>
+<p>因此在使用上，這兩者並沒有誰取代誰的問題，反而是根據需求來使用，大部分情況下都是互相整合來提供更方便與好用的功能。</p>
+<h1 id="Example"><a href="#Example" class="headerlink" title="Example"></a>Example</h1><p>上述已經介紹完關於 <code>Ingress</code> 的基本概念，接下來要使用 <code>Nginx</code> 作為 <code>Ingress-Server</code> 來實際搭建一個 <code>Ingress</code> 的範例。</p>
+<p>接下來的所有範例文件都可以在 <a target="_blank" rel="noopener" href="https://github.com/hwchiu/kubeDemo/tree/master/ingress">KubeDemo</a> 內找到對應的檔案。</p>
+<p>該範例的架構圖如下<br><img src="https://i.imgur.com/8pBjUoc.png" alt="Imgur"></p>
+<p>我們會在 <code>Kubernetes</code> 裡面進行下列部署</p>
+<ol>
+<li>搭建一個基於 <code>Nginx</code> 的 <code>Ingress-Controller/Ingress-Server</code>，</li>
+<li>透過 <code>Deployment</code> 部署三套不同的後端服務，分別是 <code>Jupyter Notebook</code> 以及兩個有者不同 <code>Index.html</code> 的 <code>Nginx Server</code>.</li>
+<li>透過三個不同的 <code>kubernetes service</code> 將上述的 <code>Deployment</code> 包裝起來提供更方便的存取功能</li>
+<li>部署對應的 <code>Ingress</code>, 希望可以完成</li>
+</ol>
+<ul>
+<li>存取 <code>note.example.com</code> 會存取到 <code>jupyter notebook</code></li>
+<li>存取 <code>nginx.example.com/v1</code> 會存取到 <code>nginx</code></li>
+<li>存取 <code>nginx.example.com/v2</code> 會存取到 <code>nginx-v2</code></li>
+</ul>
+<p>接下來我們就要依據上述的概念進行相關檔案的部署。</p>
+<p>我的測試環境是基於 <code>MAC</code> 上透過 <code>Vagrant</code> 創建一個 <code>UbuntuOS</code> 並且使用 <code>Kubeadm</code> 實現的一個小型 <code>Kubernetes</code> 叢集。</p>
+<h2 id="Nginx-Controller"><a href="#Nginx-Controller" class="headerlink" title="Nginx Controller"></a>Nginx Controller</h2><p>首先我們要先部署 <code>Nginx Controller</code> 到 <code>kubernetes</code> 叢集內，詳細的安裝方式可以參閱其<a target="_blank" rel="noopener" href="https://kubernetes.github.io/ingress-nginx/deploy/">官網</a></p>
+<p>首先我們要先安裝相關的資源，譬如 <code>RBAC</code> 以及相關的 <code>Deployment</code>.</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">kubectl</span> <span class="string">apply</span> <span class="string">-f</span> <span class="string">https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml</span></span><br></pre></td></tr></table></figure>
+
+<p>接下來為了讓外界的服務可以存取到該 <code>Nginx Server (Ingress-Server)</code>，這邊會根據你的機器環境而有所不同。<br>以我 <code>Baremetal</code> 的環境，我需要部署下列的資源，透過 <code>Kubernetes Service NodePort</code> 的方式讓我的 <code>Nginx Server</code> 可以被外界存取</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">kubectl</span> <span class="string">apply</span> <span class="string">-f</span> <span class="string">https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/provider/baremetal/service-nodeport.yaml</span></span><br></pre></td></tr></table></figure>
+
+<p>上述的部屬都會安裝到 <code>ingress-nginx</code> 的 <code>kubernetes namespace</code> 上，所以透過下列的指令觀察安裝的情形</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl -n ingress-nginx get all</span><br><span class="line">NAME                                           READY   STATUS    RESTARTS   AGE</span><br><span class="line">pod/nginx-ingress-controller-d88dbf49c-9b6td   1/1     Running   0          23h</span><br><span class="line"></span><br><span class="line">NAME                    TYPE       CLUSTER-IP      EXTERNAL-IP   PORT(S)                      AGE</span><br><span class="line">service/ingress-nginx   NodePort   10.111.134.97   &lt;none&gt;        80:32663/TCP,443:31309/TCP   1d</span><br><span class="line"></span><br><span class="line">NAME                                       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE</span><br><span class="line">deployment.apps/nginx-ingress-controller   1         1         1            1           1d</span><br><span class="line"></span><br><span class="line">NAME                                                 DESIRED   CURRENT   READY   AGE</span><br><span class="line">replicaset.apps/nginx-ingress-controller-d88dbf49c   1         1         1       1d</span><br></pre></td></tr></table></figure>
+
+<h2 id="Outside-Internet-Access"><a href="#Outside-Internet-Access" class="headerlink" title="Outside Internet Access"></a>Outside Internet Access</h2><p>為了從外部<code>MAC</code>的瀏覽器進行測試，我對機器上的 <code>/etc/hosts</code> 進行了相關的修改, 加上了下列的資料，讓我可以透過相關的設定來存取該 <code>NodePort</code> 的 <code>Nginx(Ingress-Server)</code>.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">172.17.8.101 nginx.example.com note.example.com</span><br></pre></td></tr></table></figure>
+<p><code>172.17.8.101</code> 是我<code>VM(Ubuntu)</code>的<code>Virtaul IP address</code>.</p>
+<h2 id="Backend-Servers"><a href="#Backend-Servers" class="headerlink" title="Backend Servers"></a>Backend Servers</h2><h3 id="Jupyter"><a href="#Jupyter" class="headerlink" title="Jupyter"></a>Jupyter</h3><p>基本上需要的就是 <code>Deployment</code> 配上一個對應的 <code>Service</code> 即可<br>詳細的請參閱 <a target="_blank" rel="noopener" href="https://github.com/hwchiu/kubeDemo/blob/master/ingress/jupyter.yml">KubeDemo</a></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl apply -f https://raw.githubusercontent.com/hwchiu/kubeDemo/master/ingress/jupyter.yml</span><br></pre></td></tr></table></figure>
+
+<h3 id="Nginx"><a href="#Nginx" class="headerlink" title="Nginx"></a>Nginx</h3><p>類似上述 <code>Jupyter</code> 的安裝流程，但是為了客製化 <code>index.html</code> 的內容，會額外部署一個 <code>configMap</code> 來產生不同的內容</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">kubectl apply -f https://raw.githubusercontent.com/hwchiu/kubeDemo/master/ingress/nginx.yaml</span><br><span class="line">kubectl apply -f https://raw.githubusercontent.com/hwchiu/kubeDemo/master/ingress/nginx2.yaml</span><br></pre></td></tr></table></figure>
+
+<p>這些應用程式都會部署到 <code>default</code> 這個 <code>namespace</code>，所以可以用下列指令確保部署正確</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n default get all</span><br><span class="line">NAME                            READY   STATUS    RESTARTS   AGE</span><br><span class="line">pod/jupyter                     1/1     Running   0          15h</span><br><span class="line">pod/nginx-7dd9f89db4-tvfkk      1/1     Running   0          15h</span><br><span class="line">pod/nginx-v2-5c45597f57-746p8   1/1     Running   0          15h</span><br><span class="line"></span><br><span class="line">NAME                 TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE</span><br><span class="line">service/jupyter      LoadBalancer   10.106.190.88   &lt;pending&gt;     80:32444/TCP   15h</span><br><span class="line">service/kubernetes   ClusterIP      10.96.0.1       &lt;none&gt;        443/TCP        89d</span><br><span class="line">service/nginx        ClusterIP      10.110.237.87   &lt;none&gt;        80/TCP         15h</span><br><span class="line">service/nginx-v2     ClusterIP      10.103.43.44    &lt;none&gt;        80/TCP         15h</span><br><span class="line"></span><br><span class="line">NAME                       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE</span><br><span class="line">deployment.apps/nginx      1         1         1            1           15h</span><br><span class="line">deployment.apps/nginx-v2   1         1         1            1           15h</span><br><span class="line"></span><br><span class="line">NAME                                  DESIRED   CURRENT   READY   AGE</span><br><span class="line">replicaset.apps/nginx-7dd9f89db4      1         1         1       15h</span><br><span class="line">replicaset.apps/nginx-v2-5c45597f57   1         1         1       15h</span><br></pre></td></tr></table></figure>
+
+<p>上述服務完畢後，先用 <code>curl</code> 針對三個 <code>service</code> 的 <code>ClusterIP</code> 去確認服務有正常起來</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">$ curl 10.110.237.87</span><br><span class="line">Nginx V1</span><br><span class="line">$ curl 10.103.43.44</span><br><span class="line">Nginx V2</span><br><span class="line">$ curl 10.106.190.88/tree</span><br><span class="line">....</span><br></pre></td></tr></table></figure>
+
+<h3 id="Deploy-Ingress"><a href="#Deploy-Ingress" class="headerlink" title="Deploy Ingress"></a>Deploy Ingress</h3><p>上述相關的服務都部署完畢後，接下來就要部署 <code>Ingress</code> 物件進去，我們期望的行為是 <code>Nginx Controller</code> 能夠讀取這個 <code>Ingress</code> 的物件並且產生對應的 <code>nginx.conf</code> 供 <code>Nginx Server(Ingress-Server)</code> 使用.<br>所以先來看一下對應的 <code>Ingress Resource</code></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">extensions/v1beta1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Ingress</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">annotations:</span></span><br><span class="line">    <span class="attr">kubernetes.io/ingress.class:</span> <span class="string">nginx</span></span><br><span class="line">    <span class="attr">nginx.ingress.kubernetes.io/rewrite-target:</span> <span class="string">/</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">nginx-demo</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">rules:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">host:</span> <span class="string">nginx.example.com</span></span><br><span class="line">    <span class="attr">http:</span></span><br><span class="line">      <span class="attr">paths:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">path:</span> <span class="string">/v1</span></span><br><span class="line">        <span class="attr">backend:</span></span><br><span class="line">          <span class="attr">serviceName:</span> <span class="string">nginx</span></span><br><span class="line">          <span class="attr">servicePort:</span> <span class="string">http</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">path:</span> <span class="string">/v2</span></span><br><span class="line">        <span class="attr">backend:</span></span><br><span class="line">          <span class="attr">serviceName:</span> <span class="string">nginx-v2</span></span><br><span class="line">          <span class="attr">servicePort:</span> <span class="string">http</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">host:</span> <span class="string">note.example.com</span></span><br><span class="line">    <span class="attr">http:</span></span><br><span class="line">      <span class="attr">paths:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">path:</span> <span class="string">/</span></span><br><span class="line">        <span class="attr">backend:</span></span><br><span class="line">          <span class="attr">serviceName:</span> <span class="string">jupyter</span></span><br><span class="line">          <span class="attr">servicePort:</span> <span class="string">http</span></span><br></pre></td></tr></table></figure>
+
+<p>該物件部署完畢後，透過下列指令觀察部署結果</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl get ingress</span><br><span class="line">NAME         HOSTS                                ADDRESS   PORTS   AGE</span><br><span class="line">nginx-demo   nginx.example.com,note.example.com             80      15h</span><br></pre></td></tr></table></figure>
+
+<h3 id="Check-Nginx"><a href="#Check-Nginx" class="headerlink" title="Check Nginx"></a>Check Nginx</h3><p>接下來我們將直接進入到 <code>Nginx Controller</code> 去觀察一下是否有對應的 <code>nginx.conf</code> 被產生</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl -n ingress-nginx <span class="built_in">exec</span> -it $(kubectl -n ingress-nginx get pods -l app.kubernetes.io/name=ingress-nginx -o jsonpath=<span class="string">&quot;&#123;.items[0].metadata.name&#125;&quot;</span>) bash</span><br><span class="line">www-data@nginx-ingress-controller-d88dbf49c-9b6td:/etc/nginx$</span><br><span class="line">www-data@nginx-ingress-controller-d88dbf49c-9b6td:/etc/nginx$ grep  <span class="string">&quot;example.com&quot;</span> nginx.conf</span><br><span class="line">        <span class="comment">## start server nginx.example.com</span></span><br><span class="line">                server_name nginx.example.com ;</span><br><span class="line">        <span class="comment">## end server nginx.example.com</span></span><br><span class="line">        <span class="comment">## start server note.example.com</span></span><br><span class="line">                server_name note.example.com ;</span><br><span class="line">        <span class="comment">## end server note.example.com</span></span><br><span class="line">www-data@nginx-ingress-controller-d88dbf49c-9b6td:/etc/nginx$ grep  <span class="string">&quot;v1&quot;</span> nginx.conf</span><br><span class="line">        ssl_protocols TLSv1.2;</span><br><span class="line">                location ~* <span class="string">&quot;^/v1\/?(?&lt;baseuri&gt;.*)&quot;</span> &#123;</span><br><span class="line">                        <span class="built_in">set</span> <span class="variable">$location_path</span>  <span class="string">&quot;/v1&quot;</span>;</span><br><span class="line">                        rewrite <span class="string">&quot;(?i)/v1/(.*)&quot;</span> /<span class="variable">$1</span> <span class="built_in">break</span>;</span><br><span class="line">                        rewrite <span class="string">&quot;(?i)/v1$&quot;</span> / <span class="built_in">break</span>;</span><br><span class="line">www-data@nginx-ingress-controller-d88dbf49c-9b6td:/etc/nginx$ grep  <span class="string">&quot;v2&quot;</span> nginx.conf</span><br><span class="line">                location ~* <span class="string">&quot;^/v2\/?(?&lt;baseuri&gt;.*)&quot;</span> &#123;</span><br><span class="line">                        <span class="built_in">set</span> <span class="variable">$service_name</span>   <span class="string">&quot;nginx-v2&quot;</span>;</span><br><span class="line">                        <span class="built_in">set</span> <span class="variable">$location_path</span>  <span class="string">&quot;/v2&quot;</span>;</span><br><span class="line">                        <span class="built_in">set</span> <span class="variable">$proxy_upstream_name</span> <span class="string">&quot;default-nginx-v2-http&quot;</span>;</span><br><span class="line">                        rewrite <span class="string">&quot;(?i)/v2/(.*)&quot;</span> /<span class="variable">$1</span> <span class="built_in">break</span>;</span><br><span class="line">                        rewrite <span class="string">&quot;(?i)/v2$&quot;</span> / <span class="built_in">break</span>;</span><br></pre></td></tr></table></figure>
+
+<p>到這邊為止，基本上的一切都順利設定完畢了，接下來就可以開啟瀏覽器嘗試去瀏覽看看.</p>
+<h3 id="Access-the-Nginx-Server"><a href="#Access-the-Nginx-Server" class="headerlink" title="Access the Nginx Server"></a>Access the Nginx Server</h3><p>因為我們的 <code>Nginx Server</code> 是基於 <code>NorePort</code> 的方式來供對外存取，所以我們要先確認一下開啟的<code>NodePort</code>資訊是什麼</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl -n ingress-nginx get svc</span><br><span class="line">NAME            TYPE       CLUSTER-IP      EXTERNAL-IP   PORT(S)                      AGE</span><br><span class="line">ingress-nginx   NodePort   10.111.134.97   &lt;none&gt;        80:32663/TCP,443:31309/TCP   1d</span><br></pre></td></tr></table></figure>
+
+<p>在我的範例環境中，預設 <code>HTTP</code> 所使用的的連接埠是 <code>32663</code>, 因此等下需要使用這個資訊來進行測試連線</p>
+<p>首先，我們先針對 <code>nginx.example.com</code> 進行測試，結果如下圖<br><img src="https://i.imgur.com/XxZVgHc.png" alt="Imgur"><br><img src="https://i.imgur.com/8IL2Vh5.png" alt="Imgur"></p>
+<p>結果如預期般，可以透過不同的 <code>PATH</code> 來導向不同的服務後端</p>
+<p>接下來測試 <code>node.example.com</code>, 看看是否能夠針對 <code>host</code> 來導向不同的後端</p>
+<p><img src="https://i.imgur.com/CBolbM0.png" alt="Imgur"></p>
+<p>的確也能夠正常運作，意味者我們的 <code>Ingress</code> 測試滿順利的，都能夠如預期般的運作</p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>本篇文章旨在透過簡單的介紹讓大家知道 <code>Kubernetes Ingress</code> 的基本架構與介紹，最後透過一個常用的 <code>Nginx Ingress</code> 實作來實際使用看看<code>Ingress</code> 的架構。<br>不同的 <code>Ingress</code> 的後端實現功能的方法都不盡相同，同時能夠支援的功能也都會有些許的差異，這部分就仰賴各位在選擇對應的解決方案時的研究與先行測試。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/kubernetes-storage-ii.html" rel="prev" title="NFS 於 Kubernetes 內的各種應用">
+                  <i class="fa fa-chevron-left"></i> NFS 於 Kubernetes 內的各種應用
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/keel.html" rel="next" title="[DevOps] 基於 Kubernetes 的自動部屬流程 - Keel">
+                  [DevOps] 基於 Kubernetes 的自動部屬流程 - Keel <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="這篇文章用來介紹在 C# 中如果想要針對 xml 的種格式的資料進行處理的話，可以使用那些函式庫來幫忙處理。同時也針對不同種的使用方法給予相對應的範例程式碼，讓大家可以更快速且方便地用 C# 來操作 xml 的格式資料。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="XML in C-Sharp(C#)">
+<meta property="og:url" content="https://www.hwchiu.com/csharp-xml.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="這篇文章用來介紹在 C# 中如果想要針對 xml 的種格式的資料進行處理的話，可以使用那些函式庫來幫忙處理。同時也針對不同種的使用方法給予相對應的範例程式碼，讓大家可以更快速且方便地用 C# 來操作 xml 的格式資料。">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2013-03-30T04:43:00.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.610Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="CSharp">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/csharp-xml.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/csharp-xml.html","path":"csharp-xml.html","title":"XML in C-Sharp(C#)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>XML in C-Sharp(C#) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Create-XML-file"><span class="nav-number">2.</span> <span class="nav-text">Create XML file</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Read-the-XML"><span class="nav-number">3.</span> <span class="nav-text">Read the XML</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#XMLReader"><span class="nav-number">3.1.</span> <span class="nav-text">XMLReader</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#XMLDocument"><span class="nav-number">3.2.</span> <span class="nav-text">XMLDocument</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#LINQ"><span class="nav-number">4.</span> <span class="nav-text">LINQ</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/csharp-xml.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="XML in C-Sharp(C#) | Hwchiu Learning Note">
+      <meta itemprop="description" content="這篇文章用來介紹在 C# 中如果想要針對 xml 的種格式的資料進行處理的話，可以使用那些函式庫來幫忙處理。同時也針對不同種的使用方法給予相對應的範例程式碼，讓大家可以更快速且方便地用 C# 來操作 xml 的格式資料。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          XML in C-Sharp(C#)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2013-03-30 12:43:00" itemprop="dateCreated datePublished" datetime="2013-03-30T12:43:00+08:00">2013-03-30</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">這篇文章用來介紹在 C# 中如果想要針對 xml 的種格式的資料進行處理的話，可以使用那些函式庫來幫忙處理。同時也針對不同種的使用方法給予相對應的範例程式碼，讓大家可以更快速且方便地用 C# 來操作 xml 的格式資料。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>雖然現在已經有JSON的出現，更輕量級的資料表達方式<br>但不少系統依然使用者XML做為資料格式，譬如MSN的歷史訊息</p>
+<p>這邊就來研究一下在C#中，如何對XML資料表進行操縱</p>
+<p>首先要先知道，XML的資料表中，是以Node為單位，一層一層的往下增加資料，可以想像成一棵樹，必定有一個root，舉例來說</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">Students</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">Student</span> <span class="attr">ID</span>=<span class="string">&quot;1&quot;</span>&gt;</span></span><br><span class="line">       <span class="tag">&lt;<span class="name">Name</span>&gt;</span>hwchiu<span class="tag">&lt;/<span class="name">Name</span>&gt;</span></span><br><span class="line">       <span class="tag">&lt;<span class="name">Age</span>&gt;</span>25<span class="tag">&lt;/<span class="name">Age</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">Student</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">Student</span> <span class="attr">ID</span>=<span class="string">&quot;2&quot;</span>&gt;</span></span><br><span class="line">       <span class="tag">&lt;<span class="name">Name</span>&gt;</span>sppsorrg<span class="tag">&lt;/<span class="name">Name</span>&gt;</span></span><br><span class="line">       <span class="tag">&lt;<span class="name">Age</span>&gt;</span>55<span class="tag">&lt;/<span class="name">Age</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">Student</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">Students</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+
+<p>Studnets就是所謂的root,底下有兩個node，都是student,然後每個node本身有自己的屬性(ID)，同時底下又有其他的node,這些node又有自己的屬性與對應的值。</p>
+<p>簡單介紹XML後，就來用用看C#中如何使用XML</p>
+<p>C#中，關於XML有關的函式都在System.Xml中</p>
+<h1 id="Create-XML-file"><a href="#Create-XML-file" class="headerlink" title="Create XML file"></a>Create XML file</h1><p>XmlDocument 是 XML的文件類別，要存取一個XML文件，就要透過這個類別<br>XmlDeclaration 是XML文件類別的開頭宣告，可以利用此函式為XML文件寫下其聲明<br>XmlElement 是XML文件中重要的一個物件，代表每一個節點，所有資料的搬移讀寫都靠操作節點完成<br>可以透過XmlElement::SetAttribute其屬性與其值，再將該XmlElement透過相關function來根據情況插入node</p>
+<ul>
+<li>AppendChild</li>
+<li>PrependChild</li>
+<li>ReplaceChild</li>
+<li>InsertAfter</li>
+<li>InsertBefore</li>
+</ul>
+<p>在進行一系列操作後，要執行XmlDocument::Save，這樣就完成寫入一個XML格式的檔案。<br>以下就來一個簡單範例</p>
+<pre><code>    public CreateXML()
+    &#123;
+        InitializeComponent();
+        XmlDocument xmlDocument = new XmlDocument();
+        XmlDeclaration xmlDeclaration = xmlDocument.CreateXmlDeclaration(&quot;1.0&quot;, &quot;&quot;, &quot;yes&quot;);
+        xmlDocument.PrependChild(xmlDeclaration);
+        XmlElement nodeElement = xmlDocument.CreateElement(&quot;Students&quot;);
+        xmlDocument.AppendChild(nodeElement);
+
+        AddStudent(xmlDocument, 0156521, &quot;hwchiu&quot;,22, &quot;sppsorrg11.csg01@nctu.edu.tw&quot;);
+        AddStudent(xmlDocument, 9717164, &quot;sppsorrg&quot;, 18, &quot;sppsorrg11.cs97@nctu.edu.tw&quot;);
+        xmlDocument.Save(&quot;student.xml&quot;);
+    &#125;
+    private void AddStudent(XmlDocument doc, int StudnetID, string name, int age, string email)
+    &#123;
+        XmlElement elemEmployee = doc.CreateElement(&quot;Student&quot;);
+        elemEmployee.SetAttribute(&quot;StudentID&quot;, StudnetID.ToString());
+        doc.DocumentElement.AppendChild(elemEmployee);
+        addTextElement(doc, elemEmployee, &quot;name&quot;, name);
+        addTextElement(doc, elemEmployee, &quot;age&quot;, age.ToString());
+        addTextElement(doc, elemEmployee, &quot;email&quot;, email);
+
+    &#125;
+    private void AddTextElement(XmlDocument doc, XmlElement nodeParent, string Tag, String Value)
+    &#123;
+        XmlElement nodeElem = doc.CreateElement(Tag);
+        nodeElem.AppendChild(doc.CreateTextNode(Value));
+        nodeParent.AppendChild(nodeElem);
+    &#125;
+</code></pre>
+<hr>
+<pre><code>&lt;?xml version=&quot;1.0&quot; standalone=&quot;yes&quot;?&gt;
+&lt;Students&gt;
+  &lt;Student StudentID=&quot;156521&quot;&gt;
+    &lt;name&gt;hwchiu&lt;/name&gt;
+    &lt;age&gt;22&lt;/age&gt;
+    &lt;email&gt;sppsorrg11.csg01@nctu.edu.tw&lt;/email&gt;
+  &lt;/Student&gt;
+  &lt;Student StudentID=&quot;9717164&quot;&gt;
+    &lt;name&gt;sppsorrg&lt;/name&gt;
+    &lt;age&gt;18&lt;/age&gt;
+    &lt;email&gt;sppsorrg11.cs97@nctu.edu.tw&lt;/email&gt;
+  &lt;/Student&gt;
+&lt;/Students&gt;
+</code></pre>
+<h1 id="Read-the-XML"><a href="#Read-the-XML" class="headerlink" title="Read the XML"></a>Read the XML</h1><h2 id="XMLReader"><a href="#XMLReader" class="headerlink" title="XMLReader"></a>XMLReader</h2><p>使用XmlReader來逐步讀取XML，對於過大的XML檔案時，不會一口氣全部讀進memory<br>由於有實作IDisposable,所以使用using來自動釋放資源<br>reader會逐步讀取，每個tag分成 Element,Text,EndElement，以上述為例</p>
+<blockquote>
+<p> <name> &#x3D;&gt;  Element;<br> hwchiu &#x3D;&gt;  Text;<br> </name>&#x3D;&gt; EndElement;</p>
+</blockquote>
+<p>其中對於某些node中，有其attribute的，可以使用MoveToAttribute(<code>string name</code>)或是<br>MoveToNextAttribute()來遍尋，範例如下</p>
+<figure class="highlight c#"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">using</span>(XmlReader reader = XmlReader.Create(<span class="string">&quot;student.xml&quot;</span>))&#123;</span><br><span class="line">    <span class="keyword">while</span> (reader.Read())</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">switch</span> (reader.NodeType)</span><br><span class="line">        &#123;</span><br><span class="line">               <span class="keyword">case</span> XmlNodeType.Element:</span><br><span class="line">                   Console.Write(<span class="string">&quot;&lt;&quot;</span>+reader.Name);</span><br><span class="line">                   <span class="keyword">while</span> (reader.MoveToNextAttribute())</span><br><span class="line">                       Console.Write(<span class="string">&quot; &quot;</span> + reader.Name + <span class="string">&quot;=&quot;</span> + reader.Value);</span><br><span class="line">                   Console.WriteLine(<span class="string">&quot;&gt;&quot;</span>);</span><br><span class="line">                   <span class="keyword">break</span>;</span><br><span class="line">               <span class="keyword">case</span> XmlNodeType.Text:</span><br><span class="line">                   Console.WriteLine(reader.Value);</span><br><span class="line">                   <span class="keyword">break</span>;</span><br><span class="line">               <span class="keyword">case</span> XmlNodeType.EndElement:</span><br><span class="line">                   Console.Write(<span class="string">&quot;&lt;&quot;</span> + reader.Name);</span><br><span class="line">                   Console.WriteLine(<span class="string">&quot;&gt;&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>Output</p>
+<pre><code>&lt;Students&gt;
+&lt;Student StudentID=156521&gt;
+&lt;name&gt;
+hwchiu
+&lt;/name&gt;
+&lt;age&gt;
+22
+&lt;/age&gt;
+&lt;email&gt;
+sppsorrg11.csg01@nctu.edu.tw
+&lt;/email&gt;
+&lt;/Student&gt;
+&lt;Student StudentID=9717164&gt;
+&lt;name&gt;
+sppsorrg
+&lt;/name&gt;
+&lt;age&gt;
+18
+&lt;/age&gt;
+&lt;email&gt;
+sppsorrg11.cs97@nctu.edu.tw
+&lt;/email&gt;
+&lt;/Student&gt;
+&lt;/Students&gt;
+</code></pre>
+<h2 id="XMLDocument"><a href="#XMLDocument" class="headerlink" title="XMLDocument"></a>XMLDocument</h2><p>XMLDocument載入xml檔案時，會一次讀完，所以可以直接使用其方法來訪問各個節點<br>一樣以剛剛的student.xml為範例<br>先利用GetElementsByTagName取得所有node的list 集合<br>由於底下的<code>&lt;name&gt;&lt;age&gt;&lt;email&gt;</code>都是其child node,所以必須又要在取得一次NodeList,<br>如此反覆就可以取得所有資料</p>
+<figure class="highlight c#"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">XmlDocument xml = <span class="keyword">new</span> XmlDocument();</span><br><span class="line">xml.Load(<span class="string">&quot;student.xml&quot;</span>);</span><br><span class="line">XmlNodeList nodeList = xml.GetElementsByTagName(<span class="string">&quot;Student&quot;</span>);</span><br><span class="line"><span class="keyword">foreach</span> (XmlNode parentNode <span class="keyword">in</span> nodeList)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">if</span> (parentNode <span class="keyword">is</span> XmlElement)</span><br><span class="line">    &#123;</span><br><span class="line">        XmlElement element = (XmlElement)parentNode;</span><br><span class="line">        String id = element.GetAttribute(<span class="string">&quot;StudentID&quot;</span>);</span><br><span class="line">        XmlNodeList childList = element.ChildNodes;</span><br><span class="line"></span><br><span class="line">        Console.WriteLine(<span class="string">&quot;StudentID=&quot;</span>+id);</span><br><span class="line">        <span class="keyword">foreach</span> (XmlNode childNode <span class="keyword">in</span> childList)</span><br><span class="line">        &#123;</span><br><span class="line">            Console.Write(<span class="string">&quot;&lt;&quot;</span> + ((XmlElement)childNode).Name + <span class="string">&quot;&gt; &quot;</span>);</span><br><span class="line">            Console.WriteLine(((XmlElement)childNode).ChildNodes.Item(<span class="number">0</span>).Value);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<p>Output</p>
+<pre><code>StudentID=156521
+&lt;name&gt; hwchiu
+&lt;age&gt; 22
+&lt;email&gt; sppsorrg11.csg01@nctu.edu.tw
+StudentID=9717164
+&lt;name&gt; sppsorrg
+&lt;age&gt; 18
+&lt;email&gt; sppsorrg11.cs97@nctu.edu.tw
+</code></pre>
+<h1 id="LINQ"><a href="#LINQ" class="headerlink" title="LINQ"></a>LINQ</h1><p>這邊使用LINQ來搜尋XML文件，所以必須要先使用<br><strong>using system.xml.Linq</strong></p>
+<p>為了讓Linq能夠順利運行，這邊使用的物件是XElement以及XNode<br>首先以XElement的方式來讀取檔案，接者使用linq的語法從中獲取我們想要的資訊<br>範例中先以root.Elements(“Student”)獲取所有Student的節點，接者在去比較其屬性中的<br>StudentID，來得到特定的資訊。</p>
+<p>最後回傳的資訊是個<code>IEnumerable&lt;XElement&gt;</code>的型態，使用foreach來拜訪<br>這邊的XElement本身的值就是</p>
+<pre><code>&lt;Student StudentID=&quot;156521&quot;&gt;
+  &lt;name&gt;hwchiu&lt;/name&gt;
+  &lt;age&gt;22&lt;/age&gt;
+  &lt;email&gt;sppsorrg11.csg01@nctu.edu.tw&lt;/email&gt;
+&lt;/Student&gt;
+</code></pre>
+<p>所以為了獲得其中的資訊，就必須要繼續拆解該節點，繼續以foreach的方式取得<br>每個XNode都代表者一行資訊如</p>
+<blockquote>
+<p><code>&lt;name&gt;hwchiu&lt;/name&gt;</code></p>
+</blockquote>
+<p>此時可以將XNode給轉型為XElement，就可以利用<code>&lt;Name/Value&gt;</code>的方式分別取得<br><code>&lt;name&gt;跟hwchiu</code></p>
+<p>若只是想要取得特別的資訊，可以直接透過Linq的語法來查詢，寫起來會更加簡潔及可讀。</p>
+<figure class="highlight c#"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">XElement root = XElement.Load(<span class="string">&quot;student.xml&quot;</span>);</span><br><span class="line">   <span class="keyword">var</span> student =</span><br><span class="line">       <span class="keyword">from</span> el <span class="keyword">in</span> root.Elements(<span class="string">&quot;Student&quot;</span>)</span><br><span class="line">       <span class="keyword">where</span> (<span class="built_in">string</span>)el.Attribute(<span class="string">&quot;StudentID&quot;</span>) == <span class="string">&quot;156521&quot;</span></span><br><span class="line">       <span class="keyword">select</span> el;</span><br><span class="line">   <span class="keyword">foreach</span> (XElement el <span class="keyword">in</span> student)</span><br><span class="line">   &#123;</span><br><span class="line">       <span class="keyword">foreach</span> (XNode node <span class="keyword">in</span> el.Nodes())</span><br><span class="line">       &#123;</span><br><span class="line">           Console.WriteLine(node);</span><br><span class="line">       &#125;</span><br><span class="line">   &#125;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<p>Output</p>
+<pre><code>&lt;name&gt;hwchiu&lt;/name&gt;
+&lt;age&gt;22&lt;/age&gt;
+&lt;email&gt;sppsorrg11.csg01@nctu.edu.tw&lt;/email&gt;
+</code></pre>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/CSharp/" rel="tag"># CSharp</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/c-pipe.html" rel="prev" title="Linux下 pipe介紹">
+                  <i class="fa fa-chevron-left"></i> Linux下 pipe介紹
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/tcp-sendto.html" rel="next" title="TCP使用sendto">
+                  TCP使用sendto <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="在前篇文章有跟大家分享過實際部屬上遇到的 DNS 問題，並且透過實驗佐證去觀察結果, 本篇文章則是透過另外一種觀點來觀察結果,透過閱讀原始碼的方式來觀察到底 kubernetes 再創建相關的 Pod 時會如何去處理 DNS 相關的設定，由於整個過程牽扯到 kubernetes 以及 CRI(Container Runtime Interface)的操作，而我們預設使用的則是 Docker 作為底">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Kubernetes] DNS Setting with Dockerd(原始碼分析下)">
+<meta property="og:url" content="https://www.hwchiu.com/kubernetes-dns-iiii.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="在前篇文章有跟大家分享過實際部屬上遇到的 DNS 問題，並且透過實驗佐證去觀察結果, 本篇文章則是透過另外一種觀點來觀察結果,透過閱讀原始碼的方式來觀察到底 kubernetes 再創建相關的 Pod 時會如何去處理 DNS 相關的設定，由於整個過程牽扯到 kubernetes 以及 CRI(Container Runtime Interface)的操作，而我們預設使用的則是 Docker 作為底">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/HBxFvzA.png">
+<meta property="og:image" content="https://i.imgur.com/AElxokT.png">
+<meta property="article:published_time" content="2018-08-14T23:38:53.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.628Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="SourceCode">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="Docker">
+<meta property="article:tag" content="DNS">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/HBxFvzA.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/kubernetes-dns-iiii.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/kubernetes-dns-iiii.html","path":"kubernetes-dns-iiii.html","title":"[Kubernetes] DNS Setting with Dockerd(原始碼分析下)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>[Kubernetes] DNS Setting with Dockerd(原始碼分析下) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%AD%A3%E6%96%87"><span class="nav-number">2.</span> <span class="nav-text">正文</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#dockerd"><span class="nav-number">3.</span> <span class="nav-text">dockerd</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%A8%8B%E5%BC%8F%E7%A2%BC%E7%A0%94%E7%A9%B6"><span class="nav-number">4.</span> <span class="nav-text">程式碼研究</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#ContainerStart"><span class="nav-number">4.1.</span> <span class="nav-text">ContainerStart</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#containerStart"><span class="nav-number">4.2.</span> <span class="nav-text">containerStart</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#initializeNetworking"><span class="nav-number">4.3.</span> <span class="nav-text">initializeNetworking</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#allocateNetwork"><span class="nav-number">4.4.</span> <span class="nav-text">allocateNetwork</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#connectToNetwork"><span class="nav-number">4.5.</span> <span class="nav-text">connectToNetwork</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#NewSandbox"><span class="nav-number">4.6.</span> <span class="nav-text">NewSandbox</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#setupDNS"><span class="nav-number">4.7.</span> <span class="nav-text">setupDNS</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#FilterResolveDNS"><span class="nav-number">4.8.</span> <span class="nav-text">FilterResolveDNS</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#summary"><span class="nav-number">5.</span> <span class="nav-text">summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">6.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/kubernetes-dns-iiii.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="[Kubernetes] DNS Setting with Dockerd(原始碼分析下) | Hwchiu Learning Note">
+      <meta itemprop="description" content="在前篇文章有跟大家分享過實際部屬上遇到的 DNS 問題，並且透過實驗佐證去觀察結果, 本篇文章則是透過另外一種觀點來觀察結果,透過閱讀原始碼的方式來觀察到底 kubernetes 再創建相關的 Pod 時會如何去處理 DNS 相關的設定，由於整個過程牽扯到 kubernetes 以及 CRI(Container Runtime Interface)的操作，而我們預設使用的則是 Docker 作為底層容器的操作. 本篇文章會針對後半部分，也就是所謂的 docker(dockerd) 本身再創建容器的時候，會如何處理其 DNS 相關的設定，透過閱讀 docker-ce 以及 libnetwork 相關的原始碼，不但能夠更清楚的釐清全部的運作原理，也能夠學習到 docker 底層實踐的過程與精神">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          [Kubernetes] DNS Setting with Dockerd(原始碼分析下)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-08-15 07:38:53" itemprop="dateCreated datePublished" datetime="2018-08-15T07:38:53+08:00">2018-08-15</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">在前篇文章有跟大家分享過實際部屬上遇到的 DNS 問題，並且透過實驗佐證去觀察結果, 本篇文章則是透過另外一種觀點來觀察結果,透過閱讀原始碼的方式來觀察到底 kubernetes 再創建相關的 Pod 時會如何去處理 DNS 相關的設定，由於整個過程牽扯到 kubernetes 以及 CRI(Container Runtime Interface)的操作，而我們預設使用的則是 Docker 作為底層容器的操作. 本篇文章會針對後半部分，也就是所謂的 docker(dockerd) 本身再創建容器的時候，會如何處理其 DNS 相關的設定，透過閱讀 docker-ce 以及 libnetwork 相關的原始碼，不但能夠更清楚的釐清全部的運作原理，也能夠學習到 docker 底層實踐的過程與精神</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>此篇文章是 Kubernetes Pod-DNS 系列文章最後一篇<br>此系列文會從使用者的用法到一些問題的發掘，最後透過閱讀程式碼的方式去分析這些問題</p>
+<p>相關的文章連結如下</p>
+<ul>
+<li><a href="https://www.hwchiu.com/kubernetes-dns.html">[Kubernetes] DNS setting in your Pod</a></li>
+<li><a href="https://www.hwchiu.com/kubernetes-dns-ii.html">[Kubernetes] DNS Setting with Dockerd</a></li>
+<li><a href="https://www.hwchiu.com/kubernetes-dns-iii.html">[Kubernetes] DNS Setting with Dockerd(原始碼分析上)</a></li>
+</ul>
+<h1 id="正文"><a href="#正文" class="headerlink" title="正文"></a>正文</h1><p>再上篇文章 - <a href="https://www.hwchiu.com/kubernetes-dns-iii.html">[Kubernetes] DNS Setting with Dockerd(原始碼分析上)</a> 中，我們透過閱讀 <code>kubernetes</code> 原始碼的方式已經理解到 <code>kubernetes</code> 本身是怎麼去處理 <code>DNS</code> 的設定。 但是卻留下了一個謎團就是 <code>dockerd</code> 到底如何處理每個容器本身的 <code>DNS</code> 設定?</p>
+<p>重新複習一次之前觀察到的結果</p>
+<table>
+<thead>
+<tr>
+<th>node\dockerd</th>
+<th>有設定 DNS</th>
+<th>沒設定 DNS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>有數值</td>
+<td>node</td>
+<td>node</td>
+</tr>
+<tr>
+<td>沒有數值</td>
+<td>dockerd</td>
+<td>8.8.8.8</td>
+</tr>
+</tbody></table>
+<p>這邊直接開門見山的說明結論<br>當每次創建容器時，大抵上都會遵循下列邏輯</p>
+<ol>
+<li>先根據參數<code>resolveConf</code> 來讀取當前 <code>DNS</code> 的全部設定</li>
+<li>如果使用者有自行設定 <code>DNS</code> 的參數，就會全面使用這邊的設定，完全忽略(1)載入的設定</li>
+<li>如果使用者沒有自行設定 <code>DNS</code> 的話，就會針對 (1) 載入的設定進行一次過濾<ul>
+<li>針對 127.0.0.1&#x2F;8 之類的進行過濾</li>
+<li>過濾後若發現是空的，則補上 8.8.8.8&#x2F;8.8.4.4</li>
+</ul>
+</li>
+</ol>
+<p>接下來我們就會透過直接閱讀 <code>docker-ce</code> 原始碼的方式來理解這個問題</p>
+<span id="more"></span>
+
+<h1 id="dockerd"><a href="#dockerd" class="headerlink" title="dockerd"></a>dockerd</h1><p>如同前篇文章所說，要透過閱讀原始碼找尋問題的最大困難點就是起點，要先想辦法找到與目標問題有關的進入點，然後從該進入點開始挖掘跟目標有關的程式碼。</p>
+<p>這邊使用上次的那張流程圖，將其修改一下來符合本篇的方向來看。</p>
+<p>首先，當 <code>kubelet</code> 透過 <code>CRI (Contaienr Runtime Interface)</code> 將容器相關的操作請求送到 <code>docekrd</code> 後就會開始進行容器的創見&#x2F;刪除&#x2F;修改</p>
+<p>假設我們要進行的創建容器這個操作，以 <code>dockerd</code> 的角度來說用比較簡單的方式來看大概就是</p>
+<ol>
+<li>創建容器</li>
+<li>對該容器設定相關規則<ul>
+<li>網路相關功能</li>
+<li>AppArmor 相關</li>
+<li>…等各式各樣的功能</li>
+</ul>
+</li>
+</ol>
+<p><img src="https://i.imgur.com/HBxFvzA.png" alt="Imgur"></p>
+<p>上面只是一個比較抽象的方式去描述整個過程，我們想要瞭解的<code>DNS</code>相關的設定都在所謂的 <code>Config Network</code> 裡面。</p>
+<p>接下來幫大家節省時間，直接將詳細用到的程式碼流程列在下列圖表中<br><img src="https://i.imgur.com/AElxokT.png" alt="Imgur"></p>
+<p>我們接下來就直接從整個創造容器的起點 <code>ContaienrStart</code> 來開始看吧!</p>
+<h1 id="程式碼研究"><a href="#程式碼研究" class="headerlink" title="程式碼研究"></a>程式碼研究</h1><h2 id="ContainerStart"><a href="#ContainerStart" class="headerlink" title="ContainerStart"></a>ContainerStart</h2><figure class="highlight go"><figcaption><span>ContaienrStart</span><a target="_blank" rel="noopener" href="https://github.com/docker/docker-ce/blob/da1e08d48493406ce290a1b99269e52879af5b0e/components/engine/daemon/start.go#L18">start.go</a></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(daemon *Daemon)</span></span> ContainerStart(name <span class="type">string</span>, hostConfig *containertypes.HostConfig, checkpoint <span class="type">string</span>, checkpointDir <span class="type">string</span>) <span class="type">error</span> &#123;</span><br><span class="line">...</span><br><span class="line">	<span class="comment">// check if hostConfig is in line with the current system settings.</span></span><br><span class="line">	<span class="comment">// It may happen cgroups are umounted or the like.</span></span><br><span class="line">	<span class="keyword">if</span> _, err = daemon.verifyContainerSettings(container.OS, container.HostConfig, <span class="literal">nil</span>, <span class="literal">false</span>); err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> errdefs.InvalidParameter(err)</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// Adapt for old containers in case we have updates in this function and</span></span><br><span class="line">	<span class="comment">// old containers never have chance to call the new function in create stage.</span></span><br><span class="line">	<span class="keyword">if</span> hostConfig != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">if</span> err := daemon.adaptContainerSettings(container.HostConfig, <span class="literal">false</span>); err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> errdefs.InvalidParameter(err)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> daemon.containerStart(container, checkpoint, checkpointDir, <span class="literal">true</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>這邊的邏輯基本上就是處理一些 <code>Container</code> 相關設定，最後直接呼叫一個私有函式 <code>containerStart</code> 來進行更進一步的處理</p>
+<h2 id="containerStart"><a href="#containerStart" class="headerlink" title="containerStart"></a>containerStart</h2><figure class="highlight go"><figcaption><span>containerStart</span><a target="_blank" rel="noopener" href="https://github.com/docker/docker-ce/blob/da1e08d48493406ce290a1b99269e52879af5b0e/components/engine/daemon/start.go#L102">start.go</a></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// containerStart prepares the container to run by setting up everything the</span></span><br><span class="line"><span class="comment">// container needs, such as storage and networking, as well as links</span></span><br><span class="line"><span class="comment">// between containers. The container is left waiting for a signal to</span></span><br><span class="line"><span class="comment">// begin running.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(daemon *Daemon)</span></span> containerStart(container *container.Container, checkpoint <span class="type">string</span>, checkpointDir <span class="type">string</span>, resetRestartManager <span class="type">bool</span>) (err <span class="type">error</span>) &#123;</span><br><span class="line"></span><br><span class="line">....</span><br><span class="line">	<span class="keyword">if</span> err := daemon.conditionalMountOnStart(container); err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> err := daemon.initializeNetworking(container); err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">....</span><br><span class="line">	<span class="keyword">if</span> daemon.saveApparmorConfig(container); err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line">...</span><br><span class="line">	err = daemon.containerd.Create(context.Background(), container.ID, spec, createOptions)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> translateContainerdStartErr(container.Path, container.SetExitCode, err)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// TODO(mlaventure): we need to specify checkpoint options here</span></span><br><span class="line">	pid, err := daemon.containerd.Start(context.Background(), container.ID, checkpointDir,</span><br><span class="line">		container.StreamConfig.Stdin() != <span class="literal">nil</span> || container.Config.Tty,</span><br><span class="line">		container.InitializeStdio)</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">	container.SetRunning(pid, <span class="literal">true</span>)</span><br><span class="line">	container.HasBeenManuallyStopped = <span class="literal">false</span></span><br><span class="line">	container.HasBeenStartedBefore = <span class="literal">true</span></span><br><span class="line">	daemon.setStateCounter(container)</span><br><span class="line"></span><br><span class="line">	daemon.initHealthMonitor(container)</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>這個函式非常的重要，可以看一下該函式的註解<br>&#x2F;&#x2F; containerStart prepares the container to run by setting up everything the<br>&#x2F;&#x2F; container needs, such as storage and networking, as well as links<br>&#x2F;&#x2F; between containers. The container is left waiting for a signal to<br>&#x2F;&#x2F; begin running.</p>
+<p>再這個函式內會創建好相關的容器，並且會將該容器用到的相關資源(儲存&#x2F;網路)等都準備好<br>，由於我們要觀察的是 <code>DNS</code> 相關的資訊，所以我們要繼續往 <code>initializeNetworking</code> 的方向往下追。</p>
+<h2 id="initializeNetworking"><a href="#initializeNetworking" class="headerlink" title="initializeNetworking"></a>initializeNetworking</h2><figure class="highlight go"><figcaption><span>initializeNetworking</span><a target="_blank" rel="noopener" href="https://github.com/docker/docker-ce/blob/6e92e5909666b3b9c2aecebf582e8af85f228899/components/engine/daemon/container_operations.go#L916">container_operations.go</a></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(daemon *Daemon)</span></span> initializeNetworking(container *container.Container) <span class="type">error</span> &#123;</span><br><span class="line">	<span class="keyword">var</span> err <span class="type">error</span></span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> container.HostConfig.NetworkMode.IsContainer() &#123;</span><br><span class="line">...</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> container.HostConfig.NetworkMode.IsHost() &#123;</span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> err := daemon.allocateNetwork(container); err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> container.BuildHostnameFile()</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>接下來都是根據各種 <code>Networking</code> 相關的設定來處理，前面兩個的判斷處理則是根據當初創建該容器時，有沒有指令 <code>--network=xxxx</code> 來特別處理，若有設定 <code>--network=host</code> 或是 <code>--network=container:xxxx</code> 會有一些額外的處理。</p>
+<p>因為這些情境跟我們的 <code>Kubernetes</code> 的使用方法不同，我們不會走到這邊的判斷，而是直接會走到下面的 <code>allocateNetwork</code> 來開始準備網路相關的資訊。</p>
+<h2 id="allocateNetwork"><a href="#allocateNetwork" class="headerlink" title="allocateNetwork"></a>allocateNetwork</h2><figure class="highlight go"><figcaption><span>allocateNetwork</span><a target="_blank" rel="noopener" href="https://github.com/docker/docker-ce/blob/6e92e5909666b3b9c2aecebf582e8af85f228899/components/engine/daemon/container_operations.go#L501">container_operations.go</a></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(daemon *Daemon)</span></span> allocateNetwork(container *container.Container) <span class="type">error</span> &#123;</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">	<span class="comment">// always connect default network first since only default</span></span><br><span class="line">	<span class="comment">// network mode support link and we need do some setting</span></span><br><span class="line">	<span class="comment">// on sandbox initialize for link, but the sandbox only be initialized</span></span><br><span class="line">	<span class="comment">// on first network connecting.</span></span><br><span class="line">	defaultNetName := runconfig.DefaultDaemonNetworkMode().NetworkName()</span><br><span class="line">	<span class="keyword">if</span> nConf, ok := container.NetworkSettings.Networks[defaultNetName]; ok &#123;</span><br><span class="line">		cleanOperationalData(nConf)</span><br><span class="line">		<span class="keyword">if</span> err := daemon.connectToNetwork(container, defaultNetName, nConf.EndpointSettings, updateSettings); err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> err</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">	&#125;</span><br><span class="line">...</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>再這個函式內，首先會嘗試使用預設的網路型態，這邊指的就是在創建容器所下的參數 <code>--net=xxx</code>，而預設的類型就是 <code>bridge</code>.<br>所以接下來就很直覺的去呼叫 <code>connectToNetwork</code> 來進行下一階段的處理</p>
+<h2 id="connectToNetwork"><a href="#connectToNetwork" class="headerlink" title="connectToNetwork"></a>connectToNetwork</h2><figure class="highlight go"><figcaption><span>connectToNetwork</span><a target="_blank" rel="noopener" href="https://github.com/docker/docker-ce/blob/6e92e5909666b3b9c2aecebf582e8af85f228899/components/engine/daemon/container_operations.go#L690">container_operations.go</a></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(daemon *Daemon)</span></span> connectToNetwork(container *container.Container, idOrName <span class="type">string</span>, endpointConfig *networktypes.EndpointSettings, updateSettings <span class="type">bool</span>) (err <span class="type">error</span>) &#123;</span><br><span class="line">	start := time.Now()</span><br><span class="line">	<span class="keyword">if</span> container.HostConfig.NetworkMode.IsContainer() &#123;</span><br><span class="line">		<span class="keyword">return</span> runconfig.ErrConflictSharedNetwork</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> containertypes.NetworkMode(idOrName).IsBridge() &amp;&amp;</span><br><span class="line">		daemon.configStore.DisableBridge &#123;</span><br><span class="line">		container.Config.NetworkDisabled = <span class="literal">true</span></span><br><span class="line">		<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">....</span><br><span class="line">	sb := daemon.getNetworkSandbox(container)</span><br><span class="line">	createOptions, err := buildCreateEndpointOptions(container, n, endpointConfig, sb, daemon.configStore.DNS)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line">....</span><br><span class="line">	<span class="keyword">if</span> sb == <span class="literal">nil</span> &#123;</span><br><span class="line">		options, err := daemon.buildSandboxOptions(container)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> err</span><br><span class="line">		&#125;</span><br><span class="line">		sb, err = controller.NewSandbox(container.ID, options...)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> err</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		updateSandboxNetworkSettings(container, sb)</span><br><span class="line">	&#125;</span><br><span class="line">....</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>connectToNetwork</code> 並不是只有創建新的容器時才會使用，所以這邊還會進行一些相關的參數檢查。<br>由於我們是第一次串件該容器，所以容器所對應的沙盒 <code>SandBox</code> 會是空的。<br>最後根據空的沙盒，決定透過 <code>controller.NewSanbox</code> 去創建一個沙盒。<br>值得注意的是，這邊有一個 <code>buildSandboxOptions</code> 會把其他用到的參數都重新整理一次，然後傳入到 <code>controller.NewSandbox</code> 這邊去處理。</p>
+<h2 id="NewSandbox"><a href="#NewSandbox" class="headerlink" title="NewSandbox"></a>NewSandbox</h2><figure class="highlight go"><figcaption><span>NewSandbox</span><a target="_blank" rel="noopener" href="https://github.com/docker/libnetwork/blob/f30a35b091cc2a431ef9856c75c343f75bb5f2e2/controller.go#L1126">controller.go</a></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(c *controller)</span></span> NewSandbox(containerID <span class="type">string</span>, options ...SandboxOption) (Sandbox, <span class="type">error</span>) &#123;</span><br><span class="line">	<span class="keyword">if</span> containerID == <span class="string">&quot;&quot;</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">nil</span>, types.BadRequestErrorf(<span class="string">&quot;invalid container ID&quot;</span>)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">var</span> sb *sandbox</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">	<span class="comment">// Create sandbox and process options first. Key generation depends on an option</span></span><br><span class="line">	<span class="keyword">if</span> sb == <span class="literal">nil</span> &#123;</span><br><span class="line">		sb = &amp;sandbox&#123;</span><br><span class="line">			id:                 sandboxID,</span><br><span class="line">			containerID:        containerID,</span><br><span class="line">			endpoints:          []*endpoint&#123;&#125;,</span><br><span class="line">			epPriority:         <span class="keyword">map</span>[<span class="type">string</span>]<span class="type">int</span>&#123;&#125;,</span><br><span class="line">			populatedEndpoints: <span class="keyword">map</span>[<span class="type">string</span>]<span class="keyword">struct</span>&#123;&#125;&#123;&#125;,</span><br><span class="line">			config:             containerConfig&#123;&#125;,</span><br><span class="line">			controller:         c,</span><br><span class="line">			extDNS:             []extDNSEntry&#123;&#125;,</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	sb.processOptions(options...)</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">if</span> err = sb.setupResolutionFiles(); err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> sb, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>特別注意一下，當我們到這邊執行相關函式的時候，我們的專案已經從<code>docker-ce</code>遷移到<code>libnetwork</code>了。</p>
+<p>這個函式非常的長，描述的創建新的 <code>Sandbox</code> 期間需要注意的所有事項，這邊首先會透過<code>sb.processOptions</code> 去設定相關變數的數值，這邊要特別注意的是其實每一個 <code>options</code> 本身是對應到一個 <code>function pointer</code>。</p>
+<p>如果我們當初有透過 <code>dockerd</code> 去設定相關的 <code>DNS</code> 設定的話，這邊其實實際上會賦值到 <code>sb.config.dnsList</code>, <code>sb.config.dnsSearchList</code> 以及 <code>sb.config.dnsOptionsList</code></p>
+<figure class="highlight go"><figcaption><span>setupResolutionFiles</span><a target="_blank" rel="noopener" href="https://github.com/docker/libnetwork/blob/c3a682c10b554b2ff2fac8ca134ddb9047ffdd93/sandbox_dns_unix.go#L61">sandbox_dns_unix.go</a></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(sb *sandbox)</span></span> setupResolutionFiles() <span class="type">error</span> &#123;</span><br><span class="line">	<span class="keyword">if</span> err := sb.buildHostsFile(); err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> err := sb.updateParentHosts(); err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> sb.setupDNS()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>這邊其實非常簡單，我們的主要目標終於出現了!!!<br><code>setupDNS</code> 意思就如同名稱一樣直接，就是設定該沙盒內<code>DNS</code>的設定。</p>
+<h2 id="setupDNS"><a href="#setupDNS" class="headerlink" title="setupDNS"></a>setupDNS</h2><figure class="highlight go"><figcaption><span>setupDNS</span><a target="_blank" rel="noopener" href="https://github.com/docker/libnetwork/blob/c3a682c10b554b2ff2fac8ca134ddb9047ffdd93/sandbox_dns_unix.go#L181">sandbox_dns_unix.go</a></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(sb *sandbox)</span></span> setupDNS() <span class="type">error</span> &#123;</span><br><span class="line">	<span class="keyword">var</span> newRC *resolvconf.File</span><br><span class="line">....</span><br><span class="line"></span><br><span class="line">	originResolvConfPath := sb.config.originResolvConfPath</span><br><span class="line">	<span class="keyword">if</span> originResolvConfPath == <span class="string">&quot;&quot;</span> &#123;</span><br><span class="line">		<span class="comment">// if not specified fallback to default /etc/resolv.conf</span></span><br><span class="line">		originResolvConfPath = resolvconf.DefaultResolvConf</span><br><span class="line">	&#125;</span><br><span class="line">	currRC, err := resolvconf.GetSpecific(originResolvConfPath)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">if</span> !os.IsNotExist(err) &#123;</span><br><span class="line">			<span class="keyword">return</span> err</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="comment">// it&#x27;s ok to continue if /etc/resolv.conf doesn&#x27;t exist, default resolvers (Google&#x27;s Public DNS)</span></span><br><span class="line">		<span class="comment">// will be used</span></span><br><span class="line">		currRC = &amp;resolvconf.File&#123;&#125;</span><br><span class="line">		logrus.Infof(<span class="string">&quot;/etc/resolv.conf does not exist&quot;</span>)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> <span class="built_in">len</span>(sb.config.dnsList) &gt; <span class="number">0</span> || <span class="built_in">len</span>(sb.config.dnsSearchList) &gt; <span class="number">0</span> || <span class="built_in">len</span>(sb.config.dnsOptionsList) &gt; <span class="number">0</span> &#123;</span><br><span class="line">		<span class="keyword">var</span> (</span><br><span class="line">			err            <span class="type">error</span></span><br><span class="line">			dnsList        = resolvconf.GetNameservers(currRC.Content, types.IP)</span><br><span class="line">			dnsSearchList  = resolvconf.GetSearchDomains(currRC.Content)</span><br><span class="line">			dnsOptionsList = resolvconf.GetOptions(currRC.Content)</span><br><span class="line">		)</span><br><span class="line">		<span class="keyword">if</span> <span class="built_in">len</span>(sb.config.dnsList) &gt; <span class="number">0</span> &#123;</span><br><span class="line">			dnsList = sb.config.dnsList</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">if</span> <span class="built_in">len</span>(sb.config.dnsSearchList) &gt; <span class="number">0</span> &#123;</span><br><span class="line">			dnsSearchList = sb.config.dnsSearchList</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">if</span> <span class="built_in">len</span>(sb.config.dnsOptionsList) &gt; <span class="number">0</span> &#123;</span><br><span class="line">			dnsOptionsList = sb.config.dnsOptionsList</span><br><span class="line">		&#125;</span><br><span class="line">		newRC, err = resolvconf.Build(sb.config.resolvConfPath, dnsList, dnsSearchList, dnsOptionsList)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> err</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="comment">// After building the resolv.conf from the user config save the</span></span><br><span class="line">		<span class="comment">// external resolvers in the sandbox. Note that --dns 127.0.0.x</span></span><br><span class="line">		<span class="comment">// config refers to the loopback in the container namespace</span></span><br><span class="line">		sb.setExternalResolvers(newRC.Content, types.IPv4, <span class="literal">false</span>)</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		<span class="comment">// If the host resolv.conf file has 127.0.0.x container should</span></span><br><span class="line">		<span class="comment">// use the host resolver for queries. This is supported by the</span></span><br><span class="line">		<span class="comment">// docker embedded DNS server. Hence save the external resolvers</span></span><br><span class="line">		<span class="comment">// before filtering it out.</span></span><br><span class="line">		sb.setExternalResolvers(currRC.Content, types.IPv4, <span class="literal">true</span>)</span><br><span class="line"></span><br><span class="line">		<span class="comment">// Replace any localhost/127.* (at this point we have no info about ipv6, pass it as true)</span></span><br><span class="line">		<span class="keyword">if</span> newRC, err = resolvconf.FilterResolvDNS(currRC.Content, <span class="literal">true</span>); err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> err</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="comment">// No contention on container resolv.conf file at sandbox creation</span></span><br><span class="line">		<span class="keyword">if</span> err := ioutil.WriteFile(sb.config.resolvConfPath, newRC.Content, filePerm); err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> types.InternalErrorf(<span class="string">&quot;failed to write unhaltered resolv.conf file content when setting up dns for sandbox %s: %v&quot;</span>, sb.ID(), err)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// Write hash</span></span><br><span class="line">	<span class="keyword">if</span> err := ioutil.WriteFile(sb.config.resolvConfHashFile, []<span class="type">byte</span>(newRC.Hash), filePerm); err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> types.InternalErrorf(<span class="string">&quot;failed to write resolv.conf hash file when setting up dns for sandbox %s: %v&quot;</span>, sb.ID(), err)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>這個函式會針對一些跟 <code>DNS</code> 相關的參數來進行處理，包含了</p>
+<ol>
+<li>dnsServer</li>
+<li>dnsSearch</li>
+<li>dnsOptions</li>
+<li>resolveConf</li>
+</ol>
+<p>這邊的運作邏輯如下</p>
+<ol>
+<li>先根據參數<code>resolveConf</code>來讀取當前 <code>DNS</code> 的全部設定</li>
+<li>如果使用者有自行設定 <code>DNS</code> 的參數，就會全面使用這邊的設定，完全忽略(1)載入的設定<br>2.1 這邊最後會呼叫 <code>resolvconf.Build</code> 將參數的設定直接覆寫到容器內的 <code>/etc/resolv.conf</code></li>
+<li>如果使用者沒有自行設定 <code>DNS</code> 的話，就會針對 (1) 載入的設定進行一次過濾<br>3.1 針對 127.0.0.1&#x2F;8 之類的進行過濾 <code>FilterResolveDNS</code><br>3.2 過濾後若發現是空的，則補上 8.8.8.8&#x2F;8.8.4.4</li>
+</ol>
+<p>這樣就來看一下 <code>FilterResolveDNS</code> 怎麼處理 <code>DNS</code></p>
+<h2 id="FilterResolveDNS"><a href="#FilterResolveDNS" class="headerlink" title="FilterResolveDNS"></a>FilterResolveDNS</h2><figure class="highlight plaintext"><figcaption><span>https://github.com/docker/libnetwork/blob/c3a682c10b554b2ff2fac8ca134ddb9047ffdd93/resolvconf/resolvconf.go resolvconf.go</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">// FilterResolvDNS cleans up the config in resolvConf.  It has two main jobs:</span><br><span class="line">// 1. It looks for localhost (127.*|::1) entries in the provided</span><br><span class="line">//    resolv.conf, removing local nameserver entries, and, if the resulting</span><br><span class="line">//    cleaned config has no defined nameservers left, adds default DNS entries</span><br><span class="line">// 2. Given the caller provides the enable/disable state of IPv6, the filter</span><br><span class="line">//    code will remove all IPv6 nameservers if it is not enabled for containers</span><br><span class="line">//</span><br><span class="line">func FilterResolvDNS(resolvConf []byte, ipv6Enabled bool) (*File, error) &#123;</span><br><span class="line">	cleanedResolvConf := localhostNSRegexp.ReplaceAll(resolvConf, []byte&#123;&#125;)</span><br><span class="line">	// if IPv6 is not enabled, also clean out any IPv6 address nameserver</span><br><span class="line">	if !ipv6Enabled &#123;</span><br><span class="line">		cleanedResolvConf = nsIPv6Regexp.ReplaceAll(cleanedResolvConf, []byte&#123;&#125;)</span><br><span class="line">	&#125;</span><br><span class="line">	// if the resulting resolvConf has no more nameservers defined, add appropriate</span><br><span class="line">	// default DNS servers for IPv4 and (optionally) IPv6</span><br><span class="line">	if len(GetNameservers(cleanedResolvConf, types.IP)) == 0 &#123;</span><br><span class="line">		logrus.Infof(&quot;No non-localhost DNS nameservers are left in resolv.conf. Using default external servers: %v&quot;, defaultIPv4Dns)</span><br><span class="line">		dns := defaultIPv4Dns</span><br><span class="line">		if ipv6Enabled &#123;</span><br><span class="line">			logrus.Infof(&quot;IPv6 enabled; Adding default IPv6 external servers: %v&quot;, defaultIPv6Dns)</span><br><span class="line">			dns = append(dns, defaultIPv6Dns...)</span><br><span class="line">		&#125;</span><br><span class="line">		cleanedResolvConf = append(cleanedResolvConf, []byte(&quot;\n&quot;+strings.Join(dns, &quot;\n&quot;))...)</span><br><span class="line">	&#125;</span><br><span class="line">	hash, err := ioutils.HashData(bytes.NewReader(cleanedResolvConf))</span><br><span class="line">	if err != nil &#123;</span><br><span class="line">		return nil, err</span><br><span class="line">	&#125;</span><br><span class="line">	return &amp;File&#123;Content: cleanedResolvConf, Hash: hash&#125;, nil</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<ul>
+<li>首先先呼叫 <code>ReplaceAll</code> 把所有 <code>localhost 127.0.0.0/8</code> 相關的 <code>IP</code> 都清空。</li>
+<li>清空之後，若發現這時候沒有 <code>DNS</code> 的話，直接透過 <code>dns := defaultIPv4Dns</code> 補上預設的 <code>DNS</code> (8.8.8.8&#x2F;8.8.4.4)</li>
+</ul>
+<h1 id="summary"><a href="#summary" class="headerlink" title="summary"></a>summary</h1><p>當每次創建新容器時，最後會依賴到 <code>libnetwork</code> 內跟 <code>DNS</code> 相關的參數來設定</p>
+<ol>
+<li>如果使用者有自行設定 <code>DNS</code> 的參數，就會全面使用這邊的設定，完全忽略(1)載入的設定<ul>
+<li>這邊最後會呼叫 <code>resolvconf.Build</code> 將參數的設定直接覆寫到容器內的 <code>/etc/resolv.conf</code></li>
+</ul>
+</li>
+<li>如果使用者沒有自行設定 <code>DNS</code> 的話，就會針對 (1) 載入的設定進行一次過濾<ul>
+<li>針對 127.0.0.1&#x2F;8 之類的進行過濾 <code>FilterResolveDNS</code></li>
+<li>過濾後若發現是空的，則補上 8.8.8.8&#x2F;8.8.4.4</li>
+</ul>
+</li>
+</ol>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/SourceCode/" rel="tag"># SourceCode</a>
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/Docker/" rel="tag"># Docker</a>
+              <a href="/tags/DNS/" rel="tag"># DNS</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/kubernetes-dns-iii.html" rel="prev" title="[Kubernetes] DNS Setting with Dockerd(原始碼分析上)">
+                  <i class="fa fa-chevron-left"></i> [Kubernetes] DNS Setting with Dockerd(原始碼分析上)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/kubernetes-service-i.html" rel="next" title="[Kubernetes] What Is Service?">
+                  [Kubernetes] What Is Service? <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

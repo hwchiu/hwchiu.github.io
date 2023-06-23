@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="ITHOME-2020 系列文章">
+<meta property="og:type" content="article">
+<meta property="og:title" content="鐵人賽系列文章- Day27 - Kubernetes plugin 範例">
+<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-27.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="ITHOME-2020 系列文章">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://github.com/aquasecurity/starboard-octant-plugin/raw/master/docs/images/deployment_vulnerabilities.png">
+<meta property="article:published_time" content="2021-02-04T16:12:01.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.622Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="DevOps">
+<meta property="article:tag" content="ITHOME">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://github.com/aquasecurity/starboard-octant-plugin/raw/master/docs/images/deployment_vulnerabilities.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-27.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/ithome-20202-cicd-27.html","path":"ithome-20202-cicd-27.html","title":"鐵人賽系列文章- Day27 - Kubernetes plugin 範例"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>鐵人賽系列文章- Day27 - Kubernetes plugin 範例 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#View-Allocations"><span class="nav-number">1.</span> <span class="nav-text">View Allocations</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#change-ns"><span class="nav-number">2.</span> <span class="nav-text">change-ns</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Status"><span class="nav-number">3.</span> <span class="nav-text">Status</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#access-matrix"><span class="nav-number">4.</span> <span class="nav-text">access-matrix</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#starboard"><span class="nav-number">5.</span> <span class="nav-text">starboard</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">6.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-27.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="鐵人賽系列文章- Day27 - Kubernetes plugin 範例 | Hwchiu Learning Note">
+      <meta itemprop="description" content="ITHOME-2020 系列文章">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          鐵人賽系列文章- Day27 - Kubernetes plugin 範例
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2021-02-05 00:12:01" itemprop="dateCreated datePublished" datetime="2021-02-05T00:12:01+08:00">2021-02-05</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">ITHOME-2020 系列文章</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>上篇文章中我們介紹了 kubectl plugin 的系統與生態系，後來我們使用 krew 這個工具來管理各式各樣的 kubectl plugin</p>
+<p>因此本篇就從裡面挑選一些 plugin 試試看。</p>
+<h1 id="View-Allocations"><a href="#View-Allocations" class="headerlink" title="View Allocations"></a>View Allocations</h1><p>我們這邊可以隨便挑一些 plugin 來玩看看</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl krew install view-allocations</span><br><span class="line">Updated the <span class="built_in">local</span> copy of plugin index.</span><br><span class="line">Installing plugin: view-allocations</span><br><span class="line">Installed plugin: view-allocations</span><br><span class="line">\</span><br><span class="line"> | Use this plugin:</span><br><span class="line"> |      kubectl view-allocations</span><br><span class="line"> | Documentation:</span><br><span class="line"> |      https://github.com/davidB/kubectl-view-allocations</span><br><span class="line">/</span><br><span class="line">WARNING: You installed plugin <span class="string">&quot;view-allocations&quot;</span> from the krew-index plugin repository.</span><br><span class="line">   These plugins are not audited <span class="keyword">for</span> security by the Krew maintainers.</span><br><span class="line">   Run them at your own risk.</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>這邊要注意，因為我們安裝的都是 <code>kubectl plugin</code> 所以最後執行的時候不需要補上 <code>krew</code> ，譬如我們上面安裝 <code>view-allocations</code>，安裝完畢後直接執行 <code>kubectl view-allocations</code>來看</p>
+<p>View-allocations 是一個用來顯示系統上所有 <code>有設定 resource 限定的資源</code> 數量都列出來，可以幫助你評估當前每個節點上總共有多少 CPU&#x2F;Memory，然後上面運行的資源目前總共要求多少，百分比多少。</p>
+<blockquote>
+<p>要注意的是，如果你的 Pod 沒有用 resource limited 去限制，就不會出現在系統上</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl view-allocations</span><br><span class="line"> Resource                                           Requested  %Requested    Limit  %Limit  Allocatable     Free</span><br><span class="line">  cpu                                                 1050.0m          9%   300.0m      2%         12.0     10.9</span><br><span class="line">  ├─ kind-control-plane                                850.0m         21%   100.0m      2%          4.0      3.1</span><br><span class="line">  │  ├─ coredns-6955765f44-l4z47                       100.0m                  0.0</span><br><span class="line">  │  ├─ coredns-6955765f44-zb5xx                       100.0m                  0.0</span><br><span class="line">  │  ├─ kindnet-czpsv                                  100.0m               100.0m</span><br><span class="line">  │  ├─ kube-apiserver-kind-control-plane              250.0m                  0.0</span><br><span class="line">  │  ├─ kube-controller-manager-kind-control-plane     200.0m                  0.0</span><br><span class="line">  │  └─ kube-scheduler-kind-control-plane              100.0m                  0.0</span><br><span class="line">  ├─ kind-worker                                       100.0m          2%   100.0m      2%          4.0      3.9</span><br><span class="line">  │  └─ kindnet-sbqxd                                  100.0m               100.0m</span><br><span class="line">  └─ kind-worker2                                      100.0m          2%   100.0m      2%          4.0      3.9</span><br><span class="line">     └─ kindnet-sw5mq                                  100.0m               100.0m</span><br><span class="line">  ephemeral-storage                                       0.0          0%      0.0      0%      581.5Gi  581.5Gi</span><br><span class="line">  ├─ kind-control-plane                                   0.0          0%      0.0      0%      193.8Gi  193.8Gi</span><br><span class="line">  ├─ kind-worker                                          0.0          0%      0.0      0%      193.8Gi  193.8Gi</span><br><span class="line">  └─ kind-worker2                                         0.0          0%      0.0      0%      193.8Gi  193.8Gi</span><br><span class="line">  memory                                              290.0Mi          1%  490.0Mi      1%       46.9Gi   46.4Gi</span><br><span class="line">  ├─ kind-control-plane                               190.0Mi          1%  390.0Mi      2%       15.6Gi   15.3Gi</span><br><span class="line">  │  ├─ coredns-6955765f44-l4z47                       70.0Mi              170.0Mi</span><br><span class="line">  │  ├─ coredns-6955765f44-zb5xx                       70.0Mi              170.0Mi</span><br><span class="line">  │  └─ kindnet-czpsv                                  50.0Mi               50.0Mi</span><br><span class="line">  ├─ kind-worker                                       50.0Mi          0%   50.0Mi      0%       15.6Gi   15.6Gi</span><br><span class="line">  │  └─ kindnet-sbqxd                                  50.0Mi               50.0Mi</span><br><span class="line">  └─ kind-worker2                                      50.0Mi          0%   50.0Mi      0%       15.6Gi   15.6Gi</span><br><span class="line">     └─ kindnet-sw5mq                                  50.0Mi               50.0Mi</span><br><span class="line">  pods                                                    0.0          0%      0.0      0%        330.0    330.0</span><br><span class="line">  ├─ kind-control-plane                                   0.0          0%      0.0      0%        110.0    110.0</span><br><span class="line">  ├─ kind-worker                                          0.0          0%      0.0      0%        110.0    110.0</span><br><span class="line">  └─ kind-worker2                                         0.0          0%      0.0      0%        110.0    110.0</span><br></pre></td></tr></table></figure>
+
+<p>這個工具我個人認為還滿好用的，畢竟可以幫你顯示出當前系統上運算資源所使用的 CPU&#x2F;Memory 等使用量，這些使用量可以用來幫助開發者判斷要如何設定相關的資源限制。</p>
+<h1 id="change-ns"><a href="#change-ns" class="headerlink" title="change-ns"></a>change-ns</h1><p>這套工具相對簡單，就是幫你切換預設的 namespace，減少每次輸入指令的時候都要一直透過 <code>-n|--namespace</code> 來指定特定的 namespace。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl krew install change-ns</span><br><span class="line">Updated the <span class="built_in">local</span> copy of plugin index.</span><br><span class="line">Installing plugin: change-ns</span><br><span class="line">Installed plugin: change-ns</span><br><span class="line">\</span><br><span class="line"> | Use this plugin:</span><br><span class="line"> |      kubectl change-ns</span><br><span class="line"> | Documentation:</span><br><span class="line"> |      https://github.com/juanvallejo/kubectl-ns</span><br><span class="line">/</span><br><span class="line">WARNING: You installed plugin <span class="string">&quot;change-ns&quot;</span> from the krew-index plugin repository.</span><br><span class="line">   These plugins are not audited <span class="keyword">for</span> security by the Krew maintainers.</span><br><span class="line">   Run them at your own risk.</span><br><span class="line">$ kubectl change-ns kube-system</span><br><span class="line">namespace changed to <span class="string">&quot;kube-system&quot;</span></span><br><span class="line">$ kubectl get pods</span><br><span class="line">NAME                                         READY   STATUS    RESTARTS   AGE</span><br><span class="line">coredns-6955765f44-l4z47                     1/1     Running   0          2d13h</span><br><span class="line">coredns-6955765f44-zb5xx                     1/1     Running   0          2d13h</span><br><span class="line">etcd-kind-control-plane                      1/1     Running   0          2d13h</span><br><span class="line">kindnet-czpsv                                1/1     Running   0          2d13h</span><br><span class="line">kindnet-sbqxd                                1/1     Running   0          2d13h</span><br><span class="line">kindnet-sw5mq                                1/1     Running   0          2d13h</span><br><span class="line">kube-apiserver-kind-control-plane            1/1     Running   0          2d13h</span><br><span class="line">kube-controller-manager-kind-control-plane   1/1     Running   0          2d13h</span><br><span class="line">kube-proxy-4b5rl                             1/1     Running   0          2d13h</span><br><span class="line">kube-proxy-nrspx                             1/1     Running   0          2d13h</span><br><span class="line">kube-proxy-skfm5                             1/1     Running   0          2d13h</span><br><span class="line">kube-scheduler-kind-control-plane            1/1     Running   0          2d13h</span><br></pre></td></tr></table></figure>
+
+
+
+<p>類似的工具還有<code>ctx</code> ，可以幫切換不同的 <code>kubeconfig context</code>，讓你更方便的於多個 Kubernetes Cluster 中切換</p>
+<h1 id="Status"><a href="#Status" class="headerlink" title="Status"></a>Status</h1><p>這個工具算是幫你把 description 的資訊再次整理，舉例來說我們準備了一個 <code>pull image</code> 會失敗的案例，這時候我們用 <code>status</code> 這個指令來試試看</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl krew install status</span><br><span class="line">Updated the <span class="built_in">local</span> copy of plugin index.</span><br><span class="line">Installing plugin: status</span><br><span class="line">Installed plugin: status</span><br><span class="line">\</span><br><span class="line"> | Use this plugin:</span><br><span class="line"> |      kubectl status</span><br><span class="line"> | Documentation:</span><br><span class="line"> |      https://github.com/bergerx/kubectl-status</span><br><span class="line">/</span><br><span class="line">WARNING: You installed plugin <span class="string">&quot;status&quot;</span> from the krew-index plugin repository.</span><br><span class="line">   These plugins are not audited <span class="keyword">for</span> security by the Krew maintainers.</span><br><span class="line">   Run them at your own risk.</span><br></pre></td></tr></table></figure>
+
+
+
+<p>安裝完畢後我們針對一個失敗的 pod 來使用 <code>kubectl status pod xxxx</code></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl status pod pull-fail</span><br><span class="line"></span><br><span class="line">Pod/pull-fail -n default, created 2m ago Pending Burstable</span><br><span class="line">  PodScheduled -&gt; Initialized -&gt; Not ContainersReady -&gt; Not Ready</span><br><span class="line">    Ready ContainersNotReady, containers with unready status: [getting-started] <span class="keyword">for</span> 2m</span><br><span class="line">    ContainersReady ContainersNotReady, containers with unready status: [getting-started] <span class="keyword">for</span> 2m</span><br><span class="line">  Standalone POD.</span><br><span class="line">  Containers:</span><br><span class="line">    getting-started (hwchiu/netutils-qq) Waiting ErrImagePull: rpc error: code = Unknown desc = failed to pull and unpack image <span class="string">&quot;docker.io/hwchiu/netutils-qq:latest&quot;</span>: failed to resolve reference <span class="string">&quot;docker.io/hwchiu/netutils-qq:latest&quot;</span>: pull access denied, repository does not exist or may require authorization: server message: insufficient_scope: authorization failed</span><br><span class="line">  Events:</span><br><span class="line">    Scheduled 2m ago from default-scheduler: Successfully assigned default/pull-fail to kind-worker</span><br><span class="line">    Pulling 28s ago (x4 over 1m) from kubelet,kind-worker: Pulling image <span class="string">&quot;hwchiu/netutils-qq&quot;</span></span><br><span class="line">    Failed 28s ago (x4 over 1m) from kubelet,kind-worker: Failed to pull image <span class="string">&quot;hwchiu/netutils-qq&quot;</span>: rpc error: code = Unknown desc = failed to pull and unpack image <span class="string">&quot;docker.io/hwchiu/netutils-qq:latest&quot;</span>: failed to resolve reference <span class="string">&quot;docker.io/hwchiu/netutils-qq:latest&quot;</span>: pull access denied, repository does not exist or may require authorization: server message: insufficient_scope: authorization failed</span><br><span class="line">    Failed 28s ago (x4 over 1m) from kubelet,kind-worker: Error: ErrImagePull</span><br><span class="line">    BackOff 13s ago (x6 over 1m) from kubelet,kind-worker: Back-off pulling image <span class="string">&quot;hwchiu/netutils-qq&quot;</span></span><br><span class="line">    Failed 13s ago (x6 over 1m) from kubelet,kind-worker: Error: ImagePullBackOff</span><br></pre></td></tr></table></figure>
+
+
+
+<p>上面可以看到一些資訊，譬如說</p>
+<ol>
+<li>PodScheduled -&gt; Initialized -&gt; Not ContainersReady -&gt; Not Ready<br>Pod 失敗是因為卡在 <code>ContainersReady</code> 這個狀態會失敗，導致最後整個 Pod 沒有成功</li>
+<li>Standalone POD<br>這個 Pod 本身沒有任何的 StatefulSet&#x2F;ReplicaSet，而是獨立的 Pod</li>
+<li>Containers: 底下就是一些詳細訊息，譬如為什麼會失敗</li>
+<li>Events: 這個 Pod 的一些事件資訊</li>
+</ol>
+<p>除了 Pod 之外， Status 也可以用來看其他的資源，有興趣可以玩看看</p>
+<h1 id="access-matrix"><a href="#access-matrix" class="headerlink" title="access-matrix"></a>access-matrix</h1><p>接下來這個工具主要是用來<code>列出當前使用者對於系統上的全部 Resource的權限資訊</code>，主要是該使用者對於特定資源上的不同動詞 (Get&#x2F;Update&#x2F;List&#x2F;Delete) 等是否可以執行</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl krew install access-matrix</span><br><span class="line">Updated the <span class="built_in">local</span> copy of plugin index.</span><br><span class="line">Installing plugin: access-matrix</span><br><span class="line">Installed plugin: access-matrix</span><br><span class="line">\</span><br><span class="line"> | Use this plugin:</span><br><span class="line"> |      kubectl access-matrix</span><br><span class="line"> | Documentation:</span><br><span class="line"> |      https://github.com/corneliusweig/rakkess</span><br><span class="line"> | Caveats:</span><br><span class="line"> | \</span><br><span class="line"> |  | Usage:</span><br><span class="line"> |  |   kubectl access-matrix</span><br><span class="line"> |  |   kubectl access-matrix <span class="keyword">for</span> pods</span><br><span class="line"> | /</span><br><span class="line">/</span><br><span class="line">WARNING: You installed plugin <span class="string">&quot;access-matrix&quot;</span> from the krew-index plugin repository.</span><br><span class="line">   These plugins are not audited <span class="keyword">for</span> security by the Krew maintainers.</span><br><span class="line">   Run them at your own risk.</span><br></pre></td></tr></table></figure>
+
+
+
+<p>此外也可以透過 <code>--sa</code> 等指令來切換不同的 <code>service account</code>，所以可以看到下列的範例，用不同的使用者去看權限，我預設的使用者有幾乎無敵的權限，什麼都可以執行。如果是系統上 <code>kube-system:namespace-controller</code> 則只能 LIST&#x2F;DELETE。</p>
+<p>除了這四個動詞之外，其實還有很多動詞可以用，只是預設情況下只會列出這四個</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl access-matrix --sa kube-system:namespace-controller</span><br><span class="line">NAME                                                          LIST  CREATE  UPDATE  DELETE</span><br><span class="line">apiservices.apiregistration.k8s.io                            ✔     ✖       ✖       ✔</span><br><span class="line">bindings                                                            ✖</span><br><span class="line">certificatesigningrequests.certificates.k8s.io                ✔     ✖       ✖       ✔</span><br><span class="line">clusterrolebindings.rbac.authorization.k8s.io                 ✔     ✖       ✖       ✔</span><br><span class="line">clusterroles.rbac.authorization.k8s.io                        ✔     ✖       ✖       ✔</span><br><span class="line">componentstatuses                                             ✔</span><br><span class="line">configmaps                                                    ✔     ✖       ✖       ✔</span><br><span class="line">controllerrevisions.apps                                      ✔     ✖       ✖       ✔</span><br><span class="line">cronjobs.batch                                                ✔     ✖       ✖       ✔</span><br><span class="line">csidrivers.storage.k8s.io                                     ✔     ✖       ✖       ✔</span><br><span class="line">.....</span><br><span class="line">$ kubectl access-matrix</span><br><span class="line">NAME                                                          LIST  CREATE  UPDATE  DELETE</span><br><span class="line">apiservices.apiregistration.k8s.io                            ✔     ✔       ✔       ✔</span><br><span class="line">bindings                                                            ✔</span><br><span class="line">certificatesigningrequests.certificates.k8s.io                ✔     ✔       ✔       ✔</span><br><span class="line">clusterrolebindings.rbac.authorization.k8s.io                 ✔     ✔       ✔       ✔</span><br><span class="line">clusterroles.rbac.authorization.k8s.io                        ✔     ✔       ✔       ✔</span><br><span class="line">componentstatuses                                             ✔</span><br><span class="line">configmaps                                                    ✔     ✔       ✔       ✔</span><br><span class="line">controllerrevisions.apps                                      ✔     ✔       ✔       ✔</span><br><span class="line">cronjobs.batch                                                ✔     ✔       ✔       ✔</span><br><span class="line">csidrivers.storage.k8s.io                                     ✔     ✔       ✔       ✔</span><br></pre></td></tr></table></figure>
+
+
+
+<h1 id="starboard"><a href="#starboard" class="headerlink" title="starboard"></a>starboard</h1><p>最後來看一個跟安全性有關的 plugin</p>
+<blockquote>
+<p>Starboard integrates security tools into the Kubernetes environment, so that users can find and view the risks that relate to different resources in a Kubernetes-native way. Starboard provides <a target="_blank" rel="noopener" href="https://github.com/aquasecurity/starboard#custom-security-resources-definitions">custom security resources definitions</a> and a <a target="_blank" rel="noopener" href="https://github.com/aquasecurity/starboard/blob/master/pkg">Go module</a> to work with a range of existing security tools, as well as a <code>kubectl</code>-compatible command-line tool and an Octant plug-in that make security reports available through familiar Kubernetes tools.</p>
+</blockquote>
+<p>接下來示範怎麼用(假設已經安裝完畢)</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl starboard init</span><br><span class="line">$ kubectl create deployment nginx --image nginx:1.16</span><br></pre></td></tr></table></figure>
+
+<p>先透過 <code>starboard</code> 去初始化相關資源，接者我們部署一個 <code>nginx:1.16</code> 的容器到系統中</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl starboard find vulnerabilities deployment/nginx</span><br><span class="line">$ kubectl starboard get vulnerabilities deployment/nginx</span><br><span class="line">....</span><br><span class="line">    summary:</span><br><span class="line">      criticalCount: 0</span><br><span class="line">      highCount: 4</span><br><span class="line">      lowCount: 93</span><br><span class="line">      mediumCount: 34</span><br><span class="line">      noneCount: 0</span><br><span class="line">      unknownCount: 0</span><br><span class="line">    vulnerabilities:</span><br><span class="line">    - description: Missing input validation <span class="keyword">in</span> the ar/tar implementations of APT before</span><br><span class="line">        version 2.1.2 could result <span class="keyword">in</span> denial of service when processing specially</span><br><span class="line">        crafted deb files.</span><br><span class="line">      fixedVersion: 1.8.2.1</span><br><span class="line">      installedVersion: 1.8.2</span><br><span class="line">      layerID: <span class="string">&quot;&quot;</span></span><br><span class="line">      links:</span><br><span class="line">      - https://bugs.launchpad.net/bugs/1878177</span><br><span class="line">      - https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-3810</span><br><span class="line">      - https://github.com/Debian/apt/issues/111</span><br><span class="line">      - https://github.com/julian-klode/apt/commit/de4efadc3c92e26d37272fd310be148ec61dcf36</span><br><span class="line">      - https://lists.debian.org/debian-security-announce/2020/msg00089.html</span><br><span class="line">      - https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/U4PEH357MZM2SUGKETMEHMSGQS652QHH/</span><br><span class="line">      - https://salsa.debian.org/apt-team/apt/-/commit/dceb1e49e4b8e4dadaf056be34088b415939cda6</span><br><span class="line">      - https://salsa.debian.org/jak/apt/-/commit/dceb1e49e4b8e4dadaf056be34088b415939cda6</span><br><span class="line">      - https://tracker.debian.org/news/1144109/accepted-apt-212-source-into-unstable/</span><br><span class="line">      - https://usn.ubuntu.com/4359-1/</span><br><span class="line">      - https://usn.ubuntu.com/4359-2/</span><br><span class="line">      - https://usn.ubuntu.com/usn/usn-4359-1</span><br><span class="line">      - https://usn.ubuntu.com/usn/usn-4359-2</span><br><span class="line">      resource: apt</span><br><span class="line">      severity: MEDIUM</span><br><span class="line">      title: <span class="string">&quot;&quot;</span></span><br><span class="line">      vulnerabilityID: CVE-2020-3810</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+
+
+<p>可以看到上面有很多訊息，列出當前 image 上有哪些潛在的 CVE，如果覺得這樣看起來實在不討喜，可以使用 <a target="_blank" rel="noopener" href="https://github.com/aquasecurity/starboard-octant-plugin">starboard-octant-plugin</a> 這個整合專案，把上述的報告用 UI 的方式視覺話呈現出來，譬如說下圖(下圖節錄自 <a target="_blank" rel="noopener" href="https://github.com/aquasecurity/starboard-octant-plugin">starboard-octant-plugin</a> 官方 Repo)</p>
+<p><img src="https://github.com/aquasecurity/starboard-octant-plugin/raw/master/docs/images/deployment_vulnerabilities.png" alt="img"></p>
+<p>到這邊為止，我們介紹了一些有趣的 Kubectl plugin，當然這些 plugin 本身也都是一個獨立的執行檔案，所以其實就算不透過 kubectl 來執行也是沒問題的，所有個工具都可以獨立使用。透過 krew 只是我們可以更方便的搜尋到有哪些 plugin 可以用，實務上要怎麼執行都是個人喜歡，方便，操作順暢即可。</p>
+<p>Krew 上面的工具非常多，使用上可以都可以嘗試看看，也因為這樣才有辦法找到真的對自己日常工作有幫助的好幫手</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>詳細可以參閱<br>矽谷牛線上學院<br><a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-26.html" rel="prev" title="鐵人賽系列文章- Day26 - kubelet Plugin 介紹">
+                  <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day26 - kubelet Plugin 介紹
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-28.html" rel="next" title="鐵人賽系列文章- Day 28 - Kubernetes 第三方好用工具介紹">
+                  鐵人賽系列文章- Day 28 - Kubernetes 第三方好用工具介紹 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

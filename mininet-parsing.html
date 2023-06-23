@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="Introduction 此篇文章的目標是用來釐清mininet是如何emulate網路中的host、switch以及link 主要以圖解、指令與mininet實際中的程式碼來描述所有的行為 Mininet version: 2.1.0p1 Mininet目前是採用network namespaces來達到network isolation的功能，可以參考這邊的說明 底下會描述要如何在系統中仿真出">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Mininet 運作原理">
+<meta property="og:url" content="https://www.hwchiu.com/mininet-parsing.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="Introduction 此篇文章的目標是用來釐清mininet是如何emulate網路中的host、switch以及link 主要以圖解、指令與mininet實際中的程式碼來描述所有的行為 Mininet version: 2.1.0p1 Mininet目前是採用network namespaces來達到network isolation的功能，可以參考這邊的說明 底下會描述要如何在系統中仿真出">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://lh3.googleusercontent.com/-Ks4Jnge1LM0/U_NVE6312vI/AAAAAAAABnc/UABXeIqFiUg/w804-h419-no/Figure0.png">
+<meta property="og:image" content="https://lh4.googleusercontent.com/bHfBMKJ8lgNchmpK8mXEgxty3B609ChpBYx20qpYXso=w804-h419-no">
+<meta property="og:image" content="https://lh5.googleusercontent.com/oT14RIKBCPSRYLXLjhL8jC3vS5oPdMf67r5_gBRebuY=w804-h419-no">
+<meta property="og:image" content="https://lh4.googleusercontent.com/scsBAIEpo5-gO1k9tVPNTPHr-d7Q-Q3dgEm_nqhodYk=w804-h419-no">
+<meta property="og:image" content="https://lh6.googleusercontent.com/-oMP0TN5dms4/U_NZpcJaNuI/AAAAAAAABoI/O_zxCNeI27Y/w804-h419-no/Figure5.png">
+<meta property="og:image" content="https://lh5.googleusercontent.com/xn1vz7MvkXaGuCw3Dd_DYiHJ1nSZ992W_cZ6i-s7rmE=w804-h419-no">
+<meta property="article:published_time" content="2014-08-19T04:54:00.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.632Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="SDN">
+<meta property="article:tag" content="Openflow">
+<meta property="article:tag" content="SourceCode">
+<meta property="article:tag" content="Mininet">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://lh3.googleusercontent.com/-Ks4Jnge1LM0/U_NVE6312vI/AAAAAAAABnc/UABXeIqFiUg/w804-h419-no/Figure0.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/mininet-parsing.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/mininet-parsing.html","path":"mininet-parsing.html","title":"Mininet 運作原理"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Mininet 運作原理 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Introduction"><span class="nav-number">1.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Steps"><span class="nav-number">2.</span> <span class="nav-text">Steps</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#mnexec"><span class="nav-number">2.1.</span> <span class="nav-text">mnexec</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9C%80%E5%BE%8C"><span class="nav-number">3.</span> <span class="nav-text">最後</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number"></span> <span class="nav-text">個人資訊</span></a></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/mininet-parsing.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Mininet 運作原理 | Hwchiu Learning Note">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Mininet 運作原理
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2014-08-19 12:54:00" itemprop="dateCreated datePublished" datetime="2014-08-19T12:54:00+08:00">2014-08-19</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><ul>
+<li>此篇文章的目標是用來釐清<code>mininet</code>是如何emulate網路中的<strong>host</strong>、<strong>switch</strong>以及<strong>link</strong></li>
+<li>主要以圖解、指令與mininet實際中的程式碼來描述所有的行為</li>
+<li>Mininet version: <strong>2.1.0p1</strong></li>
+<li>Mininet目前是採用<strong>network namespaces</strong>來達到<strong>network isolation</strong>的功能，可以參考<a target="_blank" rel="noopener" href="http://mininet.org/overview/">這邊</a>的說明</li>
+<li>底下會描述要如何在系統中仿真出一個如下圖般的拓樸</li>
+</ul>
+<span id="more"></span>
+
+<p><img src="https://lh3.googleusercontent.com/-Ks4Jnge1LM0/U_NVE6312vI/AAAAAAAABnc/UABXeIqFiUg/w804-h419-no/Figure0.png"></p>
+<h2 id="Steps"><a href="#Steps" class="headerlink" title="Steps"></a>Steps</h2><p>一開始，我們的系統環境完全是空的，如下<br><img src="https://lh4.googleusercontent.com/bHfBMKJ8lgNchmpK8mXEgxty3B609ChpBYx20qpYXso=w804-h419-no"></p>
+<p>首先，我們要先為系統中創立兩個Host，在<code>mininet</code>裡面，每個Host其實就是一個<code>Node</code>的物件，可以在node.py中看到此物件的定義，如下。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Node</span>( <span class="title class_ inherited__">object</span> ):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;A virtual network node is simply a shell in a network namespace.</span></span><br><span class="line"><span class="string">       We communicate with it using pipes.&quot;&quot;&quot;</span></span><br><span class="line"></span><br><span class="line">    portBase = <span class="number">0</span>  <span class="comment"># Nodes always start with eth0/port0, even in OF 1.0</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params"> self, name, inNamespace=<span class="literal">True</span>, **params </span>):</span><br><span class="line">        <span class="string">&quot;&quot;&quot;name: name of node</span></span><br><span class="line"><span class="string">           inNamespace: in network namespace?</span></span><br><span class="line"><span class="string">           params: Node parameters (see config() for details)&quot;&quot;&quot;</span></span><br><span class="line"></span><br><span class="line">        <span class="comment"># Make sure class actually works</span></span><br><span class="line">        self.checkSetup()</span><br><span class="line"></span><br><span class="line">        self.name = name</span><br><span class="line">        self.inNamespace = inNamespace</span><br><span class="line"></span><br><span class="line">        <span class="comment"># Stash configuration parameters for future reference</span></span><br><span class="line">        self.params = params</span><br><span class="line"></span><br><span class="line">        self.intfs = &#123;&#125;  <span class="comment"># dict of port numbers to interfaces</span></span><br><span class="line">        self.ports = &#123;&#125;  <span class="comment"># dict of interfaces to port numbers</span></span><br><span class="line">                         <span class="comment"># replace with Port objects, eventually ?</span></span><br><span class="line">        self.nameToIntf = &#123;&#125;  <span class="comment"># dict of interface names to Intfs</span></span><br><span class="line"></span><br><span class="line">        <span class="comment"># Make pylint happy</span></span><br><span class="line">        ( self.shell, self.execed, self.pid, self.stdin, self.stdout,</span><br><span class="line">            self.lastPid, self.lastCmd, self.pollOut ) = (</span><br><span class="line">                <span class="literal">None</span>, <span class="literal">None</span>, <span class="literal">None</span>, <span class="literal">None</span>, <span class="literal">None</span>, <span class="literal">None</span>, <span class="literal">None</span>, <span class="literal">None</span> )</span><br><span class="line">        self.waiting = <span class="literal">False</span></span><br><span class="line">        self.readbuf = <span class="string">&#x27;&#x27;</span></span><br><span class="line"></span><br><span class="line">        <span class="comment"># Start command interpreter shell</span></span><br><span class="line">        self.startShell()</span><br></pre></td></tr></table></figure>
+
+<p>這邊可以看到，這邊會有一個變數<strong>inNamespace</strong>用來決定此Host是否要透過<strong>network namespaces</strong>來達到<strong>network isolation</strong>的功能，當一切變數都初始化後，就會呼叫**startShell()**來執行此Host。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">startShell</span>(<span class="params"> self </span>):</span><br><span class="line">    <span class="string">&quot;Start a shell process for running commands&quot;</span></span><br><span class="line">    <span class="keyword">if</span> self.shell:</span><br><span class="line">        error( <span class="string">&quot;%s: shell is already running&quot;</span> )</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    <span class="comment"># mnexec: (c)lose descriptors, (d)etach from tty,</span></span><br><span class="line">    <span class="comment"># (p)rint pid, and run in (n)amespace</span></span><br><span class="line">    opts = <span class="string">&#x27;-cdp&#x27;</span></span><br><span class="line">    <span class="keyword">if</span> self.inNamespace:</span><br><span class="line">        opts += <span class="string">&#x27;n&#x27;</span></span><br><span class="line">    <span class="comment"># bash -m: enable job control</span></span><br><span class="line">    <span class="comment"># -s: pass $* to shell, and make process easy to find in ps</span></span><br><span class="line">    cmd = [ <span class="string">&#x27;mnexec&#x27;</span>, opts, <span class="string">&#x27;bash&#x27;</span>, <span class="string">&#x27;-ms&#x27;</span>, <span class="string">&#x27;mininet:&#x27;</span> + self.name ]</span><br><span class="line">    self.shell = Popen( cmd, stdin=PIPE, stdout=PIPE, stderr=STDOUT,</span><br><span class="line">                        close_fds=<span class="literal">True</span> )</span><br><span class="line">    self.stdin = self.shell.stdin</span><br><span class="line">    self.stdout = self.shell.stdout</span><br><span class="line">    ...</span><br></pre></td></tr></table></figure>
+<p>這邊可以觀察到，<code>mininet</code>是透過一隻叫做<code>mnexec</code>的程式來執行，</p>
+<h3 id="mnexec"><a href="#mnexec" class="headerlink" title="mnexec"></a>mnexec</h3><ul>
+<li>透過參數-n來將此process給轉換到<strong>network namespaces</strong>中</li>
+<li>程式內會透過<strong>execvp</strong>去執行參數中的指令，在此範例中該指令就是**”-ms mininet:”+self.name**。<ul>
+<li>這邊可以透過執行mininet後，在執行<strong>ps auxww | grep mininet</strong>，應該會看到類似下面的結果<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">root     22071  0.0  0.0  12308  1384 ?        Ss   23:10   0:00 bash -ms mininet:c0</span><br><span class="line">root     22079  0.0  0.0  12308  1384 ?        Ss   23:10   0:00 bash -ms mininet:h1</span><br><span class="line">root     22080  0.0  0.0  12308  1380 ?        Ss   23:10   0:00 bash -ms mininet:h2</span><br><span class="line">root     22081  0.0  0.0  12308  1380 ?        Ss   23:10   0:00 bash -ms mininet:h3</span><br><span class="line">root     22082  0.0  0.0  12308  1380 ?        Ss   23:10   0:00 bash -ms mininet:h4</span><br><span class="line">root     22085  0.0  0.0  12312  1384 ?        Ss   23:10   0:00 bash -ms mininet:s1</span><br><span class="line">root     22090  0.0  0.0  12312  1388 ?        Ss   23:10   0:00 bash -ms mininet:s2</span><br><span class="line">root     22095  0.0  0.0  12312  1388 ?        Ss   23:10   0:00 bash -ms mininet:s3</span><br><span class="line">root     22100  0.0  0.0  12312  1384 ?        Ss   23:10   0:00 bash -ms mininet:s4</span><br><span class="line">root     22105  0.0  0.0  12312  1384 ?        Ss   23:10   0:00 bash -ms mininet:s5</span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+<li>並且把該<code>mnexec</code>的<strong>stdout</strong>,<strong>stdin</strong>給接起來，未來會需要透過這兩個FD來與該host溝通。</li>
+</ul>
+<p>當初始化兩個Host後，系統中就會出現了兩個Host，且這兩個host都會透過<strong>namespace</strong>來達到<strong>network isolation</strong>，理論上我們要可以透過<code>ip netns show</code>來看到這些<strong>namespaces</strong>，實際上卻看不到，原因如同<a target="_blank" rel="noopener" href="https://mailman.stanford.edu/pipermail/mininet-discuss/2014-January/003796.html">此篇</a>所說。<br>此時，我們的系統如下<br><img src="https://lh5.googleusercontent.com/oT14RIKBCPSRYLXLjhL8jC3vS5oPdMf67r5_gBRebuY=w804-h419-no"></p>
+<p>創立好Host後，接下來要創立Switch，Switch有很多種選擇，包含了<strong>OVSLegacyKernelSwitch</strong>、<strong>UserSwitch</strong>、<strong>OVSSwitch</strong>，<strong>IVSSwitch</strong>此四種，一般常用的就是<strong>OVSSwitch</strong><br>這四種Switch都繼承自<strong>Switch</strong>物件，而<strong>Switch</strong>物件則繼承自<strong>Node</strong><br>-	Node<br>    - Switch<br>      - OVSLegacyKernelSwitch<br>    - UserSwitch<br>    - OVSSwitch<br>    - IVSSwitch</p>
+<p>在switch創立後，會透過<strong>start</strong>此function來進行相關初始化的動作，以OVSSwitch為例，就會執行一系列我們所熟悉的**ovs-***指令，如下。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">start</span>(<span class="params"> self, controllers </span>):</span><br><span class="line">    <span class="string">&quot;Start up a new OVS OpenFlow switch using ovs-vsctl&quot;</span></span><br><span class="line">    <span class="keyword">if</span> self.inNamespace:</span><br><span class="line">        <span class="keyword">raise</span> Exception(</span><br><span class="line">            <span class="string">&#x27;OVS kernel switch does not work in a namespace&#x27;</span> )</span><br><span class="line">    <span class="comment"># We should probably call config instead, but this</span></span><br><span class="line">    <span class="comment"># requires some rethinking...</span></span><br><span class="line">    self.cmd( <span class="string">&#x27;ifconfig lo up&#x27;</span> )</span><br><span class="line">    <span class="comment"># Annoyingly, --if-exists option seems not to work</span></span><br><span class="line">    self.cmd( <span class="string">&#x27;ovs-vsctl del-br&#x27;</span>, self )</span><br><span class="line">    self.cmd( <span class="string">&#x27;ovs-vsctl add-br&#x27;</span>, self )</span><br><span class="line">    <span class="keyword">if</span> self.datapath == <span class="string">&#x27;user&#x27;</span>:</span><br><span class="line">        self.cmd( <span class="string">&#x27;ovs-vsctl set bridge&#x27;</span>, self,<span class="string">&#x27;datapath_type=netdev&#x27;</span> )</span><br><span class="line">    <span class="built_in">int</span>( self.dpid, <span class="number">16</span> ) <span class="comment"># DPID must be a hex string</span></span><br><span class="line">    self.cmd( <span class="string">&#x27;ovs-vsctl -- set Bridge&#x27;</span>, self,</span><br><span class="line">              <span class="string">&#x27;other_config:datapath-id=&#x27;</span> + self.dpid )</span><br><span class="line">    self.cmd( <span class="string">&#x27;ovs-vsctl set-fail-mode&#x27;</span>, self, self.failMode )</span><br><span class="line">    <span class="keyword">for</span> intf <span class="keyword">in</span> self.intfList():</span><br><span class="line">        <span class="keyword">if</span> <span class="keyword">not</span> intf.IP():</span><br><span class="line">            self.attach( intf )</span><br><span class="line">    <span class="comment"># Add controllers</span></span><br><span class="line">    clist = <span class="string">&#x27; &#x27;</span>.join( [ <span class="string">&#x27;tcp:%s:%d&#x27;</span> % ( c.IP(), c.port )</span><br><span class="line">                        <span class="keyword">for</span> c <span class="keyword">in</span> controllers ] )</span><br><span class="line">    <span class="keyword">if</span> self.listenPort:</span><br><span class="line">        clist += <span class="string">&#x27; ptcp:%s&#x27;</span> % self.listenPort</span><br><span class="line">    self.cmd( <span class="string">&#x27;ovs-vsctl set-controller&#x27;</span>, self, clist )</span><br><span class="line">    <span class="comment"># Reconnect quickly to controllers (1s vs. 15s max_backoff)</span></span><br><span class="line">    <span class="keyword">for</span> uuid <span class="keyword">in</span> self.controllerUUIDs():</span><br><span class="line">        <span class="keyword">if</span> uuid.count( <span class="string">&#x27;-&#x27;</span> ) != <span class="number">4</span>:</span><br><span class="line">            <span class="comment"># Doesn&#x27;t look like a UUID</span></span><br><span class="line">            <span class="keyword">continue</span></span><br><span class="line">        uuid = uuid.strip()</span><br><span class="line">        self.cmd( <span class="string">&#x27;ovs-vsctl set Controller&#x27;</span>, uuid,</span><br><span class="line">                  <span class="string">&#x27;max_backoff=1000&#x27;</span> )</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>在此程式中會去進行</p>
+<ol>
+<li>設定bridge</li>
+<li>設定datapath_type</li>
+<li>設定fail-mode</li>
+<li>設定controller</li>
+</ol>
+<p>此時系統如下，系統中已經創立好了switch以及兩個host，這三個Node都分別透過<strong>namespace</strong>來達到了<strong>network isolation</strong>，只是彼此之間都尚未有任何Link存在。<br><img src="https://lh4.googleusercontent.com/scsBAIEpo5-gO1k9tVPNTPHr-d7Q-Q3dgEm_nqhodYk=w804-h419-no"></p>
+<p>接下來，會根據拓墣的Link情況去創建對應的Iterface。首先，這邊使用到<strong>Link</strong>這個物件來表示每一條Link，每個<strong>Link</strong>實際上對應到的是兩個<strong>Node</strong>上面的<strong>Interface</strong>。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Link</span>( <span class="title class_ inherited__">object</span> ):</span><br><span class="line"></span><br><span class="line">    <span class="string">&quot;&quot;&quot;A basic link is just a veth pair.</span></span><br><span class="line"><span class="string">       Other types of links could be tunnels, link emulators, etc..&quot;&quot;&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params"> self, node1, node2, port1=<span class="literal">None</span>, port2=<span class="literal">None</span>,</span></span><br><span class="line"><span class="params">                  intfName1=<span class="literal">None</span>, intfName2=<span class="literal">None</span>,</span></span><br><span class="line"><span class="params">                  intf=Intf, cls1=<span class="literal">None</span>, cls2=<span class="literal">None</span>, params1=<span class="literal">None</span>,</span></span><br><span class="line"><span class="params">                  params2=<span class="literal">None</span> </span>):</span><br><span class="line">        ....</span><br><span class="line">        <span class="keyword">if</span> port1 <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            port1 = node1.newPort()</span><br><span class="line">        <span class="keyword">if</span> port2 <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            port2 = node2.newPort()</span><br><span class="line">        <span class="keyword">if</span> <span class="keyword">not</span> intfName1:</span><br><span class="line">            intfName1 = self.intfName( node1, port1 )</span><br><span class="line">        <span class="keyword">if</span> <span class="keyword">not</span> intfName2:</span><br><span class="line">            intfName2 = self.intfName( node2, port2 )</span><br><span class="line"></span><br><span class="line">        self.makeIntfPair( intfName1, intfName2 )</span><br></pre></td></tr></table></figure>
+<p>這邊要觀察到的，<strong>Link</strong>物件會呼叫<strong>makeIntfPair</strong>此方法，此方法就可以將兩個<strong>Interface</strong>給串接起來</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">makeIntfPair</span>(<span class="params"> intf1, intf2 </span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;Make a veth pair connecting intf1 and intf2.</span></span><br><span class="line"><span class="string">       intf1: string, interface</span></span><br><span class="line"><span class="string">       intf2: string, interface</span></span><br><span class="line"><span class="string">       returns: success boolean&quot;&quot;&quot;</span></span><br><span class="line">    <span class="comment"># Delete any old interfaces with the same names</span></span><br><span class="line">    quietRun( <span class="string">&#x27;ip link del &#x27;</span> + intf1 )</span><br><span class="line">    quietRun( <span class="string">&#x27;ip link del &#x27;</span> + intf2 )</span><br><span class="line">    <span class="comment"># Create new pair</span></span><br><span class="line">    cmd = <span class="string">&#x27;ip link add name &#x27;</span> + intf1 + <span class="string">&#x27; type veth peer name &#x27;</span> + intf2</span><br><span class="line">    <span class="keyword">return</span> quietRun( cmd )</span><br></pre></td></tr></table></figure>
+<p>這邊可以看到，<code>mininet</code>實際上是透過系統中的<code>ip link</code>的方法將兩個<strong>interface</strong>創造一條<strong>veth</strong>的Link。<br>此時系統如下<br><img src="https://lh6.googleusercontent.com/-oMP0TN5dms4/U_NZpcJaNuI/AAAAAAAABoI/O_zxCNeI27Y/w804-h419-no/Figure5.png"></p>
+<p>接下來，我們要把這些<strong>interface</strong>給綁到特定的<strong>Node</strong>身上，在<strong>Link</strong>物件初始化後段，會去初始化兩個<strong>Interface</strong>真正的物件本體，</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">class Intf( object ):</span><br><span class="line"></span><br><span class="line">    &quot;Basic interface object that can configure itself.&quot;</span><br><span class="line"></span><br><span class="line">    def __init__( self, name, node=None, port=None, link=None, **params ):</span><br><span class="line">        &quot;&quot;&quot;name: interface name (e.g. h1-eth0)</span><br><span class="line">           node: owning node (where this intf most likely lives)</span><br><span class="line">           link: parent link if we&#x27;re part of a link</span><br><span class="line">           other arguments are passed to config()&quot;&quot;&quot;</span><br><span class="line">        self.node = node</span><br><span class="line">        self.name = name</span><br><span class="line">        self.link = link</span><br><span class="line">        self.mac, self.ip, self.prefixLen = None, None, None</span><br><span class="line">        # Add to node (and move ourselves if necessary )</span><br><span class="line">        node.addIntf( self, port=port )</span><br><span class="line">        # Save params for future reference</span><br><span class="line">        self.params = params</span><br><span class="line">        self.config( **params )</span><br></pre></td></tr></table></figure>
+<p>這邊要觀察的重點是每個<strong>Interface</strong>都會去呼叫**node.addIntf( self, port&#x3D;port )**來處理，</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">addIntf</span>(<span class="params"> self, intf, port=<span class="literal">None</span> </span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;Add an interface.</span></span><br><span class="line"><span class="string">       intf: interface</span></span><br><span class="line"><span class="string">       port: port number (optional, typically OpenFlow port number)&quot;&quot;&quot;</span></span><br><span class="line">    <span class="keyword">if</span> port <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">        port = self.newPort()</span><br><span class="line">    self.intfs[ port ] = intf</span><br><span class="line">    self.ports[ intf ] = port</span><br><span class="line">    self.nameToIntf[ intf.name ] = intf</span><br><span class="line">    debug( <span class="string">&#x27;\n&#x27;</span> )</span><br><span class="line">    debug( <span class="string">&#x27;added intf %s:%d to node %s\n&#x27;</span> % ( intf, port, self.name ) )</span><br><span class="line">    <span class="keyword">if</span> self.inNamespace:</span><br><span class="line">        debug( <span class="string">&#x27;moving&#x27;</span>, intf, <span class="string">&#x27;into namespace for&#x27;</span>, self.name, <span class="string">&#x27;\n&#x27;</span> )</span><br><span class="line">        moveIntf( intf.name, self )</span><br></pre></td></tr></table></figure>
+<p>此方法最後會呼叫 <strong>moveIntf</strong> 來將該<strong>interface</strong>給處理，<strong>moveIntf</strong>則會呼叫<strong>moveIntfNoRetry</strong>將<strong>Interface</strong>給綁入到每個<strong>Node</strong>中。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">moveIntfNoRetry</span>(<span class="params"> intf, dstNode, srcNode=<span class="literal">None</span>, printError=<span class="literal">False</span> </span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;Move interface to node, without retrying.</span></span><br><span class="line"><span class="string">       intf: string, interface</span></span><br><span class="line"><span class="string">        dstNode: destination Node</span></span><br><span class="line"><span class="string">        srcNode: source Node or None (default) for root ns</span></span><br><span class="line"><span class="string">        printError: if true, print error&quot;&quot;&quot;</span></span><br><span class="line">    intf = <span class="built_in">str</span>( intf )</span><br><span class="line">    cmd = <span class="string">&#x27;ip link set %s netns %s&#x27;</span> % ( intf, dstNode.pid )</span><br><span class="line">    <span class="keyword">if</span> srcNode:</span><br><span class="line">        srcNode.cmd( cmd )</span><br><span class="line">    <span class="keyword">else</span>:</span><br><span class="line">        quietRun( cmd )</span><br><span class="line">    links = dstNode.cmd( <span class="string">&#x27;ip link show&#x27;</span> )</span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">not</span> ( <span class="string">&#x27; %s:&#x27;</span> % intf ) <span class="keyword">in</span> links:</span><br><span class="line">        <span class="keyword">if</span> printError:</span><br><span class="line">            error( <span class="string">&#x27;*** Error: moveIntf: &#x27;</span> + intf +</span><br><span class="line">                   <span class="string">&#x27; not successfully moved to &#x27;</span> + dstNode.name + <span class="string">&#x27;\n&#x27;</span> )</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">False</span></span><br><span class="line">    <span class="keyword">return</span> <span class="literal">True</span></span><br></pre></td></tr></table></figure>
+<p>這邊可以看到，透過的指令則是<strong>ip link set %s netns %s</strong>，會將特定的<strong>interface</strong>給塞入特定<strong>Node</strong>的<strong>namespace</strong>之中<br>此時，我們的系統如下<br><img src="https://lh5.googleusercontent.com/xn1vz7MvkXaGuCw3Dd_DYiHJ1nSZ992W_cZ6i-s7rmE=w804-h419-no"></p>
+<h2 id="最後"><a href="#最後" class="headerlink" title="最後"></a>最後</h2><ul>
+<li>透過<code>ovs-vsctl add-port</code>將<strong>Switch</strong>上面的<strong>Interface</strong>都給OVS控管<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">attach</span>(<span class="params"> self, intf </span>):</span><br><span class="line">    <span class="string">&quot;Connect a data port&quot;</span></span><br><span class="line">    self.cmd( <span class="string">&#x27;ovs-vsctl add-port&#x27;</span>, self, intf )</span><br><span class="line">    self.cmd( <span class="string">&#x27;ifconfig&#x27;</span>, intf, <span class="string">&#x27;up&#x27;</span> )</span><br><span class="line">    self.TCReapply( intf )</span><br></pre></td></tr></table></figure></li>
+<li>設定Host上面網卡的<strong>MAC</strong>、<strong>IP</strong>、<strong>Default Route</strong>，此步驟會在Mininet噴出<strong>Configuring hosts</strong>時處理<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">config</span>(<span class="params"> self, mac=<span class="literal">None</span>, ip=<span class="literal">None</span>,</span></span><br><span class="line"><span class="params">            defaultRoute=<span class="literal">None</span>, lo=<span class="string">&#x27;up&#x27;</span>, **_params </span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;Configure Node according to (optional) parameters:</span></span><br><span class="line"><span class="string">       mac: MAC address for default interface</span></span><br><span class="line"><span class="string">       ip: IP address for default interface</span></span><br><span class="line"><span class="string">       ifconfig: arbitrary interface configuration</span></span><br><span class="line"><span class="string">       Subclasses should override this method and call</span></span><br><span class="line"><span class="string">       the parent class&#x27;s config(**params)&quot;&quot;&quot;</span></span><br><span class="line">    <span class="comment"># If we were overriding this method, we would call</span></span><br><span class="line">    <span class="comment"># the superclass config method here as follows:</span></span><br><span class="line">    <span class="comment"># r = Parent.config( **_params )</span></span><br><span class="line">    r = &#123;&#125;</span><br><span class="line">    self.setParam( r, <span class="string">&#x27;setMAC&#x27;</span>, mac=mac )</span><br><span class="line">    self.setParam( r, <span class="string">&#x27;setIP&#x27;</span>, ip=ip )</span><br><span class="line">    self.setParam( r, <span class="string">&#x27;setDefaultRoute&#x27;</span>, defaultRoute=defaultRoute )</span><br><span class="line">    <span class="comment"># This should be examined</span></span><br><span class="line">    self.cmd( <span class="string">&#x27;ifconfig lo &#x27;</span> + lo )</span><br><span class="line">    <span class="keyword">return</span> r</span><br></pre></td></tr></table></figure>
+這三個指令最後都會呼叫到<strong>sendCmd</strong>來處理，此函式會利用先前執行<code>mnexec</code>得到的<strong>stdin</strong>,<strong>stout</strong>來與底下的host交換訊息。</li>
+</ul>
+<p>以上就是一個<code>mininet</code>如何創造一個拓樸的簡單流程，有滿多細節都省略掉的，只挑重要的指令來看，來瞭解是如何透過系統指令來完成這些拓樸的。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/SDN/" rel="tag"># SDN</a>
+              <a href="/tags/Openflow/" rel="tag"># Openflow</a>
+              <a href="/tags/SourceCode/" rel="tag"># SourceCode</a>
+              <a href="/tags/Mininet/" rel="tag"># Mininet</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2014-08-16-debugcounter-in-floodlight.html" rel="prev" title="DebugCounter in Floodlight">
+                  <i class="fa fa-chevron-left"></i> DebugCounter in Floodlight
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2014-08-20-rest-api-services-in-floodlight.html" rel="next" title="REST API services in Floodlight (Device)">
+                  REST API services in Floodlight (Device) <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

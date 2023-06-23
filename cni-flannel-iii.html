@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本篇文章作為 CNI - Flannel 的最後一篇探討，藉由研究 VXLAN 的運作原理來研究到底 flannel 是如何透過 vxlan 來讓不同節點上並且擁有私有 IP 的 Pod 可以互相溝通溝通的。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CNI - Flannel - VXLAN 封包運作篇">
+<meta property="og:url" content="https://www.hwchiu.com/cni-flannel-iii.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本篇文章作為 CNI - Flannel 的最後一篇探討，藉由研究 VXLAN 的運作原理來研究到底 flannel 是如何透過 vxlan 來讓不同節點上並且擁有私有 IP 的 Pod 可以互相溝通溝通的。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/MVQMaql.png">
+<meta property="og:image" content="https://i.imgur.com/jhHkgVH.png">
+<meta property="og:image" content="https://i.imgur.com/jhHkgVH.png">
+<meta property="og:image" content="https://i.imgur.com/npK0WX6.png">
+<meta property="og:image" content="https://i.imgur.com/dqfVlGK.png">
+<meta property="article:published_time" content="2019-09-30T20:30:44.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.606Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="CNI">
+<meta property="article:tag" content="Flannel">
+<meta property="article:tag" content="ITHOME">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/MVQMaql.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/cni-flannel-iii.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/cni-flannel-iii.html","path":"cni-flannel-iii.html","title":"CNI - Flannel - VXLAN 封包運作篇"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>CNI - Flannel - VXLAN 封包運作篇 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%92%B0%E5%A2%83%E5%BB%BA%E7%BD%AE"><span class="nav-number">2.</span> <span class="nav-text">環境建置</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Why-Network"><span class="nav-number">3.</span> <span class="nav-text">Why Network</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Before-CNI"><span class="nav-number">4.</span> <span class="nav-text">Before CNI</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#IP-%E5%88%86%E9%85%8D"><span class="nav-number">4.1.</span> <span class="nav-text">IP 分配</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Overlay-Network"><span class="nav-number">4.2.</span> <span class="nav-text">Overlay Network</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Overlay-Network-1"><span class="nav-number">4.2.1.</span> <span class="nav-text">Overlay Network</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B5%81%E7%A8%8B"><span class="nav-number">4.2.2.</span> <span class="nav-text">流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AF%A6%E4%BD%9C"><span class="nav-number">4.2.3.</span> <span class="nav-text">實作</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">5.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%83%E8%80%83"><span class="nav-number">6.</span> <span class="nav-text">參考</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">7.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/cni-flannel-iii.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="CNI - Flannel - VXLAN 封包運作篇 | Hwchiu Learning Note">
+      <meta itemprop="description" content="本篇文章作為 CNI - Flannel 的最後一篇探討，藉由研究 VXLAN 的運作原理來研究到底 flannel 是如何透過 vxlan 來讓不同節點上並且擁有私有 IP 的 Pod 可以互相溝通溝通的。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          CNI - Flannel - VXLAN 封包運作篇
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-10-01 04:30:44" itemprop="dateCreated datePublished" datetime="2019-10-01T04:30:44+08:00">2019-10-01</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本篇文章作為 CNI - Flannel 的最後一篇探討，藉由研究 VXLAN 的運作原理來研究到底 flannel 是如何透過 vxlan 來讓不同節點上並且擁有私有 IP 的 Pod 可以互相溝通溝通的。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前面兩篇文章探討了 <strong>flannel</strong> 的相關事項，包括了</p>
+<ol>
+<li>如何安裝 <strong>flannel</strong>，其安裝過程中到底執行了什麼步驟以及如何透過 <strong>daemonset</strong> 來確保設定檔案的一致與自動化安裝</li>
+<li><strong>flannel</strong> 如何去分配 <strong>IP</strong> 地址，目前透過官方安裝文件安裝的 <strong>flannel</strong> 都會透過 <strong>kubernetes API</strong> 去取得由 <strong>kubernetes controller manager</strong> 裡面 <strong>node IPAM</strong> 所自行分配的網段，並且將該資訊寫成檔案放到本機上面 <strong>&#x2F;run&#x2F;flannel&#x2F;subnet.env</strong> 上。 最後 <strong>FlannelCNI</strong> 執行的時候會讀取該資訊並且再次呼叫 <strong>host-local CNI IPAM</strong> 來處理該網段的 <strong>IP</strong>分配問題，最終產生一個可用的 <strong>IP</strong> 地址給 <strong>Pod</strong> 使用。</li>
+</ol>
+<p>本篇文章作為 <strong>flannel</strong> 的最後一個章節，想要跟大家來分享基於 <strong>VXLAN</strong> 設定的 <strong>flannel</strong> 本體是怎麼運作的，到底是如何讓不同節點內運行 <strong>Pod</strong> 可以互相溝通的。</p>
+<h1 id="環境建置"><a href="#環境建置" class="headerlink" title="環境建置"></a>環境建置</h1><p>為了搭建一個擁有三個節點的 kubernetes cluster，我認為直接使用 <strong>kubernetes-dind-cluster</strong> 是個滿不錯的選擇，可以快速搭建環境，又有多節點。</p>
+<p>或是也可以土法煉鋼繼續使用 <strong>kubeadm</strong> 的方式創建多節點的 kubernetes cluster， 這部分並沒有特別規定，總之能搭建起來即可。</p>
+<p>此外相關的版本資訊方面</p>
+<ul>
+<li>kubernetes version:v1.15.4</li>
+<li>flannel: 使用<a target="_blank" rel="noopener" href="https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml">官方安裝 Yaml</a> + 上一點修改<br>因為 <strong>Vagrant</strong> 預設的環境會有兩張網卡，其中第一張是沒有辦法換 <strong>IP</strong> 的，會導致整個 <strong>flannel</strong> 運作出問題，所以要修改該 <strong>yaml</strong> 讓 <strong>flanneld</strong> 運行的時候加上一個參數，範例如下，請記得根據平臺修改對應的 <strong>daemonset</strong><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="bullet">-</span> <span class="attr">name:</span> <span class="string">kube-flannel</span>                                                                                                                                                           [<span class="number">363</span><span class="string">/9057</span>]</span><br><span class="line"><span class="attr">image:</span> <span class="string">quay.io/coreos/flannel:v0.11.0-amd64</span></span><br><span class="line"><span class="attr">command:</span></span><br><span class="line"><span class="bullet">-</span> <span class="string">/opt/bin/flanneld</span></span><br><span class="line"><span class="attr">args:</span></span><br><span class="line"><span class="bullet">-</span> <span class="string">--ip-masq</span></span><br><span class="line"><span class="bullet">-</span> <span class="string">--kube-subnet-mgr</span></span><br><span class="line"><span class="bullet">-</span> <span class="string">--iface</span></span><br><span class="line"><span class="bullet">-</span> <span class="string">eth1</span></span><br></pre></td></tr></table></figure></li>
+<li>kubeadm 安裝過程使用的參數 <strong>–pod-network-cidr&#x3D;10.244.0.0&#x2F;16</strong></li>
+</ul>
+<h1 id="Why-Network"><a href="#Why-Network" class="headerlink" title="Why Network"></a>Why Network</h1><p>探討 <strong>flannel</strong> 的運作原理之前，我們需要先思考一件事情，到底 <strong>flannel</strong> 要解決什麼問題，或是說 <strong>kubernetes cluster</strong> 預設沒有 <strong>CNI</strong> 的情況下，可能會有什麼樣的網路問題需要仰賴 <strong>CNI</strong> 來處理。</p>
+<h1 id="Before-CNI"><a href="#Before-CNI" class="headerlink" title="Before CNI"></a>Before CNI</h1><p>再 <strong>CNI</strong> 安裝到 <strong>kubernetes cluster</strong> 前，我們可以先假想一個環境，假如今天 <strong>kubernetes cluster</strong> 上的每個節點都有自己的 <strong>IP</strong> 地址，且彼此互通。<br>現在要開始運行多個 <strong>Pod</strong> 於各個節點上，這時候有幾個事情要考慮</p>
+<ol>
+<li>這些 <strong>Pod</strong> 的 <strong>IP</strong> 到底怎麼來，是跟本來的網路架構用相同網段? 還是重新再分配一個私有網段?</li>
+<li>不同節點上面的 <strong>Pod</strong> 如果彼此要可以透過網路互相溝通，要怎麼封包傳輸才會通?</li>
+</ol>
+<p>這兩個問題沒有標準解答，隨者應用場景其答案也都不同，這也是為什麼會有這麼多 <strong>CNI</strong> 的解決方案的原因之一，因為網路的世界太大太廣，沒有辦法一言而諭找到一個通解。</p>
+<p>不同的使用場景，對於網路的要求也不同，有的講求能通就好，有的講求要低延遲，有的希望有各式各樣的輔助功能，所以對於 <strong>CNI</strong> 的選擇，很多時候反而要先問，自己的需求是什麼，再來挑選適合的 <strong>CNI</strong> 解決方案。</p>
+<p>上述的問題如下圖，這時候 <strong>CNI</strong> 都還沒有涉入，要思考的就是 <strong>IP</strong> 到底網段哪來，以及如何溝通</p>
+<p><img src="https://i.imgur.com/MVQMaql.png"></p>
+<h2 id="IP-分配"><a href="#IP-分配" class="headerlink" title="IP 分配"></a>IP 分配</h2><p><strong>IP</strong> 分配問題的話，有些情況會希望所有的 <strong>Pod</strong> 跟外面的節點與現存服務使用相同的網段，有些情況則覺得沒有關係，分配一些私有網段即可。</p>
+<p>舉一個範例，如果今天系統中已經運行了大量的服務，這時候希望導入 <strong>kubernetes</strong> 作為部署工具，但是基於現實考量，譬如測試，容器化等因素，並不是所有的服務都可以一次就直上 <strong>kubernetes</strong>。 同時本來的系統架構中，會有類似防火牆等安全機制，會根據 <strong>來源IP&#x2F;目的IP</strong> 進行一些檢查與過濾，這種情況下，使用者可能就會希望 <strong>kubernetes</strong> 內的 <strong>pod</strong> 可以跟本來環境中的網路使用相同網段的 <strong>IP</strong> 甚至是使用 <strong>dhcp</strong> 等方式來獲取 <strong>IP</strong>。</p>
+<p>但是對於部分的使用者來說，其實不太需要在乎這一塊議題，主要是在意的點只有 <strong>能不能方便存取</strong>, <strong>kubernetes service</strong> 能不能滿足需求，你裡面的 <strong>Pod</strong> 到底是什麼 <strong>IP</strong> 很多時候根本不重要。</p>
+<p>如果是公有雲的解決方案，有些也會希望能夠同網段，這樣可以跟公有雲其他的資源進行整合，不論是 <strong>IP</strong>的發放，<strong>防火牆</strong>的設定等都希望能夠只用公有雲一套規則滿足全部。</p>
+<p>這部分我之前有一篇文章在介紹 <a href="https://www.hwchiu.com/aks-cni-i.html">Azure - AKS</a>是怎麼實現其 <strong>CNI</strong> 來達到上述需求的。有興趣的讀者可以再額外閱讀。</p>
+<h2 id="Overlay-Network"><a href="#Overlay-Network" class="headerlink" title="Overlay Network"></a>Overlay Network</h2><p>網路串連的方法百百種，每種方法都有其價值以及使用場景，這次要來討論的則是 <strong>VXLAN</strong>，這個 <strong>flannel</strong> 預設的網路實現方式。</p>
+<p>以下圖為一個基本範例，根據前篇文章我們知道每個節點都會分配到不同網段，這個案例中分別是<br><img src="https://i.imgur.com/jhHkgVH.png"></p>
+<ol>
+<li>10.244.0.0&#x2F;24</li>
+<li>10.244.1.0&#x2F;24</li>
+<li>10.244.2.0&#x2F;24</li>
+</ol>
+<p>所以這三個節點所創造的 <strong>Pod</strong> 都會基於上述所描述的網段</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl get pods -o wide</span></span><br><span class="line">NAME                             READY   STATUS    RESTARTS   AGE     IP           NODE        NOMINATED NODE   READINESS GATES</span><br><span class="line">k8s-udpserver-6576555bcb-4dc77   1/1     Running   0          2m11s   10.244.0.3   k8s-dev     &lt;none&gt;           &lt;none&gt;</span><br><span class="line">k8s-udpserver-6576555bcb-4wl9n   1/1     Running   0          2m11s   10.244.1.8   k8s-dev-1   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">k8s-udpserver-6576555bcb-7rvnj   1/1     Running   0          24h     10.244.2.2   k8s-dev-2   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">k8s-udpserver-6576555bcb-949wp   1/1     Running   0          2m11s   10.244.2.4   k8s-dev-2   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">k8s-udpserver-6576555bcb-9mwcv   1/1     Running   0          2m11s   10.244.0.5   k8s-dev     &lt;none&gt;           &lt;none&gt;</span><br><span class="line">k8s-udpserver-6576555bcb-b7nbx   1/1     Running   0          2m11s   10.244.2.6   k8s-dev-2   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">k8s-udpserver-6576555bcb-bt94h   1/1     Running   0          2m11s   10.244.2.5   k8s-dev-2   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">k8s-udpserver-6576555bcb-c9v9w   1/1     Running   0          24h     10.244.1.4   k8s-dev-1   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">k8s-udpserver-6576555bcb-d6lqp   1/1     Running   0          2m11s   10.244.2.3   k8s-dev-2   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">k8s-udpserver-6576555bcb-dhmw9   1/1     Running   0          2m11s   10.244.1.5   k8s-dev-1   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">k8s-udpserver-6576555bcb-jlc45   1/1     Running   0          2m11s   10.244.1.6   k8s-dev-1   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">k8s-udpserver-6576555bcb-nwfbl   1/1     Running   0          24h     10.244.0.2   k8s-dev     &lt;none&gt;           &lt;none&gt;</span><br><span class="line">k8s-udpserver-6576555bcb-rtrq9   1/1     Running   0          2m11s   10.244.2.7   k8s-dev-2   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">k8s-udpserver-6576555bcb-v9cwz   1/1     Running   0          2m11s   10.244.0.4   k8s-dev     &lt;none&gt;           &lt;none&gt;</span><br><span class="line">k8s-udpserver-6576555bcb-xwdbv   1/1     Running   0          2m11s   10.244.1.7   k8s-dev-1   &lt;none&gt;           &lt;none&gt;</span><br></pre></td></tr></table></figure>
+
+<p>這個情況下，我們希望讓 <strong>10.244.0.0&#x2F;24</strong> 網段可以與 <strong>10.244.1.0&#x2F;24</strong> 網段溝通，這時候<br><strong>flannel</strong> 會怎麼做。</p>
+<p>先假設一個情境, <strong>10.244.0.5</strong> 想要與 <strong>10.244.2.7</strong> 溝通，由於牽扯到跨網段的問題，所以會有 <strong>gateway</strong> 的涉入，更麻煩的是這些網段都是私有網段，一旦封包從該節點出去後，要怎麼確保外面的所有網路架構都知道該如何轉送這些封包？</p>
+<p>舉例來說，假設 <strong>10.244.0.5</strong> 的封包很順利的從節點出去了，接下來整個外網的網路要怎麼知道原來目的 <strong>10.244.2.7</strong> 是屬於 <strong>172.17.8.103</strong> 這台機器上的?<br>只要外部網路裡面有一個環節不通，整個封包就送不到 <strong>172.17.8.103</strong>，就沒有辦法送進去到 <strong>Pod</strong>，更不要提假如今天外部網路已經有一個一模一樣的 <strong>IP</strong> 或是網段，是不是會造成 <strong>IP</strong> 衝突的問題，導致網路存取出問題？</p>
+<p>此外這些外部的網路機器交換機大部分 <strong>kubernetes cluster</strong> 也不會去操控去管理，所以就會變成根本沒有一條合適的路由規則來轉發封包。</p>
+<p>為了解決這個問題，我們決定使用基於 <strong>overlay network</strong> 的技術 <strong>VXLAN</strong> 來解決這個問題。</p>
+<h3 id="Overlay-Network-1"><a href="#Overlay-Network-1" class="headerlink" title="Overlay Network"></a>Overlay Network</h3><p><strong>overlay</strong>  顧名思義就是基於原先 <strong>underlay network</strong> 上在疊一層封包，<strong>flannel</strong> 採用的是基於 <strong>VXLAN</strong> 的封包協定來實現 <strong>overlay network</strong>。</p>
+<p>一個簡單的概念，<strong>VXLAN</strong> 會在本來的傳輸封包上再重新開放疊加 Layer 2&#x2F;3&#x2F;4 總共三層全新的封包，我們先定義最原始傳輸的目標叫做 <strong>Original Packet</strong>， 而新疊加的則叫做 <strong>Outer Packet</strong>。</p>
+<p>所以上述的封包傳輸 <strong>10.244.0.5</strong> -&gt; <strong>10.244.2.7</strong> 為範例<br><img src="https://i.imgur.com/jhHkgVH.png"></p>
+<p><strong>10.244.0.5</strong> -&gt; <strong>10.244.2.7</strong> 傳輸的封包就是所謂的 <strong>original packet</strong>。<br>因為 <strong>10.244.0.5</strong> 位於機器 <strong>172.17.8.101</strong>，<strong>10.244.2.7</strong> 位於機器 <strong>172.17.8.103</strong>。<br>因此會再額外包一層<br><strong>172.17.8.101</strong> 與 <strong>172.17.8.103</strong> 的傳輸的封包就是所謂的 <strong>outer packet</strong>。</p>
+<p>下面來看一下 <strong>VXLAN</strong> 的封包格式<br><img src="https://i.imgur.com/npK0WX6.png"><br>該圖截取自<a target="_blank" rel="noopener" href="https://support.huawei.com/enterprise/en/doc/EDOC1100004365/f95c6e68/vxlan-packet-format">Configuration Guide - VXLAN
+</a></p>
+<p>所以其實基於 <strong>VXLAN</strong> 傳輸的封包再網路上傳送的時候，其內部其實會有兩層傳送的資料，一層是透過 <strong>underlay</strong> 搞定的，也就是 <strong>outer packet</strong>，而另外一層則是真正要傳送的，也就是 <strong>original packet</strong>。</p>
+<p>搭配上圖的格式圖可以發現， <strong>VXLAN</strong> 本身也會額外再 <strong>Original</strong> 與 <strong>Outer</strong> 中間塞一個 <strong>VXLAN Header</strong> 去標注一些相關功能，其中的 <strong>VNI</strong> 是做到類似 <strong>VLAN</strong> 相同的效果，相同 <strong>VNI</strong> 的兩端點才有能力溝通。<br>眼尖的人會發現上述 <strong>Outer Packet</strong> 裡面有 <strong>UDP Packet</strong> 裡面有一個 <strong>DestPort(VXLAN) Port</strong>，這就意味者其實收端(172.17.8.103)會有一個網路程式聽在該 Port上面去幫忙處理這些封包。<br>當該程式看到這些封包後，會將這些的外皮剝掉然後看到最裡面的 <strong>Original Packet</strong>，最後幫忙轉發。</p>
+<h3 id="流程"><a href="#流程" class="headerlink" title="流程"></a>流程</h3><p>重新整理一下整個流程，如何透過 <strong>VXLAN</strong> 來解決 <strong>10.244.0.5</strong> -&gt; <strong>10.244.2.7</strong> 的傳輸問題</p>
+<ol>
+<li>10.244.0.5 往 10.244.2.7 發送封包</li>
+<li>這些封包再離開節點之前會先被本地上的 <strong>VXLAN</strong> 應用程式處理，首先加上 <strong>VXLAN Header</strong></li>
+<li>接者填補 <strong>UDP Header</strong></li>
+<li>接者根據某些方式知道 <strong>10.244.2.7</strong> 位於 <strong>172.17.8.103</strong>，所以補上一個 <strong>IP Header</strong>，其中將來源設定成本機<strong>172.17.8.101</strong>，目的設定成 <strong>172.17.8.103</strong></li>
+<li>封包送出去</li>
+<li>外面的所有機器都是看到 <strong>172.17.8.101</strong> -&gt; <strong>172.17.8.103</strong> (這個傳輸本來就應該要可以運作，不然 <strong>kubernetes cluster</strong> 沒辦法建立)</li>
+<li>當封包到達 <strong>172.17.8.103</strong> 收到封包後，一路拆解最後被 <strong>VXLAN</strong> 應用程式收到封包，並且看到裡面是 10.244.0.5 往 10.244.2.7 送的封包，於是將該封包往下轉發</li>
+<li>最後 <strong>10.244.2.7</strong> 就可以順利地收到 <strong>10.244.0.5</strong> 的封包。</li>
+</ol>
+<p>上面的流程看似簡單合理，但是其中隱藏些許問題</p>
+<ol>
+<li><strong>VXLAN</strong> 的應用程式是什麼</li>
+<li>上述的應用程式怎麼知道 <strong>10.244.2.7</strong> 位於 <strong>172.17.8.103</strong>，反之亦然，目標端的要知到 <strong>10.244.0.5</strong> 位於 <strong>172.17.8.101</strong></li>
+</ol>
+<h3 id="實作"><a href="#實作" class="headerlink" title="實作"></a>實作</h3><p>接下來我們來探討上述的兩個問題是怎麼處理的，先說結論</p>
+<p><strong>Linux Kernel</strong> + <strong>flannel pod</strong> + <strong>Kubernetes API server</strong> 一起合力完成上述的所有流程。</p>
+<p>先來看一個有趣的東西，仔細再看一次每個 <strong>node</strong> 上面的 <strong>annotation</strong>，會發現一些有趣的東西</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl get node k8s-dev -o=json | jq -r .metadata.annotations</span><br><span class="line">&#123;</span><br><span class="line">  <span class="string">&quot;flannel.alpha.coreos.com/backend-data&quot;</span>: <span class="string">&quot;&#123;\&quot;VtepMAC\&quot;:\&quot;0a:72:64:c9:50:f4\&quot;&#125;&quot;</span>,</span><br><span class="line">  <span class="string">&quot;flannel.alpha.coreos.com/backend-type&quot;</span>: <span class="string">&quot;vxlan&quot;</span>,</span><br><span class="line">  <span class="string">&quot;flannel.alpha.coreos.com/kube-subnet-manager&quot;</span>: <span class="string">&quot;true&quot;</span>,</span><br><span class="line">  <span class="string">&quot;flannel.alpha.coreos.com/public-ip&quot;</span>: <span class="string">&quot;172.17.8.101&quot;</span>,</span><br><span class="line">  <span class="string">&quot;kubeadm.alpha.kubernetes.io/cri-socket&quot;</span>: <span class="string">&quot;/var/run/dockershim.sock&quot;</span>,</span><br><span class="line">  <span class="string">&quot;node.alpha.kubernetes.io/ttl&quot;</span>: <span class="string">&quot;0&quot;</span>,</span><br><span class="line">  <span class="string">&quot;volumes.kubernetes.io/controller-managed-attach-detach&quot;</span>: <span class="string">&quot;true&quot;</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">$ kubectl get node k8s-dev -o=json | jq -r .spec</span><br><span class="line">&#123;</span><br><span class="line">  <span class="string">&quot;podCIDR&quot;</span>: <span class="string">&quot;10.244.0.0/24&quot;</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ol>
+<li>backend-type: vxlan， 代表其用到的類型</li>
+<li>backend-data: 有 <strong>VtepMac</strong>, 還有一些 <strong>MAC Address</strong>。</li>
+<li>public-ip: “172.17.8.101”</li>
+<li>podCIDR: “10.244.0.0&#x2F;24”</li>
+</ol>
+<p>是不是只要把(3)跟(4)的資訊給合併起來，就完全解決上述的問題(2)？<br>這其實也反應到為什麼最上面的環境建置的時候，要透別加入 <strong>–iface eth1</strong> 的參數到 <strong>flannel</strong> 的環境中，因為需要讓 <strong>flannel</strong> 知道真正的對外 <strong>IP</strong> 是使用哪張網卡，他才有辦法擷取到相關的 <strong>IP</strong> 並且寫入到 <strong>Node</strong> 之中。</p>
+<p>由於這些資訊是每個節點都要知道每個節點的，所以其實 <strong>flanneld</strong> 本身有實作 <strong>List&#x2F;Watch Node</strong> 相關的流程，一旦 <strong>Node</strong> 本身的資訊有更動，就會去抓取這些資訊來更新當前節點的知識</p>
+<p>如果還記得前兩天的文章，是否還記得 <strong>Flannel</strong> 創建的 <strong>RBAC</strong> 裡面會特別允許 <strong>Node List&#x2F;Watch</strong> ，目的就是為了這個。</p>
+<p>所以現在的流程是</p>
+<ol>
+<li><strong>flannel pod</strong> 會知道本地端用的各種資訊，譬如 <strong>subnet</strong>，<strong>publicIP</strong>，接者把這些資訊都會打到 <strong>Node</strong> 裡面</li>
+<li>所有節點的 <strong>flannel pod</strong> 都會去監聽相關事件，聽取到之後就會將該資訊存放在本地端的記憶體內，知道每個網段對應的節點資訊。</li>
+</ol>
+<p>接下來我們來看一下最後幾個步驟，這幾個步驟就不會描述太多，細節比較複雜，稍微帶過相關的資訊，知道所有的資訊在哪邊即可。</p>
+<p>首先上述提到 <strong>Linux Kernel</strong> 現在都有支援 <strong>VXLAN</strong> 的實作，這意味我們可以透過 <strong>Kernel</strong> 內建的功能來幫忙處理</p>
+<ol>
+<li>VXLAN 的應用程式</li>
+<li>VXLAN 封包的封裝與解封裝</li>
+</ol>
+<p>我們先來觀察到底實際上系統被加料了什麼來處理這些資訊</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ ip -d addr show dev flannel.1</span><br><span class="line">5: flannel.1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1450 qdisc noqueue state UNKNOWN group default</span><br><span class="line">    <span class="built_in">link</span>/ether 0a:72:64:c9:50:f4 brd ff:ff:ff:ff:ff:ff promiscuity 0</span><br><span class="line">    vxlan <span class="built_in">id</span> 1 <span class="built_in">local</span> 172.17.8.101 dev eth1 srcport 0 0 dstport 8472 nolearning ttl inherit ageing 300 udpcsum noudp6zerocsumtx noudp6zerocsumrx numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535</span><br><span class="line">    inet 10.244.0.0/32 scope global flannel.1</span><br><span class="line">       valid_lft forever preferred_lft forever</span><br><span class="line">    inet6 fe80::872:64ff:fec9:50f4/64 scope <span class="built_in">link</span></span><br><span class="line">       valid_lft forever preferred_lft forever</span><br></pre></td></tr></table></figure>
+<p>透過 <strong>ip link</strong> 指令可以看到系統上被創建了一個新的網卡，這個網卡有一些資訊很重要</p>
+<ol>
+<li>flannel.1 這個 <strong>.1</strong> 是有意思的，代表其 VNI 是 1</li>
+<li>vxlan id 1 (該介面是屬於特殊型態 VXLAN)</li>
+<li>nolearning (本身不會主動去學習該怎麼轉送，代表要有人教)</li>
+<li>local 172.17.8.101 dev: 對應到本地的對外介面</li>
+<li>10.244.0.0&#x2F;32: flannel.1 的 IP 地址，這意味所有送到 10.244.0.0 的封包都會送到給 flannel.1 處理</li>
+</ol>
+<p>接下來我們來看一下會怎麼轉送</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">$ route -n | grep flannel</span><br><span class="line">10.244.1.0      10.244.1.0      255.255.255.0   UG    0      0        0 flannel.1</span><br><span class="line">10.244.2.0      10.244.2.0      255.255.255.0   UG    0      0        0 flannel.1</span><br><span class="line"></span><br><span class="line">$ arp -na | grep 10.244</span><br><span class="line">? (10.244.2.0) at ee:8a:1f:f7:96:c7 [ether] PERM on flannel.1</span><br><span class="line">? (10.244.1.0) at 8e:79:a7:a7:bd:1c [ether] PERM on flannel.1</span><br><span class="line"></span><br><span class="line">$ bridge fdb show | grep 172</span><br><span class="line">8e:79:a7:a7:bd:1c dev flannel.1 dst 172.17.8.102 self permanent</span><br><span class="line">ee:8a:1f:f7:96:c7 dev flannel.1 dst 172.17.8.103 self permanent</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li>路由表中表示，如果今天封包要送給 10.244.2.0&#x2F;24，則把 <strong>gateway</strong> 設定成 <strong>10.244.2.0</strong>，並且透過 <strong>flannel.1</strong> 這張網卡傳輸</li>
+<li>由於封包中的目標 <strong>MAC</strong> 是 <strong>next hop</strong> 的地址，所以此情況需要填入 <strong>10.244.2.0</strong> 的 <strong>MAC</strong> 地址，該地址可以在 <strong>kubernetes node</strong> 上找到。</li>
+<li>最後會被 <strong>flannel pod</strong> 透過 <strong>arp</strong> 的方式寫死在系統內，可以由上述的 <strong>arp -n</strong> 看到相關資料</li>
+<li>有了上述資料後，我們已經可以把 <strong>Original Packet</strong>填寫完畢，接下來就剩下 <strong>outer pakcet</strong> 要填寫</li>
+<li>最後透過 <strong>bridge forward database</strong> 去查看，對於 <strong>flannel.1</strong>來說，看到裡面封包的目標地址是 <strong>ee:8a:1f:f7:96:c7</strong> 的，請於 <strong>outer packet</strong> 轉發到 <strong>172.17.8.103</strong>。</li>
+</ol>
+<p>透過上述流程就可以組合出一個合法的 <strong>VXLAN</strong> 封包格式，並且送到不同節點去。</p>
+<p>另外每台機器上面都會被創造一個 <strong>flannel.1</strong> 的介面，該介面其實就會作為每個節點的 <strong>VXLAN</strong> 處理程式，封包收到相關的封包後，會透過 <strong>vni</strong> 的方式與 <strong>mac</strong> 比對的規則找到對應的介面去進行處理，然後解封裝後再次轉發。</p>
+<p>最後補上一個流程，這些 <strong>flannel.1</strong> 的介面都是由 <strong>flannel pod (flanneld)</strong> 這個應用程式創造的，同時當該應用程式從 <strong>kubernetes API server</strong> 學習到不同的節點資訊的時候，就會把上述看到的 <strong>route</strong>, <strong>arp</strong>, <strong>beidge fdb</strong> 等資訊都寫一份到 <strong>kernel</strong> 內，藉此打通所有的傳送可能性。</p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>最後就用一張圖來解釋上述的所有流程。<br><img src="https://i.imgur.com/dqfVlGK.png"></p>
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://vincent.bernat.ch/en/blog/2017-vxlan-linux">https://vincent.bernat.ch/en/blog/2017-vxlan-linux</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.slideshare.net/Ciscodatacenter/vxlan-introduction">https://www.slideshare.net/Ciscodatacenter/vxlan-introduction</a></li>
+<li><a target="_blank" rel="noopener" href="https://support.huawei.com/enterprise/en/doc/EDOC1100004365/f95c6e68/vxlan-packet-format">https://support.huawei.com/enterprise/en/doc/EDOC1100004365/f95c6e68/vxlan-packet-format</a></li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/CNI/" rel="tag"># CNI</a>
+              <a href="/tags/Flannel/" rel="tag"># Flannel</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/cni-flannel-ii.html" rel="prev" title="CNI - Flannel - IP 管理篇">
+                  <i class="fa fa-chevron-left"></i> CNI - Flannel - IP 管理篇
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/cni-experience.html" rel="next" title="CNI 閒談">
+                  CNI 閒談 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本文作為 IPVS 系列文第三篇， 會從 Kernel 作為出發點，探討一下 IPVS 本身的模組概念，分享兩種不同的內建除錯方式，此外也會從原始碼的部分看一下 IPVS 初始化的過程做了哪些事情">
+<meta property="og:type" content="article">
+<meta property="og:title" content="IPvS 學習手冊(三)">
+<meta property="og:url" content="https://www.hwchiu.com/ipvs-3.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文作為 IPVS 系列文第三篇， 會從 Kernel 作為出發點，探討一下 IPVS 本身的模組概念，分享兩種不同的內建除錯方式，此外也會從原始碼的部分看一下 IPVS 初始化的過程做了哪些事情">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/TuejssF.png">
+<meta property="og:image" content="https://i.imgur.com/VakjFDI.png">
+<meta property="og:image" content="https://i.imgur.com/f4yNxpd.png">
+<meta property="article:published_time" content="2020-04-05T16:03:29.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.618Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="Kernel">
+<meta property="article:tag" content="IPVS">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/TuejssF.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/ipvs-3.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/ipvs-3.html","path":"ipvs-3.html","title":"IPvS 學習手冊(三)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>IPvS 學習手冊(三) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%92%B0%E5%A2%83"><span class="nav-number">2.</span> <span class="nav-text">環境</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%AD%A3%E9%A1%8C"><span class="nav-number">3.</span> <span class="nav-text">正題</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Debug-IPVS"><span class="nav-number">4.</span> <span class="nav-text">Debug IPVS</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Dynamic-Option"><span class="nav-number">4.1.</span> <span class="nav-text">Dynamic Option</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#IP-VS-DEBUG"><span class="nav-number">4.2.</span> <span class="nav-text">IP_VS_DEBUG</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Module-Init"><span class="nav-number">5.</span> <span class="nav-text">Module Init</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#register-pernet-subsys-x2F-device"><span class="nav-number">5.1.</span> <span class="nav-text">register_pernet_subsys&#x2F;device</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ip-vs-control-net-init"><span class="nav-number">5.2.</span> <span class="nav-text">ip_vs_control_net_init</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">6.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">7.</span> <span class="nav-text">個人資訊</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Reference"><span class="nav-number">8.</span> <span class="nav-text">Reference</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ipvs-3.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="IPvS 學習手冊(三) | Hwchiu Learning Note">
+      <meta itemprop="description" content="本文作為 IPVS 系列文第三篇， 會從 Kernel 作為出發點，探討一下 IPVS 本身的模組概念，分享兩種不同的內建除錯方式，此外也會從原始碼的部分看一下 IPVS 初始化的過程做了哪些事情">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          IPvS 學習手冊(三)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2020-04-06 00:03:29" itemprop="dateCreated datePublished" datetime="2020-04-06T00:03:29+08:00">2020-04-06</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本文作為 IPVS 系列文第三篇， 會從 Kernel 作為出發點，探討一下 IPVS 本身的模組概念，分享兩種不同的內建除錯方式，此外也會從原始碼的部分看一下 IPVS 初始化的過程做了哪些事情</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>本篇文章作為系列文章的第三篇，該系列文希望能夠從概念到實作，從簡單到複雜來探討 IPVS (IP Virtual Server) 的概念，目前規劃的主題包含：</p>
+<ul>
+<li><a href="https://www.hwchiu.com/ipvs-1.html">IPVS 的基本使用與概念</a></li>
+<li><a href="https://www.hwchiu.com/ipvs-2.html">IPVS 與 Kubernetes 的整合</a></li>
+<li><a href="https://www.hwchiu.com/ipvs-3.html">IPVS 除錯方式與基本 Kernel Module 概念</a></li>
+<li><a href="https://www.hwchiu.com/ipvs-4.html">IPVS Kernel 架構實現</a></li>
+</ul>
+<p>本文主要是從 Linux Kernel 出發，介紹一下對於 <strong>IPVS</strong> 這個模組的概念，同時也介紹了預設的兩種除錯方式。</p>
+<h1 id="環境"><a href="#環境" class="headerlink" title="環境"></a>環境</h1><p>整篇文章都是基於 Linux Kernel 4.15 為基準去閱讀, 可以從 <strong><a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/tree/v4.15/net/netfilter/ipvs">Github</a></strong> 或是 <strong><a target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/v4.15/source">LXR</a></strong> 來進行線上閱讀</p>
+<p>本篇沒有環境建置，因為懶得打包整個 <strong>建置 Linux Kernel</strong> 的環境到 <strong>Vagrant</strong> 裡面。可能要等全部文章都寫完再補齊</p>
+<h1 id="正題"><a href="#正題" class="headerlink" title="正題"></a>正題</h1><p>研究都要有個起點，整個 Linux Kernel 過於龐大，實在是不可能全部閱讀。<br>今天要研究的是 <strong>IPVS</strong> 相關的功能，我們就從其<a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/tree/v4.15/net/netfilter/ipvs">資料夾</a>內開始看起。</p>
+<p>根據先前的實驗，我們使用 <strong>IPVS</strong> 之前必須要先安裝對應的 <strong>kernel module</strong>，每個 <strong>kernel module</strong> 都會有相關的初始化函式可以使用。<br>所以我們就先從 <strong><a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/blob/v4.15/net/netfilter/ipvs/Makefile">Makefile</a></strong> 看起來，看一下到底這些 <strong>kernel module</strong> 實際上包含了哪些檔案</p>
+<figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># SPDX-License-Identifier: GPL-2.0</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># Makefile for the IPVS modules on top of IPv4.</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># IPVS transport protocol load balancing support</span></span><br><span class="line">ip_vs_proto-objs-y :=</span><br><span class="line">ip_vs_proto-objs-<span class="variable">$(CONFIG_IP_VS_PROTO_TCP)</span> += ip_vs_proto_tcp.o</span><br><span class="line">ip_vs_proto-objs-<span class="variable">$(CONFIG_IP_VS_PROTO_UDP)</span> += ip_vs_proto_udp.o</span><br><span class="line">ip_vs_proto-objs-<span class="variable">$(CONFIG_IP_VS_PROTO_AH_ESP)</span> += ip_vs_proto_ah_esp.o</span><br><span class="line">ip_vs_proto-objs-<span class="variable">$(CONFIG_IP_VS_PROTO_SCTP)</span> += ip_vs_proto_sctp.o</span><br><span class="line"></span><br><span class="line">ip_vs-extra_objs-y :=</span><br><span class="line">ip_vs-extra_objs-<span class="variable">$(CONFIG_IP_VS_NFCT)</span> += ip_vs_nfct.o</span><br><span class="line"></span><br><span class="line">ip_vs-objs :=	ip_vs_conn.o ip_vs_core.o ip_vs_ctl.o ip_vs_sched.o	   \</span><br><span class="line">		ip_vs_xmit.o ip_vs_app.o ip_vs_sync.o	   		   \</span><br><span class="line">		ip_vs_est.o ip_vs_proto.o ip_vs_pe.o			   \</span><br><span class="line">		$(ip_vs_proto-objs-y) $(ip_vs-extra_objs-y)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># IPVS core</span></span><br><span class="line">obj-<span class="variable">$(CONFIG_IP_VS)</span> += ip_vs.o</span><br><span class="line"></span><br><span class="line"><span class="comment"># IPVS schedulers</span></span><br><span class="line">obj-<span class="variable">$(CONFIG_IP_VS_RR)</span> += ip_vs_rr.o</span><br><span class="line">obj-<span class="variable">$(CONFIG_IP_VS_WRR)</span> += ip_vs_wrr.o</span><br><span class="line">obj-<span class="variable">$(CONFIG_IP_VS_LC)</span> += ip_vs_lc.o</span><br><span class="line">obj-<span class="variable">$(CONFIG_IP_VS_WLC)</span> += ip_vs_wlc.o</span><br><span class="line">obj-<span class="variable">$(CONFIG_IP_VS_FO)</span> += ip_vs_fo.o</span><br><span class="line">obj-<span class="variable">$(CONFIG_IP_VS_OVF)</span> += ip_vs_ovf.o</span><br><span class="line">obj-<span class="variable">$(CONFIG_IP_VS_LBLC)</span> += ip_vs_lblc.o</span><br><span class="line">obj-<span class="variable">$(CONFIG_IP_VS_LBLCR)</span> += ip_vs_lblcr.o</span><br><span class="line">obj-<span class="variable">$(CONFIG_IP_VS_DH)</span> += ip_vs_dh.o</span><br><span class="line">obj-<span class="variable">$(CONFIG_IP_VS_SH)</span> += ip_vs_sh.o</span><br><span class="line">obj-<span class="variable">$(CONFIG_IP_VS_SED)</span> += ip_vs_sed.o</span><br><span class="line">obj-<span class="variable">$(CONFIG_IP_VS_NQ)</span> += ip_vs_nq.o</span><br><span class="line"></span><br><span class="line"><span class="comment"># IPVS application helpers</span></span><br><span class="line">obj-<span class="variable">$(CONFIG_IP_VS_FTP)</span> += ip_vs_ftp.o</span><br><span class="line"></span><br><span class="line"><span class="comment"># IPVS connection template retrievers</span></span><br><span class="line">obj-<span class="variable">$(CONFIG_IP_VS_PE_SIP)</span> += ip_vs_pe_sip.o</span><br></pre></td></tr></table></figure>
+
+<p>這個 Makefile 看起來會覺得好像什麼都沒有，最主要的原因是整體的運作邏輯都在 Kernel 其他檔案裡面，特別是 <a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/blob/v4.15/scripts/Makefile.build">Makefile.build</a> ，這邊只是單純定義了每個 <strong>Obj</strong> 的狀況，看是要採取 <strong>Build-in</strong> 模式或是 <strong>kernel module</strong> 模式。</p>
+<p>先複習一下之前安裝過程中所載入的 kernel module</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">sudo modprobe -- ip_vs</span><br><span class="line">sudo modprobe -- ip_vs_rr</span><br><span class="line">sudo modprobe -- ip_vs_wrr</span><br><span class="line">sudo modprobe -- ip_vs_sh</span><br></pre></td></tr></table></figure>
+
+<p>這邊幾個可以注意到的是</p>
+<ol>
+<li>ipvs.ko 是由 ip_vs-objs 這一堆 objs 全部組合而成的。</li>
+<li>每個 <strong>load balancing(scheduler)</strong> 都是一個獨立的 kernel module，剛好對應到 <strong>ip_vs_rr</strong>, <strong>ip_vs_wrr</strong>…等，如果你要用不同的算法，那要確認對應的 module 都有被載入</li>
+</ol>
+<p>有了這個方向，我們就從 <strong>ip_cs-objs</strong> 裡面的開始看起來，其中 <strong>ip_vs_core</strong> 這個名稱非常顯眼，看起來就是核心功能，因此決定之後從該檔案開始看起。</p>
+<h1 id="Debug-IPVS"><a href="#Debug-IPVS" class="headerlink" title="Debug IPVS"></a>Debug IPVS</h1><p>開始往下閱讀 <strong>IPVS</strong> 原始碼之前，我們先來探討一下如何除錯以及如何學習相關的函式呼叫順序</p>
+<p>不修改任何原始碼的情況下， <strong>IPVS</strong> 提供了兩種 <strong>Debug</strong> 的方式讓管理員去檢視相關的函式呼叫情況，這邊要注意的是，其提供的是 <strong>函式呼叫情況</strong>, 而不是一個能夠一一檢視封包的方式。就我個人的使用情況來說，如果本身對於 <strong>IPVS</strong> 的實作與 <strong>Kernel</strong> 不熟悉的人，就沒有辦法 100% 的利用這些除錯訊息。<br>這邊跟大家介紹這兩種除錯方式該如何開啟</p>
+<h2 id="Dynamic-Option"><a href="#Dynamic-Option" class="headerlink" title="Dynamic Option"></a>Dynamic Option</h2><p>第一種方式是整個 <strong>Kernel</strong> 所提供的除錯方式, 稱之為 <a target="_blank" rel="noopener" href="https://www.kernel.org/doc/html/v4.19/admin-guide/dynamic-debug-howto.html">dynamic-debug</a>，所有 <strong>kernel function</strong> 都可以向 <strong>kernel</strong> 註冊一組輸出格式與條件，當今天管理員有需求時就可以動態的打開這些開關使得 <strong>kernel</strong> 開始輸出相關訊息。</p>
+<p>系統上支援的 <strong>dynamic debug</strong> 都存放於 <code>/sys/kernel/debug/dynamic_debug/control</code> 這個路徑，透過 <strong>cat</strong> 的方式可以看到的內容都是由 <strong>filename:line_number, [kernel_module name], topic, output_format</strong> 這樣的格式，譬如下列範例</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cat</span> /sys/kernel/debug/dynamic_debug/control</span><br><span class="line">net/netfilter/xt_LOG.c:60 [xt_LOG]log_tg_check =_ <span class="string">&quot;prefix is not null-terminated\012&quot;</span></span><br><span class="line">net/netfilter/xt_LOG.c:55 [xt_LOG]log_tg_check =_ <span class="string">&quot;level %u &gt;= 8\012&quot;</span></span><br><span class="line">net/bridge/netfilter/ebtables.c:2260 [ebtables]compat_do_replace =_ <span class="string">&quot;tmp.entries_size %d, kern off %d, user off %d delta %d\012&quot;</span></span><br><span class="line">net/bridge/netfilter/ebtables.c:2129 [ebtables]size_entry_mwt =_ <span class="string">&quot;change offset %d to %d\012&quot;</span></span><br><span class="line">net/bridge/netfilter/ebtables.c:1775 [ebtables]compat_calc_entry =_ <span class="string">&quot;0x%08X -&gt; 0x%08X\012&quot;</span></span><br><span class="line">net/netfilter/ipvs/ip_vs_proto.c:266 [ip_vs]ip_vs_tcpudp_debug_packet_v6 =_ <span class="string">&quot;%s: %s %s\012&quot;</span></span><br><span class="line">net/netfilter/ipvs/ip_vs_proto.c:234 [ip_vs]ip_vs_tcpudp_debug_packet_v4 =_ <span class="string">&quot;%s: %s %s\012&quot;</span></span><br></pre></td></tr></table></figure>
+<p>前面代表的是每個檔案的路徑與行數，再來是對應的 <strong>kernel module name</strong> 以及標題，最後是其輸出的格式。</p>
+<p>對於管理者來說，可以針對 **檔案名稱, 行數 或是 kernel module name 來進行開關，譬如我今天想要打開跟 <strong>ipvs</strong> 有關的所有輸出，就可以執行</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">echo</span> -n <span class="string">&#x27;module ip_vs +p&#x27;</span> &gt; /sys/kernel/debug/dynamic_debug/control</span><br></pre></td></tr></table></figure>
+<p>這樣 <strong>kernel</strong> 就會知道把 <strong>control</strong> 裡面全部屬於 <strong>ip_vs</strong> 的訊息都輸出，譬如</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[ 3415.992622] ip_vs_tcpudp_debug_packet_v4:234: IPVS: ip_vs_in: packet continues traversal as normal: TCP 10.0.2.2:58199-&gt;10.0.2.15:22</span><br></pre></td></tr></table></figure>
+<p>對於想要細部觀察封包流向來說，也是不無小補，提供一些資訊觀察</p>
+<h2 id="IP-VS-DEBUG"><a href="#IP-VS-DEBUG" class="headerlink" title="IP_VS_DEBUG"></a>IP_VS_DEBUG</h2><p>第二個則是由 <strong>IPVS</strong> 自己實作的除錯方式，這個除錯方式相關的功能則是在編譯期間根據參數 <strong>IP_VS_DEBUG</strong> 來定是否要一起編譯, 預設情況下這個功能是關閉的，這也意味各位如果都適用已經建置好的 <strong>IPVS</strong> 那基本上是沒有辦法打開這個功能的。<br>為了打開這個功能，你必須要執行下列步驟</p>
+<ol>
+<li>準備對應你系統版本的 kernel source code</li>
+<li>加入相關的參數，重新建置 IP_VS 的 kernel module</li>
+<li>移除舊有的 kernel module 並安裝新的到系統內</li>
+</ol>
+<p>如果你有興趣要嘗試看看的話，這邊可以顯示一下大概的修改過程 (假設你準備好相關的 kernel source code) 之後</p>
+<ol>
+<li>先複製系統目前使用的 kernel config (Ubutnu 為範例)</li>
+<li>根據該設定檔案重新加入 IP_VS_DEBUG 的參數</li>
+<li>重新建置 Kernel Module</li>
+<li>移除舊有的 Kernel Module, 並且加入新的</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cp</span> /boot/config-`<span class="built_in">uname</span> -r` .config</span><br><span class="line">make menuconfig</span><br><span class="line">sudo rmmod ip_vs_wlc</span><br><span class="line">sudo rmmod ip_vs</span><br><span class="line">sudo insmod net/netfilter/ipvs/ip_vs.ko</span><br><span class="line">sudo insmod net/netfilter/ipvs/ip_vs_wlc.ko</span><br><span class="line">make -j4</span><br></pre></td></tr></table></figure>
+<p>其中第二部會彈出一個灰色畫面，可以透過 <code>f</code> 進行參數的搜尋，找到對應的位置，然後將其打該設定成 <strong>Y</strong> 即可，畫面如下<br><img src="https://i.imgur.com/TuejssF.png"><br><img src="https://i.imgur.com/VakjFDI.png"><br>圖中也可以看到 <strong>IPVS</strong> 滿滿的參數有哪些，其中標示為 <M> 都代表會建置成獨立的 <strong>kernel module</strong>，如果有興趣的也可以將全部變成 <strong>Build-in</strong> 的方式，這意味 <strong>kernel</strong> 本身就會包含這些功能，不需要額外在那邊 <strong>insmod&#x2F;rmmod</strong>。</p>
+<p>此外如果你本身已經有建置過 <strong>kernel</strong> 的話，可以直接輸入 <strong>make modules</strong> 單純編譯 <strong>kernel modules</strong> 相關即可</p>
+<p>完成上述步驟之後就可以在系統上的位置發現多了一個路徑 <strong>&#x2F;proc&#x2F;sys&#x2F;net&#x2F;ipv4&#x2F;vs&#x2F;debug_level</strong><br><img src="https://i.imgur.com/f4yNxpd.png"></p>
+<p>該路徑對應到 <strong>kernel</strong> 內則是一個整數，預設是 <strong>0</strong>, 今天如果要打開 <strong>debug</strong> 功能的話，就輸入數字到該路徑即可，譬如</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">echo</span> <span class="string">&quot;12&quot;</span> &gt; /proc/sys/net/ipv4/vs/debug_level</span><br></pre></td></tr></table></figure>
+
+<p>一但該功能打開後，就會看到系統噴出滿滿的除錯訊息，譬如</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">[391968.554844] IPVS: Enter: ip_vs_out, net/netfilter/ipvs/ip_vs_core.c line 1352</span><br><span class="line">[391968.554846] IPVS: Enter: ip_vs_proto_name, net/netfilter/ipvs/ip_vs_core.c line 83</span><br><span class="line">[391968.554847] IPVS: lookup/out TCP 172.17.8.111:37926-&gt;172.17.8.156:80 not hit</span><br><span class="line">[391968.554848] IPVS: Enter: sysctl_nat_icmp_send, net/netfilter/ipvs/ip_vs_core.c line 671</span><br><span class="line">[391968.554849] IPVS: Enter: ip_vs_local_request4, net/netfilter/ipvs/ip_vs_core.c line 2074</span><br><span class="line">[391968.554850] IPVS: Enter: ip_vs_in, net/netfilter/ipvs/ip_vs_core.c line 1884</span><br><span class="line">[391968.554851] IPVS: Enter: ip_vs_proto_name, net/netfilter/ipvs/ip_vs_core.c line 83</span><br><span class="line">[391968.554852] IPVS: lookup/in TCP 172.17.8.111:37926-&gt;172.17.8.156:80 hit</span><br><span class="line">[391968.554853] IPVS: Enter: is_new_conn, net/netfilter/ipvs/ip_vs_core.c line 1084</span><br><span class="line">[391968.554854] IPVS: Enter: sysctl_expire_nodest_conn, net/netfilter/ipvs/ip_vs_core.c line 677</span><br><span class="line">[391968.554854] IPVS: Enter: is_new_conn_expected, net/netfilter/ipvs/ip_vs_core.c line 1111</span><br><span class="line">[391968.554855] IPVS: Enter: ip_vs_in_stats, net/netfilter/ipvs/ip_vs_core.c line 117</span><br><span class="line">[391968.554856] IPVS: Enter: ip_vs_set_state, net/netfilter/ipvs/ip_vs_core.c line 209</span><br><span class="line">[391968.554858] IPVS: Enter: ip_vs_nat_xmit, net/netfilter/ipvs/ip_vs_xmit.c line 756</span><br><span class="line">[391968.554859] IPVS: Enter: __ip_vs_get_out_rt, net/netfilter/ipvs/ip_vs_xmit.c line 325</span><br><span class="line">[391968.554860] IPVS: Enter: __ip_vs_dst_check, net/netfilter/ipvs/ip_vs_xmit.c line 98</span><br><span class="line">[391968.554861] IPVS: Enter: crosses_local_route_boundary, net/netfilter/ipvs/ip_vs_xmit.c line 179</span><br><span class="line">[391968.554862] IPVS: Enter: decrement_ttl, net/netfilter/ipvs/ip_vs_xmit.c line 269</span><br><span class="line">[391968.554863] IPVS: Enter: ensure_mtu_is_adequate, net/netfilter/ipvs/ip_vs_xmit.c line 226</span><br><span class="line">[391968.554865] IPVS: Enter: ip_vs_nat_send_or_cont, net/netfilter/ipvs/ip_vs_xmit.c line 624</span><br><span class="line">[391968.554868] IPVS: Enter: ip_vs_nat_send_or_cont, net/netfilter/ipvs/ip_vs_xmit.c line 641</span><br></pre></td></tr></table></figure>
+
+
+
+<h1 id="Module-Init"><a href="#Module-Init" class="headerlink" title="Module Init"></a>Module Init</h1><p>如上面所述， 我們將從 <strong>ip_vs_core.c</strong> 來探討整個 <strong>ip_vs</strong> 的初始化過程<br>以下的程式碼來自 <a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/blob/v4.15/net/netfilter/ipvs/ip_vs_core.c">Linux 4.15 GitHub ip_vs_core.c</a></p>
+<p>每個 <strong>Kernel Module</strong> 都會從 <strong>module_init</strong> 這邊開始，傳入的參數都會是一個 <strong>function</strong>，當 Module 被載入後這個 function 就會被執行，也可以想成 <strong>modprobe ip_vs</strong> 呼叫後，這個 function 就會先被執行</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">module_init(ip_vs_init);</span><br></pre></td></tr></table></figure>
+
+<p>根據上述語法，可以觀察到 <strong>ip_vs_init</strong> 這個 <strong>function</strong></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">int</span> __init <span class="title function_">ip_vs_init</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">	ret = ip_vs_control_init();</span><br><span class="line">	<span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">		pr_err(<span class="string">&quot;can&#x27;t setup control.\n&quot;</span>);</span><br><span class="line">		<span class="keyword">goto</span> <span class="built_in">exit</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	ip_vs_protocol_init();</span><br><span class="line"></span><br><span class="line">	ret = ip_vs_conn_init();</span><br><span class="line">	<span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">		pr_err(<span class="string">&quot;can&#x27;t setup connection table.\n&quot;</span>);</span><br><span class="line">		<span class="keyword">goto</span> cleanup_protocol;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	ret = register_pernet_subsys(&amp;ipvs_core_ops);	<span class="comment">/* Alloc ip_vs struct */</span></span><br><span class="line">	<span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">		<span class="keyword">goto</span> cleanup_conn;</span><br><span class="line"></span><br><span class="line">	ret = register_pernet_device(&amp;ipvs_core_dev_ops);</span><br><span class="line">	<span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">		<span class="keyword">goto</span> cleanup_sub;</span><br><span class="line"></span><br><span class="line">	ret = ip_vs_register_nl_ioctl();</span><br><span class="line">	<span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">		pr_err(<span class="string">&quot;can&#x27;t register netlink/ioctl.\n&quot;</span>);</span><br><span class="line">		<span class="keyword">goto</span> cleanup_dev;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	pr_info(<span class="string">&quot;ipvs loaded.\n&quot;</span>);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">cleanup_dev:</span><br><span class="line">	unregister_pernet_device(&amp;ipvs_core_dev_ops);</span><br><span class="line">cleanup_sub:</span><br><span class="line">	unregister_pernet_subsys(&amp;ipvs_core_ops);</span><br><span class="line">cleanup_conn:</span><br><span class="line">	ip_vs_conn_cleanup();</span><br><span class="line">cleanup_protocol:</span><br><span class="line">	ip_vs_protocol_cleanup();</span><br><span class="line">	ip_vs_control_cleanup();</span><br><span class="line"><span class="built_in">exit</span>:</span><br><span class="line">	<span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br><span class="line">module_init(ip_vs_init);</span><br><span class="line">module_exit(ip_vs_cleanup);</span><br></pre></td></tr></table></figure>
+
+<p>通常觀察一個 <code>kernel module</code> 就是先觀察 <code>init function</code>, 看看到底初始化哪些相關的資訊，其中上面呼叫的函示有</p>
+<ol>
+<li><p>ip_vs_control_init<br>用來幫內部一些資料結構初始化，主要都是 HASH table 相關的資料結構</p>
+</li>
+<li><p>ip_vs_protocol_init<br>用來初始化支持的 <code>Protocol</code>，譬如 <code>TCP,UDP,SCTP</code> 等<br>根據前述的 <strong>make menuconfig</strong> 我們可以觀察到相關協定的支持也是可以透過參數去開關的。</p>
+</li>
+<li><p>ip_vs_conn_init<br>主要是用來初始化跟 <code>connection</code> 有關的資訊，<code>connection</code> 可以想成 <code>Client</code> 的請求與配置 <code>Real Server</code> 的關係表。 也是透過 <code>connection</code> 來確保相同連線的封包都會被轉發到相同的 <code>Real Server</code> 上</p>
+</li>
+<li><p>register_pernet_subsys&#x2F;register_pernet_device<br>上述兩個函式非常有趣，他們的都是用來註冊 <code>pernet</code> 底下相關元件的函式<br>，這邊的 <code>pernet</code> 的意思就是 <strong>每個 Network Namespace</strong>。 等等我們再來仔細看看到底做了什麼</p>
+</li>
+<li><p>ip_vs_register_nl_ioctl<br>用來註冊基於 <code>netlink</code> 的 <code>function handler</code>，這也是我們透過 <code>ipvsadm</code> 這個工具用來操作整個 <code>kernel</code> 內部邏輯的入口。所有的操作指令都會透過 <code>netlink</code> 從 <code>userspace</code> 送到 <code>kernel space</code> 並且呼叫起對應的 <code>Function</code> 來處理。</p>
+</li>
+</ol>
+<h2 id="register-pernet-subsys-x2F-device"><a href="#register-pernet-subsys-x2F-device" class="headerlink" title="register_pernet_subsys&#x2F;device"></a>register_pernet_subsys&#x2F;device</h2><p>Kernel 對於 <strong>network namespace</strong> 的創建提供了兩個方法來註冊相關的 <strong>handler</strong>, 這兩個差異主要在於對背後資料結構操作的位置不同，詳細的可以參閱 <a target="_blank" rel="noopener" href="http://www.programmersought.com/article/907433913/">Kernel network namespace
+</a>, 這邊就單純針對 <code>register_pernet_subsys</code> 來研究。</p>
+<p>直接看一下該函式的註解，簡單來說就是註冊一組任何 <strong>network namespace</strong> 被刪除與創建時都會被呼叫的函式，而要特別注意的是當註冊的瞬間，也會對所有已經存在的 <strong>network namespace</strong> 呼叫一次。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">*      register_pernet_subsys - <span class="keyword">register</span> a network namespace subsystem</span><br><span class="line">*      @ops:  pernet operations structure <span class="keyword">for</span> the subsystem</span><br><span class="line">*</span><br><span class="line">*      Register a subsystem which has init and <span class="built_in">exit</span> functions</span><br><span class="line">*      that are called when network namespaces are created and</span><br><span class="line">*      destroyed respectively.</span><br><span class="line">*</span><br><span class="line">*      When registered all network namespace init functions are</span><br><span class="line">*      called <span class="keyword">for</span> every existing network namespace.  Allowing kernel</span><br><span class="line">*      modules to have a race <span class="built_in">free</span> view of the <span class="built_in">set</span> of network namespaces.</span><br><span class="line">*</span><br><span class="line">*      When a new network namespace is created all of the init</span><br><span class="line">*      methods are called in the order in which they were registered.</span><br><span class="line">*</span><br><span class="line">*      When a network namespace is destroyed all of the <span class="built_in">exit</span> methods</span><br><span class="line">*      are called in the reverse of the order with which they were</span><br><span class="line">*      registered.</span><br></pre></td></tr></table></figure>
+
+
+<p>接下來看一下這個函式的呼叫範例</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ret = register_pernet_subsys(&amp;ipvs_core_ops);	<span class="comment">/* Alloc ip_vs struct */</span></span><br></pre></td></tr></table></figure>
+
+<p>其傳入的參數是一個名為 <code>ipvs_core_ops</code> 的結構，而該結構內容如下</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">static struct pernet_operations ipvs_core_ops = &#123;</span><br><span class="line">	.init = __ip_vs_init,</span><br><span class="line">	.exit = __ip_vs_cleanup,</span><br><span class="line">	.id   = &amp;ip_vs_net_id,</span><br><span class="line">	.size = sizeof(struct netns_ipvs),</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>這個結構內最重要的就是 <strong>.init</strong> 這個 <strong>function pointer</strong>，其意思是 <strong>每當有任何一個 namespace 被創建之時</strong>，請呼叫對應的 <strong>function</strong> 來處理，而這邊這個 <strong>function</strong> 就是 <strong>__ip_vs_init</strong>.</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> *	Initialize IP Virtual Server netns mem.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> __net_init __ip_vs_init(<span class="keyword">struct</span> net *net)</span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">netns_ipvs</span> *<span class="title">ipvs</span>;</span></span><br><span class="line">	<span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">	ipvs = net_generic(net, ip_vs_net_id);</span><br><span class="line">	<span class="keyword">if</span> (ipvs == <span class="literal">NULL</span>)</span><br><span class="line">		<span class="keyword">return</span> -ENOMEM;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Hold the beast until a service is registerd */</span></span><br><span class="line">	ipvs-&gt;enable = <span class="number">0</span>;</span><br><span class="line">	ipvs-&gt;net = net;</span><br><span class="line">	<span class="comment">/* Counters used for creating unique names */</span></span><br><span class="line">	ipvs-&gt;gen = <span class="type">atomic_read</span>(&amp;ipvs_netns_cnt);</span><br><span class="line">	<span class="type">atomic_inc</span>(&amp;ipvs_netns_cnt);</span><br><span class="line">	net-&gt;ipvs = ipvs;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (ip_vs_estimator_net_init(ipvs) &lt; <span class="number">0</span>)</span><br><span class="line">		<span class="keyword">goto</span> estimator_fail;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (ip_vs_control_net_init(ipvs) &lt; <span class="number">0</span>)</span><br><span class="line">		<span class="keyword">goto</span> control_fail;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (ip_vs_protocol_net_init(ipvs) &lt; <span class="number">0</span>)</span><br><span class="line">		<span class="keyword">goto</span> protocol_fail;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (ip_vs_app_net_init(ipvs) &lt; <span class="number">0</span>)</span><br><span class="line">		<span class="keyword">goto</span> app_fail;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (ip_vs_conn_net_init(ipvs) &lt; <span class="number">0</span>)</span><br><span class="line">		<span class="keyword">goto</span> conn_fail;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (ip_vs_sync_net_init(ipvs) &lt; <span class="number">0</span>)</span><br><span class="line">		<span class="keyword">goto</span> sync_fail;</span><br><span class="line"></span><br><span class="line">	ret = nf_register_net_hooks(net, ip_vs_ops, ARRAY_SIZE(ip_vs_ops));</span><br><span class="line">	<span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">		<span class="keyword">goto</span> hook_fail;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Error handling</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"></span><br><span class="line">hook_fail:</span><br><span class="line">	ip_vs_sync_net_cleanup(ipvs);</span><br><span class="line">sync_fail:</span><br><span class="line">	ip_vs_conn_net_cleanup(ipvs);</span><br><span class="line">conn_fail:</span><br><span class="line">	ip_vs_app_net_cleanup(ipvs);</span><br><span class="line">app_fail:</span><br><span class="line">	ip_vs_protocol_net_cleanup(ipvs);</span><br><span class="line">protocol_fail:</span><br><span class="line">	ip_vs_control_net_cleanup(ipvs);</span><br><span class="line">control_fail:</span><br><span class="line">	ip_vs_estimator_net_cleanup(ipvs);</span><br><span class="line">estimator_fail:</span><br><span class="line">	net-&gt;ipvs = <span class="literal">NULL</span>;</span><br><span class="line">	<span class="keyword">return</span> -ENOMEM;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>該函式的註解直接標示，針對每一個 <code>network namespace</code> 去進行相關的初始化，其中為重要的則是 <code>ip_vs_control_net_init</code> 以及 <code>nf_register_net_hooks</code> 這兩個函式，後者則是與 <strong>netfilter</strong> 也就是 <strong>iptables</strong> 相關的互動，下一章節我們再來仔細看一下這個函式。</p>
+<h2 id="ip-vs-control-net-init"><a href="#ip-vs-control-net-init" class="headerlink" title="ip_vs_control_net_init"></a>ip_vs_control_net_init</h2><p>根據上述的 <strong>debug</strong> 規則我們知道系統上會有一個路徑 <strong>&#x2F;proc&#x2F;sys&#x2F;net&#x2F;ipv4&#x2F;vs</strong> 可以讓使用者與之互動，而這個介面的初始化其實就是透過 <strong>ip_vs_control_net_init</strong> 來完成的。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> __net_init <span class="title">ip_vs_control_net_init</span><span class="params">(<span class="keyword">struct</span> netns_ipvs *ipvs)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">        <span class="type">int</span> i, idx;</span><br><span class="line">...</span><br><span class="line">...</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">ip_vs_control_net_init_sysctl</span>(ipvs))</span><br><span class="line">                <span class="keyword">goto</span> err;</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>其呼叫了 <code>ip_vs_control_net_init_sysctl</code></p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_SYSCTL</span></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> __net_init <span class="title">ip_vs_control_net_init_sysctl</span><span class="params">(<span class="keyword">struct</span> netns_ipvs *ipvs)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">        <span class="keyword">struct</span> <span class="title class_">net</span> *net = ipvs-&gt;net;</span><br><span class="line">        <span class="type">int</span> idx;</span><br><span class="line">        <span class="keyword">struct</span> <span class="title class_">ctl_table</span> *tbl;</span><br><span class="line">...</span><br><span class="line">        idx = <span class="number">0</span>;</span><br><span class="line">...</span><br><span class="line">        tbl[idx++].data = &amp;ipvs-&gt;sysctl_backup_only;</span><br><span class="line">        ipvs-&gt;sysctl_conn_reuse_mode = <span class="number">1</span>;</span><br><span class="line">        tbl[idx++].data = &amp;ipvs-&gt;sysctl_conn_reuse_mode;</span><br><span class="line">        tbl[idx++].data = &amp;ipvs-&gt;sysctl_schedule_icmp;</span><br><span class="line">        tbl[idx++].data = &amp;ipvs-&gt;sysctl_ignore_tunneled;</span><br><span class="line">...</span><br><span class="line">        ipvs-&gt;sysctl_hdr = <span class="built_in">register_net_sysctl</span>(net, <span class="string">&quot;net/ipv4/vs&quot;</span>, tbl);</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上述的概念就是創建一個 *<em>struct ctl_table <em>tbl</em></em> 的物件，並且填入相關的資訊後，呼叫 <strong>register_net_stsctl</strong> 來註冊這一系列的路徑，也可以觀察到其子路徑就是 <strong>net&#x2F;ipv4&#x2F;vs</strong>. 而這些 <strong>table</strong> 的資料的定義如下</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> *      IPVS sysctl table (under the /proc/sys/net/ipv4/vs/)</span></span><br><span class="line"><span class="comment"> *      Do not change order or insert new entries without</span></span><br><span class="line"><span class="comment"> *      align with netns init in ip_vs_control_net_init()</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="keyword">struct</span> <span class="title class_">ctl_table</span> vs_vars[] = &#123;</span><br><span class="line">        &#123;</span><br><span class="line">                .procname       = <span class="string">&quot;amemthresh&quot;</span>,</span><br><span class="line">                .maxlen         = <span class="built_in">sizeof</span>(<span class="type">int</span>),</span><br><span class="line">                .mode           = <span class="number">0644</span>,</span><br><span class="line">                .proc_handler   = proc_dointvec,</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">                .procname       = <span class="string">&quot;am_droprate&quot;</span>,</span><br><span class="line">                .maxlen         = <span class="built_in">sizeof</span>(<span class="type">int</span>),</span><br><span class="line">                .mode           = <span class="number">0644</span>,</span><br><span class="line">                .proc_handler   = proc_dointvec,</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">                .procname       = <span class="string">&quot;drop_entry&quot;</span>,</span><br><span class="line">                .maxlen         = <span class="built_in">sizeof</span>(<span class="type">int</span>),</span><br><span class="line">                .mode           = <span class="number">0644</span>,</span><br><span class="line">                .proc_handler   = proc_do_defense_mode,</span><br><span class="line">        &#125;,</span><br><span class="line">....</span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_IP_VS_DEBUG</span></span><br><span class="line">        &#123;</span><br><span class="line">                .procname       = <span class="string">&quot;debug_level&quot;</span>,</span><br><span class="line">                .data           = &amp;sysctl_ip_vs_debug_level,</span><br><span class="line">                .maxlen         = <span class="built_in">sizeof</span>(<span class="type">int</span>),</span><br><span class="line">                .mode           = <span class="number">0644</span>,</span><br><span class="line">                .proc_handler   = proc_dointvec,</span><br><span class="line">        &#125;,</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">        &#123; &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>這邊用一種格式化的方式去定義每個路徑的 <strong>名稱, 類別， 相關的處理函式以及存取模式</strong>，特別注意到的是 <strong>debug_level</strong> 本身則是被 <strong>ifdef CONFIG_IP_VS_DEBUG</strong> 這個 <strong>macro</strong> 給包起來，所以如果沒有特別處理的話，預設情況下就不會把 <strong>debug_level</strong> 給編譯進去。</p>
+<p>觀看這些資料還有一個好處就是你可以知道系統中有哪些參數可以餵給 Kernel 去處理，同時也可以搭配觀看原始碼的方式來了解這些參數到底實際上做了什麼。</p>
+<p>這邊有一個概念要注意的就是 <strong>net</strong> 這個物件是 <strong>kernel</strong> 內網路系統最重要的結構，每個 <strong>netowrk namespace</strong> 都會有一個自己的副本，基本上只要函數本身有吃 <strong>net</strong> 參數，就可以猜到這個功能絕對是每個 <strong>network namespace</strong> 獨立。這邊要特別注意的是 <strong>Host</strong> 本身也是一個 <strong>network namespace</strong>，所以當我們註冊這個函式的時候，就會先針對系統本身這個 <strong>network namespace</strong> 呼叫這一組對應的 <strong>init function</strong>.</p>
+<p>如果你的操作環境是舊版一點的 <code>kernel</code> ，譬如 <code>4.4.0</code> 之類的，你可以在系統觀察到類似下列的訊息</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[3534469.163231] IPVS: Creating netns size=2192 id=1342</span><br><span class="line">[3534793.388007] IPVS: Creating netns size=2192 id=1343</span><br><span class="line">[3535052.371673] IPVS: Creating netns size=2192 id=1344</span><br><span class="line">[3535706.550968] IPVS: Creating netns size=2192 id=1345</span><br><span class="line">[3535761.378872] IPVS: Creating netns size=2192 id=1346</span><br><span class="line">[3537083.860486] IPVS: Creating netns size=2192 id=1347</span><br></pre></td></tr></table></figure>
+
+<p>題外話， <code>kernel code</code> 內滿滿的 <code>goto</code>, <code>goto</code> 不是不能用，而是你要會用，可以看看 <strong>kernel</strong> 這邊的用法，同時你也可以想想不用 <strong>goto</strong> 的話，這些程式碼你會怎麼修改。</p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>今天這個章節針對 <strong>IPVS</strong> 底層的資訊進行了粗略地探索，主要是知道要如何透過 <strong>IPVS</strong> 提供的方式來進行除錯，藉由這除錯方式之後會更方便地去整個瞭解程式的呼叫脈絡並且我認為也是一個很好的學習方式</p>
+<p>對於 <strong>IPVS</strong> 的概念可以理解成，<strong>IPVS</strong> 的功能由 <strong>Kernel</strong> 提供，但是每個 <strong>network namespace</strong> 互相獨立不影響彼此，所以你到不同的 <strong>network namespace</strong> 內透過 <strong>ipvsadm</strong> 看到的結果都互相獨立，不會牽扯彼此。</p>
+<p>透過註冊 <strong>register_pernet_subsys</strong> 這個函式， <strong>ipvs</strong> 能夠自動對系統上每個已經存在&#x2F;未來新增的 <strong>network namespace</strong> 進行處理，幫其初始化 <strong>ipvs</strong> 相關的物件。</p>
+<p>最後，由於 <strong>init</strong> 函式開始後就會去進行 <strong>sys</strong> 相關的初始化，來不及將 <strong>debug_level</strong> 設定而輸出，因此我在修改原始碼之後重新安裝到系統來觀察更細部的 <strong>init</strong> 流程。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">[669447.783857] IPVS: Enter: ip_vs_init, net/netfilter/ipvs/ip_vs_core.c line 2371</span><br><span class="line">[669447.783858] IPVS: Enter: ip_vs_control_init, net/netfilter/ipvs/ip_vs_ctl.c line 4122</span><br><span class="line">[669447.783862] IPVS: Enter: ip_vs_protocol_init, net/netfilter/ipvs/ip_vs_proto.c line 338</span><br><span class="line">[669447.783863] IPVS: Registered protocols (TCP, UDP, SCTP, AH, ESP)</span><br><span class="line">[669447.783864] IPVS: Enter: ip_vs_conn_init, net/netfilter/ipvs/ip_vs_conn.c line 1403</span><br><span class="line">[669447.783937] IPVS: Connection <span class="built_in">hash</span> table configured (size=4096, memory=64Kbytes)</span><br><span class="line">[669447.783937] IPVS: Each connection entry needs 288 bytes at least</span><br><span class="line">[669447.783944] IPVS: Enter: __ip_vs_init, net/netfilter/ipvs/ip_vs_core.c line 2257</span><br><span class="line">[669447.783945] IPVS: Enter: ip_vs_control_net_init, net/netfilter/ipvs/ip_vs_ctl.c line 4037</span><br><span class="line">[669447.783951] IPVS: Enter: ip_vs_control_net_init_sysctl, net/netfilter/ipvs/ip_vs_ctl.c line 3926</span><br><span class="line">[669447.783963] IPVS: Enter: ip_vs_protocol_net_init, net/netfilter/ipvs/ip_vs_proto.c line 309</span><br><span class="line">[669447.783966] IPVS: Enter: ip_vs_conn_net_init, net/netfilter/ipvs/ip_vs_conn.c line 1384</span><br><span class="line">[669447.783968] IPVS: Enter: __ip_vs_dev_init, net/netfilter/ipvs/ip_vs_core.c line 2329</span><br><span class="line">[669447.981664] IPVS: Enter: ip_vs_register_nl_ioctl, net/netfilter/ipvs/ip_vs_ctl.c line 4091</span><br><span class="line">[669447.981678] IPVS: ipvs loaded.</span><br></pre></td></tr></table></figure>
+
+<p>下一章節我們會主要針對 封包的流向 來進行探討，包含 <strong>iptables&#x2F;netfilter</strong> 與之的互動，以及實際由本地端送出一個封包後，實際上背後的運作邏輯是哪些，又會呼叫到哪些 <strong>function</strong> 來處理。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+<h1 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h1><p><a target="_blank" rel="noopener" href="http://www.programmersought.com/article/907433913/">http://www.programmersought.com/article/907433913/</a></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/Kernel/" rel="tag"># Kernel</a>
+              <a href="/tags/IPVS/" rel="tag"># IPVS</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/ipvs-2.html" rel="prev" title="IPvS 學習手冊(二)">
+                  <i class="fa fa-chevron-left"></i> IPvS 學習手冊(二)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/k8s-course-2.html" rel="next" title="Kubernetes 線上課程">
+                  Kubernetes 線上課程 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

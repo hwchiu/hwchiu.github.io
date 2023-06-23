@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本文針對 Container Storage Interface 的標準進行介紹，探討 CSI 本身標準涵蓋的範圍與流程，以及部署上的一些常見做法，包含多種服務器各自的角色與地位。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Container Storage Interface 標準介紹">
+<meta property="og:url" content="https://www.hwchiu.com/csi-ii.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文針對 Container Storage Interface 的標準進行介紹，探討 CSI 本身標準涵蓋的範圍與流程，以及部署上的一些常見做法，包含多種服務器各自的角色與地位。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/db7o9fq.png">
+<meta property="og:image" content="https://i.imgur.com/1h1vlVs.png">
+<meta property="og:image" content="https://i.imgur.com/5W7XtVW.png">
+<meta property="og:image" content="https://i.imgur.com/3D4vvqR.png">
+<meta property="article:published_time" content="2019-10-03T23:50:37.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.610Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="Storage">
+<meta property="article:tag" content="ITHOME">
+<meta property="article:tag" content="CSI">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/db7o9fq.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/csi-ii.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/csi-ii.html","path":"csi-ii.html","title":"Container Storage Interface 標準介紹"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Container Storage Interface 標準介紹 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#CSI"><span class="nav-number">2.</span> <span class="nav-text">CSI</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9B%9E%E9%A1%A7-Kubernetes"><span class="nav-number">3.</span> <span class="nav-text">回顧 Kubernetes</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#CSI-%E6%A8%99%E6%BA%96"><span class="nav-number">4.</span> <span class="nav-text">CSI 標準</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%B5%84%E6%88%90%E6%9E%B6%E6%A7%8B"><span class="nav-number">4.1.</span> <span class="nav-text">組成架構</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Lifecycle"><span class="nav-number">4.2.</span> <span class="nav-text">Lifecycle</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Controller"><span class="nav-number">4.2.1.</span> <span class="nav-text">Controller</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Node"><span class="nav-number">4.2.2.</span> <span class="nav-text">Node</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">5.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%83%E8%80%83"><span class="nav-number">6.</span> <span class="nav-text">參考</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">7.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/csi-ii.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Container Storage Interface 標準介紹 | Hwchiu Learning Note">
+      <meta itemprop="description" content="本文針對 Container Storage Interface 的標準進行介紹，探討 CSI 本身標準涵蓋的範圍與流程，以及部署上的一些常見做法，包含多種服務器各自的角色與地位。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Container Storage Interface 標準介紹
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-10-04 07:50:37" itemprop="dateCreated datePublished" datetime="2019-10-04T07:50:37+08:00">2019-10-04</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本文針對 Container Storage Interface 的標準進行介紹，探討 CSI 本身標準涵蓋的範圍與流程，以及部署上的一些常見做法，包含多種服務器各自的角色與地位。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>上篇文章已經基於儲存的部分進行了一些討論，簡單介紹一下目前 <strong>kubernetes</strong> 提供跟儲存有關的資源之外，也探討了一下 <strong>CSI</strong> 標準的引進以及為什麼需要有這個標準，同時也用了一個範例展示有無 <strong>CSI</strong> 對於使用者所帶來的影響。此外我覺得上篇最重要的還是一個觀念，就是 <strong>kubernetes</strong> 本身只作為一個容器管理平台，透過介面標準與第三方儲存方案整合並且將該儲存方案提供給容器使用，而各式各樣儲存本身的議題，功能都是第三方儲存方案需要提供， <strong>kubernetes</strong> 本身並不負責這些功能，所以各位選擇儲存方案時，本身就需要對儲存伺服器以及相關知識有所概念，而不是一昧的都在 <strong>kubernetes</strong> 這邊打轉，這樣其實對於解決問題沒有太大的幫助。</p>
+<p>本篇文章則會探討一下 <strong>CSI</strong> 的架構，就如同 <strong>CRI&#x2F;CNI</strong> 兩個標準一樣，會先探討這個標準的介面，以及相關流程，接下來會用一些範例來實際演練試試看使用 <strong>CSI</strong> 的操作過程</p>
+<h1 id="CSI"><a href="#CSI" class="headerlink" title="CSI"></a>CSI</h1><p><strong>Container Storage Interface</strong> 標準相關的檔案都由 <a target="_blank" rel="noopener" href="https://github.com/container-storage-interface">GitHub container-storager-interface</a> 這個組織維護，裡面最主要的部分有兩個，分別是 <strong>specification</strong> 以及 <strong>protobuf</strong> 這兩個類別。</p>
+<p><strong>protobuf</strong> 這部分先暫時不探討，等等介紹標準時若有相對的部分就會拿出來剩下比對，剩下的就有興趣自己實作的可以再參考文件與該<a target="_blank" rel="noopener" href="https://github.com/container-storage-interface/spec/blob/master/csi.proto">檔案</a><br>來學習怎麼實現一個 <strong>CSI</strong> 的一個解決方案。</p>
+<p>題外話，除了 <strong>CSI</strong> 之外，<a target="_blank" rel="noopener" href="https://github.com/kubernetes/cri-api/blob/master/pkg/apis/runtime/v1alpha2/api.proto">CRI</a> 也使用 <strong>protobuf</strong> 定義其溝通介面標準，近年來 <strong>protobuf</strong> 的使用量逐漸上升，而且各大專案都可以看到&lt;</p>
+<h1 id="回顧-Kubernetes"><a href="#回顧-Kubernetes" class="headerlink" title="回顧 Kubernetes"></a>回顧 Kubernetes</h1><p>讓我們回顧一下以前怎麼使用 <strong>kubernetes</strong> 裡面的資源來取用第三方的儲存服務，這邊以 <strong>glusterfs</strong> 為範例，一個簡單的使用流程是</p>
+<ol>
+<li>安裝 <strong>glusterfs</strong> 到所有節點，包含相關設定以及相關應用程式</li>
+<li>部署與儲存解決方案整合的檔案<ul>
+<li>動態部署的話會採用 <strong>storageClass</strong></li>
+<li>靜態事先部署的會採用 <strong>PersistentVolume</strong></li>
+</ul>
+</li>
+<li>部署 PersistentVolumeClaim 去描述怎麼要資源</li>
+<li>運行運算資源 <strong>Pod</strong> 的時候描述要使用上述的 <strong>PersistentVolumeClaim</strong>。</li>
+</ol>
+<p>示意範例如下列三個 <strong>yaml</strong> 檔案</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">kind:</span> <span class="string">StorageClass</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">storage.k8s.io/v1beta1</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">gluster-heketi-external</span></span><br><span class="line"><span class="attr">provisioner:</span> <span class="string">kubernetes.io/glusterfs</span></span><br><span class="line"><span class="attr">parameters:</span></span><br><span class="line">  <span class="attr">resturl:</span> <span class="string">&quot;http://a.b.c.d:8080&quot;</span></span><br><span class="line">  <span class="attr">restuser:</span> <span class="string">&quot;admin&quot;</span></span><br><span class="line">  <span class="attr">secretName:</span> <span class="string">&quot;heketi-secret&quot;</span></span><br><span class="line">  <span class="attr">secretNamespace:</span> <span class="string">&quot;default&quot;</span></span><br><span class="line">  <span class="attr">volumetype:</span> <span class="string">&quot;replicate:3&quot;</span></span><br><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">PersistentVolumeClaim</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line"> <span class="attr">name:</span> <span class="string">gluster-pvc</span></span><br><span class="line"> <span class="attr">annotations:</span></span><br><span class="line">   <span class="attr">volume.beta.kubernetes.io/storage-class:</span> <span class="string">gluster-heketi-external</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line"> <span class="attr">accessModes:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">ReadWriteMany</span></span><br><span class="line"> <span class="attr">resources:</span></span><br><span class="line">   <span class="attr">requests:</span></span><br><span class="line">     <span class="attr">storage:</span> <span class="string">1Gi</span></span><br><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">gluster-pod</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">gluster-pod</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">gluster-pod</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">busybox</span></span><br><span class="line">    <span class="attr">command:</span> [<span class="string">&quot;sleep&quot;</span>, <span class="string">&quot;60000&quot;</span>]</span><br><span class="line">    <span class="attr">volumeMounts:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">gluster-vol</span></span><br><span class="line">      <span class="attr">mountPath:</span> <span class="string">/usr/share/busybox</span></span><br><span class="line">      <span class="attr">readOnly:</span> <span class="literal">false</span></span><br><span class="line">  <span class="attr">securityContext:</span></span><br><span class="line">    <span class="attr">supplementalGroups:</span> [<span class="number">590</span>]</span><br><span class="line">    <span class="attr">privileged:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">volumes:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">gluster-vol</span></span><br><span class="line">    <span class="attr">persistentVolumeClaim:</span></span><br><span class="line">      <span class="attr">claimName:</span> <span class="string">gluster-pvc</span></span><br></pre></td></tr></table></figure>
+
+<p>今天如果換成其他類型的儲存方案，譬如 <strong>NFS</strong>, <strong>Ceph</strong>, 相關公有雲的解決方案，大致上流程都差不多，主要就是(1)與(2)的部分有所不同。</p>
+<p>所以回到 <strong>Container Storage Interface</strong> 來看，今天該標準希望能夠把上述裡面跟第三方儲存方案有關的部分都標準化，其實主要的部分也就是(2)。</p>
+<p>首先因為 (1) 安裝各種相關檔案與設定這個部分本來就無法標準，這個是各個方案自己去處理的，而 <strong>PersistentVolumeClaim</strong> 這邊本來就是已經抽象化過，所以需要處理的部份就是(2)的部分，不論是 <strong>StorageClass</strong> 或是 <strong>PersistentVolume</strong> 都需要重新整理，譬如下列兩個用法都會分別是用 <strong>provisioner</strong> 或是 <strong>csi.driver</strong> 兩個格式來描述該儲存解決方案提供者的名稱。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">kind:</span> <span class="string">StorageClass</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">storage.k8s.io/v1</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">fast-storage</span></span><br><span class="line"><span class="attr">provisioner:</span> <span class="string">csi-driver.example.com</span></span><br><span class="line"><span class="attr">parameters:</span></span><br><span class="line">  <span class="attr">type:</span> <span class="string">pd-ssd</span></span><br><span class="line">  <span class="attr">csi.storage.k8s.io/provisioner-secret-name:</span> <span class="string">mysecret</span></span><br><span class="line">  <span class="attr">csi.storage.k8s.io/provisioner-secret-namespace:</span> <span class="string">mynamespace</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">PersistentVolume</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">my-manually-created-pv</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">capacity:</span></span><br><span class="line">    <span class="attr">storage:</span> <span class="string">5Gi</span></span><br><span class="line">  <span class="attr">accessModes:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">ReadWriteOnce</span></span><br><span class="line">  <span class="attr">persistentVolumeReclaimPolicy:</span> <span class="string">Retain</span></span><br><span class="line">  <span class="attr">csi:</span></span><br><span class="line">    <span class="attr">driver:</span> <span class="string">csi-driver.example.com</span></span><br><span class="line">    <span class="attr">volumeHandle:</span> <span class="string">existingVolumeName</span></span><br><span class="line">    <span class="attr">readOnly:</span> <span class="literal">false</span></span><br><span class="line">    <span class="attr">fsType:</span> <span class="string">ext4</span></span><br><span class="line">    <span class="attr">volumeAttributes:</span></span><br><span class="line">      <span class="attr">foo:</span> <span class="string">bar</span></span><br><span class="line">    <span class="attr">controllerPublishSecretRef:</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">mysecret1</span></span><br><span class="line">      <span class="attr">namespace:</span> <span class="string">mynamespace</span></span><br><span class="line">    <span class="attr">nodeStageSecretRef:</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">mysecret2</span></span><br><span class="line">      <span class="attr">namespace:</span> <span class="string">mynamespace</span></span><br><span class="line">    <span class="string">nodePublishSecretRef</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">mysecret3</span></span><br><span class="line">      <span class="attr">namespace:</span> <span class="string">mynamespace</span></span><br></pre></td></tr></table></figure>
+
+<h1 id="CSI-標準"><a href="#CSI-標準" class="headerlink" title="CSI 標準"></a>CSI 標準</h1><p>回到 <strong>Container Storage Interface</strong> 的架構，先來看看官方怎麼描述 <strong>CSI</strong> 的<a target="_blank" rel="noopener" href="https://github.com/container-storage-interface/spec/blob/master/spec.md#goals-in-mvp">目標</a></p>
+<blockquote>
+<p>The Container Storage Interface (CSI) will</p>
+</blockquote>
+<ul>
+<li>Enable Storage Provider authors to write one CSI compliant Plugin that “just works” across all Container Orchestration systems that implement CSI.</li>
+<li>Define API (RPCs) that enable:<ul>
+<li>Dynamic provisioning and deprovisioning of a volume.</li>
+<li>Attaching or detaching a volume from a node.</li>
+<li>Mounting&#x2F;unmounting a volume from a node.</li>
+<li>Consumption of both block and mountable volumes.</li>
+<li>Local storage providers (e.g., device mapper, lvm).</li>
+<li>Creating and deleting a snapshot (source of the snapshot is a volume).</li>
+<li>Provisioning a new volume from a snapshot (reverting snapshot, where data in the original volume is erased and replaced with data in the snapshot, is out of scope).</li>
+</ul>
+</li>
+</ul>
+<ol>
+<li>跟其他標準有一樣的目標，可以讓任何解決方案的提供者(這邊是儲存)，只要撰寫一套解決方案的實作，就可以再所有支持該 <strong>CSI</strong> 標準的容器管理平台使用。這對於開發者來說是個非常好的吸引力，只要這個標準夠大，支援平台夠多，就可以專注的維護本身解決方案的程式碼，而減少去整合各式各樣不同平台的心力</li>
+</ol>
+<p>透過 <strong>protobuf</strong> 所描述的 <strong>API</strong> 希望滿足下列條件</p>
+<ul>
+<li>支援動態配置或是靜態配置，其實對應到 <strong>kubernetes</strong> 就是 <strong>storageclass</strong> 以及 <strong>PersistentVolume</strong> 的概念</li>
+<li>Attach&#x2F;Mount 的差異我認為在於層級不同，Attach 代表的是該 Node 有能力可以跟該儲存方案連接起來，而 Mount 則是將該儲存空間給實體化後可以透過 <strong>Filesystem</strong> 去存取。</li>
+<li>支援 Block Device (EBS) 或是可直接 Mountable Volumes (大家應該大部分都用這個)</li>
+<li>支援本地儲存設備解決方案，譬如 (device mapper, lvm)，這些又是以前的儲存議題了</li>
+<li>支援創建&#x2F;刪除快照</li>
+<li>可提供從先前創造的快照復原出任何空間</li>
+</ul>
+<p>以上是 <strong>API</strong> 定義的標準，沒有規定 <strong>CSI</strong> 解決方案要全部實作，這部分是依據每個方案的特性去實現即可。</p>
+<h2 id="組成架構"><a href="#組成架構" class="headerlink" title="組成架構"></a>組成架構</h2><p>接下來看一下 <strong>CSI</strong> 的架構中會有什麼樣的角色，譬如 <strong>CRI</strong> 中規定要有一個伺服器實現 <strong>CRI</strong> 標準即可，而 <strong>CNI</strong> 則是要有一個支援 <strong>CNI</strong> 標準的執行檔案即可。</p>
+<p><strong>CSI</strong> 相對複雜，其組成至少要有兩個元件，分別是 <strong>Controller</strong> 以及 <strong>Node</strong> 這兩種不同 <strong>API</strong> 的實作。</p>
+<p>根據 <a target="_blank" rel="noopener" href="https://github.com/container-storage-interface/spec/blob/master/spec.md#rpc-interface">官方說明</a></p>
+<blockquote>
+<p>Node Plugin: A gRPC endpoint serving CSI RPCs that MUST be run on the Node whereupon an SP-provisioned volume will be published.<br>Controller Plugin: A gRPC endpoint serving CSI RPCs that MAY be run anywhere.</p>
+</blockquote>
+<p>所有要使用該儲存解決方案的節點都必須要有一個對應的應用程式來提供 <strong>Node</strong> 的服務，而控管整個儲存解決方案的管理者 <strong>Controller</strong> 本身並沒有限定要運行在哪個節點。</p>
+<p>從剛剛上述的 <strong>CSI protobuf</strong> 的檔案也可以看到有兩個明顯的 service 需要實作，如下</p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line">service Controller &#123;</span><br><span class="line">  rpc CreateVolume (CreateVolumeRequest)</span><br><span class="line">    returns (CreateVolumeResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  rpc DeleteVolume (DeleteVolumeRequest)</span><br><span class="line">    returns (DeleteVolumeResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  rpc ControllerPublishVolume (ControllerPublishVolumeRequest)</span><br><span class="line">    returns (ControllerPublishVolumeResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  rpc ControllerUnpublishVolume (ControllerUnpublishVolumeRequest)</span><br><span class="line">    returns (ControllerUnpublishVolumeResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  rpc ValidateVolumeCapabilities (ValidateVolumeCapabilitiesRequest)</span><br><span class="line">    returns (ValidateVolumeCapabilitiesResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  rpc ListVolumes (ListVolumesRequest)</span><br><span class="line">    returns (ListVolumesResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  rpc GetCapacity (GetCapacityRequest)</span><br><span class="line">    returns (GetCapacityResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  rpc ControllerGetCapabilities (ControllerGetCapabilitiesRequest)</span><br><span class="line">    returns (ControllerGetCapabilitiesResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  rpc CreateSnapshot (CreateSnapshotRequest)</span><br><span class="line">    returns (CreateSnapshotResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  rpc DeleteSnapshot (DeleteSnapshotRequest)</span><br><span class="line">    returns (DeleteSnapshotResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  rpc ListSnapshots (ListSnapshotsRequest)</span><br><span class="line">    returns (ListSnapshotsResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  rpc ControllerExpandVolume (ControllerExpandVolumeRequest)</span><br><span class="line">    returns (ControllerExpandVolumeResponse) &#123;&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">service Node &#123;</span><br><span class="line">  rpc NodeStageVolume (NodeStageVolumeRequest)</span><br><span class="line">    returns (NodeStageVolumeResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  rpc NodeUnstageVolume (NodeUnstageVolumeRequest)</span><br><span class="line">    returns (NodeUnstageVolumeResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  rpc NodePublishVolume (NodePublishVolumeRequest)</span><br><span class="line">    returns (NodePublishVolumeResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  rpc NodeUnpublishVolume (NodeUnpublishVolumeRequest)</span><br><span class="line">    returns (NodeUnpublishVolumeResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  rpc NodeGetVolumeStats (NodeGetVolumeStatsRequest)</span><br><span class="line">    returns (NodeGetVolumeStatsResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  rpc NodeExpandVolume(NodeExpandVolumeRequest)</span><br><span class="line">    returns (NodeExpandVolumeResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  rpc NodeGetCapabilities (NodeGetCapabilitiesRequest)</span><br><span class="line">    returns (NodeGetCapabilitiesResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  rpc NodeGetInfo (NodeGetInfoRequest)</span><br><span class="line">    returns (NodeGetInfoResponse) &#123;&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>此外 <strong>Node</strong> 以及 <strong>Controller</strong> 都必須要實現另外一個名為 <strong>Identity</strong> 的 Service 來表明自己的身份與能力。</p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">service Identity &#123;</span><br><span class="line">  rpc GetPluginInfo(GetPluginInfoRequest)</span><br><span class="line">    returns (GetPluginInfoResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  rpc GetPluginCapabilities(GetPluginCapabilitiesRequest)</span><br><span class="line">    returns (GetPluginCapabilitiesResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  rpc Probe (ProbeRequest)</span><br><span class="line">    returns (ProbeResponse) &#123;&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>所以基於這種情況下，我們可以想像一個解決方案可能會有一些不同的架構</p>
+<ol>
+<li>不同的應用程式，分別各自實現 <strong>Controller</strong> 以及 <strong>Node</strong> 的服務</li>
+<li>使用相同的應用程式，內部同時實現兩個服務。</li>
+</ol>
+<p>此外官方也提供了四種參考的部署方式，主要還是會依據不同儲存方案本身的特性去設計。<br>下圖的 <strong>master</strong> 以及 <strong>node</strong> 兩種不同的節點身份可對應到 <strong>kubernetes</strong> 內的 <strong>master</strong> 以及 <strong>worker</strong> 節點。</p>
+<p>第一種是中央集權管理的部署方式，於 <strong>Master</strong> 去部署 <strong>Controller</strong> 服務，而剩下<strong>所有的</strong>工作節點都要部署 <strong>Node</strong> 服務。<br><img src="https://i.imgur.com/db7o9fq.png"></p>
+<p>第二種則是不管 <strong>Master</strong> 節點了，把 <strong>Controller</strong> 服務部署到其中一個 <strong>worker</strong> 節點即可。<br><img src="https://i.imgur.com/1h1vlVs.png"></p>
+<p>第三種則是將兩個服務整合，透過一個應用程式去實現 <strong>Controller</strong> 以及 <strong>Node</strong> 的介面，這種情況下部署就是將該應用程式部署到所有的 <strong>worker</strong> 節點即可<br><img src="https://i.imgur.com/5W7XtVW.png"></p>
+<p>第四種則是一個非常稀少，少到官方也沒有說明什麼類型會這樣部署，就是沒有 <strong>Controller</strong> 的解決方案，單純依賴 <strong>Node</strong> 的服務來處理所有儲存相關資院的創建與釋放。<br><img src="https://i.imgur.com/3D4vvqR.png"></p>
+<p>基於這些內容的討論，至少可以確認對於 <strong>CSI</strong> 的儲存方案來說，可以預想到部署時應該會採用 <strong>DaemonSet</strong> 的方式來部署 <strong>Noode</strong> 服務，而對於 <strong>Controller</strong> 服務來說則是不一定。</p>
+<h2 id="Lifecycle"><a href="#Lifecycle" class="headerlink" title="Lifecycle"></a>Lifecycle</h2><p>接下來看一下最重要的生命週期，看看到底 <strong>Container Orchestration</strong>, <strong>Controller</strong>, <strong>Node</strong> 這三者到底會怎麼合作來提供儲存空間。</p>
+<p>這部分也是有多種流程，主要取決於儲存方案本身的能力。<br>開始前先來定義一些相關名詞</p>
+<h3 id="Controller"><a href="#Controller" class="headerlink" title="Controller"></a>Controller</h3><ul>
+<li>Create Volume<br>此呼叫是請求儲存方案根據需求去創建一個可用的儲存空間，但是就只是創造出來該空間而已，還沒有辦法被使用。以 <strong>AWS</strong> 來說可能就是創造一個 <strong>Volume</strong></li>
+<li>Controller Publish Volume<br>此呼叫是請求儲存空間將之前創造的 <strong>volume</strong> 與特定的節點進行連動，譬如該節點有能力去存取該創造出來的 <strong>Volume</strong>。 以 <strong>AWS</strong> 來說就將創造好的 <strong>Volume</strong> 掛載到特定的運算資源上(VM)</li>
+</ul>
+<h3 id="Node"><a href="#Node" class="headerlink" title="Node"></a>Node</h3><ul>
+<li>Stage Volume<br>當透過上述 <strong>Controller</strong> 的相關操作將 <strong>Volume</strong> 給掛載到節點後，接下來可以對 <strong>Node</strong> 進行 <strong>stage</strong> 的動作，將該 <strong>Volume</strong> 給掛到一個暫時的位置，接下來相關的工作資源<strong>Pod</strong> 就可以使用，甚至可以多個 <strong>Pod</strong> 共享。<br>此外這個步驟也需要確保該 <strong>Volume</strong> 有被格式化過</li>
+<li>Publish Volume<br>這是最後一個步驟，透過類似 <strong>bind mount</strong> 的方式將欲使用的儲存空間給投入到 <strong>Pod</strong> 裡面去使用</li>
+</ul>
+<p>上面的敘述沒有非常精準的描述一切行為，因為對於 <strong>Block Device</strong> 以及 <strong>Mountable Volume</strong> 來說，兩者的使用方法不太一樣，因此執行的行為也會有點差異。而上述的行為描述比較偏向將一個 (block device) 提供給多個 <strong>Pod</strong> 去使用。</p>
+<blockquote>
+<p>The main difference between block volumes and mount volumes is the expected result of the NodePublish(). For mount volumes, the CO expects the result to be a mounted directory, at TargetPath. For block volumes, the CO expects there to be a device file at TargetPath. The device file can by a bind-mounted device from the hosts &#x2F;dev file system, or it can be a device node created at that location using mknod()</p>
+</blockquote>
+<p>接下來看一下<a target="_blank" rel="noopener" href="https://github.com/container-storage-interface/spec/blob/master/spec.md#volume-lifecycle">官方</a>分享的幾個可能的運作流程</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">   CreateVolume +------------+ DeleteVolume</span><br><span class="line"> +-------------&gt;|  CREATED   +--------------+</span><br><span class="line"> |              +---+----+---+              |</span><br><span class="line"> |       Controller |    | Controller       v</span><br><span class="line">+++         Publish |    | Unpublish       +++</span><br><span class="line">|X|          Volume |    | Volume          | |</span><br><span class="line">+-+             +---v----+---+             +-+</span><br><span class="line">                | NODE_READY |</span><br><span class="line">                +---+----^---+</span><br><span class="line">               Node |    | Node</span><br><span class="line">            Publish |    | Unpublish</span><br><span class="line">             Volume |    | Volume</span><br><span class="line">                +---v----+---+</span><br><span class="line">                | PUBLISHED  |</span><br><span class="line">                +------------+</span><br><span class="line"></span><br><span class="line">Figure 5: The lifecycle of a dynamically provisioned volume, from</span><br><span class="line">creation to destruction.</span><br></pre></td></tr></table></figure>
+
+<p>可以看到這邊描述的是 <strong>Dynamically Provisioned Volume</strong>，對應到 <strong>kubernetes</strong> 就是所謂的 <strong>StorageClass</strong>。 此範例中就是呼叫 <strong>Controller</strong> 去創建空間，接者透過 Publish 使其與 <strong>Node</strong> 互動，最後直接透過 <strong>Publish Volume</strong> 掛到對應的 <strong>Container</strong> 中。這範例中就沒有去使用 <strong>Stage</strong> 的概念，因為創造出來的空間就是直接可存取的 <strong>Mount Volume</strong>，譬如 <a target="_blank" rel="noopener" href="https://github.com/kubernetes-csi/csi-driver-nfs/blob/adb36fc9cd2a078c34311cf78828e6aad2c9d996/pkg/nfs/nodeserver.go#L134">NFS</a></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">   CreateVolume +------------+ DeleteVolume</span><br><span class="line"> +-------------&gt;|  CREATED   +--------------+</span><br><span class="line"> |              +---+----+---+              |</span><br><span class="line"> |       Controller |    | Controller       v</span><br><span class="line">+++         Publish |    | Unpublish       +++</span><br><span class="line">|X|          Volume |    | Volume          | |</span><br><span class="line">+-+             +---v----+---+             +-+</span><br><span class="line">                | NODE_READY |</span><br><span class="line">                +---+----^---+</span><br><span class="line">               Node |    | Node</span><br><span class="line">              Stage |    | Unstage</span><br><span class="line">             Volume |    | Volume</span><br><span class="line">                +---v----+---+</span><br><span class="line">                |  VOL_READY |</span><br><span class="line">                +------------+</span><br><span class="line">               Node |    | Node</span><br><span class="line">            Publish |    | Unpublish</span><br><span class="line">             Volume |    | Volume</span><br><span class="line">                +---v----+---+</span><br><span class="line">                | PUBLISHED  |</span><br><span class="line">                +------------+</span><br><span class="line"></span><br><span class="line">Figure 6: The lifecycle of a dynamically provisioned volume, from</span><br><span class="line">creation to destruction, when the Node Plugin advertises the</span><br><span class="line">STAGE_UNSTAGE_VOLUME capability.</span><br></pre></td></tr></table></figure>
+
+<p>與上述行為雷同，不過面對的是 <strong>block device</strong> 的類別，所以還需要經過 <strong>stage</strong> 階段進行一次處理，才可以讓 <strong>block device</strong> 能夠被多次存取。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">    Controller                  Controller</span><br><span class="line">       Publish                  Unpublish</span><br><span class="line">        Volume  +------------+  Volume</span><br><span class="line"> +-------------&gt;+ NODE_READY +--------------+</span><br><span class="line"> |              +---+----^---+              |</span><br><span class="line"> |             Node |    | Node             v</span><br><span class="line">+++         Publish |    | Unpublish       +++</span><br><span class="line">|X| &lt;-+      Volume |    | Volume          | |</span><br><span class="line">+++   |         +---v----+---+             +-+</span><br><span class="line"> |    |         | PUBLISHED  |</span><br><span class="line"> |    |         +------------+</span><br><span class="line"> +----+</span><br><span class="line">   Validate</span><br><span class="line">   Volume</span><br><span class="line">   Capabilities</span><br><span class="line"></span><br><span class="line">Figure 7: The lifecycle of a pre-provisioned volume that requires</span><br><span class="line">controller to publish to a node (`ControllerPublishVolume`) prior to</span><br><span class="line">publishing on the node (`NodePublishVolume`).</span><br></pre></td></tr></table></figure>
+<p>最後一個則是 <strong>pre-provisioned</strong> 的類別，所以事先創立好的空間已經先準備好相關的資源，所以就透過兩次的 <strong>Push</strong> 把該空間給掛載到 <strong>Pod</strong> 裡面使用。</p>
+<p>除了這些基本流程之外，整個 <strong>CSI</strong> 裡面的規範還有非常多的細節，譬如 snapshot的處理，各式各樣能力需要怎麼處理請求與回應，這邊我想就是針對儲存空間有興趣的人可以自行研究，並且嘗試開發一個簡易的 <strong>CSI</strong> 套件看看。</p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>綜觀下來， <strong>CSI</strong> 其運作的流程與之前使用 <strong>StorageClass</strong>, <strong>PVC</strong> ,<strong>PV</strong> 非常雷同，此外若本身有在使用公有雲的服務，裡面提供的儲存服務用法也大概如此。<br>先創建，接者連接，最後存取，而這次只是把存取的角色限定為 <strong>Container</strong> 而連接的部分都是所謂的系統節點罷了。</p>
+<p>說罷了系統設計本一家，看似嶄新的發展其實背後也是用到了很多過往的經驗與技術，譬如所謂的 <strong>block device&#x2F;mountable volume</strong> 或是 <strong>mount, bind mount</strong>，這些底子的技術若平常就有精進累積，來看這些相關的知識與架構就會覺得沒那麼陌生，甚至覺得上手不會太困難。</p>
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/storage/volumes/#csi">https://kubernetes.io/docs/concepts/storage/volumes/#csi</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/container-storage-interface/spec">https://github.com/container-storage-interface/spec</a></li>
+<li><a target="_blank" rel="noopener" href="https://medium.com/searce/glusterfs-dynamic-provisioning-using-heketi-as-external-storage-with-gke-bd9af17434e5">https://medium.com/searce/glusterfs-dynamic-provisioning-using-heketi-as-external-storage-with-gke-bd9af17434e5</a></li>
+<li><a target="_blank" rel="noopener" href="https://arslan.io/2018/06/21/how-to-write-a-container-storage-interface-csi-plugin/">https://arslan.io/2018/06/21/how-to-write-a-container-storage-interface-csi-plugin/</a></li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/Storage/" rel="tag"># Storage</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+              <a href="/tags/CSI/" rel="tag"># CSI</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/csi.html" rel="prev" title="Container Storage Interface 基本介紹">
+                  <i class="fa fa-chevron-left"></i> Container Storage Interface 基本介紹
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/csi-k8s.html" rel="next" title="Container Storage Interface 與 kubernetes">
+                  Container Storage Interface 與 kubernetes <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

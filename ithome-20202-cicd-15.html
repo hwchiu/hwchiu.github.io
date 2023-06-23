@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="ITHOME-2020 系列文章">
+<meta property="og:type" content="article">
+<meta property="og:title" content="鐵人賽系列文章- Day15 - CD 之 Pull Mode 介紹: Keel">
+<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-15.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="ITHOME-2020 系列文章">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://camo.githubusercontent.com/a37104158195bc0862664cfdac7e9d5ee5c1bede/68747470733a2f2f6b65656c2e73682f696d672f6578616d706c65732f666f7263652d776f726b666c6f772e706e67">
+<meta property="og:image" content="https://camo.githubusercontent.com/e0c86b02e65a9302af6f5eb4d5b2fa849b260922/68747470733a2f2f6b65656c2e73682f696d672f6b65656c5f686967685f6c6576656c2e706e67">
+<meta property="article:published_time" content="2020-12-13T11:15:52.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.619Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="DevOps">
+<meta property="article:tag" content="ITHOME">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://camo.githubusercontent.com/a37104158195bc0862664cfdac7e9d5ee5c1bede/68747470733a2f2f6b65656c2e73682f696d672f6578616d706c65732f666f7263652d776f726b666c6f772e706e67">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-15.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/ithome-20202-cicd-15.html","path":"ithome-20202-cicd-15.html","title":"鐵人賽系列文章- Day15 - CD 之 Pull Mode 介紹: Keel"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>鐵人賽系列文章- Day15 - CD 之 Pull Mode 介紹: Keel | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BB%8B%E7%B4%B9"><span class="nav-number">1.</span> <span class="nav-text">介紹</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Keel-automated-Kubernetes-deployments-for-the-rest-of-us"><span class="nav-number">2.</span> <span class="nav-text">Keel - automated Kubernetes deployments for the rest of us</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%AE%89%E8%A3%9D"><span class="nav-number">3.</span> <span class="nav-text">安裝</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%A4%BA%E7%AF%84"><span class="nav-number">4.</span> <span class="nav-text">示範</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">5.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-15.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="鐵人賽系列文章- Day15 - CD 之 Pull Mode 介紹: Keel | Hwchiu Learning Note">
+      <meta itemprop="description" content="ITHOME-2020 系列文章">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          鐵人賽系列文章- Day15 - CD 之 Pull Mode 介紹: Keel
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2020-12-13 19:15:52" itemprop="dateCreated datePublished" datetime="2020-12-13T19:15:52+08:00">2020-12-13</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">ITHOME-2020 系列文章</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>上篇文章中，我們探討了不同類型的部署架構，今天我們就針對最後一種 Pull 的方式來進行一個介紹，同時使用開源專案 keel 來展示一</p>
+<p>下這種模式下的操作過程與結果</p>
+<p>本文中的圖片都節錄自 <a target="_blank" rel="noopener" href="https://github.com/keel-hq/keel">Keel官網</a></p>
+<h1 id="介紹"><a href="#介紹" class="headerlink" title="介紹"></a>介紹</h1><p><a target="_blank" rel="noopener" href="https://github.com/keel-hq/keel">Keel</a> 的官網介紹如下</p>
+<blockquote>
+<h1 id="Keel-automated-Kubernetes-deployments-for-the-rest-of-us"><a href="#Keel-automated-Kubernetes-deployments-for-the-rest-of-us" class="headerlink" title="Keel - automated Kubernetes deployments for the rest of us"></a>Keel - automated Kubernetes deployments for the rest of us</h1></blockquote>
+<p>Keel 是一款 CD 部署的工具，其實作方式除了我們介紹的 Pull Mode 之外，他也支援 Push Mode 的方式，讓 Container Registry 主動通知 Keel 去進行自動部署。</p>
+<p>下圖是一個最快理解 Keel 的運作流程，該圖片有五個步驟，分別是</p>
+<ol>
+<li>修改程式碼推到 Github</li>
+<li>透過 CI pipeline 來產生最後的 Container Image，並且把 Container Image 給推到遠方 Registry</li>
+<li>Container Registry 知道有新版出現後，透過 relay 的方式把 web hook 的資訊往下傳遞</li>
+<li>當 Webhook 最終到達 Keel 的 Controller 後， Keel 根據設定來準備更新相關資源</li>
+<li>將差異性更新到 Kubernetes 內</li>
+</ol>
+<p><img src="https://camo.githubusercontent.com/a37104158195bc0862664cfdac7e9d5ee5c1bede/68747470733a2f2f6b65656c2e73682f696d672f6578616d706c65732f666f7263652d776f726b666c6f772e706e67"></p>
+<p>上述的運作方式跟我們前篇提到的 Pull-Mode 不太一樣，因為還是透過 webhook 的方式主動通知 Keel 去更新，但是 Keel 本身也有提供別的機制來實現不同的架構，如同其官方內的文章介紹</p>
+<blockquote>
+<p>Polling</p>
+</blockquote>
+<p>Since only the owners of docker registries can control webhooks - it’s often convenient to use polling. Be aware that registries can be rate limited so it’s a good practice to set up reasonable polling intervals. While configuration for each provider can be slightly different - each provider has to accept several polling parameters:</p>
+<p>如圖上篇文章所說，不是每個 container registry 都能去控管 web hooks 的架構，我們等等的示範中會使用 docker registry 配上 Polling 的機制來實現這種稍微被動一點的更新</p>
+<p>此外，相對於 Push mode, Pull 則是透過定期詢問的方式去確認有沒有新版本，因此更新的速度上可能會比 webhook 還來得慢一點。</p>
+<p>下圖是比較完整的架構，用來敘述 Keel 整個專案的架構</p>
+<p><img src="https://camo.githubusercontent.com/e0c86b02e65a9302af6f5eb4d5b2fa849b260922/68747470733a2f2f6b65656c2e73682f696d672f6b65656c5f686967685f6c6576656c2e706e67"></p>
+<p>整個架構圖非常簡單，首先右邊代表的是 Keel Controller 以及控管的 Kubernetes Cluster，其中可以 Keel 下方還有 Helm 的標誌，這意</p>
+<p>味者 Keel 對於應用程式可以支援原生的 Yaml 也可以支援用 Helm 控管的應用程式</p>
+<p>左邊有三個框架，最上面代表的是 KEEL 支援的 Kubernetes 版本，不論是官方原生， Rancher 或者 Openshift 都支援。</p>
+<p>下面則是所支援的 Container Registry 版本，譬如是 Quay, Harbor, Docker 或是其他公有雲的 Cloud Registry。</p>
+<p>最下面則是一些通知系統，包含 Slack, Mattermost, Hipchat 等，此外 keel 還可以支援審核機制，當要部署的時候會發通知到 slack 等系統，需要有人按下同意後，才會繼續執行後續的動作。</p>
+<p>有更多的興趣可以參閱<a target="_blank" rel="noopener" href="https://keel.sh/docs/#introduction">官方網站</a></p>
+<h1 id="安裝"><a href="#安裝" class="headerlink" title="安裝"></a>安裝</h1><p>安裝方面提供兩種做法，可以透過 <code>helm</code> 去安裝或是直接透過 <code>kubectl</code> 安裝原生 yaml 檔案</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">$ helm repo add keel https://charts.keel.sh</span><br><span class="line"><span class="string">&quot;keel&quot;</span> has been added to your repositories</span><br><span class="line">$ helm repo update</span><br><span class="line">Hang tight <span class="keyword">while</span> we grab the latest from your chart repositories...</span><br><span class="line">...Successfully got an update from the <span class="string">&quot;keel&quot;</span> chart repository</span><br><span class="line">Update Complete. ⎈Happy Helming!⎈</span><br><span class="line">$ helm upgrade --install keel --namespace=kube-system keel/keel</span><br><span class="line">Release <span class="string">&quot;keel&quot;</span> does not exist. Installing it now.</span><br><span class="line">NAME: keel</span><br><span class="line">LAST DEPLOYED: Sun Sep 13 03:28:06 2020</span><br><span class="line">NAMESPACE: kube-system</span><br><span class="line">STATUS: deployed</span><br><span class="line">REVISION: 1</span><br><span class="line">TEST SUITE: None</span><br><span class="line">NOTES:</span><br><span class="line">1. The keel is getting provisioned <span class="keyword">in</span> your cluster. After a few minutes, you can run the following to verify.</span><br><span class="line"></span><br><span class="line">To verify that keel has started, run:</span><br><span class="line"></span><br><span class="line">  kubectl --namespace=kube-system get pods -l <span class="string">&quot;app=keel&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>到這邊完畢我們就將 Keel Controller 安裝到 Kubernetes 叢集內了，接下來就來試試看如何使用 Keel 來完成自動部署</p>
+<h1 id="示範"><a href="#示範" class="headerlink" title="示範"></a>示範</h1><p>接下來的示範流程如下</p>
+<ol>
+<li>透過 Deployment 準備一個自己準備的 Container Image</li>
+<li>讓 Keel 幫忙部署該應用程式</li>
+<li>手動於別的畫面更新 Container Image</li>
+<li>觀察 Keel 的 log 以及 Kubernetes 狀況，確認該 container 有更新</li>
+</ol>
+<p>首先，因為 Keel 本身沒有額外的 CRD 去告訴 Keel 到底哪些應用程式想要被 Keel 控管，因此控制的方式就是在應用程式的 Yaml 內增加 label，然後 Keel 的 controller 就會去監聽所有有設定這些規則的應用程式，再根據應用程式的內容來決定如何更新</p>
+<p>下面是一個簡單的 deployment 的範例，該範例中我們於 metadata.labels 裡面增加兩個關於 keel 的敘述</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">ithome</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">&quot;ithome&quot;</span></span><br><span class="line">      <span class="attr">keel.sh/policy:</span> <span class="string">all</span></span><br><span class="line">      <span class="attr">keel.sh/trigger:</span> <span class="string">poll</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">3</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">ithome</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">ithome</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">ithome</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">image:</span> <span class="string">hwchiu/netutils:3.4.5</span></span><br><span class="line">          <span class="attr">name:</span> <span class="string">ithome</span></span><br></pre></td></tr></table></figure>
+
+
+
+<ol>
+<li>keel.sh&#x2F;policy:<br>這邊描述怎樣的 image tag 的變化是認可為有新版，keel 會希望image tag的版本都可以根據 SemVer 的方式使用 $major.$minor.$patch 來描述。 而今天我們使用 <code>all</code> 的含義是三者有任何一個版本更新，我們就會更新，預設會使用最新的版本。</li>
+<li>keel.sh&#x2F;trigger<br>這邊描述我們不使用 webhook 的方式，而是改用去定期詢問遠方 image 是否有更新</li>
+</ol>
+<p>接下來我們就來部署看看</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl apply -f deployment.yaml</span><br><span class="line">$ kubectl get deployment ithome -o jsonpath=<span class="string">&#x27;&#123;.spec.template.spec.containers[0].image&#125;&#x27;</span></span><br><span class="line">hwchiu/netutils:3.4.5</span><br></pre></td></tr></table></figure>
+
+<p>接下來開啟其他視窗，嘗試部署一個全新的 image tag, 其版本必須大於 3.4.5，譬如我們使用 4.5.6 試試看</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">$ docekr push hwchiu/netutils:4.5.6</span><br><span class="line">....</span><br><span class="line">Successfully tagged hwchiu/netutils:4.5.6</span><br><span class="line">The push refers to repository [docker.io/hwchiu/netutils]</span><br><span class="line">de527d59ee7c: Layer already exists</span><br><span class="line">0c98ba7dbe5c: Layer already exists</span><br><span class="line">64d2e4aaa54c: Layer already exists</span><br><span class="line">0d3833376c2f: Layer already exists</span><br><span class="line">4a048ea09024: Layer already exists</span><br><span class="line">b592b5433bbf: Layer already exists</span><br><span class="line">4.5.6: digest: sha256:f2956ee6b5aafb43ec22aeeda10cfd20b92b3d01d9048908a25ef4430671b8a3 size: 1569</span><br><span class="line">$ kubectl get deployment ithome -o jsonpath=<span class="string">&#x27;&#123;.spec.template.spec.containers[0].image&#125;&#x27;</span></span><br><span class="line">hwchiu/netutils:4.5.6</span><br></pre></td></tr></table></figure>
+
+<p>不久後就可以觀察到系統上的 image 已經被改變了，此時去觀察中間層的 replicaset，就可以看到有 <code>4.5.6</code> 的出現</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl get rs -o wide</span><br><span class="line">NAME                DESIRED   CURRENT   READY   AGE     CONTAINERS   IMAGES                  SELECTOR</span><br><span class="line">ithome-7d44545847   3         3         3       2m49s   ithome       hwchiu/netutils:4.5.6   app=ithome,pod-template-hash=7d44545847</span><br><span class="line">ithome-7d5fb6757f   0         0         0       12m     ithome       hwchiu/netutils:3.4.5   app=ithome,pod-template-hash=7d5fb6757f</span><br></pre></td></tr></table></figure>
+
+
+
+<p>透過這樣的 Demo 過程，我們算是跑了一個基本的 Pull Mode 的更新，我們透過 Container Image 版本的更新來自動更新 Kubernetes 內部資源的狀態，這中間沒有牽扯到任何 CD Pipeline 的運作。</p>
+<p>實際上這種運作模式後來也有一種更好的架構，稱為 GitOps，下篇開始我們就來認真學習一下 GitOps 的概念!</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-14.html" rel="prev" title="鐵人賽系列文章- Day 14 - CD 與 Kubernetes 的整合">
+                  <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day 14 - CD 與 Kubernetes 的整合
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-16.html" rel="next" title="鐵人賽系列文章- Day 16 - GitOps 的介紹">
+                  鐵人賽系列文章- Day 16 - GitOps 的介紹 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

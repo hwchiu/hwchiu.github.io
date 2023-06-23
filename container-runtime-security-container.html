@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="有鑒於 CRI 的標準架構，各式各樣的針對不同目標的專案都能夠整合到 Kubernetes 中，而本文要介紹的兩個專案分別是 gVisor 以及 kata-container, 這兩個專案都是基於安全性考量而開發的 OCI Runtine，與其相同地位的就是最知名的 OCI Runtime, runc。 本文會介紹這兩個專案的概念以及目標，並且討論其實作架構來比較這兩種不同的方式是如何達到安全的效">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Container Runtime - Security Container">
+<meta property="og:url" content="https://www.hwchiu.com/container-runtime-security-container.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="有鑒於 CRI 的標準架構，各式各樣的針對不同目標的專案都能夠整合到 Kubernetes 中，而本文要介紹的兩個專案分別是 gVisor 以及 kata-container, 這兩個專案都是基於安全性考量而開發的 OCI Runtine，與其相同地位的就是最知名的 OCI Runtime, runc。 本文會介紹這兩個專案的概念以及目標，並且討論其實作架構來比較這兩種不同的方式是如何達到安全的效">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/vMUO3a3.png">
+<meta property="og:image" content="https://i.imgur.com/GSWN8fX.png">
+<meta property="og:image" content="https://i.imgur.com/q28fJdY.png">
+<meta property="og:image" content="https://i.imgur.com/dII0wFL.png">
+<meta property="og:image" content="https://i.imgur.com/PpzEOae.png">
+<meta property="og:image" content="https://i.imgur.com/19k2www.png">
+<meta property="og:image" content="https://i.imgur.com/xF11rVU.png">
+<meta property="article:published_time" content="2019-09-22T22:15:38.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.608Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Security">
+<meta property="article:tag" content="ITHOME">
+<meta property="article:tag" content="Container">
+<meta property="article:tag" content="CRI">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/vMUO3a3.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/container-runtime-security-container.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/container-runtime-security-container.html","path":"container-runtime-security-container.html","title":"Container Runtime - Security Container"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Container Runtime - Security Container | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BB%8B%E7%B4%B9"><span class="nav-number">2.</span> <span class="nav-text">介紹</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8E%9F%E5%85%88%E8%A7%A3%E6%B1%BA%E6%96%B9%E6%A1%88"><span class="nav-number">3.</span> <span class="nav-text">原先解決方案</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Machine-Based"><span class="nav-number">3.1.</span> <span class="nav-text">Machine-Based</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Rule-Based"><span class="nav-number">3.2.</span> <span class="nav-text">Rule-Based</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#gVisor"><span class="nav-number">4.</span> <span class="nav-text">gVisor</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Kata-Container"><span class="nav-number">5.</span> <span class="nav-text">Kata Container</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Network"><span class="nav-number">5.1.</span> <span class="nav-text">Network</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">6.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%83%E8%80%83"><span class="nav-number">7.</span> <span class="nav-text">參考</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">8.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/container-runtime-security-container.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Container Runtime - Security Container | Hwchiu Learning Note">
+      <meta itemprop="description" content="有鑒於 CRI 的標準架構，各式各樣的針對不同目標的專案都能夠整合到 Kubernetes 中，而本文要介紹的兩個專案分別是 gVisor 以及 kata-container, 這兩個專案都是基於安全性考量而開發的 OCI Runtine，與其相同地位的就是最知名的 OCI Runtime, runc。 本文會介紹這兩個專案的概念以及目標，並且討論其實作架構來比較這兩種不同的方式是如何達到安全的效果">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Container Runtime - Security Container
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-09-23 06:15:38" itemprop="dateCreated datePublished" datetime="2019-09-23T06:15:38+08:00">2019-09-23</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">有鑒於 CRI 的標準架構，各式各樣的針對不同目標的專案都能夠整合到 Kubernetes 中，而本文要介紹的兩個專案分別是 gVisor 以及 kata-container, 這兩個專案都是基於安全性考量而開發的 OCI Runtine，與其相同地位的就是最知名的 OCI Runtime, runc。 本文會介紹這兩個專案的概念以及目標，並且討論其實作架構來比較這兩種不同的方式是如何達到安全的效果</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p><code>Container</code> 與 <code>Virtual Machine (VM)</code> 的比較從來沒有停止過，許多介紹 <code>Container</code> 的文章都會將 <code>Contianer</code> 與 <code>ＶM</code> 進行各種比較，譬如</p>
+<ol>
+<li>虛擬化程度</li>
+<li>安全性</li>
+<li>效能</li>
+<li>速度(創建&#x2F;刪除)</li>
+<li>複雜性</li>
+</ol>
+<p>根據這些特係的比較， <code>Container</code> 與 <code>VM</code> 並沒有誰勝誰敗，倒是取決於使用的情境與需求。</p>
+<p>然而當 <code>Kubernetes</code> 橫空出世後，一開始最大的討論就是 <code>Kubernetes</code> 與 <code>OpenStack</code> 兩者的角色與地位，從可能競爭到後來互相合作，彼此作為整個架構中不同層級的應用。</p>
+<p>然而 <code>Container</code> 雖然好用，但是在某些情況一直為人詬病，如隔離程度與安全性。<br>如同前面曾經談過的 <code>Container</code> 的實作(Linux 為例)，透過 <code>Linux Kernel</code> 的 <code>namespace</code> 來達成各式各樣資源的隔離，藉此完成一個輕量級虛擬化的空間。 一旦 <code>Linux Kernel</code> 有任何安全性問題，是不是所有的 <code>Container</code> 都可能會受到波及? 反之亦然，若 <code>Container</code>  本身實現的機制有問題，是不是有機會從 <code>Container</code> 內部攻擊到外面 <code>Host</code> 造成安全性問題。</p>
+<p>譬如 2019 年初最知名的 <code>runc</code> 安全性漏洞<br><a target="_blank" rel="noopener" href="https://kubernetes.io/blog/2019/02/11/runc-and-cve-2019-5736/">Runc and CVE-2019-5736</a></p>
+<p>這些情況下，很多人都在思考，到底有沒有辦法結合 <code>Container</code> 與 <code>VM</code> 彼此的優點，產生一個如 <code>VM</code> 強大的隔離與安全性，同時本身又可以夠輕量，速度又夠快如 <code>Container</code>.</p>
+<p>基於這個設計理念下，有不少的相關專案在努力解決問題，其中我覺得有兩個最知名就是 <code>kata container</code> 以及 <code>gVisor</code>。</p>
+<h1 id="介紹"><a href="#介紹" class="headerlink" title="介紹"></a>介紹</h1><p><code>kata container/gVisor</code> 這兩個專案都是基於 <code>OCI Runtime</code> 標準進行開發，就是一個所謂的 <code>OCI Runtime</code> 解決方案，其地位與 <code>Runc</code> 是相同的。<br>根據 <a target="_blank" rel="noopener" href="https://github.com/opencontainers/runtime-spec/blob/master/implementations.md">opencontainers&#x2F;runtime-spec</a> 的介紹，我們可以看到下面目前被收錄的 <code>OCI Runtime</code></p>
+<p>第一種就是單純的 <code>Container</code>，沒什麼特別，就是被詬病有安全性隱憂的 <code>Container</code>。</p>
+<blockquote>
+<p>Runtime (Container)<br>opencontainers&#x2F;runc - Reference implementation of OCI runtime<br>projectatomic&#x2F;bwrap-oci - Convert the OCI spec file to a command line for bubblewrap<br>containers&#x2F;crun - Runtime implementation in C</p>
+</blockquote>
+<p>這一種特別了，就是基於 <code>Virtual Machine</code> 的方式去提供 <code>Container</code> 的介面來使用</p>
+<blockquote>
+<p>Runtime (Virtual Machine)<br>hyperhq&#x2F;runv - Hypervisor-based runtime for OCI<br>clearcontainers&#x2F;runtime - Hypervisor-based OCI runtime utilising virtcontainers by Intel®.<br>google&#x2F;gvisor - gVisor is a user-space kernel, contains runsc to run sandboxed containers.<br>kata-containers&#x2F;runtime - Hypervisor-based OCI runtime combining technology from clearcontainers&#x2F;runtime and hyperhq&#x2F;runv.</p>
+</blockquote>
+<p>這邊看到有四個專案，分別是</p>
+<ul>
+<li>runv</li>
+<li>clearcontainers</li>
+<li>gvisor</li>
+<li>kata-containers</li>
+</ul>
+<p>但是實際上目前就是 <code>gvisor</code> 以及 <code>kata-containers</code>，主要是因為 <code>kata-container</code> 是由 <code>runv</code> + <code>clearcontainers</code> 合併而成。</p>
+<p>由於有限的時間，本篇沒有辦法跟各位分享如何安裝及測試這兩種不同的 <code>runtime</code>, 但是還是可以探討一下這兩種 <code>gvisor/kata-containers</code> 的差異，同時可以學習一下這兩個專案是採取何種不同的設計概念來滿足安全性</p>
+<h1 id="原先解決方案"><a href="#原先解決方案" class="headerlink" title="原先解決方案"></a>原先解決方案</h1><h2 id="Machine-Based"><a href="#Machine-Based" class="headerlink" title="Machine-Based"></a>Machine-Based</h2><p>我們先看一下大家熟悉的 <code>Virtual Machine</code> 通常怎麼做到安全隔離，這邊我們使用 <code>KVM</code> 的範例來看</p>
+<p><img src="https://i.imgur.com/vMUO3a3.png"><br>圖片節錄自<a target="_blank" rel="noopener" href="https://gvisor.dev/docs/architecture_guide/">Architecture Guide</a></p>
+<p><code>KVM</code> 本身基於 <code>host</code> 的主機上再創造一個全新的虛擬化環境，該環境中有一個全新的 <code>Kernel</code>, 所以名詞上就會有所謂的 <code>Host Kernel</code> 以及 <code>Guest Kernel</code>.<br>當然資訊安全本就沒有絕對，所有的服務都基於 <code>kvm</code> 的設計包含 <code>kvm kernel module</code>, 這些可能互動的過程中要是有問題也是會造成安全性漏洞。<br>不過今天討論的範疇在於虛擬化環境與 <code>Host</code> 本身是否會互相影響，所以暫時就先忽略其他的因素。</p>
+<p>基於這種完全不同 <code>Kernel</code> 的架構， <code>Guest</code> 有發生任何事情，也都只會影響在 <code>Guest Kernel</code> 構築的環境中，不會影響到 <code>Host Kernel</code> 上。</p>
+<h2 id="Rule-Based"><a href="#Rule-Based" class="headerlink" title="Rule-Based"></a>Rule-Based</h2><p>另外一種安全性的解決方案是則是透過 <code>system call</code> 的管理，譬如 <a target="_blank" rel="noopener" href="https://www.kernel.org/doc/Documentation/prctl/seccomp_filter.txt">SECure COMPuting (SECCOM)</a> 這種技術，可以限制目標應用程式能夠呼叫到的 <code>sysytem call</code>，藉此確保該應用程式(Application&#x2F;Container)本身沒有辦法去呼叫其不應該呼叫的 <code>system call</code>, 算是一種基於規則的安全性方案。</p>
+<p><img src="https://i.imgur.com/GSWN8fX.png"><br>圖片節錄自<a target="_blank" rel="noopener" href="https://gvisor.dev/docs/architecture_guide/">Architecture Guide
+</a></p>
+<p>這邊有一個其規則的<a target="_blank" rel="noopener" href="https://github.com/moby/moby/blob/master/profiles/seccomp/default.json">範例檔案</a></p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">		<span class="punctuation">&#123;</span></span><br><span class="line">			<span class="attr">&quot;names&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">				<span class="string">&quot;get_mempolicy&quot;</span><span class="punctuation">,</span></span><br><span class="line">				<span class="string">&quot;mbind&quot;</span><span class="punctuation">,</span></span><br><span class="line">				<span class="string">&quot;set_mempolicy&quot;</span></span><br><span class="line">			<span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">			<span class="attr">&quot;action&quot;</span><span class="punctuation">:</span> <span class="string">&quot;SCMP_ACT_ALLOW&quot;</span><span class="punctuation">,</span></span><br><span class="line">			<span class="attr">&quot;args&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">			<span class="attr">&quot;comment&quot;</span><span class="punctuation">:</span> <span class="string">&quot;&quot;</span><span class="punctuation">,</span></span><br><span class="line">			<span class="attr">&quot;includes&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">				<span class="attr">&quot;caps&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">					<span class="string">&quot;CAP_SYS_NICE&quot;</span></span><br><span class="line">				<span class="punctuation">]</span></span><br><span class="line">			<span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">			<span class="attr">&quot;excludes&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span><span class="punctuation">&#125;</span></span><br><span class="line">		<span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>然而因其設定複雜，實務上很難可以很準確的產生出各種設定檔案來套用到各式各樣的應用程式。</p>
+<p>接下來就來看一下 <code>gVisor</code> 以及 <code>kata Container</code> 怎麼做出不同於以往的安全性架構</p>
+<h1 id="gVisor"><a href="#gVisor" class="headerlink" title="gVisor"></a>gVisor</h1><p><code>gVisor</code> 作為相容於 <code>OCI Runtime</code> 的解決方案，<code>理論</code>上只要能夠支援 <code>OCI</code> 的上層服務應該都要可以直接使用 <code>gVisor</code>，所以之前提到的 <code>containerd</code> 以及 <code>cri-o</code> 都要可以切換 <code>runtime</code> 從基本的 <code>runc</code> 切換過來。</p>
+<p>從其 <a target="_blank" rel="noopener" href="https://github.com/google/gvisor">官方 Github</a> 的介紹</p>
+<blockquote>
+<p>gVisor is a user-space kernel, written in Go, that implements a substantial portion of the Linux system surface. It includes an Open Container Initiative (OCI) runtime called runsc that provides an isolation boundary between the application and the host kernel. The runsc runtime integrates with Docker and Kubernetes, making it simple to run sandboxed containers.</p>
+</blockquote>
+<p><code>gVisor</code> 最底層的 <code>OCI Runtime</code> 叫做 <code>runsc</code>，而其達到安全性隔離的手段則是透過所謂的 <code>user-space kernel</code> 的手段，接下來將透過介紹到底 <code>gVisor</code> 是怎麼<br>實現高安全性的 <code>Container</code>。</p>
+<p>如果說 <code>SECCOMP</code> 是透過限制的方式禁止應用程式存取特別的 <code>systel call</code>, 那 <code>gVisor</code> 就是極端的把所有的 <code>system call</code> 完全都修改掉，讓你看起來有使用 <code>system call</code>，但是其實你使用的 <code>system call</code> 根本不是跟真正的 <code>host kernel</code> 溝通，而是跟 <code>gVisor</code> 所重新打造的 <code>user-space kernel</code> 溝通。</p>
+<p>這也是為什麼其稱為 <code>user-space kernel</code>, 在 <code>user-space</code> 重新打造一個仿 <code>kernel</code> 的環境，架構如下。</p>
+<p><img src="https://i.imgur.com/q28fJdY.png"><br>圖片節錄自<a target="_blank" rel="noopener" href="https://gvisor.dev/docs/architecture_guide/">Architecture Guide
+</a></p>
+<p>所有送到 gVisor 的 <code>system call</code> 都會被二次處理，接者才會送到真正的 <code>Host Kernel</code> 去取得需要的資訊。 官方文章特別表明這些不同的做法沒有明顯的優劣，各有擅長的領域，整句話如下，值得好好思考</p>
+<blockquote>
+<p>Each of the above approaches may excel in distinct scenarios. For example, machine-level virtualization will face challenges achieving high density, while gVisor may provide poor performance for system call heavy workloads.</p>
+</blockquote>
+<h1 id="Kata-Container"><a href="#Kata-Container" class="headerlink" title="Kata Container"></a>Kata Container</h1><p>與 <code>gVisor</code> 一樣，都是基於 <code>OCI Runtime</code> 的解決方案，這時候就會覺得有個 <code>OCI</code> 的標準真的是讓世界稍微美好了一些，各式各樣的解決方案都能夠專注於自己的開發，就可以很輕鬆地與其他的應用程式結合而不需要各種客製化。</p>
+<p>從其 <a target="_blank" rel="noopener" href="https://katacontainers.io/">官網</a> 的介紹</p>
+<blockquote>
+<p>Kata Containers is an open source container runtime, building lightweight virtual machines that seamlessly plug into the containers ecosystem.</p>
+</blockquote>
+<p>其開宗明義表明建置一個輕量化的 <code>Virtual Machine</code> 同時能夠銜接到 <code>Container</code> 的系統，接下來我們可以從 <a target="_blank" rel="noopener" href="https://github.com/kata-containers/documentation/blob/master/design/architecture.md">Kata Containers Architecture
+</a> 看到更多關於其設計的架構</p>
+<p>首先先看一下簡單的使用架構，左邊是基於完全 <code>docker + runc</code> 的場景，此架構已經在 <a target="_blank" rel="noopener" href="https://ithelp.ithome.com.tw/articles/10216215">Container &amp; Open Container Initiative</a> 中跟大家介紹過，而最下面的 <code>runc</code> 就是所謂的 <code>OCI Runtime</code>，因此 <code>kata container</code> 中的 <code>OCI Runtime</code> <code>kata-runtime</code> 就可以無縫的替換掉 <code>runc</code>。<br>對使用者來說可以繼續使用習慣的  <code>docker run/exec/attach</code> 等指令而不會發現底層其實已經完全不同了。</p>
+<p><img src="https://i.imgur.com/dII0wFL.png"><br>圖片節錄自<a target="_blank" rel="noopener" href="https://github.com/kata-containers/documentation/blob/master/design/architecture.md">Kata Containers Architecture
+</a></p>
+<p><code>kata-container</code> 的作法完全不同於 <code>gVisor</code>, 其就如同過往的 <code>Virtual Machine</code> 一樣，真正的去創造一個 <code>VM</code> 來隔離所謂的 <code>Host Kernel</code> 以及 <code>Guest Kernel</code>. 接者會在這個 <code>VM</code> 上面去運行使用者所請求的 <code>Container</code>，藉此達到一個外表看似 <code>Container</code> 實際上是一個運行在 <code>VM</code> 上的 <code>Container.</code></p>
+<p>相關的架構可以參考下圖<br><img src="https://i.imgur.com/PpzEOae.png"><br>圖片節錄自<a target="_blank" rel="noopener" href="https://katacontainers.io/">About Kata Containers
+</a></p>
+<p>在此架構下，我們可以想像到如果今天有任何 <code>container CLI</code> 想要直接操控該 <code>Container</code>的話，問題就在於從 <code>OCI Runtime</code> 送出的指令要如何操控到該 <code>VM</code> 裡面的 <code>Container</code>. 於是你可以看到架構中有所謂的 <code>Proxy</code> 以及 <code>Agent</code><br>這兩個角色就是負責幫忙進行指令交換的，讓整個運作環境操作起來跟熟悉的 <code>Container</code> 一致，也符合最上面的專案介紹 <strong>seamlessly plug into the containers ecosystem.</strong></p>
+<h2 id="Network"><a href="#Network" class="headerlink" title="Network"></a>Network</h2><p>當基本的 <code>Container</code> 運行起來後，接下來就要思考網路的問題，目前有兩套網路解決方案·分別是 <code>Docker</code> 提出的 <code>Container Network Management (CNM)</code> 以及 <code>kubernetes</code> 開發後提出的 <code>Container Network Interface (CNI)</code>。</p>
+<p>更多的細節會到之後 <code>CNI</code> 的章節再來仔細探討這些，這邊先用一個簡單的流程說明到底 <code>Kata Container</code> 遇到什麼問題以及怎麼解決。</p>
+<ol>
+<li>大部分的 <code>CNI</code> 會透過 <code>Linux Kernel</code> 提供的 <code>veth</code> 這個功能來串聯不同的 <code>Network Namespace</code>，藉此讓封包可以在不同的隔離空間中傳輸</li>
+<li><code>Kata Container</code> 本身包了一個 <code>Virtual Machine</code> 在最外層，使得上述的方法不可行</li>
+<li>為了相容所有的 <code>CNM</code> 以及 <code>CNI</code>, 勢必要找一個 <code>network namespace</code> 供這些介面去使用</li>
+<li>於是決定先創造一個 <code>network namespace</code>(只有單純的網路功能隔離),<code>CNM/CNI</code> 會對這個 <code>network namespace</code> 進行設定，將相關的網路功能設定好，之後透過 <code>Linux Bridge</code> 配合 <code>Tap</code> 的方式將該 <code>network namespace</code> 上的網路介面與 <code>VM</code> 裡面的網路介面給串接起來。</li>
+<li>這邊實際上是透過 <a target="_blank" rel="noopener" href="https://virt.kernelnewbies.org/MacVTap">MACVTAP</a> 這個方式來串接, 有興趣的可以自行閱讀</li>
+</ol>
+<p><img src="https://i.imgur.com/19k2www.png"><br>圖片節錄自<a target="_blank" rel="noopener" href="https://github.com/kata-containers/documentation/blob/master/design/architecture.md">Kata Containers Architecture
+</a></p>
+<p><img src="https://i.imgur.com/xF11rVU.png"><br>圖片節錄自<a target="_blank" rel="noopener" href="https://github.com/kata-containers/documentation/blob/master/design/architecture.md">Kata Containers Architecture
+</a></p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>本章節跟大家分享並討論了一下基於安全性考量所發展的 <code>OCI Runtime</code> 專案,可以清楚地看到 <code>gVisor</code> 與 <code>kata container</code> 採取了兩種截然不同的方式來發展。<br>這兩個解決方案都相容於 <code>OCI Runtime</code>，所以只要上層的服務也支援 <code>OCI Runtime</code>，那就可以很輕鬆的轉移測試，譬如 <code>containerd</code> 或是 <code>cri-o</code>。</p>
+<p>由於最後底層都是 <code>Container</code>, 所以使用者部屬的任何服務理論上都不需要修改，可以繼續使用各式各樣的 <code>Container Image</code> 以及相關的工具來處理。</p>
+<p>下一篇就是 <code>CRI</code> 系列文章的最後一篇，到時候將跟大家如何將 <code>Kubernetes CRI</code> 與 <code>Virtual Machine</code> 給串接起來，這種情況下已經不需要 <code>Container Image</code> 了，而是要採用真正的 <code>VM Image</code> 並且透過 <code>Kubernetes</code> 來管理這些支援 <code>CRI</code> 操作但是實際上是完全跟 <code>Container</code> 無關的 <code>Virtual Machine</code> 解決方案。</p>
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/kata-containers/runtime">https://github.com/kata-containers/runtime</a></li>
+<li><a target="_blank" rel="noopener" href="https://thenewstack.io/how-to-implement-secure-containers-using-googles-gvisor/">https://thenewstack.io/how-to-implement-secure-containers-using-googles-gvisor/</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/kata-containers/runtime">https://github.com/kata-containers/runtime</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/google/gvisor">https://github.com/google/gvisor</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/moby/moby/blob/master/profiles/seccomp/default.json">https://github.com/moby/moby/blob/master/profiles/seccomp/default.json</a></li>
+<li><a target="_blank" rel="noopener" href="https://katacontainers.io/">https://katacontainers.io/</a></li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Security/" rel="tag"># Security</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+              <a href="/tags/Container/" rel="tag"># Container</a>
+              <a href="/tags/CRI/" rel="tag"># CRI</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/kubernetes-runtime-crio.html" rel="prev" title="Container Runtime - CRI-O">
+                  <i class="fa fa-chevron-left"></i> Container Runtime - CRI-O
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/container-runtime-vm.html" rel="next" title="Container Runtime - Virtual Machine">
+                  Container Runtime - Virtual Machine <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

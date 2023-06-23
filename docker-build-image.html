@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本 blog 目前是採用 hexo 作為主要開發，然而 hexo 我覺得最大的缺點就是屬於靜態網頁類型，所以只要每次換一個開發裝置，譬如桌電,筆電等，就必須要將整個環境重新建置。整個 hexo 是由 nodejs 所組成的，所以其實在安裝上也不會有什麼太大的麻煩，但就是覺得相同的事情做過很多次，其實還滿蠢的。所以決定採用 docker 的方式，將該開發環境做成一個 docker image，之後有">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker image for Hexo (一)">
+<meta property="og:url" content="https://www.hwchiu.com/docker-build-image.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本 blog 目前是採用 hexo 作為主要開發，然而 hexo 我覺得最大的缺點就是屬於靜態網頁類型，所以只要每次換一個開發裝置，譬如桌電,筆電等，就必須要將整個環境重新建置。整個 hexo 是由 nodejs 所組成的，所以其實在安裝上也不會有什麼太大的麻煩，但就是覺得相同的事情做過很多次，其實還滿蠢的。所以決定採用 docker 的方式，將該開發環境做成一個 docker image，之後有">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2017-05-24T01:46:35.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.611Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="System">
+<meta property="article:tag" content="Docker">
+<meta property="article:tag" content="Container">
+<meta property="article:tag" content="Hexo">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/docker-build-image.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/docker-build-image.html","path":"docker-build-image.html","title":"Docker image for Hexo (一)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Docker image for Hexo (一) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Environment"><span class="nav-number">1.</span> <span class="nav-text">Environment</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Install"><span class="nav-number">2.</span> <span class="nav-text">Install</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Build"><span class="nav-number">3.</span> <span class="nav-text">Build</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Run"><span class="nav-number">4.</span> <span class="nav-text">Run</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Push"><span class="nav-number">5.</span> <span class="nav-text">Push</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/docker-build-image.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Docker image for Hexo (一) | Hwchiu Learning Note">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Docker image for Hexo (一)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2017-05-24 09:46:35" itemprop="dateCreated datePublished" datetime="2017-05-24T09:46:35+08:00">2017-05-24</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>本 blog 目前是採用 <strong>hexo</strong> 作為主要開發，然而 <strong>hexo</strong> 我覺得最大的缺點就是屬於靜態網頁類型，所以只要每次換一個開發裝置，譬如桌電,筆電等，就必須要將整個環境重新建置。<br>整個 <strong>hexo</strong> 是由 <strong>nodejs</strong> 所組成的，所以其實在安裝上也不會有什麼太大的麻煩，但就是覺得相同的事情做過很多次，其實還滿蠢的。<br>所以決定採用 <strong>docker</strong> 的方式，將該開發環境做成一個 <strong>docker image</strong>，之後有需要直接抓取該 <strong>image</strong> 下來使用即可。</p>
+<p>因此本文接下來將著重在如何使用 <strong>docker</strong> 指令創立一個 <strong>image</strong>，並且將其上傳到 <strong>docker hub</strong>上。</p>
+<span id="more"></span>
+
+<h2 id="Environment"><a href="#Environment" class="headerlink" title="Environment"></a>Environment</h2><ul>
+<li>OS: Ubuntu 16.04</li>
+<li>Docker version 1.12.6, build 78d1802</li>
+</ul>
+<h2 id="Install"><a href="#Install" class="headerlink" title="Install"></a>Install</h2><p>首先，我們要創建一個 <strong>Dockerfile</strong>，這個檔案除了用來描述該 <strong>Docker image</strong>的基本資訊外，也包含了當該<strong>Docker image</strong>被創建時，要執行些什麼指令，可以用來更新套件中心，安裝套件甚至是啟動特定服務都可以。<br>我們先從最基本的資訊開始。</p>
+<ul>
+<li>透過 <strong>mkdir</strong> 創建一個資料夾，我們接下來要在此放 <strong>Dockerfile</strong><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">mkdir</span> hexo_image</span><br></pre></td></tr></table></figure></li>
+<li>使用習慣的編輯器(vim&#x2F;nano&#x2F;ee) 開啟 <strong>Dockerfile</strong><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> hexo_image</span><br><span class="line">vim Dockerfile</span><br></pre></td></tr></table></figure></li>
+<li>接下來開始編輯內容，在該檔案內, **#**開頭的代表註解。<ul>
+<li>首先透過<strong>FROM</strong>來指示該 <strong>image</strong> 的環境，這邊採用的格式是 <strong>dis:version</strong>，舉例來說可以使用 <strong>ubuntu:16.04</strong></li>
+<li>接下來透過 <strong>MAINTAINER</strong> 來說明該 <strong>image</strong> 是由誰維護的。<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">FROM ubuntu:16.04</span><br><span class="line">MAINTAINER hwchiu(sppsorrg@gmail.com)</span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+<li>接下來我們可以執行一些指令，譬如將一些基本指令完畢，這樣每次創建該 <strong>image</strong> 時，就可以有一些基本的環境<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">RUN apt-get update</span><br><span class="line">RUN apt-get install -y net-tools</span><br><span class="line">RUN apt-get install -y git</span><br><span class="line">RUN apt-get install -y npm</span><br><span class="line">RUN apt-get install -y vim</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="Build"><a href="#Build" class="headerlink" title="Build"></a>Build</h2><p>上述事情都完畢後，接下來我們要透過 <strong>docker build</strong> 此指令去建立該 <strong>image</strong>，在創建之前，我們可以先透過 <strong>docker images</strong> 觀看系統上目前擁有的 <strong>docker images</strong> 資訊</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sppsorrg@ubuntu:~/hexo_image$ sudo docker images</span><br><span class="line">REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE</span><br></pre></td></tr></table></figure>
+<p>這邊總共有四行欄位,基本上其含義就如同其名稱一樣，我們在創建自己的 <strong>image</strong> 的時候，可以指定該 <strong>REPOSITORY</strong> 以及 <strong>TAG</strong>。<br>接下來就來使用 <strong>docker build</strong> 來使用剛剛的 <strong>Dockerfile</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker build -t myhexo:latest .</span><br></pre></td></tr></table></figure>
+<p>這邊使用到了兩個參數，分別是 <strong>-t myhexo:latest</strong> 以及 <strong>.</strong><br>由指令說明可以知道 <strong>-t</strong>可以用來指示該 image 的名稱，分別對應到上述的 <strong>REPOSITORY</strong> 以及 <strong>TAG</strong>，而 <strong>.</strong> 則是說明想要使用的 <strong>Dockerfile</strong> 的位置在哪裡</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-t, --tag value               Name and optionally a tag <span class="keyword">in</span> the <span class="string">&#x27;name:tag&#x27;</span> format (default [])</span><br></pre></td></tr></table></figure>
+<p>接下來就等待一段時間，當跑完後，就可以再度使用 <strong>docker images</strong> 觀看創建好的 <strong>images</strong> 資訊了。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">sppsorrg@ubuntu:~/hexo_image$ sudo docker images</span><br><span class="line">REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE</span><br><span class="line">myhexo              latest              ef7f745a9126        43 minutes ago      481.7 MB</span><br></pre></td></tr></table></figure>
+
+<p>若想要刪除 <strong>images</strong>，可以透過 <strong>docker rmi $imput</strong> 來刪除，其中 <strong>imput</strong> 可以是 <strong>name:tag</strong> 或是 <strong>IMAGE ID</strong> 的形式。</p>
+<h2 id="Run"><a href="#Run" class="headerlink" title="Run"></a>Run</h2><p>一切都創建完畢後，接下來就要透過 <strong>docker run</strong> 這個指令來執行剛剛創立的 <strong>docker image</strong>。<br>這邊我們會使用三個參數，分別是 <strong>–name</strong>,<strong>-i</strong> 以及 <strong>-t</strong><br><strong>-name</strong>代表的是該創建出來的 <strong>container</strong>的名稱，之後 <strong>rm&#x2F;stop</strong>等指令都可以使用此名稱操作，不然就要使用 <strong>containerID</strong>。<br><strong>-it</strong>則是將該 <strong>container</strong>的 <strong>stdin&#x2F;stdout</strong>都導出到外面的 <strong>tty</strong> 上面，因為我這個 <strong>container</strong> 之後是想要可以進去進行 <strong>hexo</strong> 的編輯，所以這邊就將其導出來。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker run --name hexo -it myhexo</span><br></pre></td></tr></table></figure>
+
+<p>如果想要觀察這些 <strong>container</strong> 的狀況，可以使用 <strong>docker ps -a</strong>的方式觀察。</p>
+<h2 id="Push"><a href="#Push" class="headerlink" title="Push"></a>Push</h2><p>最後我們要將當前創好的 <strong>image</strong> 給上傳到 docker hub 上，請自行<br>往<a target="_blank" rel="noopener" href="https://hub.docker.com/">docker hub</a>創建帳號並且設定好一個 <strong>repository</strong>。<br>這邊要注意的是，我們這邊是上傳剛剛創建好的 <strong>images</strong> 而並非後續運行的 <strong>container</strong>，所以若有任何步驟是在 <strong>container</strong> 內執行的，則上傳上去的 <strong>images</strong> 並不會有任何修改。</p>
+<p>首先，先透過 <strong>docker login</strong> 登入到遠方的 <strong>docker hub</strong>。<br>由於遠方 docker hub 上還沒有任何 image, 所以我們這邊要主動上傳剛剛創造的 <strong>images</strong><br>接下來使用 <strong>docker tag</strong> 將剛剛創建的 <strong>images</strong> 指定到 <strong>docket hub</strong>上的帳號</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo docker tag myhexo hwchiu/hexo</span><br></pre></td></tr></table></figure>
+<p>接下來就可以透過 <strong>docker images</strong> 觀察到系統上多了一個 <strong>images</strong>，其名稱是 <strong>hwchiu&#x2F;hexo</strong>, 但是 <strong>image ID</strong>則會跟剛剛創立的一樣。</p>
+<p>最後透過 <strong>docker push myhexo</strong> 則可以將該 <strong>images</strong> 給傳上 <strong>docker hub</strong>上的 repository 了。</p>
+<p>所有步驟到這邊，已經可以創好一個簡單的 <strong>docker image</strong>，接下來就可以在 <strong>Dockerfile</strong> 內加入更多的指令，讓該 <strong>image</strong> 一創建時就有更完善的環境。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/System/" rel="tag"># System</a>
+              <a href="/tags/Docker/" rel="tag"># Docker</a>
+              <a href="/tags/Container/" rel="tag"># Container</a>
+              <a href="/tags/Hexo/" rel="tag"># Hexo</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/ceph-network-i.html" rel="prev" title="Ceph Network Architecture 研究(一)">
+                  <i class="fa fa-chevron-left"></i> Ceph Network Architecture 研究(一)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/ceph-network-ii.html" rel="next" title="Ceph Network Architecture 研究(二)">
+                  Ceph Network Architecture 研究(二) <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

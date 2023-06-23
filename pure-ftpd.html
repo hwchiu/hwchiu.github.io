@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="這邊要跟大家分享的是自架 FTP Server 的一些設定與心得，以往在 Windows 時可以很快速的使用 FilwZilla 來架設 FTP Server, 然而在 FreeBSD 的系統中，我們有哪些相關的選擇可以使用? 本篇文章會採用 Pure-Ftpd 作為一個 FTP Server 並且記錄 FTP 常見的相關用法要如何透過 Pure-Ftpd 來設定">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Install the FTP server on FreeBSD">
+<meta property="og:url" content="https://www.hwchiu.com/pure-ftpd.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="這邊要跟大家分享的是自架 FTP Server 的一些設定與心得，以往在 Windows 時可以很快速的使用 FilwZilla 來架設 FTP Server, 然而在 FreeBSD 的系統中，我們有哪些相關的選擇可以使用? 本篇文章會採用 Pure-Ftpd 作為一個 FTP Server 並且記錄 FTP 常見的相關用法要如何透過 Pure-Ftpd 來設定">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2013-10-12T01:03:00.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.636Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="System">
+<meta property="article:tag" content="FreeBSD">
+<meta property="article:tag" content="FTP">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/pure-ftpd.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/pure-ftpd.html","path":"pure-ftpd.html","title":"Install the FTP server on FreeBSD"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Install the FTP server on FreeBSD | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E7%BD%AE"><span class="nav-number">1.</span> <span class="nav-text">前置</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8C%BF%E5%90%8D"><span class="nav-number">2.</span> <span class="nav-text">匿名</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Virtual-user"><span class="nav-number">3.</span> <span class="nav-text">Virtual user</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Directory-permission"><span class="nav-number">4.</span> <span class="nav-text">Directory permission</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#public"><span class="nav-number">4.1.</span> <span class="nav-text">public</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#upload"><span class="nav-number">4.2.</span> <span class="nav-text">upload</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#hidden"><span class="nav-number">4.3.</span> <span class="nav-text">hidden</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#TLS"><span class="nav-number">5.</span> <span class="nav-text">TLS</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Restart-pure-ftpd"><span class="nav-number">6.</span> <span class="nav-text">Restart pure-ftpd</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">7.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/pure-ftpd.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Install the FTP server on FreeBSD | Hwchiu Learning Note">
+      <meta itemprop="description" content="這邊要跟大家分享的是自架 FTP Server 的一些設定與心得，以往在 Windows 時可以很快速的使用 FilwZilla 來架設 FTP Server, 然而在 FreeBSD 的系統中，我們有哪些相關的選擇可以使用? 本篇文章會採用 Pure-Ftpd 作為一個 FTP Server 並且記錄 FTP 常見的相關用法要如何透過 Pure-Ftpd 來設定">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Install the FTP server on FreeBSD
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2013-10-12 09:03:00" itemprop="dateCreated datePublished" datetime="2013-10-12T09:03:00+08:00">2013-10-12</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">這邊要跟大家分享的是自架 FTP Server 的一些設定與心得，以往在 Windows 時可以很快速的使用 FilwZilla 來架設 FTP Server, 然而在 FreeBSD 的系統中，我們有哪些相關的選擇可以使用? 本篇文章會採用 Pure-Ftpd 作為一個 FTP Server 並且記錄 FTP 常見的相關用法要如何透過 Pure-Ftpd 來設定</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>在<code>Windows</code>上安裝Ftp-server時，通常都是選擇<a target="_blank" rel="noopener" href="https://filezilla-project.org/">Filezilla</a>這套軟體來使用。<br>透過ＵＩ界面的引導，在安裝以及設定上都非常容易，但是有時候一些比較特殊的要求，未必能夠很好地達成。<br>在FreeBSD上，安裝系統時有最基本的<code>ftpd</code>，或是ports內的<code>ProFTPD</code>以及<code>Pure-ftpd</code>都能夠用來架設ftp-server.<br>但是因為FTP 走的是port 21,在預設沒有更改的情況下，這些ftp-server都會嘗試去bind port 21因此同時間只能有一個server在運行。</p>
+<p>在System Administration的課程中<br>第二個作業就要求架設一個ftp-server,並且滿足下列要求，在架設的過程中就順便記錄一下各種設定。</p>
+<span id="more"></span>
+
+<p>匿名帳號登入：</p>
+<ul>
+<li>chrooted (&#x2F;home&#x2F;ftp)</li>
+<li>Only download from &#x2F;home&#x2F;ftp&#x2F;public</li>
+<li>Can upload &amp; mkdir but no download or delete from &#x2F;home&#x2F;ftp&#x2F;upload<ul>
+<li>Can’t download the files upload by anonymous account</li>
+<li>Can download the files upload by others</li>
+</ul>
+</li>
+<li>Hidden directory &#x2F;home&#x2F;ftp&#x2F;hidden<ul>
+<li>There is a directory called “treasure” inside</li>
+<li>Client can’t list in &#x2F;home&#x2F;ftp&#x2F;hidden but can in &#x2F;home&#x2F;ftp&#x2F;hidden&#x2F;treasure</li>
+</ul>
+</li>
+</ul>
+<p>Virtual users:</p>
+<ul>
+<li>name: ftp-vip</li>
+<li>full access on &#x2F;home&#x2F;ftp&#x2F;{public,hidden,upload}</li>
+<li>chhrooted (&#x2F;home&#x2F;ftp)</li>
+<li>Hidden directory is visible to ftp-vip</li>
+<li>Only login from some ip</li>
+</ul>
+<p>Other:</p>
+<ul>
+<li>Can login with TLS</li>
+</ul>
+<p>系統:   <strong>FreeBSD 9.2</strong><br>Port:  <strong>Pure-ftpd</strong></p>
+<h1 id="前置"><a href="#前置" class="headerlink" title="前置"></a>前置</h1><ul>
+<li>install ports <code>portmaster ftp/pure-ftpd</code> (TLS 打勾)</li>
+<li><code>echo &#39;pureftpd_enable=&quot;YES&quot;&#39; &gt;&gt; /etc/rc.conf</code></li>
+<li>create directory<ul>
+<li><code>mkdir -p /home/ftp/public /home/ftp/upload /home/hidden</code></li>
+</ul>
+</li>
+</ul>
+<h1 id="匿名"><a href="#匿名" class="headerlink" title="匿名"></a>匿名</h1><ul>
+<li>config   <code>/usr/local/etc/pure-ftpd.conf</code><ul>
+<li>NoAnonymous                 no</li>
+<li>AntiWarez                  yes  (上傳檔案owner是’ftp’的不能刪除)</li>
+<li>AnonymousCanCreateDirs		 yes</li>
+<li>AnonymousCantUpload         no</li>
+</ul>
+</li>
+<li>Add a ftp account for Anonymous<ul>
+<li><code>pw groupadd ftpuser</code></li>
+<li><code>pw useradd ftp -g ftpuser -d /home/ftp</code></li>
+</ul>
+</li>
+</ul>
+<h1 id="Virtual-user"><a href="#Virtual-user" class="headerlink" title="Virtual user"></a>Virtual user</h1><ul>
+<li>config <code>/usr/local/etc/pure-ftpd.conf</code><ul>
+<li>PureDB     &#x2F;usr&#x2F;local&#x2F;etc&#x2F;pureftpd.pdb</li>
+</ul>
+</li>
+<li>Add a real account<ul>
+<li>pw groupadd virtualgroup</li>
+<li>pw useradd ftpuser -g virtualgroup -c “FTP visual user” -d &#x2F;home&#x2F;ftp -s &#x2F;sbin&#x2F;nologin</li>
+</ul>
+</li>
+<li>Map a virtual account to a real account<ul>
+<li>pure-pw useradd ftp-vip -u ftpuser -g virtualgroup -d &#x2F;home&#x2F;ftp -m</li>
+</ul>
+</li>
+<li>IP limitation.<ul>
+<li>pure-pw usermod ftp-vip -r [IP&#x2F;mask]   (-r means  allow client’s ip)</li>
+</ul>
+</li>
+</ul>
+<h1 id="Directory-permission"><a href="#Directory-permission" class="headerlink" title="Directory permission"></a>Directory permission</h1><h2 id="public"><a href="#public" class="headerlink" title="public"></a>public</h2><p>pulbic中，讓匿名帳號變成other的權限，然後把w權限給拔掉，這樣對於目錄中有任何異動的行為(刪除、移動、改名)都無法使用。<br>讓virtualgroup的人也有完整的權限去處理，這樣ftp-vip就有完整權限。</p>
+<ul>
+<li><code>chown root:virtualgroup /home/ftp/public</code></li>
+<li><code>chmod 775 /home/ftp/public</code></li>
+</ul>
+<h2 id="upload"><a href="#upload" class="headerlink" title="upload"></a>upload</h2><p>upload中，匿名帳號要可以下載跟創立資料夾，以及下載非<code>ftp</code>擁有的檔案。<br>由於先前有設定<code>AntiWarez</code>，因此檔案擁有者是<code>ftp</code>的就會無法下載，<br>ftp-vip是group的權限，因此什麼都可以做。<br>給予其<code>w</code>的權限，這樣才可以創立資料夾,然後匿名帳號天生就不可以刪除文件。</p>
+<ul>
+<li><code>chown ftp:virtualgroup /home/ftp/upload</code></li>
+<li><code>chmod 775 /home/ftp/upload</code></li>
+</ul>
+<h2 id="hidden"><a href="#hidden" class="headerlink" title="hidden"></a>hidden</h2><p>由於目錄的<code>r</code>代表的能否看到這些檔案即ls指令，而<code>x</code>代表可否進入該資料夾即cd。<br>因此我們把r拔掉即可達成。</p>
+<ul>
+<li><code>chown root:virtualgroup /home/ftp/hidden</code></li>
+<li><code>chmod 775 /home/ftp/hidden</code></li>
+</ul>
+<h1 id="TLS"><a href="#TLS" class="headerlink" title="TLS"></a>TLS</h1><p>詳細參考 <code>/usr/local/share/doc/pure-ftpd/README.TLS</code></p>
+<ul>
+<li>安裝的時候要勾選<code>TLS</code></li>
+<li>config <code>/usr/local/etc/pure-ftpd.conf</code><ul>
+<li>TLS  (0,1,2)</li>
+<li>0: 不支援加密傳輸</li>
+<li>1: 加密、不加密都支援傳輸</li>
+<li>2: 不支援非加密傳輸</li>
+<li>選擇2的話，就一定要用ftpes才能連線，選擇1的話，使用ftp or ftpes都可以連線</li>
+</ul>
+</li>
+<li>create a self-signed certificate<ul>
+<li>預設的憑證位置是 <code>/etc/ssl/private/pure-ftpd.pem</code></li>
+<li>編譯的時候可以透過<code>make configure CERTFILE=your pem location</code>來修改位置<ul>
+<li><code>mkdir -p /etc/ssl/private</code></li>
+</ul>
+</li>
+<li><code>openssl req -x509 -nodes -newkey rsa:1024 -keyout /etc/ssl/private/pure-ftpd.pem -out /etc/ssl/private/pure-ftpd.pem</code></li>
+<li><code>chmod 600 /etc/ssl/private/*.pem</code></li>
+</ul>
+</li>
+</ul>
+<h1 id="Restart-pure-ftpd"><a href="#Restart-pure-ftpd" class="headerlink" title="Restart pure-ftpd"></a>Restart pure-ftpd</h1><ul>
+<li>&#x2F;usr&#x2F;local&#x2F;etc&#x2F;rc.d&#x2F;pure-ftpd restart</li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/System/" rel="tag"># System</a>
+              <a href="/tags/FreeBSD/" rel="tag"># FreeBSD</a>
+              <a href="/tags/FTP/" rel="tag"># FTP</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/vim-plugin.html" rel="prev" title="Vim & Nerdtree">
+                  <i class="fa fa-chevron-left"></i> Vim & Nerdtree
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/zfs-notes.html" rel="next" title="ZFS 筆記">
+                  ZFS 筆記 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

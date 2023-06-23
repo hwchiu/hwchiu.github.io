@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="To setup a kubernetes, there&#39;re so many approaches, including what infrstructure(VM&#x2F;Container&#x2F;Native) about the kubernetes and what tooles(kubeadm,kubespray,minikube). I choose use the kubeadm to inst">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Install the kubernetes as single node in Fedora 28">
+<meta property="og:url" content="https://www.hwchiu.com/kubernetes-fedora.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="To setup a kubernetes, there&#39;re so many approaches, including what infrstructure(VM&#x2F;Container&#x2F;Native) about the kubernetes and what tooles(kubeadm,kubespray,minikube). I choose use the kubeadm to inst">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2018-09-23T16:31:10.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.629Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="Fedora">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/kubernetes-fedora.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/kubernetes-fedora.html","path":"kubernetes-fedora.html","title":"Install the kubernetes as single node in Fedora 28"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Install the kubernetes as single node in Fedora 28 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Installation-Choices"><span class="nav-number">2.</span> <span class="nav-text">Installation Choices</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Environment"><span class="nav-number">3.</span> <span class="nav-text">Environment</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Tools"><span class="nav-number">4.</span> <span class="nav-text">Tools</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#kubernetes"><span class="nav-number">5.</span> <span class="nav-text">kubernetes</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Deploy-Pod"><span class="nav-number">6.</span> <span class="nav-text">Deploy Pod</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Helm-Chart-Optional"><span class="nav-number">7.</span> <span class="nav-text">Helm Chart (Optional)</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Install"><span class="nav-number">7.1.</span> <span class="nav-text">Install</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Test"><span class="nav-number">8.</span> <span class="nav-text">Test</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/kubernetes-fedora.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Install the kubernetes as single node in Fedora 28 | Hwchiu Learning Note">
+      <meta itemprop="description" content="To setup a kubernetes, there're so many approaches, including what infrstructure(VM/Container/Native) about the kubernetes and what tooles(kubeadm,kubespray,minikube). I choose use the kubeadm to install a native kubernetes in my laptop(Fedora) and you will see the whole setps to install all requirements, including the docker/kubernetes.">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Install the kubernetes as single node in Fedora 28
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-09-24 00:31:10" itemprop="dateCreated datePublished" datetime="2018-09-24T00:31:10+08:00">2018-09-24</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">To setup a kubernetes, there're so many approaches, including what infrstructure(VM/Container/Native) about the kubernetes and what tooles(kubeadm,kubespray,minikube). I choose use the kubeadm to install a native kubernetes in my laptop(Fedora) and you will see the whole setps to install all requirements, including the docker/kubernetes.</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>For some reasons, I had swithced the my laptop from the MAC Book Pro to another laptop with the Fedora 28.</p>
+<p>In order to play the kubernetes with anything I want, I need to install the kubernetes in the Fedora 28.</p>
+<p>There’re two approachs I can operate the kubernetes in my laptop.</p>
+<ol>
+<li>Create a Ubuntu VM in the fedora 28 and install the kubernetes in that Ubuntu, just like how I play the kubernetes in the previous MAC OSX environment.</li>
+<li>Install the kubernetes into the native Fedora 28 OS, it seems ok since there’re many posts about Fedora and kubernetes in the internet.</li>
+</ol>
+<p>So, I choose the second approach to install the kubernetes because it’s new to me and I want to git it a try.<br>That’s why this post exist and I will note every commands I used to install the kubernetes.</p>
+<h1 id="Installation-Choices"><a href="#Installation-Choices" class="headerlink" title="Installation Choices"></a>Installation Choices</h1><p>There’re so many ways to install the kubernetes into a target system.</p>
+<ol>
+<li>Use the kubernetes hard-way to install all components, including etcd,kubelet, kube-apiserver.</li>
+<li>Use the minikube to install a single-node kubernetes(by default).<ul>
+<li>In fact, the minikube will lunch a VM to run a kubernetes but you can change to container-only method.</li>
+</ul>
+</li>
+<li>Use the ansible-liked method to help you install all necessary process&#x2F;daemon we need.</li>
+<li>Use the very simple official tool kubeadm to setup a kubernetes.</li>
+</ol>
+<p>Just considered what subject I want to study in the kubernetes, I think the <code>kubeadm</code> is enough and I will choose it for the following tutorial.</p>
+<h1 id="Environment"><a href="#Environment" class="headerlink" title="Environment"></a>Environment</h1><p>First, we need to prepare the container environmnet for the kubernetes, and I choose to use the docker for my kubernetes.</p>
+<p>If you use the default repository to search the docker, the version is about 13.1 and that it not what we want.</p>
+<p>You can use the following command to check the latest docker version in the remote repository. Besides, the command <code>sudo dnf list --showduplicates docker\*</code> to show all version of the docker.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">ahwchiu➜~» sudo dnf list docker\*                                                                                                                   [14:00:16]</span><br><span class="line">Last metadata expiration check: 13:41:45 ago on Sun 23 Sep 2018 12:18:32 AM CST.</span><br><span class="line">Installed Packages</span><br><span class="line">docker.x86_64                                                                  2:1.13.1-61.git9cb56fd.fc28                                            @updates</span><br><span class="line">docker-common.x86_64                                                           2:1.13.1-61.git9cb56fd.fc28                                            @updates</span><br><span class="line">docker-rhel-push-plugin.x86_64                                                 2:1.13.1-61.git9cb56fd.fc28                                            @updates</span><br><span class="line">Available Packages</span><br><span class="line">docker-anaconda-addon.x86_64                                                   0.4-7.fc28                                                             fedora</span><br><span class="line">docker-client-java.noarch                                                      6.2.5-7.fc28                                                           fedora</span><br><span class="line">docker-compose.noarch                                                          1.20.1-1.fc28                                                          fedora</span><br><span class="line">docker-devel.noarch                                                            2:1.13.1-61.git9cb56fd.fc28                                            updates</span><br><span class="line">docker-distribution.x86_64                                                     2.6.2-7.git48294d9.fc28                                                fedora</span><br><span class="line">docker-fish-completion.x86_64                                                  2:1.13.1-61.git9cb56fd.fc28                                            updates</span><br><span class="line">docker-latest.x86_64                                                           2:1.13-36.git27e468e.fc28                                              fedora</span><br><span class="line">docker-latest-devel.noarch                                                     2:1.13-36.git27e468e.fc28                                              fedora</span><br><span class="line">docker-latest-fish-completion.x86_64                                           2:1.13-36.git27e468e.fc28                                              fedora</span><br><span class="line">docker-latest-logrotate.x86_64                                                 2:1.13-36.git27e468e.fc28                                              fedora</span><br><span class="line">docker-latest-rhsubscription.x86_64                                            2:1.13-36.git27e468e.fc28                                              fedora</span><br><span class="line">docker-latest-unit-test.x86_64                                                 2:1.13-36.git27e468e.fc28                                              fedora</span><br><span class="line">docker-latest-v1.10-migrator.x86_64                                            2:1.13-36.git27e468e.fc28                                              fedora</span><br><span class="line">docker-latest-vim.x86_64                                                       2:1.13-36.git27e468e.fc28                                              fedora</span><br><span class="line">docker-latest-zsh-completion.x86_64                                            2:1.13-36.git27e468e.fc28                                              fedora</span><br><span class="line">docker-logrotate.x86_64                                                        2:1.13.1-61.git9cb56fd.fc28                                            updates</span><br><span class="line">docker-lvm-plugin.x86_64                                                       2:1.13.1-61.git9cb56fd.fc28                                            updates</span><br><span class="line">docker-novolume-plugin.x86_64                                                  2:1.13.1-61.git9cb56fd.fc28                                            updates</span><br><span class="line">docker-unit-test.x86_64                                                        2:1.13.1-61.git9cb56fd.fc28                                            updates</span><br><span class="line">docker-vim.x86_64                                                              2:1.13.1-61.git9cb56fd.fc28                                            updates</span><br></pre></td></tr></table></figure>
+
+<p>For the latest docker version, we should install the docker-ce (docker community edition) in the system and we can find the detail tutorail in the <a target="_blank" rel="noopener" href="https://docs.docker.com/install/linux/docker-ce/fedora/">official document</a>.</p>
+<p>Remember, you need to remove all installed docker before you install the docker-ce and you can use the following command to remove the existing docker packages.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">sudo dnf remove docker \</span><br><span class="line">                  docker-client \</span><br><span class="line">                  docker-client-latest \</span><br><span class="line">                  docker-common \</span><br><span class="line">                  docker-latest \</span><br><span class="line">                  docker-latest-logrotate \</span><br><span class="line">                  docker-logrotate \</span><br><span class="line">                  docker-selinux \</span><br><span class="line">                  docker-engine-selinux \</span><br><span class="line">                  docker-engine</span><br></pre></td></tr></table></figure>
+
+<p>First, we need to add additional repo about docker-ce into the dnf system.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">sudo dnf config-manager \</span><br><span class="line">    --add-repo \</span><br><span class="line">    https://download.docker.com/linux/fedora/docker-ce.repo</span><br></pre></td></tr></table></figure>
+
+<p>Then, we can install the docker-ce and activate it by systemd system.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">sudo dnf -y install docker-ce</span><br><span class="line">sudo docker version</span><br><span class="line">sudo systemctl <span class="built_in">enable</span> docker</span><br><span class="line">sudo systemctl start docker</span><br></pre></td></tr></table></figure>
+
+<p>In addition to docker, there’re some issues that we need to solve for the kubernetes.</p>
+<ol>
+<li>firewalld, we must sure the default firewall won’t block the port of 6443&#x2F;10250.</li>
+<li>it’s still not support to run kubeadm with the swap. we need to disalbe it.</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">sudo systemctl stop firewalld</span><br><span class="line">sudo systemctl <span class="built_in">disable</span> firewalld</span><br><span class="line">sudo swapoff -a &amp;&amp; sudo sysctl -w vm.swappiness=0</span><br></pre></td></tr></table></figure>
+
+
+<h1 id="Tools"><a href="#Tools" class="headerlink" title="Tools"></a>Tools</h1><p>After installing the docker-ce as the container environment for kubernetes, the next parts is the tools of kubernetes.</p>
+<p>Just like the <code>docker-ce</code>, we can’t find those tools in the default repo, hence, we need to add additional repo to dnf system now.</p>
+<p>Before we use the <code>kubeadm</code> to install the kubernetes, we have to install three packages we need. the <code>kubectl</code>, <code>kubelet</code> and <code>kubeadm</code>.</p>
+<p>Since there’re not any existing repo file about kubernetes for fnd&#x2F;yum system, we need to create it by ourself.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cat</span> &lt;&lt;<span class="string">EOF &gt; /etc/yum.repos.d/kubernetes.repo</span></span><br><span class="line"><span class="string">[kubernetes]</span></span><br><span class="line"><span class="string">name=Kubernetes</span></span><br><span class="line"><span class="string">baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64</span></span><br><span class="line"><span class="string">enabled=1</span></span><br><span class="line"><span class="string">gpgcheck=1</span></span><br><span class="line"><span class="string">repo_gpgcheck=1</span></span><br><span class="line"><span class="string">gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg</span></span><br><span class="line"><span class="string">exclude=kube*</span></span><br><span class="line"><span class="string">EOF</span></span><br></pre></td></tr></table></figure>
+
+<p>If you want to install the specific version of kubernetes tools, use the <code>sudo dnf list --showduplicates kube\*</code> to see all verions. Otherwise, use the following comand to install the latest verion of kubernetes.</p>
+<p>We need to use the <code>--disableexcludes</code> to disable the exclude list of kubernetes, since all tools are in that kubernetes repo.<br>After installing that, we also need to enable the systemd service for kubelet.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">sudo dnf install -f kubelet kubectl kubeadm --disableexcludes=kubernetes</span><br><span class="line">sudo kubectl version</span><br><span class="line">sudo kubeadm version</span><br><span class="line">sudo kubelet --version</span><br><span class="line">sudo systemctl <span class="built_in">enable</span> kubelet</span><br></pre></td></tr></table></figure>
+
+
+<h1 id="kubernetes"><a href="#kubernetes" class="headerlink" title="kubernetes"></a>kubernetes</h1><p>Now, I will ues the <code>kubeadm</code> to install the kubernetes environment now.<br>The important thing is that you need to take care the parameter of your <code>kubeadm</code> process, if you choose the <code>flannel</code> as your CNI(Containre Network Interface). You use pass the <code>--pod-network-cidr=10.244.0.0/16</code> and the <code>flannel</code> can use that to choose the IP address range of each node.</p>
+<p>This init procedure takes time to install whole kubernetes, the most part of that is used to download the dokcer image for all kubernetes components.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br></pre></td><td class="code"><pre><span class="line">sudo kubeadm init --pod-network-cidr=10.244.0.0/16</span><br><span class="line">[init] using Kubernetes version: v1.11.3</span><br><span class="line">[preflight] running pre-flight checks</span><br><span class="line">I0923 23:45:54.958338   16222 kernel_validator.go:81] Validating kernel version</span><br><span class="line">I0923 23:45:54.958582   16222 kernel_validator.go:96] Validating kernel config</span><br><span class="line">        [WARNING SystemVerification]: docker version is greater than the most recently validated version. Docker version: 18.06.1-ce. Max validated version: 1</span><br><span class="line">7.03</span><br><span class="line">[preflight/images] Pulling images required <span class="keyword">for</span> setting up a Kubernetes cluster</span><br><span class="line">[preflight/images] This might take a minute or two, depending on the speed of your internet connection</span><br><span class="line">[preflight/images] You can also perform this action <span class="keyword">in</span> beforehand using <span class="string">&#x27;kubeadm config images pull&#x27;</span></span><br><span class="line">[kubelet] Writing kubelet environment file with flags to file <span class="string">&quot;/var/lib/kubelet/kubeadm-flags.env&quot;</span></span><br><span class="line">[kubelet] Writing kubelet configuration to file <span class="string">&quot;/var/lib/kubelet/config.yaml&quot;</span></span><br><span class="line">[preflight] Activating the kubelet service</span><br><span class="line">[certificates] Generated ca certificate and key.</span><br><span class="line">[certificates] Generated apiserver certificate and key.</span><br><span class="line">[certificates] apiserver serving cert is signed <span class="keyword">for</span> DNS names [localhost.localdomain kubernetes kubernetes.default kubernetes.default.svc kubernetes.default.s</span><br><span class="line">vc.cluster.local] and IPs [10.96.0.1 10.0.4.63]</span><br><span class="line">[certificates] Generated apiserver-kubelet-client certificate and key.</span><br><span class="line">[certificates] Generated sa key and public key.</span><br><span class="line">[certificates] Generated front-proxy-ca certificate and key.</span><br><span class="line">[certificates] Generated front-proxy-client certificate and key.</span><br><span class="line">[certificates] Generated etcd/ca certificate and key.</span><br><span class="line">[certificates] Generated etcd/server certificate and key.</span><br><span class="line">[certificates] etcd/server serving cert is signed <span class="keyword">for</span> DNS names [localhost.localdomain localhost] and IPs [127.0.0.1 ::1]</span><br><span class="line">[certificates] Generated etcd/peer certificate and key.</span><br><span class="line">[certificates] etcd/peer serving cert is signed <span class="keyword">for</span> DNS names [localhost.localdomain localhost] and IPs [10.0.4.63 127.0.0.1 ::1]</span><br><span class="line">[certificates] Generated etcd/healthcheck-client certificate and key.</span><br><span class="line">[certificates] Generated apiserver-etcd-client certificate and key.</span><br><span class="line">[certificates] valid certificates and keys now exist <span class="keyword">in</span> <span class="string">&quot;/etc/kubernetes/pki&quot;</span></span><br><span class="line">[kubeconfig] Wrote KubeConfig file to disk: <span class="string">&quot;/etc/kubernetes/admin.conf&quot;</span></span><br><span class="line">[kubeconfig] Wrote KubeConfig file to disk: <span class="string">&quot;/etc/kubernetes/kubelet.conf&quot;</span></span><br><span class="line">[kubeconfig] Wrote KubeConfig file to disk: <span class="string">&quot;/etc/kubernetes/controller-manager.conf&quot;</span></span><br><span class="line">[kubeconfig] Wrote KubeConfig file to disk: <span class="string">&quot;/etc/kubernetes/scheduler.conf&quot;</span></span><br><span class="line">[controlplane] wrote Static Pod manifest <span class="keyword">for</span> component kube-apiserver to <span class="string">&quot;/etc/kubernetes/manifests/kube-apiserver.yaml&quot;</span></span><br><span class="line">[controlplane] wrote Static Pod manifest <span class="keyword">for</span> component kube-controller-manager to <span class="string">&quot;/etc/kubernetes/manifests/kube-controller-manager.yaml&quot;</span></span><br><span class="line">[controlplane] wrote Static Pod manifest <span class="keyword">for</span> component kube-scheduler to <span class="string">&quot;/etc/kubernetes/manifests/kube-scheduler.yaml&quot;</span></span><br><span class="line">[etcd] Wrote Static Pod manifest <span class="keyword">for</span> a <span class="built_in">local</span> etcd instance to <span class="string">&quot;/etc/kubernetes/manifests/etcd.yaml&quot;</span></span><br><span class="line">[init] waiting <span class="keyword">for</span> the kubelet to boot up the control plane as Static Pods from directory <span class="string">&quot;/etc/kubernetes/manifests&quot;</span></span><br><span class="line">[init] this might take a minute or longer <span class="keyword">if</span> the control plane images have to be pulled</span><br><span class="line">[apiclient] All control plane components are healthy after 38.003505 seconds</span><br><span class="line">[uploadconfig] storing the configuration used <span class="keyword">in</span> ConfigMap <span class="string">&quot;kubeadm-config&quot;</span> <span class="keyword">in</span> the <span class="string">&quot;kube-system&quot;</span> Namespace</span><br><span class="line">[kubelet] Creating a ConfigMap <span class="string">&quot;kubelet-config-1.11&quot;</span> <span class="keyword">in</span> namespace kube-system with the configuration <span class="keyword">for</span> the kubelets <span class="keyword">in</span> the cluster</span><br><span class="line">[markmaster] Marking the node localhost.localdomain as master by adding the label <span class="string">&quot;node-role.kubernetes.io/master=&#x27;&#x27;&quot;</span></span><br><span class="line">[markmaster] Marking the node localhost.localdomain as master by adding the taints [node-role.kubernetes.io/master:NoSchedule]</span><br><span class="line">[patchnode] Uploading the CRI Socket information <span class="string">&quot;/var/run/dockershim.sock&quot;</span> to the Node API object <span class="string">&quot;localhost.localdomain&quot;</span> as an annotation</span><br><span class="line">[bootstraptoken] using token: 9s11hf.6ooyk6587vqeirn7</span><br><span class="line"></span><br><span class="line">[bootstraptoken] configured RBAC rules to allow Node Bootstrap tokens to post CSRs <span class="keyword">in</span> order <span class="keyword">for</span> nodes to get long term certificate credentials</span><br><span class="line">[bootstraptoken] configured RBAC rules to allow the csrapprover controller automatically approve CSRs from a Node Bootstrap Token</span><br><span class="line">[bootstraptoken] configured RBAC rules to allow certificate rotation <span class="keyword">for</span> all node client certificates <span class="keyword">in</span> the cluster</span><br><span class="line">[bootstraptoken] creating the <span class="string">&quot;cluster-info&quot;</span> ConfigMap <span class="keyword">in</span> the <span class="string">&quot;kube-public&quot;</span> namespace</span><br><span class="line">[addons] Applied essential addon: CoreDNS</span><br><span class="line">[addons] Applied essential addon: kube-proxy</span><br><span class="line"></span><br><span class="line">Your Kubernetes master has initialized successfully!</span><br><span class="line"></span><br><span class="line">To start using your cluster, you need to run the following as a regular user:</span><br><span class="line"></span><br><span class="line">  <span class="built_in">mkdir</span> -p <span class="variable">$HOME</span>/.kube</span><br><span class="line">  sudo <span class="built_in">cp</span> -i /etc/kubernetes/admin.conf <span class="variable">$HOME</span>/.kube/config</span><br><span class="line">  sudo <span class="built_in">chown</span> $(<span class="built_in">id</span> -u):$(<span class="built_in">id</span> -g) <span class="variable">$HOME</span>/.kube/config</span><br><span class="line"></span><br><span class="line">You should now deploy a pod network to the cluster.</span><br><span class="line">Run <span class="string">&quot;kubectl apply -f [podnetwork].yaml&quot;</span> with one of the options listed at:</span><br><span class="line">  https://kubernetes.io/docs/concepts/cluster-administration/addons/</span><br><span class="line"></span><br><span class="line">You can now <span class="built_in">join</span> any number of machines by running the following on each node</span><br><span class="line">as root:</span><br><span class="line"></span><br><span class="line">  kubeadm <span class="built_in">join</span> 10.0.4.63:6443 --token 9s11hf.6ooyk6587vqeirn7 --discovery-token-ca-cert-hash sha256:961df828697d1b003a8205af51912ae05ea06e79576121ae25d0a5835ffb0e6d</span><br></pre></td></tr></table></figure>
+
+<p>Now, follow the instructions to setup the kubeconfig for your regular user.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">mkdir</span> -p <span class="variable">$HOME</span>/.kube</span><br><span class="line">sudo <span class="built_in">cp</span> -i /etc/kubernetes/admin.conf <span class="variable">$HOME</span>/.kube/config</span><br><span class="line">sudo <span class="built_in">chown</span> $(<span class="built_in">id</span> -u):$(<span class="built_in">id</span> -g) <span class="variable">$HOME</span>/.kube/config</span><br></pre></td></tr></table></figure>
+
+<p>With that kubeconfig, we can use the <code>kubectl</code> to control the kubernetes now and you can use the <code>kubectl get nodes</code> to see the status of the node.</p>
+<p>Since we have not installed the CNI in the cluster, the status is <code>NotReday</code> and it will become the <code>Ready</code> once you install any CNI into it.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">hwchiu➜~» kubectl get nodes                                                                                                                        [23:50:27]</span><br><span class="line">NAME                    STATUS     ROLES     AGE       VERSION</span><br><span class="line">localhost.localdomain   NotReady   master    3m        v1.11.3</span><br><span class="line"></span><br><span class="line">hwchiu➜~» kubectl apply -f  https://raw.githubusercontent.com/coreos/flannel/v0.9.1/Documentation/kube-flannel.yml                                 [23:50:39]</span><br><span class="line">clusterrole.rbac.authorization.k8s.io/flannel created</span><br><span class="line">clusterrolebinding.rbac.authorization.k8s.io/flannel created</span><br><span class="line">serviceaccount/flannel created</span><br><span class="line">configmap/kube-flannel-cfg created</span><br><span class="line">daemonset.extensions/kube-flannel-ds created</span><br><span class="line"></span><br><span class="line">hwchiu➜~» kubectl get nodes                                                                                                                        [23:51:30]</span><br><span class="line">NAME                    STATUS    ROLES     AGE       VERSION</span><br><span class="line">localhost.localdomain   Ready     master    5m        v1.11.3</span><br></pre></td></tr></table></figure>
+
+<h1 id="Deploy-Pod"><a href="#Deploy-Pod" class="headerlink" title="Deploy Pod"></a>Deploy Pod</h1><p>Unfortunately, we still can’t run a Pod successfully, the reason is that the <code>master</code> node doesn’t be allowed to deploy any Pods if we use the <code>kubeadm</code> to setup the kubernetes cluster.<br>In my condition, I have only one node and it must be master node, that’s why any user-defined Pod will be pending forever.</p>
+<p>The mechanism about that limitation is the <code>taint</code> and we can use the following command to remove the taint rules of all master node.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl taint nodes --all node-role.kubernetes.io/master-</span><br></pre></td></tr></table></figure>
+
+<p>Now, we can deploy a Pod and enjoy your kubernetes cluster.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">kubectl run test --image=hwchiu/netutils</span><br><span class="line">kubectl get pods -o wide -w</span><br></pre></td></tr></table></figure>
+
+<h1 id="Helm-Chart-Optional"><a href="#Helm-Chart-Optional" class="headerlink" title="Helm Chart (Optional)"></a>Helm Chart (Optional)</h1><p>There’s a package system like the <code>deb</code> or something else in the kubernetes ecosystem, and it’s called  <code>Helm Chart</code>.<br>You can use that to install some predefined packages which contains all resources you need, such as the deployment,service,configmap,RBAC and others into your kubernetes cluster.</p>
+<p>Again, it’s optional tool and you can install it if you need it.</p>
+<p>You can follow the <a target="_blank" rel="noopener" href="https://docs.helm.sh/using_helm/">official document</a> to install the <code>helm chart</code> but you will meet some problems.</p>
+<p>I will note those problems and share how I solve those problems.</p>
+<h2 id="Install"><a href="#Install" class="headerlink" title="Install"></a>Install</h2><p>Since we are use the <code>Fedora</code> now, the <code>helm</code> has not been takend by any dnf repos, we need to download the binary from the official website and you can use the following script to download the binary automatically.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ curl https://raw.githubusercontent.com/kubernetes/helm/master/scripts/get &gt; get_helm.sh</span><br><span class="line">$ chmod 700 get_helm.sh</span><br><span class="line">$ ./get_helm.sh</span><br></pre></td></tr></table></figure>
+
+<p>You will be informed to use the <code>helm init</code> to initial the helm environment in your kubernetes cluster after executing the <code>get_helm.sh</code>, <strong>but don’t do that now.</strong></p>
+<p>Since we use the <code>kuberadm</code> to install the kubernetes and it use the <code>RBAC</code> mode as default. We need to add another parameter for the <code>RBAC</code> mode.</p>
+<p>You need to prepare the RBAC config for your <code>helm chart</code> service before you using it to install any packages.<br>And you can find the <a target="_blank" rel="noopener" href="https://docs.helm.sh/using_helm/#role-based-access-control">whole tutoral here</a></p>
+<p>After create the <code>RBAC</code> config, use the follwing command to init your <code>helm</code></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">helm init --service-account tiller</span><br></pre></td></tr></table></figure>
+
+<h1 id="Test"><a href="#Test" class="headerlink" title="Test"></a>Test</h1><p>Now, using the following command to install the nginx ingress package by <code>helm</code>.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">helm install --name my-release stable/nginx-ingress</span><br></pre></td></tr></table></figure>
+
+<p>Use the <code>kubectl</code> to see all the kubernetes resource we installed by the helm</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get all | grep my-release</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/Fedora/" rel="tag"># Fedora</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/netfilter-eiptables-iii.html" rel="prev" title="[netfilter] Dig Into Docker Bridge Network By iptables/ebtables">
+                  <i class="fa fa-chevron-left"></i> [netfilter] Dig Into Docker Bridge Network By iptables/ebtables
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/cert-manager.html" rel="next" title="Automatically Renew Your Certificated in kubernetes by Cert-Manager">
+                  Automatically Renew Your Certificated in kubernetes by Cert-Manager <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本文透過對 iptables&#x2F;ebtables 來設定相對應的規則，藉由這些規則來觀察在 Docker Bridge Network 的網路設定下，不同情境的網路傳遞實際上會受到哪些 iptables&#x2F;ebtables 規則的影響。這些情境包含了常見的用法，譬如容器與容器之間同網段的傳輸，宿主機透過容器IP位址直接連線，甚至是外部網路透過 docker run -p xxx.xxx 的規則來接觸到">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[netfilter] Dig Into Docker Bridge Network By iptables&#x2F;ebtables">
+<meta property="og:url" content="https://www.hwchiu.com/netfilter-eiptables-iii.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文透過對 iptables&#x2F;ebtables 來設定相對應的規則，藉由這些規則來觀察在 Docker Bridge Network 的網路設定下，不同情境的網路傳遞實際上會受到哪些 iptables&#x2F;ebtables 規則的影響。這些情境包含了常見的用法，譬如容器與容器之間同網段的傳輸，宿主機透過容器IP位址直接連線，甚至是外部網路透過 docker run -p xxx.xxx 的規則來接觸到">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/Zi8190W.png">
+<meta property="og:image" content="https://i.imgur.com/pDtDXsP.png">
+<meta property="og:image" content="https://i.imgur.com/AuCxab9.png">
+<meta property="og:image" content="https://i.imgur.com/v8xwHDe.png">
+<meta property="og:image" content="https://i.imgur.com/6CDXA6w.png">
+<meta property="og:image" content="https://i.imgur.com/Ongf166.png">
+<meta property="og:image" content="https://i.imgur.com/nzd69Ob.png">
+<meta property="article:published_time" content="2018-09-18T02:49:21.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.633Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="Docker">
+<meta property="article:tag" content="Netfilter">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/Zi8190W.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/netfilter-eiptables-iii.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/netfilter-eiptables-iii.html","path":"netfilter-eiptables-iii.html","title":"[netfilter] Dig Into Docker Bridge Network By iptables/ebtables"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>[netfilter] Dig Into Docker Bridge Network By iptables/ebtables | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Introduction"><span class="nav-number">2.</span> <span class="nav-text">Introduction</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Software-Requirement"><span class="nav-number">2.1.</span> <span class="nav-text">Software Requirement</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Environment"><span class="nav-number">2.2.</span> <span class="nav-text">Environment</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Setup-Docker-Containets"><span class="nav-number">2.3.</span> <span class="nav-text">Setup Docker Containets</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Container-To-Container"><span class="nav-number">3.</span> <span class="nav-text">Container To Container</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Setup-ebtables"><span class="nav-number">3.1.</span> <span class="nav-text">Setup ebtables</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Setup-iptables"><span class="nav-number">3.2.</span> <span class="nav-text">Setup iptables</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Test"><span class="nav-number">3.3.</span> <span class="nav-text">Test</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Localhost-To-Container"><span class="nav-number">4.</span> <span class="nav-text">Localhost To Container</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Setup-ebtables-1"><span class="nav-number">4.1.</span> <span class="nav-text">Setup ebtables</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Setup-iptables-1"><span class="nav-number">4.2.</span> <span class="nav-text">Setup iptables</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Test-1"><span class="nav-number">4.3.</span> <span class="nav-text">Test</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Wan-To-Container"><span class="nav-number">5.</span> <span class="nav-text">Wan To Container</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Setup-ebtables-2"><span class="nav-number">5.1.</span> <span class="nav-text">Setup ebtables</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Setup-iptables-2"><span class="nav-number">5.2.</span> <span class="nav-text">Setup iptables</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Test-2"><span class="nav-number">5.3.</span> <span class="nav-text">Test</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Summary"><span class="nav-number">6.</span> <span class="nav-text">Summary</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number"></span> <span class="nav-text">個人資訊</span></a></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/netfilter-eiptables-iii.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="[netfilter] Dig Into Docker Bridge Network By iptables/ebtables | Hwchiu Learning Note">
+      <meta itemprop="description" content="本文透過對 iptables/ebtables 來設定相對應的規則，藉由這些規則來觀察在 Docker Bridge Network 的網路設定下，不同情境的網路傳遞實際上會受到哪些 iptables/ebtables 規則的影響。這些情境包含了常見的用法，譬如容器與容器之間同網段的傳輸，宿主機透過容器IP位址直接連線，甚至是外部網路透過 docker run -p xxx.xxx 的規則來接觸到內部容器。這些不同情境的網路連線牽扯到關於 Layer3 路由，Layer2 橋接 等不同方式的處理，因此在 iptables/ebtables 都會有不同的走向。只要能夠更佳的熟悉 iptables/ebtables 的用法與規則，未來有需要親自設定相關規則時，都能夠更精準且安全的去達到想要的目的，減少盲目猜測的時間與花費。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          [netfilter] Dig Into Docker Bridge Network By iptables/ebtables
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-09-18 10:49:21" itemprop="dateCreated datePublished" datetime="2018-09-18T10:49:21+08:00">2018-09-18</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本文透過對 iptables/ebtables 來設定相對應的規則，藉由這些規則來觀察在 Docker Bridge Network 的網路設定下，不同情境的網路傳遞實際上會受到哪些 iptables/ebtables 規則的影響。這些情境包含了常見的用法，譬如容器與容器之間同網段的傳輸，宿主機透過容器IP位址直接連線，甚至是外部網路透過 docker run -p xxx.xxx 的規則來接觸到內部容器。這些不同情境的網路連線牽扯到關於 Layer3 路由，Layer2 橋接 等不同方式的處理，因此在 iptables/ebtables 都會有不同的走向。只要能夠更佳的熟悉 iptables/ebtables 的用法與規則，未來有需要親自設定相關規則時，都能夠更精準且安全的去達到想要的目的，減少盲目猜測的時間與花費。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h2><p>這次想要跟大家慢慢介紹的就是 <code>iptables</code> 這個常見也常用的工具。<br>網路上其實已經可以搜尋到非常多關於 <code>iptables</code> 相關的文章。<br>不論是基本介紹，或是一些相關用法，其實都有滿多的資源可以學習，不過我認為這些文章都散落各地，所以想要整理一下這些資訊並且統整起來做一個一系列的<code>iptables</code> 文章。</p>
+<p>這個系列文的內容大致上如下</p>
+<ol>
+<li>iptables&#x2F;ebtables 的基本架構介紹，包含下列各種組成的概念<ul>
+<li>Target&#x2F;Chain&#x2F;Table&#x2F;Match</li>
+</ul>
+</li>
+<li>透過 <code>docker</code> 預設網路<code>Bridge</code>的情況來解釋，容器與外界網路，容器與容器彼此之間的網路傳輸，實際上再 <code>iptables</code> 中到底會怎麼運作，如果想要處理這些封包，該怎麼設定相關<br>規則。</li>
+<li>介紹相關 <code>iptables</code> 常見的使用問題</li>
+<li>最後則是會跟大家介紹，如何自己手動撰寫一個 <code>iptables</code> 擴充模組，讓你的<code>iptables</code>擁有獨一無二的功能</li>
+</ol>
+<p>本文延續前一篇 <code>ebtables</code> 的介紹，將使用相同的概念來闡述 <code>iptables(ipv4)</code> 的概念，包含了 <code>Tarble/Chain/Match/Target</code> 等功能。</p>
+<p>相關系列文章</p>
+<ul>
+<li><a href="https://www.hwchiu.com/netfilter-eiptables-i.html">[netfilter] Introduction to ebtables</a></li>
+<li><a href="https://www.hwchiu.com/netfilter-eiptables-ii.html">[netfilter] Introduction to iptables</a></li>
+</ul>
+<h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><p>本文是結合前述兩篇理論文章後的實戰文，要透過對 <code>iptables/ebtables</code> 的操作來實際觀察封包於不同的情境之中傳輸實際上會經過哪些 <code>iptables/ebtables</code> 的控管。</p>
+<h3 id="Software-Requirement"><a href="#Software-Requirement" class="headerlink" title="Software Requirement"></a>Software Requirement</h3><p>在實際觀察前，我們需要先建立好一個容易測試的環境，我自己測試的環境如下</p>
+<ul>
+<li>Linux: 4.4.0-128-generic</li>
+<li>Ubuntu: Ubuntu 16.04.4 LTS</li>
+<li>Docker: 17.06.2-ce</li>
+</ul>
+<p>整個測試用的所有程式以及相關腳本都可以在 <a target="_blank" rel="noopener" href="https://github.com/hwchiu/iptablesExample/tree/master/docker">iptables experience</a> 這邊找到</p>
+<h3 id="Environment"><a href="#Environment" class="headerlink" title="Environment"></a>Environment</h3><p>本文所有的測試情境都會基於下圖的環境。左邊是以上帝視角的視野來觀察整個測試環境，右邊則是採用 <code>User-Space/Kernel-Space</code> 此角度來觀察測試環境</p>
+<p><img src="https://i.imgur.com/Zi8190W.png" alt="Imgur"></p>
+<p>首先會先準備兩個 Container 容器，這兩個容器分別扮演 <code>Nginx Server</code> 以及 <code>Ping Clinet</code> 的角色。</p>
+<p>此外，主機上面本身也要擁有 <code>Ping</code> 的能力，若沒有的需要進行安裝，否則本文後續的測試會沒有辦法繼續。</p>
+<p>最後我們會嘗試進行三個不同類型的封包傳輸，觀察這些封包實際上會受到哪些 <code>iptables/ebtables</code> 的影響。</p>
+<ul>
+<li>Container Bash 透過 ping 指令連線到 Container Nginx</li>
+<li>外網連到 Container 內的 Nginx</li>
+<li>本機透過 <code>ping</code> 連到 Container 內的 Nginx</li>
+</ul>
+<h3 id="Setup-Docker-Containets"><a href="#Setup-Docker-Containets" class="headerlink" title="Setup Docker Containets"></a>Setup Docker Containets</h3><p>首先，確認主機本身已經有安裝 Docker 相關的服務，接者執行下列程式來運行兩個 Docker 容器於主機上。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/bin/bash</span></span><br><span class="line">docker <span class="built_in">rm</span> -f nginx</span><br><span class="line">docker <span class="built_in">rm</span> -f netutils</span><br><span class="line"></span><br><span class="line">docker run -d -p 5566:80 --name nginx nginx</span><br><span class="line">docker run -d --name netutils hwchiu/netutils</span><br></pre></td></tr></table></figure>
+
+<p>同時為了確保能夠正常運作所有指令，可執行下列指定將相關指令安裝起來</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">apt-get install -y ebtables iputils-ping</span><br></pre></td></tr></table></figure>
+
+<p>此外，為了詳細的觀察 <code>iptables/ebtables</code> 對連線封包的傳輸，我們要使用 <code>Log</code> 相關的 <code>Target</code> 來操作這些，最後這些 <code>Log</code> 的資訊都會從 <code>Kernel</code> 打印出來，<br>我們可以透過 <code>Dmesg</code> 的方式去觀察這些封包。</p>
+<p>基本上在 iptables 是採用 -j LOG 的方式來處理，然而在 ebtables 則是直接採用 –log 這種原生的方式來處理，其隱性的使用 -j CONTINUE 去繼續處理封包。</p>
+<p>實際上我們可以用 <code>dmesg -c</code> 的方式，每次呼叫都只會顯示新出現的部分，這樣會更容易幫助我們觀察封包</p>
+<p>在 <code>Log</code> 的指令中，透過 <code>--log-prefix</code> 的方式去列印更多的資訊，可以幫助我們更好觀察。</p>
+<p>範例指令</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">iptables -t mangle -I PREROUTING -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/mangle-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line"></span><br><span class="line">ebtables -t filter -I INPUT --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/filter-input&#x27;</span> --log-level debug</span><br></pre></td></tr></table></figure>
+
+<h2 id="Container-To-Container"><a href="#Container-To-Container" class="headerlink" title="Container To Container"></a>Container To Container</h2><p>在這個測試情境中，我們要觀察容器與容器之間的傳輸，如下圖。</p>
+<p><img src="https://i.imgur.com/pDtDXsP.png" alt="Imgur"></p>
+<p>在這邊我們要從一個容器使用 <code>ping -c1</code> 去傳送一個封包到另外一個容器。</p>
+<p>然後藉由 <code>dmesg</code> 這個指令來觀察果。</p>
+<p>由於我自己所下的 <code>iptables/ebtables</code> 的規則非常簡單，所以<code>強烈建議</code>系統上不要有任何其他的容器正在有任何的網路傳輸，否則 <code>Kernel</code> 輸出會讓你很難理解每個訊息的先後順序。</p>
+<h3 id="Setup-ebtables"><a href="#Setup-ebtables" class="headerlink" title="Setup ebtables"></a>Setup ebtables</h3><p>我用來建立跟刪除 <code>ebtables</code> 規則的腳本如下</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/bin/bash</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">insert</span></span>() &#123;</span><br><span class="line">    ebtables -t broute -I BROUTING --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/broute-BROUTING&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t nat -I PREROUTING --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/nat-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t nat -I POSTROUTING --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/nat-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t filter -I INPUT --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/filter-input&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t filter -I OUTPUT --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/filter-output&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t filter -I FORWARD --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/filter-forward&#x27;</span> --log-level debug</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">delete</span></span>() &#123;</span><br><span class="line">    ebtables -t broute -D BROUTING --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/broute-BROUTING&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t nat -D PREROUTING --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/nat-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t nat -D POSTROUTING --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/nat-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t filter -D INPUT --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/filter-input&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t filter -D OUTPUT --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/filter-output&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t filter -D FORWARD --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/filter-forward&#x27;</span> --log-level debug</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">check</span></span>() &#123;</span><br><span class="line">    count=`ebtables-save | grep ctc| <span class="built_in">wc</span> -l`</span><br><span class="line">    <span class="keyword">if</span> [ <span class="string">&quot;<span class="variable">$count</span>&quot;</span> == <span class="string">&quot;0&quot;</span> ]; <span class="keyword">then</span></span><br><span class="line">        <span class="built_in">echo</span> <span class="string">&quot;Delete Success&quot;</span></span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        <span class="built_in">echo</span> <span class="string">&quot;Delete Fail, Use the ebtables-save to check what rules still exist&quot;</span></span><br><span class="line">    <span class="keyword">fi</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> [ <span class="string">&quot;<span class="variable">$1</span>&quot;</span> == <span class="string">&quot;d&quot;</span> ]; <span class="keyword">then</span></span><br><span class="line">delete</span><br><span class="line">check</span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">insert</span><br><span class="line"><span class="keyword">fi</span></span><br></pre></td></tr></table></figure>
+
+<p>執行裡面的 <code>insert</code> 函式就可以對 <code>ebtables</code> 的所有 <code>Table/Chain</code> 組合都寫一條規則，注意的是我採用的是 <code>-I xxx</code> 意味者將該規則放到第一條，避免我們的規則因為其他的規則沒有被順利執行。</p>
+<p>實驗結束時可以透過 <code>delete</code> 函式去移除相關的規則</p>
+<h3 id="Setup-iptables"><a href="#Setup-iptables" class="headerlink" title="Setup iptables"></a>Setup iptables</h3><p><code>iptables</code> 的概念非常雷同，但是因為系統本身有太多網路流量在傳輸，所以我有特別設定 <code>-s 172.18.0.0/16 -d 172.18.0.0/16</code> 這規則來確保只有封包的來源與目的地都是屬於容器之間的才會去紀錄。</p>
+<p>此外，我特別下了一條 <code>mangle</code> 的規則是因為 <code>nat</code> 在 <code>PREROUTING/POSTROUTING</code> 會因為 <code>conntrack</code> 的幫忙導致看不出來有被執行多次，所以特別多用一個 <code>mangle</code> 來幫忙釐清。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/bin/bash</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">insert</span></span>() &#123;</span><br><span class="line">    iptables -t mangle -I PREROUTING -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/mangle-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t mangle -I POSTROUTING -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/mangle-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t nat -I PREROUTING -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/nat-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t nat -I POSTROUTING -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/nat-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t filter -I INPUT -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/filter-input&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t filter -I OUTPUT -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/filter-output&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t filter -I FORWARD -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/filter-forward&#x27;</span> --log-level debug</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">delete</span></span>() &#123;</span><br><span class="line">    iptables -t mangle -D PREROUTING -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/mangle-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t mangle -D POSTROUTING -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/mangle-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t nat -D PREROUTING -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/nat-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t nat -D POSTROUTING -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/nat-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t filter -D INPUT -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/filter-input&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t filter -D OUTPUT -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/filter-output&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t filter -D FORWARD -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/filter-forward&#x27;</span> --log-level debug</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">check</span></span>() &#123;</span><br><span class="line">    count=`iptables-save | grep ctc| <span class="built_in">wc</span> -l`</span><br><span class="line">    <span class="keyword">if</span> [ <span class="string">&quot;<span class="variable">$count</span>&quot;</span> == <span class="string">&quot;0&quot;</span> ]; <span class="keyword">then</span></span><br><span class="line">        <span class="built_in">echo</span> <span class="string">&quot;Delete Success&quot;</span></span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        <span class="built_in">echo</span> <span class="string">&quot;Delete Fail, Use the iptables-save to check what rules still exist&quot;</span></span><br><span class="line">    <span class="keyword">fi</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> [ <span class="string">&quot;<span class="variable">$1</span>&quot;</span> == <span class="string">&quot;d&quot;</span> ]; <span class="keyword">then</span></span><br><span class="line">delete</span><br><span class="line">check</span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">insert</span><br><span class="line"><span class="keyword">fi</span></span><br></pre></td></tr></table></figure>
+<h3 id="Test"><a href="#Test" class="headerlink" title="Test"></a>Test</h3><p>當上述規則的設定完畢後，我們先執行數次 <code>dmesg -c</code> 去確保目前沒有任何 <code>kernel</code> 所輸出的新訊息。<br>接者執行下列指令，請先確保(172.18.0.2)是 容器 <code>nginx</code> 的 <code>IP</code> 地址</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker <span class="built_in">exec</span>  netutils ping 172.18.0.2 -c1</span><br></pre></td></tr></table></figure>
+
+<p>接下來馬上執行 <code>sudo dmesg -ct</code> 來顯示資料。(透過 -t 只是不想要顯示時間，排版比較好看)</p>
+<p>該輸出資料如下，我們將該資料分成兩部分，因為 <code>ping -c1</code> 實際上會牽扯到 <code>ICMP Request</code> 以及 <code>ICMP Reply</code>.</p>
+<p>如果你的環境中有看到 proto&#x3D;0x0806, 這是所謂的 APR 封包，本文暫時不討論 ARP。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">ctc/ebtable/broute-BROUTING IN=vethd709394 OUT= MAC <span class="built_in">source</span> = 02:42:ac:12:00:03 MAC dest = 02:42:ac:12:00:02 proto = 0x0800</span><br><span class="line">ctc/ebtable/nat-PREROUTE IN=vethd709394 OUT= MAC <span class="built_in">source</span> = 02:42:ac:12:00:03 MAC dest = 02:42:ac:12:00:02 proto = 0x0800</span><br><span class="line">ctc/iptable/mangle-PREROUTEIN=docker0 OUT= PHYSIN=vethd709394 MAC=02:42:ac:12:00:02:02:42:ac:12:00:03:08:00 SRC=172.18.0.3 DST=172.18.0.2 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=7179 DF PROTO=ICMP TYPE=8 CODE=0 ID=8896 SEQ=1</span><br><span class="line">ctc/iptable/nat-PREROUTEIN=docker0 OUT= PHYSIN=vethd709394 MAC=02:42:ac:12:00:02:02:42:ac:12:00:03:08:00 SRC=172.18.0.3 DST=172.18.0.2 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=7179 DF PROTO=ICMP TYPE=8 CODE=0 ID=8896 SEQ=1</span><br><span class="line">ctc/ebtable/filter-forward IN=vethd709394 OUT=veth5ead5c7 MAC <span class="built_in">source</span> = 02:42:ac:12:00:03 MAC dest = 02:42:ac:12:00:02 proto = 0x0800</span><br><span class="line">ctc/iptable/filter-forwardIN=docker0 OUT=docker0 PHYSIN=vethd709394 PHYSOUT=veth5ead5c7 MAC=02:42:ac:12:00:02:02:42:ac:12:00:03:08:00 SRC=172.18.0.3 DST=172.18.0.2 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=7179 DF PROTO=ICMP TYPE=8 CODE=0 ID=8896 SEQ=1</span><br><span class="line">ctc/ebtable/nat-POSTROUTE IN= OUT=veth5ead5c7 MAC <span class="built_in">source</span> = 02:42:ac:12:00:03 MAC dest = 02:42:ac:12:00:02 proto = 0x0800</span><br><span class="line">ctc/iptable/mangle-POSTROUTEIN= OUT=docker0 PHYSIN=vethd709394 PHYSOUT=veth5ead5c7 SRC=172.18.0.3 DST=172.18.0.2 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=7179 DF PROTO=ICMP TYPE=8 CODE=0 ID=8896 SEQ=1</span><br><span class="line">ctc/iptable/nat-POSTROUTEIN= OUT=docker0 PHYSIN=vethd709394 PHYSOUT=veth5ead5c7 SRC=172.18.0.3 DST=172.18.0.2 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=7179 DF PROTO=ICMP TYPE=8 CODE=0 ID=8896 SEQ=1</span><br></pre></td></tr></table></figure>
+
+<p>透過我們事先描述好的 <code>log-prefix</code>, 我們可以很清楚的觀察到 <code>iptables/ebtables</code> 比對的過程。<br>這些規則我只針對幾個有趣的部分介紹一下</p>
+<ol>
+<li>前面封包的<code>IN=</code>代表的都是本機上用來將 <code>Docker</code>容器與 <code>Linux Bridge</code> 連結的 <code>veth</code> 虛擬連線。</li>
+<li>可以觀察到前面幾個訊息的 <code>OUT=</code> 都是空的，這是因為還沒有進行 <code>Bridge Decision</code>, 還沒有辦法知道封包到底目標的網卡是誰。</li>
+<li>可以看到在 <code>ebtables</code> 這邊的 <code>in=</code> 都是 <code>vethxxx</code> 而 <code>iptables</code> 的都是 <code>docker0</code>, 這是因為兩者層及不同，關注的點不一樣，實際在上 <code>iptables</code> 中可以透過 <code>physical</code> 相關的參數拿到 <code>vethxxxx</code>.</li>
+<li>經過 <code>FORWARD</code> 之後，可以觀察到 <code>IN</code> 的訊息都不見了，這是因為在 <code>PREROUTING</code>  這邊可以進行 <code>SNAT</code> 之類的選項，可以改變封包的送端是誰，所以這時候 <code>IN=</code> 的資料其實就是一個不確定性，而且也沒那麼重要了。</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">ctc/ebtable/broute-BROUTING IN=veth5ead5c7 OUT= MAC <span class="built_in">source</span> = 02:42:ac:12:00:02 MAC dest = 02:42:ac:12:00:03 proto = 0x0800</span><br><span class="line">ctc/ebtable/nat-PREROUTE IN=veth5ead5c7 OUT= MAC <span class="built_in">source</span> = 02:42:ac:12:00:02 MAC dest = 02:42:ac:12:00:03 proto = 0x0800</span><br><span class="line">ctc/iptable/mangle-PREROUTEIN=docker0 OUT= PHYSIN=veth5ead5c7 MAC=02:42:ac:12:00:03:02:42:ac:12:00:02:08:00 SRC=172.18.0.2 DST=172.18.0.3 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=59995 PROTO=ICMP TYPE=0 CODE=0 ID=8896 SEQ=1</span><br><span class="line">ctc/ebtable/filter-forward IN=veth5ead5c7 OUT=vethd709394 MAC <span class="built_in">source</span> = 02:42:ac:12:00:02 MAC dest = 02:42:ac:12:00:03 proto = 0x0800</span><br><span class="line">ctc/iptable/filter-forwardIN=docker0 OUT=docker0 PHYSIN=veth5ead5c7 PHYSOUT=vethd709394 MAC=02:42:ac:12:00:03:02:42:ac:12:00:02:08:00 SRC=172.18.0.2 DST=172.18.0.3 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=59995 PROTO=ICMP TYPE=0 CODE=0 ID=8896 SEQ=1</span><br><span class="line">ctc/ebtable/nat-POSTROUTE IN= OUT=vethd709394 MAC <span class="built_in">source</span> = 02:42:ac:12:00:02 MAC dest = 02:42:ac:12:00:03 proto = 0x0800</span><br><span class="line">ctc/iptable/mangle-POSTROUTEIN= OUT=docker0 PHYSIN=veth5ead5c7 PHYSOUT=vethd709394 SRC=172.18.0.2 DST=172.18.0.3 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=59995 PROTO=ICMP TYPE=0 CODE=0 ID=8896 SEQ=1</span><br></pre></td></tr></table></figure>
+
+<p>針對 <code>ICMP Reply</code> 回傳的部分，我們首先可以觀察到</p>
+<ol>
+<li>訊息數量不對稱，少了兩個比對的訊息</li>
+<li>少的分別是 <code>iptable/nat-PREROUTEIN</code> 以及 <code>ctc/iptable/nat-POSTROUTEIN</code>. 因為 <code>nat</code> 相關的操作都會被 <code>conntrack</code> 進行快取幫忙做掉了。</li>
+</ol>
+<p>我們將封包了來回搭配之前的圖表整理一下。</p>
+<p><img src="https://i.imgur.com/AuCxab9.png" alt="Imgur">v<br>因為容器與容器之間的傳輸，基本上都是在 <code>Linux Bridge</code> 底下進行傳輸，所以 <code>ping</code> 產生的 <code>ICMP Request</code> 以及 <code>ICMP Reply</code> 都會走相同的路線來傳輸。</p>
+<h2 id="Localhost-To-Container"><a href="#Localhost-To-Container" class="headerlink" title="Localhost To Container"></a>Localhost To Container</h2><p>這次的情境更為簡單，本機上面直接透過 <code>ping</code> 這個應用程式去連結到容器內部，這邊會直接使用容器的 <code>IP</code> 地址來進行溝通。</p>
+<p>情境圖如下，相對於上述的 <code>Container To Container</code>, 這次的封包不是完全的 <code>Layer2</code> 轉發就可以處理的，會牽扯到本機上面的 <code>Ping</code> 程式，這意味者 <code>Layer3</code> 的部分也會出現。<br><img src="https://i.imgur.com/v8xwHDe.png" alt="Imgur"></p>
+<h3 id="Setup-ebtables-1"><a href="#Setup-ebtables-1" class="headerlink" title="Setup ebtables"></a>Setup ebtables</h3><p>基本上 <code>ebtables</code> 的指令與前述相同，沒有部份需要修改，可以繼續使用前述的 <code>ebtables</code> 指令。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/bin/bash</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">insert</span></span>() &#123;</span><br><span class="line">    ebtables -t broute -I BROUTING --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/broute-BROUTING&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t nat -I PREROUTING --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/nat-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t nat -I POSTROUTING --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/nat-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t filter -I INPUT --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/filter-input&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t filter -I OUTPUT --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/filter-output&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t filter -I FORWARD --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/filter-forward&#x27;</span> --log-level debug</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">delete</span></span>() &#123;</span><br><span class="line">    ebtables -t broute -D BROUTING --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/broute-BROUTING&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t nat -D PREROUTING --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/nat-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t nat -D POSTROUTING --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/nat-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t filter -D INPUT --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/filter-input&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t filter -D OUTPUT --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/filter-output&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t filter -D FORWARD --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/filter-forward&#x27;</span> --log-level debug</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">check</span></span>() &#123;</span><br><span class="line">    count=`ebtables-save | grep ctc| <span class="built_in">wc</span> -l`</span><br><span class="line">    <span class="keyword">if</span> [ <span class="string">&quot;<span class="variable">$count</span>&quot;</span> == <span class="string">&quot;0&quot;</span> ]; <span class="keyword">then</span></span><br><span class="line">        <span class="built_in">echo</span> <span class="string">&quot;Delete Success&quot;</span></span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        <span class="built_in">echo</span> <span class="string">&quot;Delete Fail, Use the ebtables-save to check what rules still exist&quot;</span></span><br><span class="line">    <span class="keyword">fi</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> [ <span class="string">&quot;<span class="variable">$1</span>&quot;</span> == <span class="string">&quot;d&quot;</span> ]; <span class="keyword">then</span></span><br><span class="line">delete</span><br><span class="line">check</span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">insert</span><br><span class="line"><span class="keyword">fi</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="Setup-iptables-1"><a href="#Setup-iptables-1" class="headerlink" title="Setup iptables"></a>Setup iptables</h3><p>於 <code>iptables</code> 方面，我們新增了一條 <code>mangle OUTPUT</code> 來協助觀察封包的轉送，主要原因是本機的 <code>ping</code> 應用程式送出 <code>ICMP Request</code> 會牽扯到 <code>OUTPUT Chain</code>。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/bin/bash</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">insert</span></span>() &#123;</span><br><span class="line">    iptables -t mangle -I OUTPUT -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/mangle-OUTPUT&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t mangle -I PREROUTING -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/mangle-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t mangle -I POSTROUTING -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/mangle-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t nat -I PREROUTING -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/nat-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t nat -I POSTROUTING -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/nat-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t filter -I INPUT -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/filter-input&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t filter -I OUTPUT -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/filter-output&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t filter -I FORWARD -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/filter-forward&#x27;</span> --log-level debug</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">delete</span></span>() &#123;</span><br><span class="line">    iptables -t mangle -D OUTPUT -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/mangle-OUTPUT&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t mangle -D PREROUTING -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/mangle-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t mangle -D POSTROUTING -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/mangle-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t nat -D PREROUTING -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/nat-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t nat -D POSTROUTING -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/nat-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t filter -D INPUT -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/filter-input&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t filter -D OUTPUT -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/filter-output&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t filter -D FORWARD -s 172.18.0.0/16 -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;ctc/iptable/filter-forward&#x27;</span> --log-level debug</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">check</span></span>() &#123;</span><br><span class="line">    count=`iptables-save | grep ctc| <span class="built_in">wc</span> -l`</span><br><span class="line">    <span class="keyword">if</span> [ <span class="string">&quot;<span class="variable">$count</span>&quot;</span> == <span class="string">&quot;0&quot;</span> ]; <span class="keyword">then</span></span><br><span class="line">        <span class="built_in">echo</span> <span class="string">&quot;Delete Success&quot;</span></span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        <span class="built_in">echo</span> <span class="string">&quot;Delete Fail, Use the iptables-save to check what rules still exist&quot;</span></span><br><span class="line">    <span class="keyword">fi</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> [ <span class="string">&quot;<span class="variable">$1</span>&quot;</span> == <span class="string">&quot;d&quot;</span> ]; <span class="keyword">then</span></span><br><span class="line">delete</span><br><span class="line">check</span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">insert</span><br><span class="line"><span class="keyword">fi</span></span><br></pre></td></tr></table></figure>
+<h3 id="Test-1"><a href="#Test-1" class="headerlink" title="Test"></a>Test</h3><p>當上述的規則都準備完畢之後，我們就可以開始來進行測試了。<br>由於這次是使用本機上面的 <code>ping</code> 指令來傳輸封包，所以測試的指令更為簡單</p>
+<p>接者執行下列指令，請先確保(172.18.0.2)是 容器 <code>nginx</code> 的 <code>IP</code> 地址</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ping 172.18.0.2 -c1</span><br></pre></td></tr></table></figure>
+
+<p>接下來馬上使用 <code>sudo dmesg -ct</code> 來觀察結果，然後我將結果分成 <code>ICMP Request</code> 以及 <code>ICMP Reply</code> 兩個部分來觀察。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">ctc/iptable/mangle-OUTPUTIN= OUT=docker0 SRC=172.18.0.1 DST=172.18.0.2 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=15859 DF PROTO=ICMP TYPE=8 CODE=0 ID=30580 SEQ=1</span><br><span class="line">ctc/iptable/filter-outputIN= OUT=docker0 SRC=172.18.0.1 DST=172.18.0.2 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=15859 DF PROTO=ICMP TYPE=8 CODE=0 ID=30580 SEQ=1</span><br><span class="line">ctc/iptable/mangle-POSTROUTEIN= OUT=docker0 SRC=172.18.0.1 DST=172.18.0.2 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=15859 DF PROTO=ICMP TYPE=8 CODE=0 ID=30580 SEQ=1</span><br><span class="line">ctc/iptable/nat-POSTROUTEIN= OUT=docker0 SRC=172.18.0.1 DST=172.18.0.2 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=15859 DF PROTO=ICMP TYPE=8 CODE=0 ID=30580 SEQ=1</span><br><span class="line">ctc/ebtable/filter-output IN= OUT=veth5ead5c7 MAC <span class="built_in">source</span> = 02:42:db:a1:f2:79 MAC dest = 02:42:ac:12:00:02 proto = 0x0800</span><br><span class="line">ctc/ebtable/nat-POSTROUTE IN= OUT=veth5ead5c7 MAC <span class="built_in">source</span> = 02:42:db:a1:f2:79 MAC dest = 02:42:ac:12:00:02 proto = 0x0800</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li>由於封包是直接從本機的 <code>Ping</code> 出發的，所以會先從 <code>Layer3</code> 開始傳送封包，因此第一個遇到的就會是 <code>iptables</code> 相關的規則</li>
+<li>這邊可以觀察到因為封包是從本機出去的，所以其實 <code>IN=</code> 的欄位一直都是空的，因為其實也不重要。</li>
+<li>因為目標容器是在 <code>Linux Bridge</code> 底下，所以封包會先查到 <code>docker0</code>, 最後依賴 <code>Layer2</code> 去轉發送出去。</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">ctc/ebtable/broute-BROUTING IN=veth5ead5c7 OUT= MAC <span class="built_in">source</span> = 02:42:ac:12:00:02 MAC dest = 02:42:db:a1:f2:79 proto = 0x0800</span><br><span class="line">ctc/ebtable/nat-PREROUTE IN=veth5ead5c7 OUT= MAC <span class="built_in">source</span> = 02:42:ac:12:00:02 MAC dest = 02:42:db:a1:f2:79 proto = 0x0800</span><br><span class="line">ctc/iptable/mangle-PREROUTEIN=docker0 OUT= PHYSIN=veth5ead5c7 MAC=02:42:db:a1:f2:79:02:42:ac:12:00:02:08:00 SRC=172.18.0.2 DST=172.18.0.1 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=55481 PROTO=ICMP TYPE=0 CODE=0 ID=30580 SEQ=1</span><br><span class="line">ctc/ebtable/filter-input IN=veth5ead5c7 OUT= MAC <span class="built_in">source</span> = 02:42:ac:12:00:02 MAC dest = 02:42:db:a1:f2:79 proto = 0x0800</span><br><span class="line">ctc/iptable/filter-inputIN=docker0 OUT= PHYSIN=veth5ead5c7 MAC=02:42:db:a1:f2:79:02:42:ac:12:00:02:08:00 SRC=172.18.0.2 DST=172.18.0.1 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=55481 PROTO=ICMP TYPE=0 CODE=0 ID=30580 SEQ=1</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li><code>ICMP Reply</code> 的方向是從容器回到本機的 <code>Ping</code> 應用程式，因此進入點就是<code>Linux Bridge</code>, 這意味者一定是從 <code>ebtables/broute-BROUTING</code>  開始</li>
+<li>查詢完相關的 <code>Bridging Table</code> 以及 <code>Routing Table</code>, 最後決定要將封包送到 <code>Ping</code> 的應用程式，因此會走到 <code>INPUT Chain</code> 這邊來處理。</li>
+</ol>
+<p>最後我們將上述的流向給合併起來觀看，在這個範例之中因為 <code>ICMP Request</code> 以及 <code>ICMP Reply</code> 是不同的走向。所以在下圖中。我們紫色的代表是 <code>ICMP Request</code> 的走向，而藍色代表的是 <code>ICMP Reply</code> 的走向。</p>
+<p><img src="https://i.imgur.com/6CDXA6w.png" alt="Imgur"></p>
+<h2 id="Wan-To-Container"><a href="#Wan-To-Container" class="headerlink" title="Wan To Container"></a>Wan To Container</h2><p>終於到了最後一個情境，這個情境也是最多人常用的情境。我們的容器本身再創立的時候，會透過 <code>-p 5566:80</code> 的方式將本機的 <code>5566</code> 連接埠串通到容器內的 <code>80</code> 連接埠.</p>
+<p>接者外部的網路透過 <code>5566</code> 連結埠來存取對應的容器內容。</p>
+<p>因此在這個範例中，我們打算從外部網路透過 <code>5566</code> 連結埠來存取是先建立好的 <code>Nginx</code> 容器。</p>
+<p>接者透過 <code>iptables/ebtables</code> 的記錄來觀察在這種情境下，封包會怎麼傳輸。<br>此外，由於我們還有透過 <code>5566</code> 連結埠轉換到 <code>80</code>連結埠的需求，所以在我們觀察的 <code>iptables/ebtables</code> 的結果中，應該也要可以看到封包資訊的變換(IP&#x2F;Port&#x2F;MAC Address)<br><img src="https://i.imgur.com/Ongf166.png" alt="Imgur"></p>
+<h3 id="Setup-ebtables-2"><a href="#Setup-ebtables-2" class="headerlink" title="Setup ebtables"></a>Setup ebtables</h3><p>在 <code>ebtables</code> 方面，規則基本上沒有太多變化，繼續依照之前的用法即可。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/bin/bash</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">insert</span></span>() &#123;</span><br><span class="line">    ebtables -t broute -I BROUTING --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/broute-BROUTING&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t nat -I PREROUTING --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/nat-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t nat -I POSTROUTING --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/nat-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t filter -I INPUT --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/filter-input&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t filter -I OUTPUT --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/filter-output&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t filter -I FORWARD --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/filter-forward&#x27;</span> --log-level debug</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">delete</span></span>() &#123;</span><br><span class="line">    ebtables -t broute -D BROUTING --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/broute-BROUTING&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t nat -D PREROUTING --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/nat-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t nat -D POSTROUTING --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/nat-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t filter -D INPUT --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/filter-input&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t filter -D OUTPUT --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/filter-output&#x27;</span> --log-level debug</span><br><span class="line">    ebtables -t filter -D FORWARD --<span class="built_in">log</span> --log-prefix <span class="string">&#x27;ctc/ebtable/filter-forward&#x27;</span> --log-level debug</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">check</span></span>() &#123;</span><br><span class="line">    count=`ebtables-save | grep ctc| <span class="built_in">wc</span> -l`</span><br><span class="line">    <span class="keyword">if</span> [ <span class="string">&quot;<span class="variable">$count</span>&quot;</span> == <span class="string">&quot;0&quot;</span> ]; <span class="keyword">then</span></span><br><span class="line">        <span class="built_in">echo</span> <span class="string">&quot;Delete Success&quot;</span></span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        <span class="built_in">echo</span> <span class="string">&quot;Delete Fail, Use the ebtables-save to check what rules still exist&quot;</span></span><br><span class="line">    <span class="keyword">fi</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> [ <span class="string">&quot;<span class="variable">$1</span>&quot;</span> == <span class="string">&quot;d&quot;</span> ]; <span class="keyword">then</span></span><br><span class="line">delete</span><br><span class="line">check</span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">insert</span><br><span class="line"><span class="keyword">fi</span></span><br></pre></td></tr></table></figure>
+
+
+<h3 id="Setup-iptables-2"><a href="#Setup-iptables-2" class="headerlink" title="Setup iptables"></a>Setup iptables</h3><p>不同於 <code>ebtables</code>，在 <code>iptables</code> 這邊的修改比較多，原因如下</p>
+<ol>
+<li>此情境屬於 <code>Wan To Container</code>, 這意味牽扯到不同網段的傳輸</li>
+<li>因為我操作的環境算是很乾淨，所以我針對 <code>Wan IP</code> 以及 <code>Container IP</code> 來作為封包的條件</li>
+<li>在我的環境中，我的 <code>Wan</code> 是 <code>172.17.0.1</code> 而 <code>Container</code> 是 <code>172.18.0.2</code>. 所以我規則會針對 <code>172.17.0.0/16</code> 以及 <code>172.18.0.0/16</code> 來設定。</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/bin/bash</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">insert</span></span>() &#123;</span><br><span class="line">    iptables -t mangle -I PREROUTING -p tcp -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/mangle-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t nat -I PREROUTING -p tcp  -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/nat-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t mangle -I PREROUTING -p tcp -d 172.17.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/mangle-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t nat -I PREROUTING -p tcp  -d 172.17.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/nat-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line"></span><br><span class="line">    iptables -t filter -I FORWARD -p tcp -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/filter-forward&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t filter -I FORWARD -p tcp -d 172.17.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/filter-forward&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t mangle -I FORWARD -p tcp -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/mangle-FORWARD&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t mangle -I FORWARD -p tcp -d 172.17.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/mangle-FORWARD&#x27;</span> --log-level debug</span><br><span class="line"></span><br><span class="line">    iptables -t mangle -I POSTROUTING -p tcp -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/mangle-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t mangle -I POSTROUTING -p tcp -d 172.17.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/mangle-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t nat -I POSTROUTING -p tcp -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/nat-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t nat -I POSTROUTING -p tcp -d 172.17.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/nat-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">delete</span></span>() &#123;</span><br><span class="line">    iptables -t mangle -D PREROUTING -p tcp -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/mangle-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t nat -D PREROUTING -p tcp  -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/nat-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t mangle -D PREROUTING -p tcp -d 172.17.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/mangle-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t nat -D PREROUTING -p tcp  -d 172.17.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/nat-PREROUTE&#x27;</span> --log-level debug</span><br><span class="line"></span><br><span class="line">    iptables -t filter -D FORWARD -p tcp -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/filter-forward&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t filter -D FORWARD -p tcp -d 172.17.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/filter-forward&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t mangle -D FORWARD -p tcp -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/mangle-FORWARD&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t mangle -D FORWARD -p tcp -d 172.17.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/mangle-FORWARD&#x27;</span> --log-level debug</span><br><span class="line"></span><br><span class="line">    iptables -t mangle -D POSTROUTING -p tcp -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/mangle-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t mangle -D POSTROUTING -p tcp -d 172.17.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/mangle-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t nat -D POSTROUTING -p tcp -d 172.18.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/nat-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">    iptables -t nat -D POSTROUTING -p tcp -d 172.17.0.0/16 -j LOG --log-prefix <span class="string">&#x27;wtc/iptable/nat-POSTROUTE&#x27;</span> --log-level debug</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">check</span></span>() &#123;</span><br><span class="line">    count=`iptables-save | grep wtc| <span class="built_in">wc</span> -l`</span><br><span class="line">    <span class="keyword">if</span> [ <span class="string">&quot;<span class="variable">$count</span>&quot;</span> == <span class="string">&quot;0&quot;</span> ]; <span class="keyword">then</span></span><br><span class="line">        <span class="built_in">echo</span> <span class="string">&quot;Delete Success&quot;</span></span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        <span class="built_in">echo</span> <span class="string">&quot;Delete Fail, Use the iptables-save to check what rules still exist&quot;</span></span><br><span class="line">    <span class="keyword">fi</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> [ <span class="string">&quot;<span class="variable">$1</span>&quot;</span> == <span class="string">&quot;d&quot;</span> ]; <span class="keyword">then</span></span><br><span class="line">delete</span><br><span class="line">check</span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">insert</span><br><span class="line"><span class="keyword">fi</span></span><br></pre></td></tr></table></figure>
+
+
+<h3 id="Test-2"><a href="#Test-2" class="headerlink" title="Test"></a>Test</h3><p>在測試方面，我一開始本來是採用 <code>curl</code> 的方式去連線 <code>nginx</code> 容器，但是其實 <code>curl</code> 做了太多事情了，除了一開始的 <code>TCP</code> 三方交握連線外，還包含了 <code>HTTP GET</code>。 對於我們只想要單純觀察 <code>Wan To Controller</code> 這來回的連線來說，這其實做了太多事情了。</p>
+<p>為了簡化整個觀察結果，我最後決定採用 <code>telnet</code> 的方式，單純建立 <code>TCP</code> 連線就好。而整個 <code>TCP</code> 的三方交握連線其實是三個封包的傳輸，所在觀察的結果中可以觀察到三個部分的連線。</p>
+<p>然而在我們的觀察目標中，我們只需要觀察前兩個連線就好，畢竟這樣已經足夠讓我們去觀察 <code>Wan To Controller</code> 的傳輸過程中， <code>iptables/ebtables</code> 會如何影響我們的連線。</p>
+<p>待一切規則都準備好後，在你外網的機器上，執行下列指令。<br>這邊要注意的是，我測試機器的對外<code>IP</code> 地址是 <code>172.18.8.211</code>，而我本身主機的<code>IP</code>地址是 <code>172.17.8.1</code>. 這邊請調整成自己的環境</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[18:13:20] hwchiu ➜ ~» telnet 172.17.8.211 5566</span><br><span class="line">Trying 172.17.8.211...</span><br><span class="line">Connected to 172.17.8.211.</span><br><span class="line">Escape character is <span class="string">&#x27;^]&#x27;</span>.</span><br></pre></td></tr></table></figure>
+
+<p>這時候馬上透過 <code>dmesg -ct</code> 去收集封包，可以得到類似下列的結果，我將結果整理，只收集 <code>TCP</code> 三方教握的前兩方傳輸就好</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">ctc/iptable/mangle-PREROUTEIN=enp0s8 OUT= MAC=08:00:27:ff:b2:c4:0a:00:27:00:00:02:08:00 SRC=172.17.8.1 DST=172.17.8.211 LEN=64 TOS=0x00 PREC=0x00 TTL=64 ID=0 DF PROTO=TCP SPT=63584 DPT=5566 WINDOW=65535 RES=0x00 CWR ECE SYN URGP=0</span><br><span class="line">ctc/iptable/nat-PREROUTEIN=enp0s8 OUT= MAC=08:00:27:ff:b2:c4:0a:00:27:00:00:02:08:00 SRC=172.17.8.1 DST=172.17.8.211 LEN=64 TOS=0x00 PREC=0x00 TTL=64 ID=0 DF PROTO=TCP SPT=63584 DPT=5566 WINDOW=65535 RES=0x00 CWR ECE SYN URGP=0</span><br><span class="line">ctc/iptable/mangle-FORWARDIN=enp0s8 OUT=docker0 MAC=08:00:27:ff:b2:c4:0a:00:27:00:00:02:08:00 SRC=172.17.8.1 DST=172.18.0.2 LEN=64 TOS=0x00 PREC=0x00 TTL=63 ID=0 DF PROTO=TCP SPT=63584 DPT=80 WINDOW=65535 RES=0x00 CWR ECE SYN URGP=0</span><br><span class="line">ctc/iptable/filter-forwardIN=enp0s8 OUT=docker0 MAC=08:00:27:ff:b2:c4:0a:00:27:00:00:02:08:00 SRC=172.17.8.1 DST=172.18.0.2 LEN=64 TOS=0x00 PREC=0x00 TTL=63 ID=0 DF PROTO=TCP SPT=63584 DPT=80 WINDOW=65535 RES=0x00 CWR ECE SYN URGP=0</span><br><span class="line">ctc/iptable/mangle-POSTROUTEIN= OUT=docker0 SRC=172.17.8.1 DST=172.18.0.2 LEN=64 TOS=0x00 PREC=0x00 TTL=63 ID=0 DF PROTO=TCP SPT=63584 DPT=80 WINDOW=65535 RES=0x00 CWR ECE SYN URGP=0</span><br><span class="line">ctc/iptable/nat-POSTROUTEIN= OUT=docker0 SRC=172.17.8.1 DST=172.18.0.2 LEN=64 TOS=0x00 PREC=0x00 TTL=63 ID=0 DF PROTO=TCP SPT=63584 DPT=80 WINDOW=65535 RES=0x00 CWR ECE SYN URGP=0</span><br><span class="line">ctc/ebtable/filter-output IN= OUT=veth5ead5c7 MAC <span class="built_in">source</span> = 02:42:db:a1:f2:79 MAC dest = 02:42:ac:12:00:02 proto = 0x0800</span><br><span class="line">ctc/ebtable/nat-POSTROUTE IN= OUT=veth5ead5c7 MAC <span class="built_in">source</span> = 02:42:db:a1:f2:79 MAC dest = 02:42:ac:12:00:02 proto = 0x0800</span><br></pre></td></tr></table></figure>
+
+<p>如同前述一樣，我這邊也針對一些有趣的封包內容進行討論</p>
+<ol>
+<li>因為我們是透過 <code>docker run -p 5566:80</code>, 所以我們傳輸的 <code>5566</code> 連接埠會被轉換成 <code>80</code> 連接埠。 可以觀察到第三個規則 <code>mangle-FORWARD</code> 之後，<code>DPT=5566</code> 都變成了 <code>DPT=80</code>. 主要是因為經過了 <code>nat-PREROUTING</code> 後就被更動了。</li>
+<li>同上面的理由，可以觀察到封包的目標<code>IP</code>地址從原本的<code>DST=172.17.8.211</code> 被轉換成容器的<code>DST=172.18.0.2</code>.</li>
+<li>因為是從<code>Wan To Controller</code>, 所以封包會先從 <code>iptalbes</code> 開始跑，最後跑道 <code>Linux Bridge</code> 後才會進入到 <code>ebtables</code></li>
+<li>最一開始封包的 <code>MAC Address</code> 的發送是 <code>0a:00:27:00:00:02 -&gt;08:00:27:ff:b2:c4</code>. 但是一但到了 <code>ebtables</code> 那層，也就是經過 <code>docker0</code> 之後，你可以觀察到這時候的 <code>MAC address</code> 的流向變成 <code>02:42:db:a1:f2:79  -&gt; 02:42:ac:12:00:02</code>. 這邊原理實際上跟 <code>IP</code> 封包傳輸有關，這邊不多敘述。</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">ctc/ebtable/broute-BROUTING IN=veth5ead5c7 OUT= MAC <span class="built_in">source</span> = 02:42:ac:12:00:02 MAC dest = 02:42:db:a1:f2:79 proto = 0x0800</span><br><span class="line">ctc/ebtable/nat-PREROUTE IN=veth5ead5c7 OUT= MAC <span class="built_in">source</span> = 02:42:ac:12:00:02 MAC dest = 02:42:db:a1:f2:79 proto = 0x0800</span><br><span class="line">ctc/iptable/mangle-PREROUTEIN=docker0 OUT= PHYSIN=veth5ead5c7 MAC=02:42:db:a1:f2:79:02:42:ac:12:00:02:08:00 SRC=172.18.0.2 DST=172.17.8.1 LEN=60 TOS=0x00 PREC=0x00 TTL=64 ID=0 DF PROTO=TCP SPT=80 DPT=63584 WINDOW=28960 RES=0x00 ECE ACK SYN URGP=0</span><br><span class="line">ctc/ebtable/filter-input IN=veth5ead5c7 OUT= MAC <span class="built_in">source</span> = 02:42:ac:12:00:02 MAC dest = 02:42:db:a1:f2:79 proto = 0x0800</span><br><span class="line">ctc/iptable/mangle-FORWARDIN=docker0 OUT=enp0s8 PHYSIN=veth5ead5c7 MAC=02:42:db:a1:f2:79:02:42:ac:12:00:02:08:00 SRC=172.18.0.2 DST=172.17.8.1 LEN=60 TOS=0x00 PREC=0x00 TTL=63 ID=0 DF PROTO=TCP SPT=80 DPT=63584 WINDOW=28960 RES=0x00 ECE ACK SYN URGP=0</span><br><span class="line">ctc/iptable/filter-forwardIN=docker0 OUT=enp0s8 PHYSIN=veth5ead5c7 MAC=02:42:db:a1:f2:79:02:42:ac:12:00:02:08:00 SRC=172.18.0.2 DST=172.17.8.1 LEN=60 TOS=0x00 PREC=0x00 TTL=63 ID=0 DF PROTO=TCP SPT=80 DPT=63584 WINDOW=28960 RES=0x00 ECE ACK SYN URGP=0</span><br><span class="line">ctc/iptable/mangle-POSTROUTEIN= OUT=enp0s8 PHYSIN=veth5ead5c7 SRC=172.18.0.2 DST=172.17.8.1 LEN=60 TOS=0x00 PREC=0x00 TTL=63 ID=0 DF PROTO=TCP SPT=80 DPT=63584 WINDOW=28960 RES=0x00 ECE ACK SYN URGP=0</span><br></pre></td></tr></table></figure>
+
+<p>這邊是封包的回程，是由 <code>Container To Wan</code> 的方向</p>
+<ol>
+<li>封包是從 <code>ebtables</code> 開始，因為是從 <code>Linux Bridge</code> 底下的網卡收到容器傳出來的封包，接下來透過各種轉發，最後從 <code>iptabes</code> 那邊轉發出去到外部網路。</li>
+<li>觀察最後一個 <code>mangle-postrouting</code> 可以看到 <code>IP/Port/Mac</code> 都還沒有被轉換，這些都會在 <code>nat-postrouting</code> 這邊去處理，但是因為 <code>conntrack</code> 的關係，這些操作會在 <code>kernel</code> 給快取執行掉了。若要真的觀察可以透過 <code>tcpdump</code> 的方式去監聽封包。</li>
+</ol>
+<p>在看到了這兩種的情境後，我們將彼此的流向圖給整理一下，如下圖。<br>圖中藍色的連線則是 <code>Wan To Container</code> 而紫色則是 <code>Container To Wan</code> 的封包流向。</p>
+<p>基本上因為牽扯到 <code>Layer3/Layer2</code> 的處理，封包都會經過 <code>iptables</code> 的 <code>filter Table/FORWARD Chain</code>. 如果有要針對防火牆去處理的話，可以在這邊去執行。</p>
+<p><img src="https://i.imgur.com/nzd69Ob.png" alt="Imgur"></p>
+<h2 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h2><p>在本文中，我們嘗試透過 <code>iptables/ebtables</code> 本身的 <code>log</code> 模組來協助我們釐清於不同的拓墣情境中，封包之間的轉送會怎麼經過 <code>iptables/ebtables</code>。<br>總共有三種拓墣環境，分別是</p>
+<ol>
+<li>Container To Container</li>
+<li>Localhost to Container</li>
+<li>Wan To Container</li>
+</ol>
+<p>針對每個環境，我們都觀察封包的來回兩種狀態，除了觀察 <code>iptables/ebtables</code> 的走向之外，也順便觀察封包內容的變化。<br>只有真正的瞭解整個封包的傳輸行為，以及對應低 <code>iptables/ebtables</code> 的走向，未來在管理 <code>iptables/ebtables</code> 才能夠更精準的去設定相關的規則來滿足自己的需求。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/Docker/" rel="tag"># Docker</a>
+              <a href="/tags/Netfilter/" rel="tag"># Netfilter</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/netfilter-eiptables-ii.html" rel="prev" title="[netfilter] Introduction to iptables">
+                  <i class="fa fa-chevron-left"></i> [netfilter] Introduction to iptables
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/kubernetes-fedora.html" rel="next" title="Install the kubernetes as single node in Fedora 28">
+                  Install the kubernetes as single node in Fedora 28 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

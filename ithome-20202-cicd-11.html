@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="ITHOME-2020 系列文章">
+<meta property="og:type" content="article">
+<meta property="og:title" content="鐵人賽系列文章- Day 11 - Kubernetes 應用測試">
+<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-11.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="ITHOME-2020 系列文章">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2020-11-25T17:13:17.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.619Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="DevOps">
+<meta property="article:tag" content="ITHOME">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-11.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/ithome-20202-cicd-11.html","path":"ithome-20202-cicd-11.html","title":"鐵人賽系列文章- Day 11 - Kubernetes 應用測試"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>鐵人賽系列文章- Day 11 - Kubernetes 應用測試 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Yaml-%E6%B8%AC%E8%A9%A6"><span class="nav-number">1.</span> <span class="nav-text">Yaml 測試</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Yamllint"><span class="nav-number">1.1.</span> <span class="nav-text">Yamllint</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Kubeeval"><span class="nav-number">1.2.</span> <span class="nav-text">Kubeeval</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Conftest"><span class="nav-number">1.3.</span> <span class="nav-text">Conftest</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Helm-%E6%B8%AC%E8%A9%A6"><span class="nav-number">2.</span> <span class="nav-text">Helm 測試</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%B5%90%E8%AB%96"><span class="nav-number">3.</span> <span class="nav-text">結論</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">4.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-11.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="鐵人賽系列文章- Day 11 - Kubernetes 應用測試 | Hwchiu Learning Note">
+      <meta itemprop="description" content="ITHOME-2020 系列文章">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          鐵人賽系列文章- Day 11 - Kubernetes 應用測試
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2020-11-26 01:13:17" itemprop="dateCreated datePublished" datetime="2020-11-26T01:13:17+08:00">2020-11-26</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">ITHOME-2020 系列文章</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>今天我們來探討到底在 CI 過程中，我們可以對 Kubernetes 應用做哪些測試?</p>
+<p>我認為這個測試包含了</p>
+<ol>
+<li>應用程式是否於 Kuberentes 內運作如預期</li>
+<li>使用 Yaml 的話，則 Yaml 本身格式是否正確</li>
+<li>使用 Helm 的話，則 Helm 要求的內容與格式是否正確</li>
+</ol>
+<p>而今天這篇文章主要會針對 (2),(3) 兩個部分來進行研究。</p>
+<p>題外話，(2)(3) 這些格式檢查的部分不一定要 CI 階段才檢查，甚至可以跟 Git 整合， Pre-commit 階段就進行檢查，確保所有開發者提交的 Commit 都已經通過這些測試</p>
+<h1 id="Yaml-測試"><a href="#Yaml-測試" class="headerlink" title="Yaml 測試"></a>Yaml 測試</h1><p>接下來探討一下 Yaml 這格式本身的驗證，這部分有兩個概念</p>
+<ol>
+<li><p>Yaml 格式的正確性</p>
+</li>
+<li><p>Yaml 內容的合理性</p>
+</li>
+</ol>
+<p>(1) 因為確認的是格式的正確性，會針對 Yaml 的格式檢查，譬如縮排，雙引號，單引號等進行檢查，這部分可以透過 lint 等工具幫忙檢查，同時也可以確保團隊內的人擁有一致撰寫 Yaml 的習慣與格式。 基本上任何 Yaml 都可以進行這方面檢查，不論是 Kubernetes Yaml, Helm 或是其他的內容，譬如給 pipeline 系統的 yaml, 放設定檔案的 Yaml 都可以這麼做。</p>
+<p>(2) 因為確認的是合理性，所以其實會需要有前後文的概念，舉例來說，今天要部署 Kubernetes Yaml，我們就可以針對 Yaml 的內容去確認是否符合 Kubernetes 的用法。</p>
+<p>舉例來說，下列是一個合法的 Yaml 檔案，但是並不是一個合法的 Kubernetes Yaml。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">kind:</span> <span class="string">Cluster</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">kind.sigs.k8s.io/v1alpha3</span></span><br><span class="line"><span class="attr">nodes:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">role:</span> <span class="string">control-plane</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">role:</span> <span class="string">worker</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">role:</span> <span class="string">worker</span></span><br></pre></td></tr></table></figure>
+
+
+
+<p>所以我們需要一些方法來幫我們驗證所有的 Yaml 是否可以滿足 (1) 與 (2) 兩種情況，因此接下來我們列出幾個可能使用的工具，看看這些工具怎麼使用，以及使用上的效果</p>
+<h2 id="Yamllint"><a href="#Yamllint" class="headerlink" title="Yamllint"></a>Yamllint</h2><p><a target="_blank" rel="noopener" href="https://github.com/adrienverge/yamllint">yamllint</a> 官網介紹如下</p>
+<blockquote>
+<p>A linter for YAML files.</p>
+<p>yamllint does not only check for syntax validity, but for weirdnesses like key repetition and cosmetic problems such as lines length, trailing spaces, indentation, etc.</p>
+</blockquote>
+<p>這個工具就是幫忙檢查一些寫法，但是並沒有語意的檢查，不過會針對一些 key 重複的問題也指證出來，以下有一些範例</p>
+<p>這邊是一個完整沒錯誤的 Yaml 檔案</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">kind:</span> <span class="string">Cluster</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">kind.sigs.k8s.io/v1alpha3</span></span><br><span class="line"><span class="attr">nodes:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">role:</span> <span class="string">control-plane</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">role:</span> <span class="string">worker</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">role:</span> <span class="string">worker</span></span><br></pre></td></tr></table></figure>
+
+
+
+<p>接下來我們對其修改，譬如加入一個重複的 Key, 然後讓底下的縮排格式不一致，長這樣</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">kind:</span> <span class="string">Cluster</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">kind.sigs.k8s.io/v1alpha3</span></span><br><span class="line"><span class="attr">nodes:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">role:</span> <span class="string">control-plane</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">role:</span> <span class="string">worker</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">role:</span> <span class="string">worker</span></span><br><span class="line"><span class="attr">nodes:</span> <span class="string">test</span></span><br></pre></td></tr></table></figure>
+
+
+
+<p>這種情狂下我們使用 yamllint 針對這個檔案檢查</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ yamllint kind.yaml</span><br><span class="line">kind.yaml</span><br><span class="line">  1:1       warning  missing document start <span class="string">&quot;---&quot;</span>  (document-start)</span><br><span class="line">  6:1       error    syntax error: expected &lt;block end&gt;, but found <span class="string">&#x27;-&#x27;</span></span><br><span class="line">  7:1       error    duplication of key <span class="string">&quot;nodes&quot;</span> <span class="keyword">in</span> mapping  (key-duplicates)</span><br></pre></td></tr></table></figure>
+
+<p>第一行主要是警告，提醒要有文件的描述，但是不影響運行。</p>
+<p>後面兩行則是不同的錯誤，分別是因為 第六行的縮排有問題，以及第七行產生一個重複 key 而導致的錯誤。</p>
+<p>此外譬如字串雙引號&#x2F;單引號沒有成雙等類型錯誤也都可以找到，有興趣的人可以去玩玩看這個工具</p>
+<h2 id="Kubeeval"><a href="#Kubeeval" class="headerlink" title="Kubeeval"></a>Kubeeval</h2><p><a target="_blank" rel="noopener" href="https://github.com/instrumenta/kubeval">kubeval</a> 官方介紹如下</p>
+<blockquote>
+<p><code>kubeval</code> is a tool for validating a Kubernetes YAML or JSON configuration file. It does so using schemas generated from the Kubernetes OpenAPI specification, and therefore can validate schemas for multiple versions of Kubernetes.</p>
+</blockquote>
+<p>下列一個合法的 Kubernetes Yaml 檔案</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">getting-started</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">getting-started</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br></pre></td></tr></table></figure>
+
+
+
+<p>我們可以先用 kubeeval 跑看看，接下來我們在修改這個檔案來試試看會有什麼樣的錯誤</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ ./kubeval pod.yaml</span><br><span class="line">PASS - pod.yaml contains a valid Pod (getting-started)</span><br></pre></td></tr></table></figure>
+
+<p>接下來我們修改 Yaml 檔案，來進行一些修改讓他不合格，譬如少給一些欄位，或是多給一些欄位</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">getting-started</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">ithome:</span> <span class="string">ironman</span></span><br></pre></td></tr></table></figure>
+
+<p>以上就是一個不合格的 Pod Yaml, 首先多一個 <code>ithome</code> 的欄位，同時又少了 <code>containers</code> 這個資訊</p>
+<p>首先我們透過 <code>kubeeval</code> 去跑一次，發現有得到一個警告，告知我們 <code>containers</code> 這個欄位是必須的，但是卻沒有給。</p>
+<p>但是多出來的 ithome 卻沒有警告？</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">$ ./kubeval pod.yaml</span><br><span class="line">WARN - pod.yaml contains an invalid Pod (getting-started) - containers: containers is required</span><br><span class="line">$ ./kubeval -h</span><br><span class="line">Validate a Kubernetes YAML file against the relevant schema</span><br><span class="line"></span><br><span class="line">Usage:</span><br><span class="line">  kubeval &lt;file&gt; [file...] [flags]</span><br><span class="line"></span><br><span class="line">Flags:</span><br><span class="line">      --additional-schema-locations strings   Comma-seperated list of secondary base URLs used to download schemas</span><br><span class="line">  -d, --directories strings                   A comma-separated list of directories to recursively search <span class="keyword">for</span> YAML documents</span><br><span class="line">      --exit-on-error                         Immediately stop execution when the first error is encountered</span><br><span class="line">  -f, --filename string                       filename to be displayed when testing manifests <span class="built_in">read</span> from stdin (default <span class="string">&quot;stdin&quot;</span>)</span><br><span class="line">      --force-color                           Force colored output even <span class="keyword">if</span> stdout is not a TTY</span><br><span class="line">  -h, --<span class="built_in">help</span>                                  <span class="built_in">help</span> <span class="keyword">for</span> kubeval</span><br><span class="line">      --ignore-missing-schemas                Skip validation <span class="keyword">for</span> resource definitions without a schema</span><br><span class="line">  -i, --ignored-filename-patterns strings     A comma-separated list of regular expressions specifying filenames to ignore</span><br><span class="line">      --insecure-skip-tls-verify              If <span class="literal">true</span>, the server<span class="string">&#x27;s certificate will not be checked for validity. This will make your HTTPS connections insecure</span></span><br><span class="line"><span class="string">  -v, --kubernetes-version string             Version of Kubernetes to validate against (default &quot;master&quot;)</span></span><br><span class="line"><span class="string">      --openshift                             Use OpenShift schemas instead of upstream Kubernetes</span></span><br><span class="line"><span class="string">  -o, --output string                         The format of the output of this script. Options are: [stdout json tap]</span></span><br><span class="line"><span class="string">      --quiet                                 Silences any output aside from the direct results</span></span><br><span class="line"><span class="string">      --reject-kinds strings                  Comma-separated list of case-sensitive kinds to prohibit validating against schemas</span></span><br><span class="line"><span class="string">  -s, --schema-location string                Base URL used to download schemas. Can also be specified with the environment variable KUBEVAL_SCHEMA_LOCATION.</span></span><br><span class="line"><span class="string">      --skip-kinds strings                    Comma-separated list of case-sensitive kinds to skip when validating against schemas</span></span><br><span class="line"><span class="string">      --strict                                Disallow additional properties not in schema</span></span><br><span class="line"><span class="string">      --version                               version for kubeval</span></span><br><span class="line"><span class="string"></span></span><br></pre></td></tr></table></figure>
+
+<p>從上面可以觀察到我們需要加入 <code>--strict</code> 這個參數，才會去檢查多出來不存在原本 schema 內的欄位，因此我們再跑一次看看</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ ./kubeval --strict pod.yaml</span><br><span class="line">WARN - pod.yaml contains an invalid Pod (getting-started) - containers: containers is required</span><br><span class="line">WARN - pod.yaml contains an invalid Pod (getting-started) - voa: Additional property voa is not allowed</span><br></pre></td></tr></table></figure>
+
+<p>這時候就可以順利的看到兩個錯誤都被抓出來了！</p>
+<h2 id="Conftest"><a href="#Conftest" class="headerlink" title="Conftest"></a>Conftest</h2><p><a target="_blank" rel="noopener" href="https://github.com/open-policy-agent/conftest">conftest</a> 的官網說明如下</p>
+<blockquote>
+<p>Conftest is a utility to help you write tests against structured configuration data. For instance you could write tests for your Kubernetes configurations, or Tekton pipeline definitions, Terraform code, Serverless configs or any other structured data.</p>
+</blockquote>
+<p>Conftest 這個工具可以幫助開發者去測試來驗證不同類型的設定檔案，譬如 Kubernetes, Tekton 甚至是 Terraform 的設定。</p>
+<p>不過使用上必須要先撰寫相關的 Policy 去描述自己期望的規則，最後會幫你的設定檔案與相關的 Policy 去比對看看你的設定檔案是否破壞你的 Policy。</p>
+<p>相對於前面的工具去針對 yaml 格式， kubernetes 資源的 schema 的比較， contest 更像是針對 policy 去比對，舉例來說，我們有一下列一個 pod yaml.</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">getting-started</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">getting-started</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br><span class="line">  <span class="attr">restartPolicy:</span> <span class="string">Always</span></span><br></pre></td></tr></table></figure>
+
+
+
+<p>然後團隊今天有個要求，所有 <code>Pod</code> 的 Yaml 都必須要符合兩個規範</p>
+<ol>
+<li>restartPolicy 只能是 Never</li>
+<li>runAsNonRoot 這個欄位必須要設定是 True，希望可以以非 root 執行</li>
+</ol>
+<p>只要有符合任何一個條件，我們希望 conftest 能夠找出來，並且告知錯誤，於是我們準備了下列檔案</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cat</span> policy/pod.rego</span><br><span class="line">package main</span><br><span class="line"></span><br><span class="line">deny[msg] &#123;</span><br><span class="line">  input.kind = <span class="string">&quot;Pod&quot;</span></span><br><span class="line">  not input.spec.securityContext.runAsNonRoot = <span class="literal">true</span></span><br><span class="line">  msg = <span class="string">&quot;Containers must not run as root&quot;</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">deny[msg] &#123;</span><br><span class="line">  input.kind = <span class="string">&quot;Pod&quot;</span></span><br><span class="line">  not input.spec.restartPolicy = <span class="string">&quot;Never&quot;</span></span><br><span class="line">  msg = <span class="string">&quot;Pod never restart&quot;</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<p>我們使用了 <code>deny</code> 去描述兩個 policy, 只要符合這些 policy 的都會判錯</p>
+<p>接下來我們用 conftest 去執行看看</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ conftest <span class="built_in">test</span> pod.yaml  -p policy/</span><br><span class="line">FAIL - pod.yaml - Containers must not run as root</span><br><span class="line">FAIL - pod.yaml - Pod never restart</span><br><span class="line"></span><br><span class="line">2 tests, 0 passed, 0 warnings, 2 failures, 0 exceptions</span><br></pre></td></tr></table></figure>
+
+<p>可以發現 conftest 認為系統中有兩個測試要跑，而這兩個測試都失敗</p>
+<p>接下來我們修改檔案讓他符合我們的規則後再跑一次</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cat</span> pod.yaml</span><br><span class="line">apiVersion: v1</span><br><span class="line">kind: Pod</span><br><span class="line">metadata:</span><br><span class="line">  name: getting-started</span><br><span class="line">spec:</span><br><span class="line">  containers:</span><br><span class="line">  - name: getting-started</span><br><span class="line">    image: hwchiu/netutils</span><br><span class="line">  restartPolicy: Never</span><br><span class="line">  securityContext:</span><br><span class="line">    runAsNonRoot: <span class="literal">true</span></span><br><span class="line"></span><br><span class="line">$ conftest <span class="built_in">test</span> pod.yaml  -p policy/</span><br><span class="line"></span><br><span class="line">2 tests, 2 passed, 0 warnings, 0 failures, 0 exceptions</span><br></pre></td></tr></table></figure>
+
+
+
+<p>這時候就可以發現已經通過測試了，所以如果團隊中有這些需求的人可以考慮導入這個工具看看</p>
+<h1 id="Helm-測試"><a href="#Helm-測試" class="headerlink" title="Helm 測試"></a>Helm 測試</h1><p>Helm 的測試分成幾個面向，分別是</p>
+<ol>
+<li>Helm Chart 的撰寫內容是否正確</li>
+<li>Helm Chart 搭配 Config 後是否安裝會失敗</li>
+</ol>
+<p>其中(2)這點不是什麼大問題，因為我們可以先透過 <code>helm template</code> 的方式讓它渲染出最後產生的 Kubernetes Yaml 檔案，而因為現在</p>
+<p>是原生的 Kubernetes yaml 檔案了，所以就可以使用上述的三個工具來進行測試。</p>
+<p>而 (1) 的部分主要會牽扯到 Helm 本身的資料夾跟架構，這邊我們可以使用原生的工具 <code>helm lint</code> 來進行或是透過 <code>helm install --dry-run</code> 的方式來嘗試裝裝看，一個簡單的範例如下</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ helm create nginx</span><br><span class="line">Creating nginx</span><br><span class="line">$ <span class="built_in">cd</span> nginx/</span><br><span class="line">$ helm lint</span><br><span class="line">==&gt; Linting .</span><br><span class="line">[INFO] Chart.yaml: icon is recommended</span><br><span class="line"></span><br><span class="line">1 chart(s) linted, 0 chart(s) failed</span><br></pre></td></tr></table></figure>
+
+<p>我們透過 helm 指令創建了一個基本範例的結構，這時候用 helm lint 是沒有任何問題的，然後我們嘗試修改 template 裡面的內容，譬如 針對 go template 的格式進行一些修改，讓其錯誤。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">echo</span> <span class="string">&quot;&#123;&#125;&quot;</span> &gt;&gt; templates/deployment.yaml</span><br><span class="line">ubuntu@dex-test:~/nginx$ helm lint</span><br><span class="line">==&gt; Linting .</span><br><span class="line">[INFO] Chart.yaml: icon is recommended</span><br><span class="line">[ERROR] templates/deployment.yaml: unable to parse YAML: error converting YAML to JSON: yaml: line 45: did not find expected key</span><br><span class="line">[ERROR] templates/deployment.yaml: object name does not conform to Kubernetes naming requirements: <span class="string">&quot;&quot;</span></span><br><span class="line"></span><br><span class="line">Error: 1 chart(s) linted, 1 chart(s) failed</span><br></pre></td></tr></table></figure>
+
+<p>上述只是一個範例，有興趣的都可以到 Helm 官網去看更多關於 Helm lint 的討論與用法。</p>
+<h1 id="結論"><a href="#結論" class="headerlink" title="結論"></a>結論</h1><p>本篇介紹了很多關於 Yaml 相關的工具，每個工具都會有自己的極限，沒有一個工具可以檢查出所有問題，這部分就是需要花時間去評估看看每個工具，看看哪些工具適合自己團隊，是否方便導入以及功能是否滿足</p>
+<p>除了上述之外還有很多工具，譬如 kube-score, config-lint..等，有興趣的人都可以搜尋來玩耍看看</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-10.html" rel="prev" title="鐵人賽系列文章- Day 10 CI 與 Kubernetes 的整合">
+                  <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day 10 CI 與 Kubernetes 的整合
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/kubernetes-duplicate-pod-ip.html" rel="next" title="Kubernetes - IP 重複奇遇記">
+                  Kubernetes - IP 重複奇遇記 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

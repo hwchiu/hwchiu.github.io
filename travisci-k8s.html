@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="這篇文章的主軸其實非常簡單，目標是希望為開發者的 Kubernetes 應用程式提供更強健的自動化測試流程，確保該應用程式在開發上能夠與 Kubernetes 緊密結合。為了確保程式品質，我們都會在開發的過程中撰寫一些單元測試&#x2F;整合測試來確保開發的功能能夠正常運作。 特別是當有新功能的開發或是臭蟲修復時不會對舊有的功能造成損毀。 這個理念看起來非常合理，但是當應用程式一旦與 Kubernetes">
+<meta property="og:type" content="article">
+<meta property="og:title" content="使用 Travis CI 為你的 Kubernetes 應用程式打造自動化測試">
+<meta property="og:url" content="https://www.hwchiu.com/travisci-k8s.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="這篇文章的主軸其實非常簡單，目標是希望為開發者的 Kubernetes 應用程式提供更強健的自動化測試流程，確保該應用程式在開發上能夠與 Kubernetes 緊密結合。為了確保程式品質，我們都會在開發的過程中撰寫一些單元測試&#x2F;整合測試來確保開發的功能能夠正常運作。 特別是當有新功能的開發或是臭蟲修復時不會對舊有的功能造成損毀。 這個理念看起來非常合理，但是當應用程式一旦與 Kubernetes">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/kTmhZsb.png">
+<meta property="og:image" content="https://i.imgur.com/x8615aH.png">
+<meta property="article:published_time" content="2018-07-21T00:49:11.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.646Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="DevOps">
+<meta property="article:tag" content="CI&#x2F;CD">
+<meta property="article:tag" content="Ubuntu">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/kTmhZsb.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/travisci-k8s.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/travisci-k8s.html","path":"travisci-k8s.html","title":"使用 Travis CI 為你的 Kubernetes 應用程式打造自動化測試"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>使用 Travis CI 為你的 Kubernetes 應用程式打造自動化測試 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%B8%80%E5%8F%A5%E8%A9%B1%E8%AC%9B%E6%B8%85%E6%A5%9A%E7%94%A8%E9%80%94"><span class="nav-number">1.</span> <span class="nav-text">一句話講清楚用途</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%85%83%E4%BB%B6%E4%BB%8B%E7%B4%B9"><span class="nav-number">2.</span> <span class="nav-text">元件介紹</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#GitHub"><span class="nav-number">2.0.1.</span> <span class="nav-text">GitHub</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#TravisCI"><span class="nav-number">2.0.2.</span> <span class="nav-text">TravisCI</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Minikube"><span class="nav-number">2.0.3.</span> <span class="nav-text">Minikube</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%9E%B6%E6%A7%8B%E4%BB%8B%E7%B4%B9"><span class="nav-number">3.</span> <span class="nav-text">架構介紹</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%A4%BA%E7%AF%84%E6%A1%88%E4%BE%8B%E5%B1%95%E7%A4%BA"><span class="nav-number">4.</span> <span class="nav-text">示範案例展示</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%87%89%E7%94%A8%E7%A8%8B%E5%BC%8F"><span class="nav-number">4.1.</span> <span class="nav-text">應用程式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#TravisCI-1"><span class="nav-number">4.2.</span> <span class="nav-text">TravisCI</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Dist"><span class="nav-number">4.2.1.</span> <span class="nav-text">Dist</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Env"><span class="nav-number">4.2.2.</span> <span class="nav-text">Env</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Before-Script"><span class="nav-number">4.2.3.</span> <span class="nav-text">Before_Script</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#script"><span class="nav-number">4.2.4.</span> <span class="nav-text">script</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%9B%B8%E9%97%9C%E6%B8%AC%E8%A9%A6"><span class="nav-number">5.</span> <span class="nav-text">相關測試</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%85%B6%E4%BB%96"><span class="nav-number">6.</span> <span class="nav-text">其他</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%83%E8%80%83"><span class="nav-number">7.</span> <span class="nav-text">參考</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">8.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/travisci-k8s.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="使用 Travis CI 為你的 Kubernetes 應用程式打造自動化測試 | Hwchiu Learning Note">
+      <meta itemprop="description" content="這篇文章的主軸其實非常簡單，目標是希望為開發者的 Kubernetes 應用程式提供更強健的自動化測試流程，確保該應用程式在開發上能夠與 Kubernetes 緊密結合。為了確保程式品質，我們都會在開發的過程中撰寫一些單元測試/整合測試來確保開發的功能能夠正常運作。 特別是當有新功能的開發或是臭蟲修復時不會對舊有的功能造成損毀。 這個理念看起來非常合理，但是當應用程式一旦與 Kubernetes 結合的時候，這個理念到底好不好實現?">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          使用 Travis CI 為你的 Kubernetes 應用程式打造自動化測試
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-07-21 08:49:11" itemprop="dateCreated datePublished" datetime="2018-07-21T08:49:11+08:00">2018-07-21</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">這篇文章的主軸其實非常簡單，目標是希望為開發者的 Kubernetes 應用程式提供更強健的自動化測試流程，確保該應用程式在開發上能夠與 Kubernetes 緊密結合。為了確保程式品質，我們都會在開發的過程中撰寫一些單元測試/整合測試來確保開發的功能能夠正常運作。 特別是當有新功能的開發或是臭蟲修復時不會對舊有的功能造成損毀。 這個理念看起來非常合理，但是當應用程式一旦與 Kubernetes 結合的時候，這個理念到底好不好實現?</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>作為一個 <code>kubernetes</code> 玩家以及 Backend 開發者，我觀察到縱使很多人都將 Backend Server 放到 <code>kubernetes</code> 上去運行，但是因為實際上可能是</p>
+<p>隸屬於不同的成員去處理這些事情，透過分工的方式來協調這些工作。</p>
+<p>雖然大部分的應用程式基本上不太在意是否有 <code>kubernetes</code> 的存在，只要確保本身的功能正常運作即可，譬如 <code>MongoDB</code> 等應用程式。</p>
+<p>但是有些應用程式本身會對 <code>kubernetes</code> 集群進行操作，這類型的應用程式的功能都要存在一個 <code>kubernetes</code> 集群來互動，確保功能正常</p>
+<p>而本篇文章存在的目的就是要提供一種解決方案給後者的應用程式，讓你的應用程式能夠更容易地與 <code>Kubernetes</code> 結合來進行測試。</p>
+<span id="more"></span>
+
+
+<h1 id="一句話講清楚用途"><a href="#一句話講清楚用途" class="headerlink" title="一句話講清楚用途"></a>一句話講清楚用途</h1><p>本篇文章提供的解決方案，能夠為你的應用程式提供每一次程式碼提交測試都產生一個獨立的 <code>Kubernetes</code> 集群進行測試，這樣有下列好處</p>
+<ol>
+<li>不同程式碼提交使用不同集群，互相不衝突，不會有污染問題</li>
+<li>由於使用不同集群，也不用擔心其他的測試會對集群造成資源汙染，導致後續的測試失敗</li>
+<li>在最基本的要求下，這套解決方案是完全免費的，完全依賴免費的服務方案組合而成。</li>
+</ol>
+<h1 id="元件介紹"><a href="#元件介紹" class="headerlink" title="元件介紹"></a>元件介紹</h1><p>在本篇文章的解決方案中，我們會使用到下列的元件來展示，當然有些元件都可以自由變化。<br>只要掌握整個流程的理解，原件都可以自行替換成自己習慣使用的服務。</p>
+<h3 id="GitHub"><a href="#GitHub" class="headerlink" title="GitHub"></a>GitHub</h3><p>放置應用程式原始碼的地方，本案例中使用 <code>GitHub</code> 這個程式碼託管網站。</p>
+<h3 id="TravisCI"><a href="#TravisCI" class="headerlink" title="TravisCI"></a>TravisCI</h3><p>一套自動化測試的服務，與 <code>GitHub</code> 可以連動，當你的 <code>GitHub</code> 專案有收到任何程式碼合併請求(<code>Pull Request</code>) 等更動的時候，可以透過 <code>TravisCI</code>幫你的應用程式進行測試，並且將測試的結果回傳到 <code>GitHub</code> 讓專案管理員瞭解該次的程式碼修改是否有順利通過所有測試。</p>
+<h3 id="Minikube"><a href="#Minikube" class="headerlink" title="Minikube"></a>Minikube</h3><p>一套用來建置 <code>Kubernetres</code> 集群的工具，在我們的方案中我們會在 <code>TravisCI</code> 的環境中透過此工具來產生一個本地的 <code>kubernetes</code> 集群。接者我們 <code>TravisCI</code> 內的應用程式就獲得一個獨立的 <code>kubernetes</code> 集群來使用了。</p>
+<p>本篇文章不會介紹關於 <code>Gitnub</code> 以及 <code>TravisCI</code> 的基本操作，而是著重在這兩者與 <code>kubernetes</code> 的整合。<br>因此相關操作請自行學習。</p>
+<h1 id="架構介紹"><a href="#架構介紹" class="headerlink" title="架構介紹"></a>架構介紹</h1><p>接下來將使用下圖來介紹整個測試方案的運作流程。</p>
+<p><img src="https://i.imgur.com/kTmhZsb.png"></p>
+<ol>
+<li>假設開發者的 <code>GitHub</code> 專案已經與 <code>TravisCI</code> 進行連接</li>
+<li>開發者日以繼夜的撰寫程式碼，對 <code>GitHub</code> 專案發出程式碼合併更動的請求</li>
+<li><code>GitHub</code> 這邊收到通知，通知 <code>TravisCI</code> 準備進行測試</li>
+<li><code>TravisCI</code> 根據需求創建一個全新的測試環境出來<ul>
+<li>這邊則會產生一個虛擬機器出來</li>
+</ul>
+</li>
+<li>在上述產生的測試環境中，使用 <code>Minikube</code> 該元件來產生一個全新的 <code>kubernetes</code> 集群</li>
+<li>確認集群創建完畢，相關服務的運行中後，便可以針對 <code>GitHub</code> 專案內的程式碼進行測試</li>
+<li>測試的結果回報給 <code>TravisCI</code>，然後 <code>TravisCI</code> 會再回報給 <code>GitHub</code> 專案，讓開發者可以瞭解這次的修改是否有通過所有的測試。</li>
+</ol>
+<h1 id="示範案例展示"><a href="#示範案例展示" class="headerlink" title="示範案例展示"></a>示範案例展示</h1><p>本次示範所使用的程式碼都可以於 <a target="_blank" rel="noopener" href="https://github.com/hwchiu/kubeTravisDemo">kubeTravisDemo</a> 內找到</p>
+<p>而該專案對應的 <code>TravisCI</code> 結果也可以在 <a target="_blank" rel="noopener" href="https://travis-ci.org/hwchiu/kubeTravisDemo/builds">TravisCI kubeTravisDemo</a> 瀏覽</p>
+<h2 id="應用程式"><a href="#應用程式" class="headerlink" title="應用程式"></a>應用程式</h2><p>本篇開頭提到，有些應用程式會需要與 <code>Kubernetes</code> 有緊密的連結操作，而本次展示的專案則使用了 <code>Client-go</code> 這個套件開發了一個很簡單能夠自行產生 <code>Pod</code> 的應用程式。<br>並且為該功能撰寫了一個簡單的測試，該測試會透過該函式嘗試去產生 <code>Kubernetes</code> Pod 並且確保該 Pod 有成功產生，最後將其刪除。</p>
+<blockquote>
+<p>如果想要了解怎麼透過 <code>client-go</code> 撰寫 <code>kubernetes</code> 相關應用程式，可參閱下列投影片 <a target="_blank" rel="noopener" href="https://speakerdeck.com/chenyunchen/kubernetes-library-with-client-go">Kubernetes library 開發實戰 with client-go</a></p>
+</blockquote>
+<p>該測試程式碼大致上如下</p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">....</span><br><span class="line">	err = createPod(clientset, podName)</span><br><span class="line">	assert.NoError(t, err)</span><br><span class="line"></span><br><span class="line">	pod, err := clientset.CoreV1().Pods(<span class="string">&quot;default&quot;</span>).Get(podName, metav1.GetOptions&#123;&#125;)</span><br><span class="line">	assert.NotNil(t, pod)</span><br><span class="line">	assert.NoError(t, err)</span><br><span class="line"></span><br><span class="line">	err = clientset.CoreV1().Pods(<span class="string">&quot;default&quot;</span>).Delete(podName, &amp;metav1.DeleteOptions&#123;&#125;)</span><br><span class="line">	assert.NoError(t, err)</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<p>如果在一個沒有 <code>kubernetes</code> 集群的環境中，該測試程式碼則沒有辦法測試(因為沒有真的集群可以去進行<code>kubernetes</code>操作)</p>
+<blockquote>
+<p>雖然有 <code>Fake-client</code> 可以進行相關的測試，但是有部份的操作是需要真的集群去運行才可以進行的，這類型的就沒有辦法用 <code>Fake-client</code> 來測試。</p>
+</blockquote>
+<h2 id="TravisCI-1"><a href="#TravisCI-1" class="headerlink" title="TravisCI"></a>TravisCI</h2><p>當應用程式準備好之後，我們就要在 <code>GitHub</code> 專案中描寫我們如何使用 <code>TravisCI</code> 的測試環境。<br>該環境描述檔案採用 <code>yaml</code> 的格式，名稱為 <code>.travis.yml</code>，可以在 <a target="_blank" rel="noopener" href="https://docs.travis-ci.com/user/getting-started/">Travis CI Getting started</a> 看到相關文件.</p>
+<p>這邊有幾件事情要注意</p>
+<ol>
+<li>Travis-CI 產生的是虛擬機器，預設沒特別開啟情況下，我們不能在虛擬機器內再開啟另外一個虛擬機器，所以我們要使用 <code>Docker</code> 的方式來創造 <code>kubernetes</code> 集群. 這部分可以透過 <code>minikube --vm-drive=none</code> 來達成</li>
+<li>在 minikube 的部署方式中，有 <code>localkube</code> 以及 <code>kubeadm</code> 兩種方式來部署，由於目前 <code>minikube</code> 主推 <code>kubeadm</code> 並且也說明未來會拋棄 <code>localkube</code>，因此我們的部屬方式決定採用 <code>kubeadm</code>.</li>
+<li>由於 <code>kubeadm</code> 本身會依賴 <code>systemd</code> 去進行相關的 <code>systemd service</code> 運行，而 <code>Ubuntu 14.04</code> 預設依然使用 <code>upstart</code> 而非 <code>systemd</code>，因此我們必須要標明我們希望使用的 <code>OS</code> 是 <code>Ubuntu 16.04(xenial)</code></li>
+</ol>
+<p>有了這幾個基本注意事項後，我們可以撰寫一個 <code>.travis.yml</code> 來符合我們的需求</p>
+<figure class="highlight yml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">language:</span> <span class="string">go</span></span><br><span class="line"></span><br><span class="line"><span class="attr">sudo:</span> <span class="string">required</span></span><br><span class="line"><span class="attr">dist:</span> <span class="string">xenial</span></span><br><span class="line"><span class="attr">services:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">docker</span></span><br><span class="line"></span><br><span class="line"><span class="attr">env:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">CHANGE_MINIKUBE_NONE_USER=true</span></span><br><span class="line"></span><br><span class="line"><span class="attr">before_install:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">go</span> <span class="string">get</span> <span class="string">-u</span> <span class="string">github.com/kardianos/govendor</span></span><br><span class="line"></span><br><span class="line"><span class="attr">before_script:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">sudo</span> <span class="string">mount</span> <span class="string">--make-rshared</span> <span class="string">/</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">curl</span> <span class="string">-Lo</span> <span class="string">kubectl</span> <span class="string">https://storage.googleapis.com/kubernetes-release/release/v1.9.0/bin/linux/amd64/kubectl</span> <span class="string">&amp;&amp;</span> <span class="string">chmod</span> <span class="string">+x</span> <span class="string">kubectl</span> <span class="string">&amp;&amp;</span> <span class="string">sudo</span> <span class="string">mv</span> <span class="string">kubectl</span> <span class="string">/usr/local/bin/</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">curl</span> <span class="string">-Lo</span> <span class="string">minikube</span> <span class="string">https://github.com/kubernetes/minikube/releases/download/v0.28.1/minikube-linux-amd64</span> <span class="string">&amp;&amp;</span> <span class="string">chmod</span> <span class="string">+x</span> <span class="string">minikube</span> <span class="string">&amp;&amp;</span> <span class="string">sudo</span> <span class="string">mv</span> <span class="string">minikube</span> <span class="string">/usr/local/bin/</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">sudo</span> <span class="string">minikube</span> <span class="string">-v</span> <span class="number">9</span> <span class="string">start</span> <span class="string">--vm-driver=none</span> <span class="string">--bootstrapper=kubeadm</span> <span class="string">--kubernetes-version=v1.10.0</span> <span class="string">--extra-config=apiserver.authorization-mode=RBAC</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">minikube</span> <span class="string">update-context</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">until</span> <span class="string">kubectl</span> <span class="string">get</span> <span class="string">nodes</span> <span class="string">minikube</span> <span class="string">|</span> <span class="string">grep</span> <span class="string">&quot; Ready&quot;</span><span class="string">;do</span> <span class="string">kubectl</span> <span class="string">get</span> <span class="string">nodes;</span> <span class="string">sleep</span> <span class="number">1</span><span class="string">;</span> <span class="string">done</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">until</span> <span class="string">kubectl</span> <span class="string">-n</span> <span class="string">kube-system</span> <span class="string">get</span> <span class="string">pods</span> <span class="string">-lk8s-app=kube-dns</span> <span class="string">-o</span> <span class="string">jsonpath=&quot;&#123;.items[0].status.phase&#125;&quot;</span> <span class="string">|</span> <span class="string">grep</span> <span class="string">&quot;Running&quot;</span> <span class="string">;do</span> <span class="string">sleep</span> <span class="number">1</span><span class="string">;echo</span> <span class="string">&quot;waiting for kube-addon-manager to be available&quot;</span><span class="string">;</span> <span class="string">kubectl</span> <span class="string">get</span> <span class="string">pods</span> <span class="string">--all-namespaces;</span> <span class="string">done</span></span><br><span class="line"></span><br><span class="line"><span class="attr">script:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">go</span> <span class="string">test</span> <span class="string">-v</span> <span class="string">./...</span></span><br></pre></td></tr></table></figure>
+
+<p>上述檔案內，跟 <code>kubernetes</code> 有關的部分落在 <code>dist</code>, <code>env</code> 以及 <code>before_script</code> 這三大區塊內。</p>
+<h3 id="Dist"><a href="#Dist" class="headerlink" title="Dist"></a>Dist</h3><p>就如同上面說明，希望 <code>TravisCI</code> 所配置的機器是使用 <code>Ubuntu 16.04</code>, 免除了 <code>Systemd</code> 相關依賴的自行安裝手續</p>
+<blockquote>
+<p>事實上非常難裝且有滿多問題，沒心力不要嘗試在 14.04 內去透過 systemd&#x2F;kubeadm 安裝 kubernetes</p>
+</blockquote>
+<h3 id="Env"><a href="#Env" class="headerlink" title="Env"></a>Env</h3><p>這邊特別設置一個環境變數是給 <code>minikube</code> 使用的，因為一邊透過 <code>kubectl</code> 操作 <code>kubernetes</code> 集群實際上是透過 <code>$HOME/.kube/config(default)</code> 內的設計去跟集群獲得授權來操作，那在 <code>minikube</code> 的環境中，我們透過 <code>CHANGE_MINIKUBE_NONE_USER=true</code> 這個環境變數可以讓產生出來的可以被任何使用者帳號讀取使用，否則預設是 <code>root:root</code> 才有權限存取</p>
+<h3 id="Before-Script"><a href="#Before-Script" class="headerlink" title="Before_Script"></a>Before_Script</h3><ol>
+<li>這邊先針對 <code>/</code> 這個 <code>Mount Point</code> 設定成 <code>rshard</code>，供 <code>kube-dns</code> 使用<blockquote>
+<p>想瞭解 <code>rshard</code> 可以參考 <a target="_blank" rel="noopener" href="https://medium.com/kokster/kubernetes-mount-propagation-5306c36a4a2d">Kubernetes Mount Propagation</a> 這篇文章，有詳細的說明 Volume 間的 <code>rshard/rslave</code> 以及後來新的 feature volume bidirectional 的介紹</p>
+</blockquote>
+</li>
+<li>接下來就是下載 <code>kubectl</code> 以及 <code>minikube</code> 兩個相關的執行檔</li>
+<li>接者透過 <code>minikube</code> 來創建本地的 <code>kubernetes</code> 集群<ul>
+<li><code>-v 9</code> 是顯示更多的 log，可以方便安裝期間偵錯</li>
+<li><code>--vm-driver=none</code> 採用 docker 的方式而不是 VM 的方式來創建 <code>kubernetes</code></li>
+<li><code>--bootstrapper=kubeadm</code> 指定使用 <code>kubeadm</code> 進行 <code>kubernetes</code> 叢集的安裝</li>
+<li><code>--kubernetes-version=v1.10.0</code> 這邊則是指定 <code>kubernetes</code> 的版本</li>
+</ul>
+</li>
+<li>最後是預設將授權的方式使用 <code>RBAC</code>, 相關的 <code>issue</code> 可以參閱 <a target="_blank" rel="noopener" href="https://github.com/kubernetes/minikube/issues/1722">minikube issue #1722</a></li>
+<li>到了這一步後我們的 <code>kubernetes</code> 集群就正式啟動了，但是因為一些核心的服務，如 <code>kube-dns</code> 等可能還沒有正常運作，這邊就根據你的需求看看是否需要確認該服務已經啟動後才進行應用程式的測試</li>
+<li>後續的部分都是透過一些腳本語言的方式確認 <code>kubernetes</code> 集群已經正常運作，這部分有很多寫法，依照自己喜好即可。</li>
+</ol>
+<h3 id="script"><a href="#script" class="headerlink" title="script"></a>script</h3><ol>
+<li>當上述的腳本都執行完畢後，意味者集群可以開始運行，我們可以進行自己應用程式的測試</li>
+<li>該測試則會真的對剛創立的 <code>kubernetes</code> 集群進行 <code>Pod </code>的創立&#x2F;查詢&#x2F;刪除 等行為。</li>
+</ol>
+<h1 id="相關測試"><a href="#相關測試" class="headerlink" title="相關測試"></a>相關測試</h1><p>針對上述使用的示範專案以及相關的 <code>TravisCI</code>, 首先我們先來看消耗時間，畢竟如果每次測試都花上太多時間，其實也是會消磨大家的耐心的</p>
+<p>這邊直接擷取 <code>TravisCI</code> 的<a target="_blank" rel="noopener" href="https://travis-ci.org/hwchiu/kubeTravisDemo/builds/406523654">測試報告</a>, 該測試總共花費的時間是 <code> 2 min 48 sec</code></p>
+<p><img src="https://i.imgur.com/x8615aH.png"></p>
+<p>左邊顯示的是相關指令，而右邊則是顯示該指令花費的時間。</p>
+<ol>
+<li>花費了將近 <code>50</code> 秒在進行 go 相關 library 的安裝，這是應用程式需要的，跟 &#96;kubernetes 無關</li>
+<li>安裝 kubectl&#x2F;minikube 等相關工具，這邊花費了大概 <code>13</code> 秒左右&#96;</li>
+<li>啟動 <code>minikube</code> 大概花費了 <code>53</code> 秒</li>
+<li>最後等待 <code>kubernetes</code>及集群中的 <code>kube-dsn</code> 啟動則花費了 <code>23</code> 秒左右.</li>
+</ol>
+<p>零零總總算一下，大概總共有 <code>90</code> 秒的時間再啟動一個 <code>kubernetes</code> 的集群，目前大概是耗費了整體測試的 <code>90/168</code>&#x3D;<code>53%</code><br>但是這個時間是固定的，基本上當本體的應用程式測試的時間愈複雜，花費的時間愈久，這個創立集群花的時間也就微不足道了。</p>
+<h1 id="其他"><a href="#其他" class="headerlink" title="其他"></a>其他</h1><p>Q: 我就愛用 <code>ubuntu-14.04</code> 就是沒有 <code>systemd</code> 該怎麼辦?<br>A: 為了生命良好，先改用 <code>bootstrapper=localkube</code></p>
+<p>Q: 只能用在 <code>TravisCI</code> 嗎? 其他的測試服務如 <code>CircleCI</code>,<code>Jenkins</code> 能不能這樣?<br>A: 基本上概念一樣，你可以用各種方式去安裝<code>kubernetes</code>集群，事實上我也有在 <code>Jenkins</code> 做過類似的事情，此外除了 <code>minikube</code> 外你可也可以用 <code>Vagrant + kubeadm + Jenkins</code> 去做到類似的事情</p>
+<p>Q: 我的測試功能可能會要有更複雜的需求跟更複雜的環境，可以怎麼辦<br>A: <code>TravisCI</code> 本身虛擬出來的環境還是比較死，不夠靈活，可以改用 <code>Jenkins</code> 等自己有辦法掌握虛擬機器內容的服務</p>
+<p>Q: 有辦法支援 <code>kubernetes</code> v1.11.0 嗎<br>A: 這要依賴 <code>minikube</code> 官方的支援</p>
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ol>
+<li><a target="_blank" rel="noopener" href="https://blog.travis-ci.com/2017-10-26-running-kubernetes-on-travis-ci-with-minikube">https://blog.travis-ci.com/2017-10-26-running-kubernetes-on-travis-ci-with-minikube</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/travis-ci/travis-ci/issues/7260">https://github.com/travis-ci/travis-ci/issues/7260</a></li>
+</ol>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/CI-CD/" rel="tag"># CI/CD</a>
+              <a href="/tags/Ubuntu/" rel="tag"># Ubuntu</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/gpu-gke.html" rel="prev" title="Install GPU in GKE(Google Kubernetes Engine)">
+                  <i class="fa fa-chevron-left"></i> Install GPU in GKE(Google Kubernetes Engine)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/k8s-security-11tips-i.html" rel="next" title="11個保護你 Kubernetes 集群的技巧與觀念(上)">
+                  11個保護你 Kubernetes 集群的技巧與觀念(上) <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

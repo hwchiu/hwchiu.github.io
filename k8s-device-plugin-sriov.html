@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="這篇要來跟大家介紹什麼是 Single Root Input Output Virtualization (SR-IOV)，作為一個 OpenStack 世界中就大量被使用的裝置，到底其提供什麼樣的功能，以及為什麼 kubernetes 中會需要這個裝置，並且什麼情境下需要使用這個裝置。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kubernetes - Device Plugin - SRIOV">
+<meta property="og:url" content="https://www.hwchiu.com/k8s-device-plugin-sriov.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="這篇要來跟大家介紹什麼是 Single Root Input Output Virtualization (SR-IOV)，作為一個 OpenStack 世界中就大量被使用的裝置，到底其提供什麼樣的功能，以及為什麼 kubernetes 中會需要這個裝置，並且什麼情境下需要使用這個裝置。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/p3uVpf5.png">
+<meta property="og:image" content="https://i.imgur.com/dV4RU1r.png">
+<meta property="article:published_time" content="2019-10-10T10:33:16.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.625Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="ITHOME">
+<meta property="article:tag" content="DevicePlugin">
+<meta property="article:tag" content="SRIOV">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/p3uVpf5.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/k8s-device-plugin-sriov.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/k8s-device-plugin-sriov.html","path":"k8s-device-plugin-sriov.html","title":"Kubernetes - Device Plugin - SRIOV"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Kubernetes - Device Plugin - SRIOV | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BB%8B%E7%B4%B9"><span class="nav-number">2.</span> <span class="nav-text">介紹</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Kubernetes"><span class="nav-number">3.</span> <span class="nav-text">Kubernetes</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Multus-CNI"><span class="nav-number">3.1.</span> <span class="nav-text">Multus CNI</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Device-Plugin"><span class="nav-number">3.2.</span> <span class="nav-text">Device Plugin</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SR-IOV-CNI"><span class="nav-number">3.3.</span> <span class="nav-text">SR-IOV CNI</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">4.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">5.</span> <span class="nav-text">個人資訊</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%83%E8%80%83"><span class="nav-number">6.</span> <span class="nav-text">參考</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/k8s-device-plugin-sriov.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Kubernetes - Device Plugin - SRIOV | Hwchiu Learning Note">
+      <meta itemprop="description" content="這篇要來跟大家介紹什麼是 Single Root Input Output Virtualization (SR-IOV)，作為一個 OpenStack 世界中就大量被使用的裝置，到底其提供什麼樣的功能，以及為什麼 kubernetes 中會需要這個裝置，並且什麼情境下需要使用這個裝置。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Kubernetes - Device Plugin - SRIOV
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-10-10 18:33:16" itemprop="dateCreated datePublished" datetime="2019-10-10T18:33:16+08:00">2019-10-10</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">這篇要來跟大家介紹什麼是 Single Root Input Output Virtualization (SR-IOV)，作為一個 OpenStack 世界中就大量被使用的裝置，到底其提供什麼樣的功能，以及為什麼 kubernetes 中會需要這個裝置，並且什麼情境下需要使用這個裝置。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前篇文章基於 <strong>RDMA</strong> 介紹了一種提供高效能網路設備的 <strong>device plugin</strong>，然而除了 <strong>RDMA</strong> 之外，也有另外一款 <strong>device plugin</strong> 也可以針對改善網路環境而開發的，本篇就會針對這款更常被使用的 <strong>SR-IOV</strong> 進行介紹。</p>
+<p>如同前述的 <strong>RDMA</strong> 一樣，也會先介紹一下其概念與架構，最後一下部署於 <strong>kubernetes</strong> 內的使用方法。</p>
+<h1 id="介紹"><a href="#介紹" class="headerlink" title="介紹"></a>介紹</h1><p>SR-IOV 簡單的說明就是透過虛擬化的方式將一個實體的 PCIe 裝置變成多個可以存取得 PCIe 裝置，也就是 IOV 的涵義， I&#x2F;O Virtualization.</p>
+<p><strong>SR-IOV</strong> 可以應用的部分不單侷限於網路卡這一塊，其是基於 <strong>PCIe</strong> 裝置來完成的技術，不過本篇文章會專注於網路方便的應用，因此接下來的敘述都會針對網路部分去探討。</p>
+<p><strong>SR-IOV</strong> 本身利用了兩個概念來完成裝置虛擬化，分別是** Phyical Function(PF)** 以及 **Virtual Function(VF)**。</p>
+<p><strong>PF</strong> 算是整個 <strong>PCIe</strong> 裝置的主體，而 <strong>VF</strong> 只能算是一個輕量化的功能，專注於 <strong>I&#x2F;O</strong> 方面的資源共享，同時本身不太能被設定控管。所有的操作都要基於 <strong>PF</strong> 來處理。</p>
+<p>從使用者的角度來看，可以這樣去想像 <strong>SR-IOV</strong> 的使用情境，假設一個系統上只有一張實體網卡，但是該系統上需要運行多個虛擬化系統，不論是 <strong>Virtual Machine</strong> 或是 <strong>Container</strong>，而這些虛擬化系統本身都希望能夠有對外網路存取的能力，這時候可以有不同的作法</p>
+<ol>
+<li>如同前述 Container Network Interface 章節探討過的方式，可以利用 Linux Bridge + Veth + IPtables 等功能組合出讓封包流通的方式。<br>但是這種方式並不是特別討喜的原因在於封包會經過太多層的處理，有 <strong>VETH</strong> 要處理，又有 <strong>Linux Bridge</strong> 要處理，同時虛擬化本身的 <strong>Kernel</strong> 會處理一次，到達 <strong>Host</strong> 本身又要處理一次，因此整個封包經過的路徑太多，對於其效能不會特別完美。</li>
+<li>另外一種就是想辦法讓該虛擬化容器有可以直接使用 <strong>host</strong> 上網卡直接進行封包的傳送與接收，這種情況下封包就不會經過 <strong>Host</strong> 上的 <strong>Linux Kernel Network Stack</strong> 被處理，也不會上述的 <strong>veth</strong>, <strong>Linux Brideg</strong> 等不同層級封包處理的消耗，對於延遲性以及傳輸效能都會比較好。</li>
+</ol>
+<p><strong>SR-IOV</strong> 就是提供第二種類型的使用方式，將一張實體網卡切成多張虛擬網卡，每張虛擬網卡都可以獨立的給任意的虛擬化系統使用。</p>
+<p>整個架構可以參考下圖<br><img src="https://i.imgur.com/p3uVpf5.png"><br>本圖節錄自 <a target="_blank" rel="noopener" href="http://networkingtechprinciples.blogspot.com/2014/05/sr-iov-explained.html">Networking Fundamentals</a></p>
+<p>該圖中的網卡(NIC)有兩個孔，其中一個開啟 <strong>SR-IOV</strong> 的功能，另外一個沒有，可以用來進行比較。<br>上圖總共有四個 <strong>Virtual Machine</strong> ，其中左邊兩台直接透過 <strong>SR-IOV</strong> 的方式與 <strong>Host</strong> 上的 <strong>Vitual Function</strong> 連接，特別要注意的是每台 <strong>VM</strong> 上使用的是 <strong>VF Device Driver</strong> 相關的驅動程式來連接，這意味如果要使用 <strong>SR-IOV</strong>，並不是單純的將該 <strong>Device</strong> 掛載即可，還需要有額外的驅動程式來使用。</p>
+<p>而上圖右邊兩個用法則是接近上述的用法一，透過一個 <strong>Virtual Switch</strong> 連接 <strong>Host</strong> 網卡以及 <strong>VM</strong> 上的所有虛擬網卡，所以可以觀察其使用的是 <strong>vNIC Device Driver</strong>，與前述的 <strong>VF Deivce Driver</strong> 不同。</p>
+<p>不同於 <strong>RDMA</strong>， <strong>SR-IOV</strong> 本身是裝置的處理，透過網卡以及驅動程式相關的技術，模擬出一張網卡給應用程式使用，這種情況下</p>
+<ol>
+<li>應用程式不需要重寫，依然使用習慣的 <strong>BSD Socket</strong> 來撰寫，繼續走 <strong>TCP&#x2F;IP, UDP&#x2F;IP</strong> 等協定使用</li>
+<li>改變的層次在於更底層的裝置，所以並不是任何一張網路卡都可以支援這種做法，必須要配置支援 <strong>SR-IOV</strong> 的網卡，同時安裝對應版本的驅動程式，並且透過相關的設定去產生虛擬的網卡即可。</li>
+</ol>
+<p>另外要注意的是，由於這些網卡都是基於 <strong>Virtual Function</strong> 來關聯到實體網卡，同時這些 <strong>VF</strong> 是共享網卡的資源，所以其效能最好就是逼近於實體網卡的使用，不像 <strong>RDMA</strong> 是整個協定層次都全部重來，效能比較起來自然會有所差異。</p>
+<h1 id="Kubernetes"><a href="#Kubernetes" class="headerlink" title="Kubernetes"></a>Kubernetes</h1><p>接下來要探討就是對於 <strong>kubernetes</strong> 的架構中，要如何使用這個 <strong>SR-IOV</strong>的裝置，要使用一個 <strong>SR-IOV</strong> 有幾個步驟需要完成</p>
+<ol>
+<li>安裝 <strong>Driver</strong>，創建 <strong>PF,VF</strong> 相關的設定</li>
+<li>將欲使用的 <strong>VF NIC</strong> 掛載到欲使用的 <strong>Container</strong>裡面</li>
+<li>針對該 <strong>device</strong> 創建相關的 <strong>network interface</strong> 進行設定，譬如 <strong>IP</strong>, <strong>Routing</strong></li>
+</ol>
+<p>上述的三個步驟實際上牽扯到不同的功能，第一個是偏向是 <strong>device plugin</strong> 來處理的，負責將相關的 <strong>PF&#x2F;VF</strong> 設定並且掛載到 <strong>Container</strong> 中。<br>實際上這部分還仰賴系統的安裝，包括安裝對應的 <strong>drvier</strong> 來確保相關的 <strong>kernel module</strong> 可以使用。</p>
+<p>而後兩個步驟則是之前介紹的 <strong>CNI</strong> 要處理的，根據需求選擇對應的 <strong>VF</strong> 來使用，並且設定相關的網路設定，如 <strong>IP</strong> 地址。</p>
+<p>所以欲使用 <strong>SR-IOV</strong> 這個裝置的時候，通常除了安裝 <strong>device-plugin</strong> 相關的套件之外，也會一起安裝 <strong>SR-IOV</strong> 的 <strong>CNI</strong> 解決方案來處理。</p>
+<h2 id="Multus-CNI"><a href="#Multus-CNI" class="headerlink" title="Multus CNI"></a>Multus CNI</h2><p>但是先前於 <strong>CNI</strong> 的章節有介紹過 <strong>CNI</strong> 是一個基於節點的設定，且基本上是所有跑在該節點上的容器都會採用該 <strong>CNI</strong> 來處理。<br>麻煩的地方在於 <strong>SR-IOV</strong> 的環境並不一定是每個機器都需要使用，同時 <strong>VF</strong> 的數量是有上限的，每張網卡的能力不同，能夠支援的 <strong>VF</strong> 數量也不一致，所以這反而會影響能夠運行的 <strong>Pod</strong> 數量上限</p>
+<p>另外一個麻煩的點在於一旦透過 <strong>SR-IOV</strong> 的技術，封包就直接從網卡出去了，這導致這些封包不會被 <strong>Host</strong> 端的 <strong>Linux Kernel</strong> 處理，這樣的後果就是 <strong>Kubernetes service</strong> 這個功能會完全壞光，完全不能用了。</p>
+<p>為了解決這個問題，幾乎所有使用 <strong>SR-IOV</strong> 的解決方案，都會採用第三方的 <strong>CNI</strong> 來達到讓 <strong>Pod</strong> 動態選擇 <strong>CNI</strong> 的效果，譬如 <strong>Multus, Geneie</strong> 解決方案</p>
+<p>透過 <strong>Multus</strong> 的幫忙，管理者可以於系統中管理多套 <strong>CNI</strong> 解決方案，並且每個 <strong>Pod</strong> 本身在創建的時候可以透過 <strong>Annotation</strong> 去決定要使用哪個 <strong>CNI</strong> 的解決方案。<br>此架構下，就可以根據需求來決定哪些應用需要引入 <strong>SR-IOV</strong> 來處理，哪些不需要可以繼續本來常用的 <strong>Calico&#x2F;Flannel</strong> 處理。</p>
+<p>這邊就不提及太多關於 <strong>Multus</strong> 的使用方法，有興趣的可以到<a target="_blank" rel="noopener" href="https://github.com/intel/multus-cni/wiki/README_draft_1811">GitHub</a>閱讀相關文件。</p>
+<p>有了上述這種多重 <strong>CNI</strong> 管理的解決方案後，就可以看看接下來會怎麼使用 <strong>SR-IOV</strong>。</p>
+<h2 id="Device-Plugin"><a href="#Device-Plugin" class="headerlink" title="Device Plugin"></a>Device Plugin</h2><p>首先必須要安裝 <strong>Device Plugin</strong> 來管理節點上所有的 <strong>SR-IOV</strong> 裝置，包含總共數量，當前可用數量，狀態等，這些資訊會透過 <strong>ListAndWatch</strong> 傳遞給 <strong>kubelet</strong> 最後就可以到每個 <strong>node</strong> 上觀察到當前系統上的 <strong>SR-IOV</strong> 裝置數量。</p>
+<p>關於該 <strong>device plugin</strong> 的詳細資訊，都可以參閱 <a target="_blank" rel="noopener" href="https://github.com/intel/sriov-network-device-plugin">GitHub</a>，這邊有完整的介紹，包含如何與 <strong>Multus</strong> 共同使用。</p>
+<p>其中我覺得比較有趣的是該 <strong>Device Plugin</strong> 的設定檔案，因為支援 <strong>SR-IOV</strong> 的裝置並不是只有一款，每款對應的廠商以及驅動程式都不同，這種情況下要如何讓使用者可以很順利的根據需求選擇需要的 <strong>device plugin</strong> 來使用？</p>
+<p>為了解決這個問題， <strong>SR-IOV device plugin</strong> 要使用者事先準備一個設定檔案，範例如下</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;resourceList&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="punctuation">&#123;</span></span><br><span class="line">            <span class="attr">&quot;resourceName&quot;</span><span class="punctuation">:</span> <span class="string">&quot;intel_sriov_netdevice&quot;</span><span class="punctuation">,</span></span><br><span class="line">            <span class="attr">&quot;selectors&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">                <span class="attr">&quot;vendors&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;8086&quot;</span><span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">                <span class="attr">&quot;devices&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;154c&quot;</span><span class="punctuation">,</span> <span class="string">&quot;10ed&quot;</span><span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">                <span class="attr">&quot;drivers&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;i40evf&quot;</span><span class="punctuation">,</span> <span class="string">&quot;ixgbevf&quot;</span><span class="punctuation">]</span></span><br><span class="line">            <span class="punctuation">&#125;</span></span><br><span class="line">        <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="punctuation">&#123;</span></span><br><span class="line">            <span class="attr">&quot;resourceName&quot;</span><span class="punctuation">:</span> <span class="string">&quot;intel_sriov_dpdk&quot;</span><span class="punctuation">,</span></span><br><span class="line">            <span class="attr">&quot;selectors&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">                <span class="attr">&quot;vendors&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;8086&quot;</span><span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">                <span class="attr">&quot;devices&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;154c&quot;</span><span class="punctuation">,</span> <span class="string">&quot;10ed&quot;</span><span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">                <span class="attr">&quot;drivers&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;vfio-pci&quot;</span><span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">                <span class="attr">&quot;pfNames&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;enp0s0f0&quot;</span><span class="punctuation">,</span><span class="string">&quot;enp2s2f1&quot;</span><span class="punctuation">]</span></span><br><span class="line">            <span class="punctuation">&#125;</span></span><br><span class="line">        <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="punctuation">&#123;</span></span><br><span class="line">            <span class="attr">&quot;resourceName&quot;</span><span class="punctuation">:</span> <span class="string">&quot;mlnx_sriov_rdma&quot;</span><span class="punctuation">,</span></span><br><span class="line">            <span class="attr">&quot;isRdma&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span><span class="punctuation">,</span></span><br><span class="line">            <span class="attr">&quot;selectors&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">                <span class="attr">&quot;vendors&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;15b3&quot;</span><span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">                <span class="attr">&quot;devices&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;1018&quot;</span><span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">                <span class="attr">&quot;drivers&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;mlx5_ib&quot;</span><span class="punctuation">]</span></span><br><span class="line">            <span class="punctuation">&#125;</span></span><br><span class="line">        <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="punctuation">&#123;</span></span><br><span class="line">            <span class="attr">&quot;resourceName&quot;</span><span class="punctuation">:</span> <span class="string">&quot;infiniband_rdma_netdevs&quot;</span><span class="punctuation">,</span></span><br><span class="line">            <span class="attr">&quot;isRdma&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span><span class="punctuation">,</span></span><br><span class="line">            <span class="attr">&quot;selectors&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">                <span class="attr">&quot;linkTypes&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;infiniband&quot;</span><span class="punctuation">]</span></span><br><span class="line">            <span class="punctuation">&#125;</span></span><br><span class="line">        <span class="punctuation">&#125;</span></span><br><span class="line">    <span class="punctuation">]</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>該檔案裡面去描述所有節點中可能會用到的網卡資訊，包含<strong>廠商</strong>, <strong>驅動程式</strong>, <strong>裝置名稱</strong>, <strong>pf 網卡名稱</strong>。<br>一旦這些資訊準備好後， <strong>SR-IOV</strong> 的 <strong>gRPC</strong> 被啟動後就會去讀取這個資訊，然後開始檢查本系統上所有的網卡資訊，根據上述的條件把所有符合的裝置數量都找出來，並且根據 <strong>resourceName</strong> 的欄位向 <strong>kubelet</strong> 註冊這個資訊。<br>換句話說 <strong>SR-IOV</strong> 最後產生的資源數量不會只有一個，取決於設定檔案怎麼描述以及系統節點上硬體裝置的配置。</p>
+<h2 id="SR-IOV-CNI"><a href="#SR-IOV-CNI" class="headerlink" title="SR-IOV CNI"></a>SR-IOV CNI</h2><p>完成 <strong>device plugin</strong> 後，接下來就是要處理 <strong>VF</strong> 的配置(實際上 kernel module啟動時就已經配置完畢，但是需要被創建出來使用)</p>
+<p>這個解決方案的 <a target="_blank" rel="noopener" href="https://github.com/hustcat/sriov-cni">GitHub</a> 於此，很有趣的是其作者跟 <strong>RDMA</strong> 的是同一個人，是個很專注於網路發展的開發者，非常的厲害!</p>
+<p>先來看看開頭的介紹</p>
+<blockquote>
+<p>PF is used by host.Each VFs can be treated as a separate physical NIC and assigned to one container, and configured with separate MAC, VLAN and IP, etc.</p>
+</blockquote>
+<p>針對每個被掛載到 <strong>Container</strong> 的 <strong>Virtual Function(VF)</strong> 都可以設定 <strong>MAC</strong>, <strong>VLAN</strong> 以及 <strong>IP</strong> 地址。</p>
+<p>來看一下一個範例的 <strong>CNI</strong> 設定檔案</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    <span class="attr">&quot;name&quot;:</span> <span class="string">&quot;mynet&quot;</span>,</span><br><span class="line">    <span class="attr">&quot;type&quot;:</span> <span class="string">&quot;sriov&quot;</span>,</span><br><span class="line">    <span class="attr">&quot;master&quot;:</span> <span class="string">&quot;eth1&quot;</span>,</span><br><span class="line">    <span class="attr">&quot;ipam&quot;:</span> &#123;</span><br><span class="line">        <span class="attr">&quot;type&quot;:</span> <span class="string">&quot;fixipam&quot;</span>,</span><br><span class="line">        <span class="attr">&quot;subnet&quot;:</span> <span class="string">&quot;10.55.206.0/26&quot;</span>,</span><br><span class="line">        <span class="attr">&quot;routes&quot;:</span> [</span><br><span class="line">            &#123; <span class="attr">&quot;dst&quot;:</span> <span class="string">&quot;0.0.0.0/0&quot;</span> &#125;</span><br><span class="line">        ],</span><br><span class="line">        <span class="attr">&quot;gateway&quot;:</span> <span class="string">&quot;10.55.206.1&quot;</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>首先 <strong>type</strong> 代表要執行的 <strong>CNI Binary</strong> 檔案，名為 <strong>SRIOV</strong>，而這邊我們透過 <strong>master</strong> 描述目標的 <strong>PF</strong> 是誰，預設情況下該 <strong>CNI</strong> 會自動地從可以用的 <strong>VF</strong>中挑一個可以用的 <strong>VF</strong> 出來匹配改容器使用，並且搭配 <strong>IPEM, fixipam</strong> 來設定相關的 <strong>IP</strong> 資訊。</p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> args.VF != <span class="number">0</span> &#123;</span><br><span class="line">	vfIdx = <span class="type">int</span>(args.VF)</span><br><span class="line">	vfDevName, err = getVFDeviceName(masterName, vfIdx)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">	<span class="comment">// alloc a free virtual function</span></span><br><span class="line">	<span class="keyword">if</span> vfIdx, vfDevName, err = allocFreeVF(masterName); err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>從上述 <strong>CNI</strong> 的實作可以看如果今天沒有傳遞一個叫做 <strong>VF</strong> 的參數的話，就會呼叫 <strong>allocFreeVF</strong> 來配置一個可用的 <strong>VF</strong>。如果有傳遞的話則是會根據該參數去得到對應的裝置，而實際上 <strong>allocFreeVF</strong> 的工作就是使用不同的 <strong>VF</strong> 參數後不停的呼叫 <strong>getVFDeviceName</strong> 來處理。</p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">getVFDeviceName</span><span class="params">(master <span class="type">string</span>, vf <span class="type">int</span>)</span></span> (<span class="type">string</span>, <span class="type">error</span>) &#123;</span><br><span class="line">	vfDir := fmt.Sprintf(<span class="string">&quot;/sys/class/net/%s/device/virtfn%d/net&quot;</span>, master, vf)</span><br><span class="line">	<span class="keyword">if</span> _, err := os.Lstat(vfDir); err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="string">&quot;&quot;</span>, fmt.Errorf(<span class="string">&quot;failed to open the virtfn%d dir of the device %q: %v&quot;</span>, vf, master, err)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	infos, err := ioutil.ReadDir(vfDir)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="string">&quot;&quot;</span>, fmt.Errorf(<span class="string">&quot;failed to read the virtfn%d dir of the device %q: %v&quot;</span>, vf, master, err)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> <span class="built_in">len</span>(infos) != <span class="number">1</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="string">&quot;&quot;</span>, fmt.Errorf(<span class="string">&quot;no network device in directory %s&quot;</span>, vfDir)</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> infos[<span class="number">0</span>].Name(), <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>最後用一個架構圖來描述 <strong>SR-IOV</strong> 使用後的可能架構<br><img src="https://i.imgur.com/dV4RU1r.png"><br>該圖節錄自<a href="https://www.hwchiu.com/cni-compare.html">常見 CNI (Container Network Interface) Plugin 介紹
+</a></p>
+<p>首先該 kubernetes cluster 會使用 <strong>Multus</strong> CNI 來提供動態管理解決方案，對於圖中示範的 <strong>Pod</strong> 都會使用三個 <strong>CNI</strong> 分別是呼叫一次 <strong>flannel</strong> 以及兩次 <strong>SR-IOV</strong>。</p>
+<p>兩次的 SR-IOV 可以針對不同的網卡給予不同的網路參數，包含 <strong>IP</strong>。更深層的意義在於這些網卡背後的實體網路配置，可以藉此提供不同的 <strong>data plan</strong> 網路拓墣。<br>這種情況下，這些 <strong>Pod</strong> 裡面就會有多張網卡，同時有多個 <strong>IP</strong> 地址，因此 <strong>Routing</strong> 的規則更為重要，要是沒有弄好可能就會處理錯誤，導致封包走錯網卡出去。</p>
+<p>當然前述也有提過，因為封包都不會經過 <strong>Host</strong> 的 <strong>Kernel Network Stack</strong>，因此諸如 <strong>Kubernetes Server (ClusterIP&#x2F;NodePort)</strong> 等功能對於 <strong>SR-IOV</strong> 的介面都不會生效，需要動腦看看該如何處理，甚至是放棄該功能，畢竟作為 <strong>data-plan</strong> 好像又不是說非常重要。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ul>
+<li><a target="_blank" rel="noopener" href="http://networkingtechprinciples.blogspot.com/2014/05/sr-iov-explained.html">http://networkingtechprinciples.blogspot.com/2014/05/sr-iov-explained.html</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/intel/multus-cni">https://github.com/intel/multus-cni</a></li>
+<li><a target="_blank" rel="noopener" href="https://builders.intel.com/docs/networkbuilders/enabling_new_features_in_kubernetes_for_NFV.pdf">https://builders.intel.com/docs/networkbuilders/enabling_new_features_in_kubernetes_for_NFV.pdf</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/hustcat/sriov-cni">https://github.com/hustcat/sriov-cni</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+              <a href="/tags/DevicePlugin/" rel="tag"># DevicePlugin</a>
+              <a href="/tags/SRIOV/" rel="tag"># SRIOV</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/k8s-device-plugin-rdma.html" rel="prev" title="Kubernetes - Device Plugin - RDMA">
+                  <i class="fa fa-chevron-left"></i> Kubernetes - Device Plugin - RDMA
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/k8s-operator-pattern.html" rel="next" title="Kubernetes - Operator Pattern 介紹">
+                  Kubernetes - Operator Pattern 介紹 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

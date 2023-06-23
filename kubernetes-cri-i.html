@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本篇文章會開始探討 kubernetes Container Runtime Interface 的概念與設計，並且討論其餘 OCI 的關係，最後介紹了 Docker&#x2F;Containerd 這些不的 Container 解決方案是如何於 Kubernetes 共存的">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kubernetes &amp; CRI (I)">
+<meta property="og:url" content="https://www.hwchiu.com/kubernetes-cri-i.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本篇文章會開始探討 kubernetes Container Runtime Interface 的概念與設計，並且討論其餘 OCI 的關係，最後介紹了 Docker&#x2F;Containerd 這些不的 Container 解決方案是如何於 Kubernetes 共存的">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/2XQwc9B.png">
+<meta property="og:image" content="https://i.imgur.com/wjxTNU9.png">
+<meta property="og:image" content="https://i.imgur.com/ZVC8Qoa.png">
+<meta property="og:image" content="https://i.imgur.com/GteIewU.png">
+<meta property="og:image" content="https://i.imgur.com/IChs25N.png">
+<meta property="article:published_time" content="2019-09-19T23:23:43.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.628Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="ITHOME">
+<meta property="article:tag" content="Container">
+<meta property="article:tag" content="CRI">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/2XQwc9B.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/kubernetes-cri-i.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/kubernetes-cri-i.html","path":"kubernetes-cri-i.html","title":"Kubernetes & CRI (I)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Kubernetes & CRI (I) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Container-Runtime-Interface-CRI"><span class="nav-number">2.</span> <span class="nav-text">Container Runtime Interface (CRI)</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Docker-amp-Kubernetes"><span class="nav-number">2.1.</span> <span class="nav-text">Docker &amp; Kubernetes</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">3.</span> <span class="nav-text">個人資訊</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%83%E8%80%83"><span class="nav-number">4.</span> <span class="nav-text">參考</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/kubernetes-cri-i.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Kubernetes & CRI (I) | Hwchiu Learning Note">
+      <meta itemprop="description" content="本篇文章會開始探討 kubernetes Container Runtime Interface 的概念與設計，並且討論其餘 OCI 的關係，最後介紹了 Docker/Containerd 這些不的 Container 解決方案是如何於 Kubernetes 共存的">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Kubernetes & CRI (I)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-09-20 07:23:43" itemprop="dateCreated datePublished" datetime="2019-09-20T07:23:43+08:00">2019-09-20</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本篇文章會開始探討 kubernetes Container Runtime Interface 的概念與設計，並且討論其餘 OCI 的關係，最後介紹了 Docker/Containerd 這些不的 Container 解決方案是如何於 Kubernetes 共存的</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前幾天探討了關於 <code>Container</code> 的一些基本概念，譬如相關的開放標準 <code>Open Container Initiative</code> 以及 <code>Linux</code> 下的實現方式 <code>Namespace ..etc</code></p>
+<p>接下來我們要正式的走到 <code>kubernetes</code> 的架構中，來探討 <code>kubernetes</code> 再 <code>container</code> 這一塊是怎麼處理與設計的。</p>
+<p>雖然 <code>kubernetes</code> 已發展數年，其火紅程度也席捲整個產業，然而我自己的觀察結果還是滿多人對 <code>kubernetes</code> 有一些誤解，認為 <code>kubernetes</code> 是 <code>docker container</code> 的管理工具，事實上從 <a target="_blank" rel="noopener" href="https://kubernetes.io/">kubernetes 官網</a> 中就直接明確說明</p>
+<blockquote>
+<p>Kubernetes (K8s) is an open-source system for automating deployment, scaling, and management of containerized applications.</p>
+</blockquote>
+<p><code>kubernetes</code> 是用來管理 <code>containerized applications</code> 並不是專屬於 <code>docker</code> 獨享，作為一個 <code>container orchestrator</code> 的角色， <code>kubernetes</code> 希望能夠管理所有容器化的應用程式。</p>
+<p>看到這邊大概就可以想到就如同 <code>Open Container Initiative (OCI)</code> 一樣，為了能夠有效地銜接各式各樣不同的 <code>Container Runtime</code> 解決方案，勢必也需要推出相關的標準，就如同 <code>OCI</code> 一樣，符合標準的解決方案就能夠輕鬆的整合到 <code>kubernetes</code> 之中。於是 <code>Container Runtime Interface(CRI)</code> 標準就被設計且開發來</p>
+<p>接下來我們將針對這個概念來細細訴說，到底什麼是 <code>Container Runtime Interface(CRI)</code> 以及其如何運作。</p>
+<h1 id="Container-Runtime-Interface-CRI"><a href="#Container-Runtime-Interface-CRI" class="headerlink" title="Container Runtime Interface (CRI)"></a>Container Runtime Interface (CRI)</h1><p>對於 <code>kubernetes</code> 來說，希望能夠透過一個標準介面與各個 <code>contaienr rumtime</code> 解決方案銜接，這個銜接的接口標準就是所謂的 <code>Container Runtime</code></p>
+<p>為了更加清楚理解 <code>CRI</code> 的定位，我們用下列的表格來解釋<br>表格列出了 <code>kubernetes</code> 與 <code>CRI Runtime</code> 各自的責任</p>
+<table>
+<thead>
+<tr>
+<th>Kubernetes</th>
+<th>CRI Runtime</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Kubernetes Resources&#x2F;API</td>
+<td>Pod Life Cycle (Add&#x2F;Delete)</td>
+</tr>
+<tr>
+<td>Storage  (CSI)</td>
+<td>Image management</td>
+</tr>
+<tr>
+<td>Networking (CNI)</td>
+<td>Status</td>
+</tr>
+<tr>
+<td>Dispatcher</td>
+<td>Container Operations (attatch&#x2F;exec)</td>
+</tr>
+</tbody></table>
+<p>基本上 <code>CRI Runtime</code> 很類似前述的 <code>Containerd</code> 一樣，能夠根據需求產生出符合 <code>OCI</code> 標準的容器應用程式，但是基本單位不再是 <code>Container</code> 而是 <code>Pod</code>。<br>而 <code>kubernetes</code> 本身建築在這些基礎之上，提供更豐富的應用與 API 供使用者使用。</p>
+<p>這兩者之間的溝通橋樑就是所謂的 <code>CRI</code>。</p>
+<p><code>CRI</code> 所謂的標準其實非常簡單，就是所謂的 <code>protobuf</code> 的 <a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/cri-api/pkg/apis/runtime/v1alpha2/api.proto">API 介面</a>，</p>
+<p>從官方擷取該介面資訊如下，仔細觀察你可以裡面有 <code>Pod</code> 也有 <code>Container</code>，同時也涵蓋了各式各樣的操作，如 <code>Run</code>, <code>Stop</code>, <code>List</code>, <code>Remove</code>, <code>Start</code>,</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Runtime service defines the public APIs for remote container runtimes</span></span><br><span class="line">service RuntimeService &#123;</span><br><span class="line">    <span class="comment">// Version returns the runtime name, runtime version, and runtime API version.</span></span><br><span class="line">    rpc Version(VersionRequest) returns (VersionResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// RunPodSandbox creates and starts a pod-level sandbox. Runtimes must ensure</span></span><br><span class="line">    <span class="comment">// the sandbox is in the ready state on success.</span></span><br><span class="line">    rpc RunPodSandbox(RunPodSandboxRequest) returns (RunPodSandboxResponse) &#123;&#125;</span><br><span class="line">    <span class="comment">// StopPodSandbox stops any running process that is part of the sandbox and</span></span><br><span class="line">    <span class="comment">// reclaims network resources (e.g., IP addresses) allocated to the sandbox.</span></span><br><span class="line">    <span class="comment">// If there are any running containers in the sandbox, they must be forcibly</span></span><br><span class="line">    <span class="comment">// terminated.</span></span><br><span class="line">    <span class="comment">// This call is idempotent, and must not return an error if all relevant</span></span><br><span class="line">    <span class="comment">// resources have already been reclaimed. kubelet will call StopPodSandbox</span></span><br><span class="line">    <span class="comment">// at least once before calling RemovePodSandbox. It will also attempt to</span></span><br><span class="line">    <span class="comment">// reclaim resources eagerly, as soon as a sandbox is not needed. Hence,</span></span><br><span class="line">    <span class="comment">// multiple StopPodSandbox calls are expected.</span></span><br><span class="line">    rpc StopPodSandbox(StopPodSandboxRequest) returns (StopPodSandboxResponse) &#123;&#125;</span><br><span class="line">    <span class="comment">// RemovePodSandbox removes the sandbox. If there are any running containers</span></span><br><span class="line">    <span class="comment">// in the sandbox, they must be forcibly terminated and removed.</span></span><br><span class="line">    <span class="comment">// This call is idempotent, and must not return an error if the sandbox has</span></span><br><span class="line">    <span class="comment">// already been removed.</span></span><br><span class="line">    rpc RemovePodSandbox(RemovePodSandboxRequest) returns (RemovePodSandboxResponse) &#123;&#125;</span><br><span class="line">    <span class="comment">// PodSandboxStatus returns the status of the PodSandbox. If the PodSandbox is not</span></span><br><span class="line">    <span class="comment">// present, returns an error.</span></span><br><span class="line">    rpc PodSandboxStatus(PodSandboxStatusRequest) returns (PodSandboxStatusResponse) &#123;&#125;</span><br><span class="line">    <span class="comment">// ListPodSandbox returns a list of PodSandboxes.</span></span><br><span class="line">    rpc ListPodSandbox(ListPodSandboxRequest) returns (ListPodSandboxResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// CreateContainer creates a new container in specified PodSandbox</span></span><br><span class="line">    rpc CreateContainer(CreateContainerRequest) returns (CreateContainerResponse) &#123;&#125;</span><br><span class="line">    <span class="comment">// StartContainer starts the container.</span></span><br><span class="line">    rpc StartContainer(StartContainerRequest) returns (StartContainerResponse) &#123;&#125;</span><br><span class="line">    <span class="comment">// StopContainer stops a running container with a grace period (i.e., timeout).</span></span><br><span class="line">    <span class="comment">// This call is idempotent, and must not return an error if the container has</span></span><br><span class="line">    <span class="comment">// already been stopped.</span></span><br><span class="line">    <span class="comment">// <span class="doctag">TODO:</span> what must the runtime do after the grace period is reached?</span></span><br><span class="line">    rpc StopContainer(StopContainerRequest) returns (StopContainerResponse) &#123;&#125;</span><br><span class="line">    <span class="comment">// RemoveContainer removes the container. If the container is running, the</span></span><br><span class="line">    <span class="comment">// container must be forcibly removed.</span></span><br><span class="line">    <span class="comment">// This call is idempotent, and must not return an error if the container has</span></span><br><span class="line">    <span class="comment">// already been removed.</span></span><br><span class="line">    rpc RemoveContainer(RemoveContainerRequest) returns (RemoveContainerResponse) &#123;&#125;</span><br><span class="line">    <span class="comment">// ListContainers lists all containers by filters.</span></span><br><span class="line">    rpc ListContainers(ListContainersRequest) returns (ListContainersResponse) &#123;&#125;</span><br><span class="line">    <span class="comment">// ContainerStatus returns status of the container. If the container is not</span></span><br><span class="line">    <span class="comment">// present, returns an error.</span></span><br><span class="line">    rpc ContainerStatus(ContainerStatusRequest) returns (ContainerStatusResponse) &#123;&#125;</span><br><span class="line">    <span class="comment">// UpdateContainerResources updates ContainerConfig of the container.</span></span><br><span class="line">    rpc UpdateContainerResources(UpdateContainerResourcesRequest) returns (UpdateContainerResourcesResponse) &#123;&#125;</span><br><span class="line">    <span class="comment">// ReopenContainerLog asks runtime to reopen the stdout/stderr log file</span></span><br><span class="line">    <span class="comment">// for the container. This is often called after the log file has been</span></span><br><span class="line">    <span class="comment">// rotated. If the container is not running, container runtime can choose</span></span><br><span class="line">    <span class="comment">// to either create a new log file and return nil, or return an error.</span></span><br><span class="line">    <span class="comment">// Once it returns error, new container log file MUST NOT be created.</span></span><br><span class="line">    rpc ReopenContainerLog(ReopenContainerLogRequest) returns (ReopenContainerLogResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ExecSync runs a command in a container synchronously.</span></span><br><span class="line">    rpc ExecSync(ExecSyncRequest) returns (ExecSyncResponse) &#123;&#125;</span><br><span class="line">    <span class="comment">// Exec prepares a streaming endpoint to execute a command in the container.</span></span><br><span class="line">    rpc Exec(ExecRequest) returns (ExecResponse) &#123;&#125;</span><br><span class="line">    <span class="comment">// Attach prepares a streaming endpoint to attach to a running container.</span></span><br><span class="line">    rpc Attach(AttachRequest) returns (AttachResponse) &#123;&#125;</span><br><span class="line">    <span class="comment">// PortForward prepares a streaming endpoint to forward ports from a PodSandbox.</span></span><br><span class="line">    rpc PortForward(PortForwardRequest) returns (PortForwardResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ContainerStats returns stats of the container. If the container does not</span></span><br><span class="line">    <span class="comment">// exist, the call returns an error.</span></span><br><span class="line">    rpc ContainerStats(ContainerStatsRequest) returns (ContainerStatsResponse) &#123;&#125;</span><br><span class="line">    <span class="comment">// ListContainerStats returns stats of all running containers.</span></span><br><span class="line">    rpc ListContainerStats(ListContainerStatsRequest) returns (ListContainerStatsResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// UpdateRuntimeConfig updates the runtime configuration based on the given request.</span></span><br><span class="line">    rpc UpdateRuntimeConfig(UpdateRuntimeConfigRequest) returns (UpdateRuntimeConfigResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Status returns the status of the runtime.</span></span><br><span class="line">    rpc Status(StatusRequest) returns (StatusResponse) &#123;&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>由於 <code>CRI</code> 的標準就是一些相關的介面，這意味只要任何 <code>CRI Runtime</code> 有實作這些介面，都可以跟 <code>kubernetes</code> 銜接來處理所有跟 <code>Pod</code> 有關的操作。</p>
+<p>剩下的一個問題就是， 之前所探討過的 <code>docker</code> 運作流程</p>
+<blockquote>
+<p><code>docker client</code> -&gt; <code>docker engine</code> -&gt; <code>docker-containerd</code> -&gt; <code>docker-containerd-shim</code> -&gt; <code>runc</code> -&gt; <code>container</code></p>
+</blockquote>
+<p>這個架構要怎麼跟 <code>kubernetes &amp; CRI</code> 整合?</p>
+<h2 id="Docker-amp-Kubernetes"><a href="#Docker-amp-Kubernetes" class="headerlink" title="Docker &amp; Kubernetes"></a>Docker &amp; Kubernetes</h2><p>解釋 <code>Docker</code> 與 <code>kubernetes</code> 的最好方法就是閱讀官方部落格的文章 <a target="_blank" rel="noopener" href="https://kubernetes.io/blog/2018/05/24/kubernetes-containerd-integration-goes-ga/">kubernetes-containerd-integration-goes-ga</a>。 為了節省讀者的時間，接下來就幫大家導讀一下這篇文章，以下的圖片都來自於上述的<a href="(https://kubernetes.io/blog/2018/05/24/kubernetes-containerd-integration-goes-ga/)">官方部落格</a></p>
+<p>上面提到 <code>CRI</code> 本身是個溝通介面，這代表溝通的兩方都需要根據這個界面去實現與滿足。 對於 <code>kubernetes</code> 來說，<code>kubelet</code> 自己維護與開發的，要支援 <code>CRI</code> 本身就不是什麼困難的事情。</p>
+<p>但是另外一端如果要使用 <code>docker</code> 的話，那到底要怎麼辦?<br><code>docker</code> 背後也是有公司再經營，也不是說改就改，這種情況下到底要如何將 <code>docker</code> 給整合進來？</p>
+<p>最直觀的想法就是如果沒有辦法使得 <code>docker</code>  本身支援 <code>CRI</code> 的標準，那就額外撰寫一個轉接器，其運作在 <code>kubelet</code> 與 <code>Docker</code>，該應用程式上承 <code>CRI</code> 與 <code>kubernetes</code> 溝通，下承 <code>Docker API</code> 與 <code>Docker Engine</code> 溝通</p>
+<p>早期的 <code>kubernetes</code> 採取了這種做法，<code>kuberlet</code> 內建相關了 <code>dockershim</code> 的程式碼來處理這段邏輯。這種做法可行，但是其實效能大大則扣，同時也把整體架構帶到了更複雜的境界，引進愈來愈多的元件會對開發與除錯帶來更大的成本。</p>
+<p>可以參考下圖中的上半部份，而圖中的下半部分則是後來的改變之處</p>
+<p><img src="https://i.imgur.com/2XQwc9B.png"><br>(圖片擷取自：<a target="_blank" rel="noopener" href="https://kubernetes.io/blog/2018/05/24/kubernetes-containerd-integration-goes-ga/">kubernetes blog kubernetes-containerd-integration-goes-ga</a>)</p>
+<p>反正最後都是透過 <code>containerd</code> 進行操作，而本身也不太需要 <code>docker</code> 自己的功能，那是否就直接將 <code>dockershim</code> 溝通的角色從 <code>docker engine</code> 轉移到 <code>containerd</code> 即可。 因此後來又有所謂的 <code>CRI-Containerd</code> 的出現。</p>
+<p>到這個階段，已經減少了一個溝通的 <code>Daemon</code>, 也就是 <code>docker engine</code>。 但是這樣並不能滿足想要最佳化的心情。</p>
+<p>伴隨者 <code>Containerd</code> 本身的功能開發，提供了 <code>Plugin</code> 這種外掛功能的特色後，將 <code>CRI-Containerd</code> 的功能直接整合到該 <code>Plugin</code> 內就可以直接再次減少一個元件，直接讓 <code>kubelet</code> 與 <code>containerd</code> 直接溝通來創建相關的 <code>container</code>.</p>
+<p>相關的演進可以參考下圖<br><img src="https://i.imgur.com/wjxTNU9.png"><br>(圖片擷取自：<a target="_blank" rel="noopener" href="https://kubernetes.io/blog/2018/05/24/kubernetes-containerd-integration-goes-ga/">kubernetes blog kubernetes-containerd-integration-goes-ga</a>)</p>
+<p>同時根據該篇文章內關於效能的評比，可以看到目前這個整合的版本不論是 <code>CPU</code> 或是 <code>Memory</code> 等系統資源的消耗都遠比過往還來得少。</p>
+<p><img src="https://i.imgur.com/ZVC8Qoa.png"><br>(圖片擷取自：<a target="_blank" rel="noopener" href="https://kubernetes.io/blog/2018/05/24/kubernetes-containerd-integration-goes-ga/">kubernetes blog kubernetes-containerd-integration-goes-ga</a>)</p>
+<p><img src="https://i.imgur.com/GteIewU.png"><br>(圖片擷取自：<a target="_blank" rel="noopener" href="https://kubernetes.io/blog/2018/05/24/kubernetes-containerd-integration-goes-ga/">kubernetes blog kubernetes-containerd-integration-goes-ga</a>)</p>
+<p>這種架構下，使用者可以在一台伺服器中同時安裝 <code>kubernetes</code> 與 <code>docker</code>, 同時彼此會共用 <code>containerd</code> 來管理自己所需要的 <code>container</code>.</p>
+<p>架構如下圖，有趣的一點在於這種情況下要如何確保 <code>docker</code> 的指令不會看到 <code>kubernetes</code> 所要求創建的 <code>container</code>, 反之亦然。<br>兩者都是透過 <code>containerd</code> 來創建 <code>Container</code>, 幸好有鑒於 <code>containerd</code> 本身提供的 <code>namespace</code> 的功能，可以確保不同的客戶端 <code>docekrd, CRI-plugin</code> 都可以有自己的 <code>namespace</code>，所以用 <code>docker ps</code> 就不會互相影響到彼此的運作。<br><img src="https://i.imgur.com/IChs25N.png"><br>(圖片擷取自：<a target="_blank" rel="noopener" href="https://kubernetes.io/blog/2018/05/24/kubernetes-containerd-integration-goes-ga/">kubernetes blog kubernetes-containerd-integration-goes-ga</a>)</p>
+<p>不過上述的假設是 <code>啟用 containerd</code> 於 <code>kubernetes cluster</code> 內才會有這個效果。</p>
+<p>根據 這篇官方文章 <a target="_blank" rel="noopener" href="https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#installing-runtime">install-kubeadm</a>，目前預設的情況下都還是採用第一種方案, <code>dockershim</code> 的方式來使用，若需要使用 <code>containerd</code> 則必須要先安裝 <code>containerd</code> 到系統之中並且安裝 <code>kubernetes</code> 時設定特定的參數來切換過去。</p>
+<p>下一篇文章就會跟大家分享要如何透過創建一個可以使用 <code>containerd</code> 的 <code>local kubernetes cluster</code>, 並且使用 <code>CRI</code> 的工具 <code>crictl</code> 來操作相關的容器創建。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://kubernetes.io/">https://kubernetes.io</a></li>
+<li><a target="_blank" rel="noopener" href="https://kubernetes.io/blog/2018/05/24/kubernetes-containerd-integration-goes-ga/">https://kubernetes.io/blog/2018/05/24/kubernetes-containerd-integration-goes-ga/</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.slideshare.net/PhilEstes/lets-try-every-cri-runtime-available-for-kubernetes">https://www.slideshare.net/PhilEstes/lets-try-every-cri-runtime-available-for-kubernetes</a></li>
+<li><a target="_blank" rel="noopener" href="https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#installing-runtime">https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#installing-runtime</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+              <a href="/tags/Container/" rel="tag"># Container</a>
+              <a href="/tags/CRI/" rel="tag"># CRI</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/container-design-iii.html" rel="prev" title="淺談 Container 實現原理, 以 Docker 為例(III)">
+                  <i class="fa fa-chevron-left"></i> 淺談 Container 實現原理, 以 Docker 為例(III)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/kubernetes-cri-ii.html" rel="next" title="Kubernetes & CRI (II) - containerd">
+                  Kubernetes & CRI (II) - containerd <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="這篇文章要跟大家分享在 OpenvSwitch 裡面內建的 Bonding 模式，相對於傳統 Linux Kernel 自帶的六種模式，OpenvSwitch 只有提供三種模式。這三種模式的用途以及分配的方式都完全不同，完全取決於使用者本身的環境需求，來判斷自行的環境需要採用哪種模式，有單純的 Active-backup 模式，也有 Active-Active 的模式。再 Active-Activ">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Understanding the OpenvSwitch Bonding">
+<meta property="og:url" content="https://www.hwchiu.com/openvswitch-bonding.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="這篇文章要跟大家分享在 OpenvSwitch 裡面內建的 Bonding 模式，相對於傳統 Linux Kernel 自帶的六種模式，OpenvSwitch 只有提供三種模式。這三種模式的用途以及分配的方式都完全不同，完全取決於使用者本身的環境需求，來判斷自行的環境需要採用哪種模式，有單純的 Active-backup 模式，也有 Active-Active 的模式。再 Active-Activ">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://i.imgur.com/RbsM1rF.png">
+<meta property="og:image" content="http://i.imgur.com/nDNFI3L.png">
+<meta property="og:image" content="http://i.imgur.com/Fm3Coea.png">
+<meta property="article:published_time" content="2015-10-03T05:32:00.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.634Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="SDN">
+<meta property="article:tag" content="Openflow">
+<meta property="article:tag" content="OpenvSwitch">
+<meta property="article:tag" content="Bonding">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://i.imgur.com/RbsM1rF.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/openvswitch-bonding.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/openvswitch-bonding.html","path":"openvswitch-bonding.html","title":"Understanding the OpenvSwitch Bonding"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Understanding the OpenvSwitch Bonding | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Active-backup"><span class="nav-number">1.1.</span> <span class="nav-text">Active-backup</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Balance-slb"><span class="nav-number">1.2.</span> <span class="nav-text">Balance-slb</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Balance-tcp"><span class="nav-number">1.3.</span> <span class="nav-text">Balance-tcp</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Commands"><span class="nav-number">1.4.</span> <span class="nav-text">Commands</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%89%B5%E9%80%A0-bonding"><span class="nav-number">1.4.1.</span> <span class="nav-text">創造 bonding</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%94%B9%E8%AE%8A-bonding-mode"><span class="nav-number">1.4.2.</span> <span class="nav-text">改變 bonding mode</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%9C%8B-bonding-%E7%9B%B8%E9%97%9C%E8%B3%87%E8%A8%8A"><span class="nav-number">1.4.3.</span> <span class="nav-text">看 bonding 相關資訊</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Testing"><span class="nav-number">1.5.</span> <span class="nav-text">Testing</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B8%AC%E8%A9%A6%E9%85%8D%E5%82%99%E5%A6%82%E4%B8%8B"><span class="nav-number">1.5.1.</span> <span class="nav-text">測試配備如下</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B8%AC%E8%A9%A6%E6%8B%93%E6%A8%B8%E4%B8%80"><span class="nav-number">1.5.2.</span> <span class="nav-text">測試拓樸一</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B8%AC%E8%A9%A6%E6%8B%93%E6%A8%B8%E4%BA%8C"><span class="nav-number">1.5.3.</span> <span class="nav-text">測試拓樸二</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E5%BF%83%E5%BE%97"><span class="nav-number">1.6.</span> <span class="nav-text">個人心得</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%B6%E4%BB%96"><span class="nav-number">1.7.</span> <span class="nav-text">其他</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">2.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/openvswitch-bonding.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Understanding the OpenvSwitch Bonding | Hwchiu Learning Note">
+      <meta itemprop="description" content="這篇文章要跟大家分享在 OpenvSwitch 裡面內建的 Bonding 模式，相對於傳統 Linux Kernel 自帶的六種模式，OpenvSwitch 只有提供三種模式。這三種模式的用途以及分配的方式都完全不同，完全取決於使用者本身的環境需求，來判斷自行的環境需要採用哪種模式，有單純的 Active-backup 模式，也有 Active-Active 的模式。再 Active-Active 的模式中要如何去分配封包，可以針對 Layer2 也可以針對 Layer3/4 的環境來使用，這部份就是依賴管理員去思考的。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Understanding the OpenvSwitch Bonding
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2015-10-03 13:32:00" itemprop="dateCreated datePublished" datetime="2015-10-03T13:32:00+08:00">2015-10-03</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">這篇文章要跟大家分享在 OpenvSwitch 裡面內建的 Bonding 模式，相對於傳統 Linux Kernel 自帶的六種模式，OpenvSwitch 只有提供三種模式。這三種模式的用途以及分配的方式都完全不同，完全取決於使用者本身的環境需求，來判斷自行的環境需要採用哪種模式，有單純的 Active-backup 模式，也有 Active-Active 的模式。再 Active-Active 的模式中要如何去分配封包，可以針對 Layer2 也可以針對 Layer3/4 的環境來使用，這部份就是依賴管理員去思考的。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>Openvswitch 目前 (2.3.1) 總共支援 3種bonding mode，分別是</p>
+<ul>
+<li>Active-backup</li>
+<li>balance-slb</li>
+<li>balance-tcp</li>
+</ul>
+<h2 id="Active-backup"><a href="#Active-backup" class="headerlink" title="Active-backup"></a>Active-backup</h2><p>這種 mode 的用途主要在於穩定，平常只會使用 bonding 中的其中一條 link 進行傳輸，當該 link down 時，會馬上切換到其他 link 繼續傳輸。本質上沒有辦法提升 throughput。</p>
+<h2 id="Balance-slb"><a href="#Balance-slb" class="headerlink" title="Balance-slb"></a>Balance-slb</h2><p>這種 mode 的 hash 方式是根據封包的 source MAC + vlan tag來處理，可以參考此篇<a target="_blank" rel="noopener" href="http://openvswitch.org/pipermail/dev/2011-July/010028.html">文章</a>有更詳細的說明</p>
+<h2 id="Balance-tcp"><a href="#Balance-tcp" class="headerlink" title="Balance-tcp"></a>Balance-tcp</h2><p>這種 mode 的 hash 是根據封包的 L2&#x2F;L3&#x2F;L4 header 來處理的，所以每條 connection 可能會走不同的 link 出去，但是相同 connection 則會一直固定以避免發生 out of order 之類的事情。</p>
+<p>註: 如果使用 linux 本身的 round-robin bonding 則可以讓一條 connction 走不同的 link，兩條 1G 的link大概可以衝到 1.5G左右</p>
+<p>對於 Balance-slb 以及 Balance-tcp 來說，這邊還能夠再增加是否要開啟 LACP (802.3ad) 的設定。<br>當開啟 LACP 後，會使用 balance-slb 或是 balance-tcp 的 hash method 當作其分配封包的方式。<br>唯一要注意的是 balance-tcp 一定要搭配 LACP 才可以使用。</p>
+<h2 id="Commands"><a href="#Commands" class="headerlink" title="Commands"></a>Commands</h2><h3 id="創造-bonding"><a href="#創造-bonding" class="headerlink" title="創造 bonding"></a>創造 bonding</h3><ul>
+<li>ovs-vsctl add-br my_test</li>
+<li>ovs-vsctl add-bond my_test bond0 eth0 eth1 eth2</li>
+</ul>
+<p>此指令會在 my_test 此 bridge 上面創造一個 bonding interface <em>bond0</em>，此 bonding interface 會將 eth0, eth1, eth2 給綁起來</p>
+<h3 id="改變-bonding-mode"><a href="#改變-bonding-mode" class="headerlink" title="改變 bonding mode"></a>改變 bonding mode</h3><p>預設的 bonding mode 是 active-back，可以再創造的時候設定或是之後再改變</p>
+<ul>
+<li>ovs-vsctl add-bond my_test bond0 eth0 eth1 eth2 bond_mode&#x3D;balance-slb</li>
+<li>ovs-vsctl set port my_test bond_mode&#x3D;balance-slb</li>
+</ul>
+<h3 id="看-bonding-相關資訊"><a href="#看-bonding-相關資訊" class="headerlink" title="看 bonding 相關資訊"></a>看 bonding 相關資訊</h3><ul>
+<li>ovs-appctl bond&#x2F;show bond0</li>
+<li>ovs-appctl bond&#x2F;list bond0</li>
+<li>ovs-appctl bond&#x2F;hash bond0 (可以看 hash 對應的 slave interface)</li>
+<li>ovs-appctl bond&#x2F;migrate (能夠將某 hash 從某slave 搬移到別的slave)</li>
+</ul>
+<h2 id="Testing"><a href="#Testing" class="headerlink" title="Testing"></a>Testing</h2><h3 id="測試配備如下"><a href="#測試配備如下" class="headerlink" title="測試配備如下"></a>測試配備如下</h3><ul>
+<li>HP ProCurve Switch 2824 (J4903A)<ul>
+<li>針對 LACP 的實驗，必須要在這邊開啟 LACP</li>
+</ul>
+</li>
+<li>Linux PC *1</li>
+<li>Windows PC *2</li>
+</ul>
+<h3 id="測試拓樸一"><a href="#測試拓樸一" class="headerlink" title="測試拓樸一"></a>測試拓樸一</h3><img class="left" src="http://i.imgur.com/RbsM1rF.png">
+
+<ul>
+<li>linux PC 上面安裝 OpenvSwitch，並且與 HP Switch 以兩個 1G 的 port 進行 bonding。</li>
+<li>兩台 Windows PC 都連接在 HP Switch</li>
+<li>Linux PC 與 Windows PC 以 iperf 作為產生流量的工具</li>
+<li>TX 測試<ul>
+<li>   linux PC 跑 iperf client (-P4) 分別打到兩台 windows PC</li>
+<li>windows PC 分別跑 iperf server</li>
+</ul>
+</li>
+<li>RX 測試<ul>
+<li>   linux PC 跑 iperf server</li>
+<li>windows PC 分別跑 iperf client，分別用 iperf -P4 去連接 linux PC</li>
+</ul>
+</li>
+<li>實驗數據 (TX、RX是分開跑)<br><img src="http://i.imgur.com/nDNFI3L.png"><ul>
+<li>數據分析方式請看最後面</li>
+</ul>
+</li>
+<li>分析<ul>
+<li>Active-backup 就只有用一條link傳輸，沒有辦法達到 speed up 的效果</li>
+<li>Balance-slb without lacp 因為我們的 source mac 都是 linuxPC 本身，所以也只會用一條 link 來傳輸，本身沒有任何幫助</li>
+<li>Balance-slb with lacp 因為有打開 LACP 的功能，所以從 switch 回來的封包會分兩個 link 去送，所以 RX 可以看到有明顯的上升，大概1.9G左右</li>
+<li>Balance-tcp with lacp 因為是根據 L2&#x2F;L3&#x2F;L4 來進行 hash，所以同一個 Host 發出的不同 connection 可以分散在不同 link上，所以 TX 的速度也有明顯上升</li>
+</ul>
+</li>
+</ul>
+<h3 id="測試拓樸二"><a href="#測試拓樸二" class="headerlink" title="測試拓樸二"></a>測試拓樸二</h3><img class="left" src="http://i.imgur.com/Fm3Coea.png">
+- linux PC 上面安裝 OpenvSwitch，並且與 HP Switch 以兩個 1G 的 port 進行 bonding。
+- linux PC 上面設定兩個獨立的 network namespace，並且把此兩個 NS 的給掛到 OpenvSwitch 上面
+- 兩台 Windows PC 都連接在 HP Switch
+- Linux PC 上的 NS 與 Windows PC 以 iperf 作為產生流量的工具
+- TX 測試
+    -	NS 分別跑 iperf client (-P4)
+  - windows PC 分別跑 iperf server
+  - 一個 NS 對應一個 Windows PC
+- RX 測試
+    -	windows PC 分別跑 iperf client (-P4)
+  - NS 分別跑 iperf server
+  - 一個 NS 對應一個 Windows PC
+- 實驗數據 (TX、RX是分開跑)
+ - 數據分析方式請看最後面
+![](http://i.imgur.com/Scvj1Hp.png)
+- 分析
+  - Balance-slb without lacp 因為我們的 source mac 是兩台不同的 NS ，所以有機會兩台 NS 的 MAC會被 hash 到不同的 link，所以 TX 的速度也有明顯上升
+  - Balance-slb with lacp TX 方面理由如上， RX是因為 LACP 而加速
+  - Balance-tcp with lacp 理由如同實驗一
+
+
+<h2 id="個人心得"><a href="#個人心得" class="headerlink" title="個人心得"></a>個人心得</h2><ul>
+<li>只有一台 host 本身的話，其實跑 OVS 的bonding沒有太大效果，除非你外面有支援 LACP的switch 可以用，不然就直接用 linux 原先的 XOR 之類的hash就好</li>
+<li>若是在多 VM 的環境下，這時候有 balance-slb 與 balance-tcp 可以考慮(假設想要 speed up)，這兩個主要考慮的點在於<br>使用 balance-slb 的話，會讓同一個 VM 的所有流量都走同一個 interface 出去，所以若當前其他 VM 都閒置的情況下，該 VM 還是只能用到一條 link 的資源。<br>若採用 balance-tcp 的話，則會依照 connction 來分，所以不論何種情況都能夠盡量使用每條 link 的資源</li>
+</ul>
+<h2 id="其他"><a href="#其他" class="headerlink" title="其他"></a>其他</h2><ul>
+<li>流量的觀察方式是在 linux PC 上面透過 &#x2F;proc&#x2F;net&#x2F;dev 週期性觀察兩張 slave interface 的 TX&#x2F;RX counter計算得知，週期性為一秒。</li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/SDN/" rel="tag"># SDN</a>
+              <a href="/tags/Openflow/" rel="tag"># Openflow</a>
+              <a href="/tags/OpenvSwitch/" rel="tag"># OpenvSwitch</a>
+              <a href="/tags/Bonding/" rel="tag"># Bonding</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/bluze-5x.html" rel="prev" title="Bluez 5.x ">
+                  <i class="fa fa-chevron-left"></i> Bluez 5.x 
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/netfilter-nfqueue.html" rel="next" title="NFQUEUE drop UDP packets">
+                  NFQUEUE drop UDP packets <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

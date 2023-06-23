@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="除了三大標準 CRI, CNI, CSI 之外， kubernetes 本身也有自行時做一些方式來擴充整個叢集的功能，而本文要介紹的就是 Device Plugin 這個擴充功能，這個功能最著名的使用方式我想就是 GPU運算了，透過 Device Plugin, 可以讓不同 GPU 廠商都能夠自行實作相關的方式把 GPU 跟運算資源結合並且透過 kubernetes內建的 scheduler 等有">
+<meta property="og:type" content="article">
+<meta property="og:title" content=" Device Plugin - Introduction">
+<meta property="og:url" content="https://www.hwchiu.com/k8s-device-plugin.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="除了三大標準 CRI, CNI, CSI 之外， kubernetes 本身也有自行時做一些方式來擴充整個叢集的功能，而本文要介紹的就是 Device Plugin 這個擴充功能，這個功能最著名的使用方式我想就是 GPU運算了，透過 Device Plugin, 可以讓不同 GPU 廠商都能夠自行實作相關的方式把 GPU 跟運算資源結合並且透過 kubernetes內建的 scheduler 等有">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2019-10-07T21:21:44.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.625Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="ITHOME">
+<meta property="article:tag" content="DevicePlugin">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/k8s-device-plugin.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/k8s-device-plugin.html","path":"k8s-device-plugin.html","title":" Device Plugin - Introduction"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title> Device Plugin - Introduction | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E9%96%8B%E7%99%BC%E7%90%86%E7%94%B1"><span class="nav-number">2.</span> <span class="nav-text">開發理由</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8%E6%83%85%E5%A2%83"><span class="nav-number">3.</span> <span class="nav-text">使用情境</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%8F%BE%E5%AD%98%E8%A7%A3%E6%B1%BA%E6%96%B9%E6%A1%88"><span class="nav-number">4.</span> <span class="nav-text">現存解決方案</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8%E6%B5%81%E7%A8%8B"><span class="nav-number">5.</span> <span class="nav-text">使用流程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%96%8B%E7%99%BC%E8%80%85"><span class="nav-number">5.1.</span> <span class="nav-text">開發者</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8%E8%80%85"><span class="nav-number">5.2.</span> <span class="nav-text">使用者</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">6.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">7.</span> <span class="nav-text">個人資訊</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%83%E8%80%83"><span class="nav-number">8.</span> <span class="nav-text">參考</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/k8s-device-plugin.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content=" Device Plugin - Introduction | Hwchiu Learning Note">
+      <meta itemprop="description" content="除了三大標準 CRI, CNI, CSI 之外， kubernetes 本身也有自行時做一些方式來擴充整個叢集的功能，而本文要介紹的就是 Device Plugin 這個擴充功能，這個功能最著名的使用方式我想就是 GPU運算了，透過 Device Plugin, 可以讓不同 GPU 廠商都能夠自行實作相關的方式把 GPU 跟運算資源結合並且透過 kubernetes內建的 scheduler 等有效地使用這些資源。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+           Device Plugin - Introduction
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-10-08 05:21:44" itemprop="dateCreated datePublished" datetime="2019-10-08T05:21:44+08:00">2019-10-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">除了三大標準 CRI, CNI, CSI 之外， kubernetes 本身也有自行時做一些方式來擴充整個叢集的功能，而本文要介紹的就是 Device Plugin 這個擴充功能，這個功能最著名的使用方式我想就是 GPU運算了，透過 Device Plugin, 可以讓不同 GPU 廠商都能夠自行實作相關的方式把 GPU 跟運算資源結合並且透過 kubernetes內建的 scheduler 等有效地使用這些資源。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>探討完畢運算，網路，儲存三大資源的標準介面 <strong>CRI, CNI, CSI</strong> 之後，接下來要探討的是另外一個可以擴充 <strong>kubernetes</strong> 本身功能的框架 <strong>device plugin</strong>。</p>
+<p>這邊接下來都會使用 <strong>框架</strong> 來形容，是因為 <strong>device plugin</strong> 本身就是 <strong>kubernetes</strong> 自行實作且專屬於 <strong>kubernetes</strong> 使用的。 不同於上述的 <strong>CRI,CNI,CSI</strong> 這類型的標準其本身是獨立設計，不把 <strong>kubernetes</strong> 當作唯一的使用者，因此設計上就會盡可能彈性與抽象。</p>
+<p>而 <strong>device plugin</strong> 框架作為 <strong>kubernetes</strong> 單獨使用，因此之後介紹的開發過程以及運作過程就會與 <strong>kubernetes</strong>，準確的說 <strong>kubelet</strong> 息息相關</p>
+<h1 id="開發理由"><a href="#開發理由" class="headerlink" title="開發理由"></a>開發理由</h1><p><strong>device plugin</strong> 開發出來的理由與之前提過的各種標準雷同，都是為了將程式碼分離，提供第三方解決方案提供者更靈活與彈性的開發流程，同時如果可以避開 <strong>kubernetes</strong> 本身邏輯的程式碼，專注於自身解決方案去開發的話又更好不過了。</p>
+<p>早期的 <strong>kubernetes</strong> 針對運算資源的分配時的資源選擇，只有 <strong>CPU</strong> 以及 <strong>Memory</strong> 兩個最基本的硬體資源可以使用。然而除了這兩種資源之外，過往的各種系統應用場景也發展出了根據不同特性與需求的 <strong>device</strong>。 譬如</p>
+<ol>
+<li>GPU</li>
+<li>FPGA</li>
+<li>Smart NIC</li>
+<li>…等</li>
+</ol>
+<p>為了能夠提供一個更加方便的方式讓這些 <strong>device</strong> 被加入到 <strong>kubernetes</strong> 的操作邏輯中且能夠讓運算資源<strong>Pod</strong> 可以根據輕易地使用這些 <strong>device</strong>，更重要的是這些第三方解決方案提供者能夠用最簡單的方式來完成這一連串的概念。 於是 <strong>device plugin</strong> 框架因應而生。</p>
+<p>該框架希望能夠讓第三方解決方案提供者專注於下列的功能就好，其餘與 <strong>kubernetes</strong> 的整合與使用就交由框架本身處理。</p>
+<ol>
+<li>確認相關 <strong>device</strong> 的資訊，譬如數量以及狀態</li>
+<li>讓該 <strong>device</strong> 有能夠被 <strong>containers</strong> 存取</li>
+<li>定期確認這些 <strong>devices</strong> 的資訊，譬如是否可用，是否運作正常</li>
+</ol>
+<p>對於使用者來說，希望可以讓整個使用流程簡單且輕鬆</p>
+<ol>
+<li>部署 <strong>device plugin</strong> 解決方案的 <strong>Pod</strong> 去處理這些狀態<br>譬如 kubectl create -f <a target="_blank" rel="noopener" href="http://vendor.com/device-plugin-daemonset.yaml">http://vendor.com/device-plugin-daemonset.yaml</a></li>
+<li>部署運算資源的時候，可以透過 <strong>node selector</strong> 的方式去描述該運算資源需要多少個 <strong>device</strong> 來使用<br>譬如每個 <strong>node</strong> 上面都會被打上 <strong>vendor-domain&#x2F;vendor-device</strong> 類似的標籤，這時候就可以透過這些標籤告訴 <strong>scheduler</strong> 要如何挑選符合資格的節點並且透過 <strong>device plugin</strong> 來掛載相關的資源到 <strong>Pod</strong> 裡面。</li>
+</ol>
+<h1 id="使用情境"><a href="#使用情境" class="headerlink" title="使用情境"></a>使用情境</h1><p>什麼情況下使用者會想要使用 <strong>device plugin</strong> ? 官方列舉了三個情境</p>
+<ol>
+<li>想要使用特別的 <strong>device</strong> 裝置是官方沒有內建支援的，譬如 <strong>GPU</strong>, <strong>InfiniBand</strong>, <strong>FPGE</strong> 等</li>
+<li>可以再不撰寫任何 <strong>kubernetes</strong> 相關程式碼的情況下直接使用這些 <strong>devices</strong></li>
+<li>希望有一個一致且相容的解決方案可以讓使用者於不同的 <strong>kubernetes</strong> 叢集中都能夠順利的使用這些跟硬體有關的 <strong>devices</strong>。</li>
+</ol>
+<p>我認為這三種情境就已經充分描述的所有可能使用的情境，事實上大多數人的會使用這些的確是因為業務需求，使用情境而需要這些特別的 <strong>devices</strong>。</p>
+<h1 id="現存解決方案"><a href="#現存解決方案" class="headerlink" title="現存解決方案"></a>現存解決方案</h1><p>如同前述的標準一樣，通常負責維護的相關文件中都會記載目前有被收錄的解決方案，當然也有許多沒有被收錄的，因為這些紀錄並不是官方主動去收集，而是解決方案必須要自己發送請求將自己的解決方案加入到官方的文件之中，所以有些解決方案沒有申請的話就不會顯示於官方資料中。</p>
+<p>根據目前<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/#examples">官方文件</a> 的記載，目前有被收錄的 <strong>device plugin</strong> 如下</p>
+<ul>
+<li>The AMD GPU device plugin</li>
+<li>The Intel device plugins for Intel GPU, FPGA and QuickAssist devices</li>
+<li>The KubeVirt device plugins for hardware-assisted virtualization</li>
+<li>The NVIDIA GPU device plugin</li>
+<li>The NVIDIA GPU device plugin for Container-Optimized OS</li>
+<li>The RDMA device plugin</li>
+<li>The Solarflare device plugin</li>
+<li>The SR-IOV Network device plugin</li>
+<li>The Xilinx FPGA device plugins for Xilinx FPGA devices</li>
+</ul>
+<p>看過去就是滿滿特殊用途的 <strong>device</strong>，其中我覺得 <strong>GPU</strong> 應該是近期最熱門的選項，隨者 <strong>AI</strong> 科技的發展，愈來愈多人踏入該領域並且嘗試各式各樣的操作，而 <strong>GPU</strong> 作為強力計算的基本需求，同時考慮到現在 <strong>kubernetes</strong> 這麼熱門，是否有辦法把這兩者結合打造出一個基於 <strong>AI</strong> 開發或是應用環境的 <strong>kubernetes</strong> 叢集也是一個有趣的方向。</p>
+<p>之後的篇章會挑幾個有趣的 <strong>plugin</strong> 跟大家介紹一下其用途及用法。</p>
+<h1 id="使用流程"><a href="#使用流程" class="headerlink" title="使用流程"></a>使用流程</h1><p>接下來根據<a target="_blank" rel="noopener" href="https://github.com/kubernetes/community/blob/master/contributors/design-proposals/resource-management/device-plugin.md#vendor-story">官方開發文件</a>，我們可以看一下一個使用情境以及用法會長怎麼樣，</p>
+<h2 id="開發者"><a href="#開發者" class="headerlink" title="開發者"></a>開發者</h2><p>對於開發者來說，基於 <strong>gRPC</strong> 的介面去實現相關功能(詳細的部分下篇文章會探討)，譬如說</p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">service DevicePlugin &#123;</span><br><span class="line">	<span class="comment">// returns a stream of []Device</span></span><br><span class="line">	rpc ListAndWatch(Empty) returns (stream ListAndWatchResponse) &#123;&#125;</span><br><span class="line">	rpc Allocate(AllocateRequest) returns (AllocateResponse) &#123;&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>開發者基於這些介面去開發一個應用程式，該程式滿足上述的介面的功能，譬如回報當前 <strong>device</strong> 的狀態，根據需求去分配可用的 <strong>device</strong>。</p>
+<p>接者開發者將該應用程式部署到 <strong>kubernetes</strong> 叢集之中，並且透過 <strong>unix socket</strong> 的方式與 <strong>kubelet</strong> 溝通，該路徑通常是 **&#x2F;var&#x2F;lib&#x2F;kubelet&#x2F;device-plugins&#x2F;**，這個路徑跟之前研究 <strong>CSI</strong> 時候所觀察到的路徑非常類似，都是給 <strong>kubelet</strong> 使用的。</p>
+<p>一但 <strong>device plugin</strong> 部署到節點之中，主動透過 gRPC 通知 <strong>kubelet</strong> 目前有新的 <strong>device plugin</strong> 安裝到系統中，並且準備註冊，一但這個步驟完畢後，整個 kubernetes 叢集中就知道這個 <strong>device plugin</strong> 的存在，並且使用者就可以開始使用了。</p>
+<p>舉例來說，假設該開發者開了一個 <strong>hwchiu&#x2F;test-dev</strong> 的 <strong>device</strong>，則下來都可以透過 <strong>kubelet</strong> 去查看每個節點上 <strong>hwchiu&#x2F;test-dev</strong> 此 <strong>device</strong> 的總共數量以及當前可用數量。</p>
+<h2 id="使用者"><a href="#使用者" class="headerlink" title="使用者"></a>使用者</h2><p>對於使用者來說，使用起來的方式非常簡單，就是於 <strong>Pod</strong> 格式中透過 <strong>resources</strong> 的方式去定義需要什麼 <strong>device</strong> 且需要多少個</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">hwchiu-test-dev-pod</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">test-pod</span></span><br><span class="line">      <span class="attr">image:</span> <span class="string">hwchiu/netutils:latest</span></span><br><span class="line">      <span class="attr">workingDir:</span> <span class="string">/root</span></span><br><span class="line">      <span class="attr">resources:</span></span><br><span class="line">        <span class="attr">limits:</span></span><br><span class="line">          <span class="attr">hwchiu/test-dev:</span> <span class="number">1</span> <span class="comment"># requesting a devivce</span></span><br></pre></td></tr></table></figure>
+
+<p>當使用者提交上述的資源描述到 kubernetes 之中時，kubernetes scheduler 搭配 kubelet 就會去詢問所有節點上的 <strong>device plugin</strong>，透過上述的  <strong>gRPC</strong> 介面去詢問當前有多少個可用 <strong>device</strong> 並且找出所有符合該需求的節點。<br>當 <strong>schedukler</strong> 選定節點之後，就會再度透過該節點的 <strong>kubelet</strong> 透過 <strong>gRPC</strong> 去戳相關的 <strong>device plugin</strong> 應用程式去創立一個資源供目標的 <strong>Pod</strong> 使用。</p>
+<p>整理一下流程就是:</p>
+<ol>
+<li>Pod資源請求</li>
+<li>Scheduler 搭配 kubelet 去尋找所有符合需求的 節點</li>
+<li>Scheduler 選定一個節點部署</li>
+<li>該節點的 kubelet 呼叫 <strong>device plugin</strong> 解決方案去分配需求數量的 <strong>device plugin</strong> 供 <strong>Pod</strong> 使用。</li>
+</ol>
+<p>當然當 <strong>pod</strong> 結束之後會有相對應的函式可以被呼叫來進行資源回收。</p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>本篇文章簡單簡述了一下關於 <strong>Device Plugin</strong> 的概念，並且簡單敘述了一下工作流程，<br>下一篇文章會針對 <strong>device plugin</strong> 本身的運作原理跟架構進行更仔細的討論。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://medium.com/kokster/kubernetes-mount-propagation-5306c36a4a2d">https://medium.com/kokster/kubernetes-mount-propagation-5306c36a4a2d</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/kubernetes/community/blob/master/contributors/design-proposals/resource-management/device-plugin.md">https://github.com/kubernetes/community/blob/master/contributors/design-proposals/resource-management/device-plugin.md</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+              <a href="/tags/DevicePlugin/" rel="tag"># DevicePlugin</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/csi-iii.html" rel="prev" title="CSI 雜談">
+                  <i class="fa fa-chevron-left"></i> CSI 雜談
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/k8s-device-plugin-implement.html" rel="next" title="Device Plugin - Implementation">
+                  Device Plugin - Implementation <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

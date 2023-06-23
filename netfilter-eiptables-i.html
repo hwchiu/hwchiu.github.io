@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本文是 iptables&#x2F;ebtables 系列分享文的第一篇，會先著重於 iptables&#x2F;ebtables 本身的架構，更準確的是 netfilter 的架構介紹，從 User-Space 到 Kernel-Space 的組成元件，並且簡單敘述一下整體的運作流程。最後開始介紹 ebtables 這個存在但是較少人知道的工具，不同於 iptables, ebtables 更專注於基於 MAC 地">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[netfilter] Introduction to ebtables">
+<meta property="og:url" content="https://www.hwchiu.com/netfilter-eiptables-i.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文是 iptables&#x2F;ebtables 系列分享文的第一篇，會先著重於 iptables&#x2F;ebtables 本身的架構，更準確的是 netfilter 的架構介紹，從 User-Space 到 Kernel-Space 的組成元件，並且簡單敘述一下整體的運作流程。最後開始介紹 ebtables 這個存在但是較少人知道的工具，不同於 iptables, ebtables 更專注於基於 MAC 地">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/WlcgN7L.png">
+<meta property="og:image" content="https://i.imgur.com/q1SSG2l.png">
+<meta property="article:published_time" content="2018-09-12T18:22:06.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.632Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="Kernel">
+<meta property="article:tag" content="Netfilter">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/WlcgN7L.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/netfilter-eiptables-i.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/netfilter-eiptables-i.html","path":"netfilter-eiptables-i.html","title":"[netfilter] Introduction to ebtables"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>[netfilter] Introduction to ebtables | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Introduction"><span class="nav-number">2.</span> <span class="nav-text">Introduction</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#User-Space"><span class="nav-number">2.1.</span> <span class="nav-text">User Space</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Kernel-Space"><span class="nav-number">2.2.</span> <span class="nav-text">Kernel Space</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Network-Interface-Card"><span class="nav-number">2.3.</span> <span class="nav-text">Network Interface Card</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Workflow"><span class="nav-number">2.4.</span> <span class="nav-text">Workflow</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#iptables-x2F-ebtables"><span class="nav-number">3.</span> <span class="nav-text">iptables&#x2F;ebtables</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Component"><span class="nav-number">3.1.</span> <span class="nav-text">Component</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Table"><span class="nav-number">3.2.</span> <span class="nav-text">Table</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Chain"><span class="nav-number">3.3.</span> <span class="nav-text">Chain</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Match"><span class="nav-number">3.4.</span> <span class="nav-text">Match</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Target"><span class="nav-number">3.5.</span> <span class="nav-text">Target</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ebtables"><span class="nav-number">4.</span> <span class="nav-text">ebtables</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Table-1"><span class="nav-number">4.1.</span> <span class="nav-text">Table</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Chain-1"><span class="nav-number">4.2.</span> <span class="nav-text">Chain</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Match-1"><span class="nav-number">4.3.</span> <span class="nav-text">Match</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Target-1"><span class="nav-number">4.4.</span> <span class="nav-text">Target</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Summary"><span class="nav-number">4.5.</span> <span class="nav-text">Summary</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Reference"><span class="nav-number">5.</span> <span class="nav-text">Reference</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number"></span> <span class="nav-text">個人資訊</span></a></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/netfilter-eiptables-i.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="[netfilter] Introduction to ebtables | Hwchiu Learning Note">
+      <meta itemprop="description" content="本文是 iptables/ebtables 系列分享文的第一篇，會先著重於 iptables/ebtables 本身的架構，更準確的是 netfilter 的架構介紹，從 User-Space 到 Kernel-Space 的組成元件，並且簡單敘述一下整體的運作流程。最後開始介紹 ebtables 這個存在但是較少人知道的工具，不同於 iptables, ebtables 更專注於基於 MAC 地址的 Layer2 轉發。 文章最後介紹了 ebtables 的規則組成，並且將 ebtables 規則的處理順序以圖表的方式呈現，讓大家更容易理解在 Layer2 轉發時，該怎麼透過 `ebtables` 去設定相關的規則來處理封包。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          [netfilter] Introduction to ebtables
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-09-13 02:22:06" itemprop="dateCreated datePublished" datetime="2018-09-13T02:22:06+08:00">2018-09-13</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本文是 iptables/ebtables 系列分享文的第一篇，會先著重於 iptables/ebtables 本身的架構，更準確的是 netfilter 的架構介紹，從 User-Space 到 Kernel-Space 的組成元件，並且簡單敘述一下整體的運作流程。最後開始介紹 ebtables 這個存在但是較少人知道的工具，不同於 iptables, ebtables 更專注於基於 MAC 地址的 Layer2 轉發。 文章最後介紹了 ebtables 的規則組成，並且將 ebtables 規則的處理順序以圖表的方式呈現，讓大家更容易理解在 Layer2 轉發時，該怎麼透過 `ebtables` 去設定相關的規則來處理封包。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h2 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h2><p>再之前的 <code>kubernetes server</code> 系列文中有稍微介紹過 <code>iptables</code> 的一些用法，以及如何透過 <code>iptables</code> 來完成 <code>kubernetes service</code>. 若有任何不熟悉的概念可以重新閱讀一次該系列文章.</p>
+<ul>
+<li><a href="https://www.hwchiu.com/kubernetes-service-ii.html">[Kubernetes] How To Implement Kubernetes Service - ClusterIP</a></li>
+</ul>
+<p>回到主題，這次想要跟大家慢慢介紹的就是 <code>iptables</code> 這個常見也常用的工具。<br>網路上其實已經可以搜尋到非常多關於 <code>iptables</code> 相關的文章。<br>不論是基本介紹，或是一些相關用法，其實都有滿多的資源可以學習，不過我認為這些文章都散落各地，所以想要整理一下這些資訊並且統整起來做一個一系列的<code>iptables</code>文章。<br>這個系列文的內容大致上如下</p>
+<ol>
+<li>iptables&#x2F;ebtables 的基本架構介紹，包含下列各種組成的概念<ul>
+<li>Target&#x2F;Chain&#x2F;Table&#x2F;Match</li>
+</ul>
+</li>
+<li>透過 <code>docker</code> 預設網路<code>Bridge</code>的情況來解釋，容器與外界網路，容器與容器彼此之間的網路傳輸，實際上再 <code>iptables</code> 中到底會怎麼運作，如果想要處理這些封包，該怎麼設定相關規則。</li>
+<li>介紹相關 <code>iptables</code> 常見的使用問題</li>
+<li>最後則是會跟大家介紹，如何自己手動撰寫一個 <code>iptables</code> 擴充模組，讓你的<code>iptables</code>擁有獨一無二的功能</li>
+</ol>
+<p>本文則是系列文第一篇，將著重於<code>netfilter</code>的架構介紹，讓大家對於<code>netfilter</code> 的概念有個基本的認知與瞭解。<br>最後則會介紹一下 <code>ebtables</code> 的概念以及封包傳遞過程。</p>
+<p>相關系列文章</p>
+<ul>
+<li><a href="https://www.hwchiu.com/netfilter-eiptables-ii.html">[netfilter] Introduction to iptables</a></li>
+<li><a href="https://www.hwchiu.com/netfilter-eiptables-iii.html">[netfilter] Dig Into Docker Bridge Network By iptables&#x2F;ebtables</a></li>
+</ul>
+<h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><p>一般我們常常在講的 <code>iptables</code>，其實背後真正的專案以及相關技術都跟 <code>netfilter</code> 密切相關。</p>
+<p><code>netfilter</code> 的<a target="_blank" rel="noopener" href="https://www.netfilter.org/">官方網站</a> 上面有非常詳細的介紹，同時有非常多相關的專案。<br>譬如從使用者會使用的指令到給使用者開發的函式庫全部都該網站上面找到，而今天我們的主角 <code>iptables</code> 則是屬於<code>給使用者使用的指令</code>.</p>
+<p>下圖是一個可以簡單描述整個 <code>iptables/netfilter</code> 的架構圖。<br>整個系統的組成分成三大部分，分別是 <code>user-space</code>,<code>kernel-space</code> 以及 <code>network interface cards</code>.</p>
+<p><img src="https://i.imgur.com/WlcgN7L.png" alt="Imgur"></p>
+<h3 id="User-Space"><a href="#User-Space" class="headerlink" title="User Space"></a>User Space</h3><p>大家最常見也最熟悉的 <code>iptables</code> 以及比較少人知道的 <code>ebtalbes</code> 都是所謂的 <code>user-space</code> 的應用程式。<br>這類的應用程式提供了一個友善且易於操作的環境讓<code>使用者/系統管理者</code>有辦法去對<code>kernel</code>的 <code>netfilter</code> 進行操作。</p>
+<p>除了 <code>netfilter</code> 專案本身提供的工具之外，使用者也可以自行的透過相關的程式語言函式庫來與 <code>kernel</code> 內的 <code>netfilter</code> 溝通。</p>
+<p>與<code>kernel</code>的溝通方面，一般都是採用 <code>system call</code> 的方式來溝通，針對一些特別的應用甚至可以採用 <code>netlink</code> 的方式去接收封包來進行二次處理。</p>
+<p>對二次處理有興趣的人可以搜尋 <code>NFQUEUE</code> 相關的資源</p>
+<h3 id="Kernel-Space"><a href="#Kernel-Space" class="headerlink" title="Kernel Space"></a>Kernel Space</h3><p>整個 <code>netfilter</code> 的精華與操作基本上都是在 <code>kernel</code> 層級去完成的。再此 <code>netfilter</code> 的子系統內，包含了所有使用者透過 <code>iptables</code> 所傳達的所有指令，譬如<code>丟棄所有來自a.b.c.d的封包</code> 這種類似的規則，全部都會存在 <code>kernel</code> 內。</p>
+<p>這邊值得注意的是，因為 <code>kernel</code> 每次重新開機後，上次存在記憶體內的資訊都會消失，這意味者所有<code>iptables</code>所傳達的命令都會消失，因此才會有所謂的 <code>iptables save/restore</code> 等相關的指令然後搭配上 <code>systemd/upstart</code> 等機制來確保每次重新開機後相關的規則都會重新部屬上去。</p>
+<h3 id="Network-Interface-Card"><a href="#Network-Interface-Card" class="headerlink" title="Network Interface Card"></a>Network Interface Card</h3><p>大家會使用 <code>iptables</code> 一定都是想要針對特定的網路封包進行一些處理，而這些網路封包必然伴隨網路設備 <code>Network Interface Card</code> 一同出現。<br>這些設備可以是實體的網路卡，也可以是系統上虛擬出來的，譬如<code>loopback</code>,<code>docker0(bridge0)</code>,<code>tuntap</code>,<code>veth</code> 等各式各樣的虛擬網卡。</p>
+<p>當這些網卡跟 <code>kernel</code> 透過某種關係連結後，從這些網卡<code>進/出</code>的封包就會受到 <code>netfilter</code> 的影響，進而可以透過 <code>iptables</code> 所傳達的規則進行控制與約束</p>
+<h3 id="Workflow"><a href="#Workflow" class="headerlink" title="Workflow"></a>Workflow</h3><ol>
+<li>網卡與系統掛勾，此時 <code>kernel</code> 知道有哪些網卡<strong>Physical&#x2F;Virtaul</strong> 正在系統上</li>
+<li>使用者透過 <code>iptables/ebtables</code> 等工具將相關的規則寫入到 <code>kernel</code> 裡面，此時 <code>kernel netfilter subsystem</code> 內就會有對應的規則。</li>
+<li>當有任何封包從任何網卡內<code>進/出</code>時，這些封包就會被上述已經創立的規則進行比對，並且進行對應的動作。</li>
+</ol>
+<h2 id="iptables-x2F-ebtables"><a href="#iptables-x2F-ebtables" class="headerlink" title="iptables&#x2F;ebtables"></a>iptables&#x2F;ebtables</h2><p>有了上述的基本流程後，我們接下來要專注再<code>user-space</code> 的規則方面，瞭解該怎麼解讀每個規則。</p>
+<p>大部分的人比較少聽到 <code>ebtalbes</code>, 然而為了更加理解容器本身的網路運作原理，因此這邊還是要跟大家介紹一下 <code>ebtalbes</code> 這個工具。</p>
+<h3 id="Component"><a href="#Component" class="headerlink" title="Component"></a>Component</h3><p>規則組成方面，基本上 <code>iptables/ebtables</code> 的概念是一致的，所以為了節省空間，決定一起介紹。</p>
+<p>這邊我們先隨便拿一個常見的 <code>iptables</code> 規則來當做範例</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">iptables -t nat -A POSTROUTING ! -s 10.244.0.0/16 -d 10.244.0.0/16 -j MASQUERADE</span><br></pre></td></tr></table></figure>
+
+<p>上述的規則用中文來說就是<code>我希望來源IP不屬於 10.244.0.0/16, 且目的IP屬於 10.244.0.0/16的封包，都進行 MASQUERADE(SNAT) 這個動作</code></p>
+<p>但是對於整個系統來說，該指令其實可以分成四大部分</p>
+<ol>
+<li>Table: <strong>-t nat</strong></li>
+<li>Chain: <strong>-A POSTROUTING</strong></li>
+<li>Match: <strong>! -s 10.244.0.0&#x2F;16 -d 10.244.0.0&#x2F;16</strong></li>
+<li>TARGET: <strong>-j MASQUERADE</strong></li>
+</ol>
+<p>接下來會針對這四個部分進行說明與介紹</p>
+<h3 id="Table"><a href="#Table" class="headerlink" title="Table"></a>Table</h3><p>首先，我們已經知道整個 <code>iptables/ebtables/netfilter</code> 的運作是由各式各樣的規則所組成的。</p>
+<p>然而每條規則的用途不會完全相同，為了妥善管理與使用，會希望將相同用途的規則放置在相同的 <code>Table</code> 裡面。</p>
+<p>舉例來說，最常見也是大部分指令的預設值, <code>filter</code><br>其功能就如同其名稱一樣，用來進行 <code>filter</code> 相關的規則，譬如將封包丟棄，讓封包通過等常見行為都放置在這個 <code>filter</code> 的 <code>table</code> 中。</p>
+<p>針對上述的範例, <code>-t nat</code> 的意思就是這條規則要放置在 <code>nat</code> 這個<code>Table</code>之中。</p>
+<h3 id="Chain"><a href="#Chain" class="headerlink" title="Chain"></a>Chain</h3><p>Chain 的概念比較複雜，分為所謂的 <code>Build-in Chain</code> 以及使用者自己創立的 <code>Chain</code>.</p>
+<p>使用者創立的 <code>Chain</code> 比較偏向用來管理，而且必須要從 <code>Build-in  Chain</code> 這邊進去，所以這邊還是會比較專注於 <code>Build-in Chain</code> 的介紹。</p>
+<p>Chain 相對於 <code>Table</code> 來說，我覺得可以想成是一個狀態點，該狀態是用來描述該封包當前的階段。</p>
+<p>用比較口語話的說法就是這條<code>iptables</code>規則會再什麼時間點去封包進行匹配。舉 <code>INPUT chain</code> 來說，這個狀態就代表封包準備進入到系統後但是還沒有被對應的應用程式接收。</p>
+<p>以底層的實現來說， <code>Table</code> 與 <code>Chain </code> 彼此是互相連結綁定的。<br>只有特定相關邏輯的 <code>Table</code> 可以再特定時間點上 <code>Chain</code> 去組合成一個常見的 <code>iptables 規則</code></p>
+<p>譬如 <code>filter Table</code> 就可以運行再 <code>INPUT</code> Chain 但是卻不能運行再 <code>PREROUTING Chain</code>.</p>
+<p>實際上會有哪些 <code>Chain</code> 以及哪些 <code>Table</code> 會因為 <code>iptables/ebtables</code> 本身的架構而有所不同，因此會在下面的部份再詳細介紹。</p>
+<p>針對上述的範例 <code>-A POSTROUTING</code> 來看一下，他的意思就是我希望當前這條規則要放到 <code>POSTROUTING</code> 這條 <code>chain</code> 裡面，同時因為 <code>Chain</code> 裡面的規則本身是有<strong>次序性的</strong>, 所以再寫入規則的時候<br>可以使用 <code>-I (insert) 或是 -A (append)</code> 的概念來決定這條新規則的位置。</p>
+<h3 id="Match"><a href="#Match" class="headerlink" title="Match"></a>Match</h3><p>Match 的概念就非常簡單，每個規則都可以去描述符合該規則的封包格式，這部份除了預設的封包格式之外，也有不少擴充模組可以使用。<br>譬如最常見的就是<br><code>-m tcp --dport 53</code> 這種針對 <code>TCP</code> 封包且目標連接埠是<code>53</code>的規則</p>
+<p>回到上述的範例,<strong>! -s 10.244.0.0&#x2F;16 -d 10.244.0.0&#x2F;16</strong> 這個規則希望可以比對封包的來源&#x2F;目的 <code>IP</code> 位置，同時藉由 <code>!</code> 這個符號來反轉比對結果。<br>因此就是所有來源不是 <code>10.244.0.0/16</code> 但是卻要送往 <code>10.244.0.0/16</code> 的封包。</p>
+<p>此外，在 <code>Match</code> 方面，一條規則可以同時使用多個擴充模組來更加強化要比對的規則。</p>
+<h3 id="Target"><a href="#Target" class="headerlink" title="Target"></a>Target</h3><p>最後一個部分，就是當規則符合之後，要進行什麼樣的動作。<br>常見的有 <code>Acceptr</code>,<code>Drop</code> 這種給 <code>filter Table</code> 使用的動作。<br>複雜的甚至可以是修改封包格式，譬如 <code>Source Network Address Translation(SNAT), Destination Network Address Translation(DNAT)</code> 這種。</p>
+<p>回到上述的範例, <strong>-j MASQUERADE</strong>，這邊會透過 <code>-j</code> 的方式描述後面要銜接的參數就是 <code>Target</code>, 而 <code>MASQUERADE</code> 則是一種讓<code>kernel</code>幫你維護的 <code>SNAT</code> 動作。</p>
+<h2 id="ebtables"><a href="#ebtables" class="headerlink" title="ebtables"></a>ebtables</h2><p><code>ebtalbes</code> 相對於 <code>iptables</code> 來說使用的情境比較少，主要是其針對的目標範圍都著重於 <code>Layer2</code> 這層次，也就是 Ethernet Frame 這邊。</p>
+<p>對於大部分的使用者以及管理者來說，通常都是以 <code>IP</code> 為基本單位來進行管理的，然而部分的網路元件設計者，譬如 <a target="_blank" rel="noopener" href="https://github.com/Mirantis/virtlet/blob/master/docs/networking.md"><br>Virtlet, a Kubernetes runtime server</a> 再其架構中就有使用到 <code>ebtables</code> 來幫忙完成特定的功能。</p>
+<p>此外，為了下一篇文章能夠更理解整個 <code>docker bridge network</code> 的傳輸過程，對於 <code>ebtables</code> 還是要有點基本概念，這樣才可以對整體架構有個完整的認識</p>
+<h3 id="Table-1"><a href="#Table-1" class="headerlink" title="Table"></a>Table</h3><p><code>Table</code> 方面，目前的 <code>ebtalbe</code> 總共有三張 <code>tables</code>, 分別是 <code>filter</code>,<code>nat</code> 以及 <code>broute</code>.</p>
+<ol>
+<li><code>filter</code> 則是專注於 <code>Accept/Drop</code> 相關過濾的行為</li>
+<li><code>nat</code>  這邊則專注於針對 <code>MacAddress</code> 相關的轉換</li>
+<li><code>broute</code> 這邊可以用來決定封包到底要進行 <code>Layer2 Bridging</code> 或是 <code>Layer3 Routing</code>。算是一個比較特別的規則。</li>
+</ol>
+<h3 id="Chain-1"><a href="#Chain-1" class="headerlink" title="Chain"></a>Chain</h3><p><code>Chain</code> 的話，再 <code>ebtables</code> 中總共有六條 <code>chain</code>.</p>
+<ul>
+<li><code>brouting</code>: 這個 <code>chain</code> 的執行順序非常的早，基本上是<code>ebtalbes</code> 裡面最早的 <code>chain</code>. 只要當任何 <code>linux bridge</code> 上面的任何一個 <code>port</code> 有收到任何 <code>Frame</code> 進來後，就會到這個<code>Chain</code>裡面去進行比對. 這邊通常不太會去設定，而是都會依賴後續的 <code>Bridging Decision</code>透過<code>Mac Address</code> 去決定封包到底該怎麼走。</li>
+</ul>
+<p>因為 <code>Linux Bridge</code> 本身會有 <code>STP(Spanning Tree Protocol)</code> 的運作，因此只有歸類於可轉發的連接埠才需要去進行這些封包比對。</p>
+<ul>
+<li><p><code>input</code>: 如果今天封包的目標 <code>Mac Address</code> 是 <code>Linux Bridge</code> 本身的話，那封包就會進入到 <code>input chain</code> 來處理。最常見的範例就是 <code>docker</code> 容器想要對不同網段進行存取，會先進入到 <code>gateway</code> 也就是所謂的 <code>linux bridge</code> 本身。</p>
+</li>
+<li><p><code>output</code>:  針對要從 <code>Linux Bridge</code> 離開的封包都會進行處理的<code>Chain</code>，這類型的封包大致上有兩種可能。第一種是主機本身產生的封包，目的就是要從該<code>linux bridge</code>底下的某些 <code>Port</code> 轉發出去，或是該封包是從 <code>linux bridge</code> 的某些 <code>Port</code> 轉發到其他的 <code>Port</code>.</p>
+</li>
+<li><p><code>forward</code>: 針對會被<code>Linux Bridge</code>進行<code>Layer2 Bridging</code> 轉發的封包所進行的 <code>Chain</code>. 基本上同網段的容器間傳輸的封包都會到這個階段。</p>
+</li>
+<li><p><code>prerouting</code>: 這個 <code>Chian</code> 就是其名稱的解讀，<code>Pre-Routing</code>, 再封包進入到 <code>Linux Bridge</code> 後，但是還沒有碰到 <code>Bridging Decision</code> 前可以進行的階段。</p>
+</li>
+<li><p><code>postrouting</code>: 這個 <code>Chian</code> 就是其名稱的解讀，<code>Post-Routing</code>, 再封包準備離開 <code>Linux Bridge</code> 前，但是還沒有碰到 真正的透過網卡送出去前可以進行的階段。</p>
+</li>
+</ul>
+<p>其實對於 <code>ebtables</code> 來說，用 <code>pre-forwarding</code> 以及 <code>post-forwarding</code> 會更貼切，畢竟 <code>routing</code> 是更偏向 <code>Layer3</code> 路由方面的規則。</p>
+<p>這邊因為 <code>iptables</code> 長期的習慣所以在命名方面也就遷就於此</p>
+<h3 id="Match-1"><a href="#Match-1" class="headerlink" title="Match"></a>Match</h3><p>在比對的規則來說， <code>ebtalbes</code> 專至於 <code>Layer2</code> 相關的處理，譬如 <code>unitcast/multicast/broadcast</code>，甚至是 <code>vlan/stp</code> 等<br>封包都可以處理。</p>
+<p>此外，除了常見的封包內容外，也可以透過<code>-m</code>這個方式去使用擴充模組來達到更靈活的比對功能。</p>
+<h3 id="Target-1"><a href="#Target-1" class="headerlink" title="Target"></a>Target</h3><p>就如同前面所描述的，預設的 <code>Target</code> 其實都會跟對應的 <code>Table</code> 有關，譬如 <code>ACCEPT/DROP</code> 就會在 <code>filter/brouting</code> 這些<code>Table</code>.</p>
+<p>雖然都叫做 <code>ACCEPT/DROP</code>, 其兩者的意思在 <code>filter/brouting</code> 的用途卻是不一樣的，有興趣的人可以直接參考 <code>man page</code> 來學習更多的用法與概念。</p>
+<p>除此之外，也有許多的擴充模組提供更多強大的功能，譬如可以透過 <code>arp</code> 等相關的 <code>Target</code>, 針對 <code>ARP</code> 相關的封包直接讓系統幫你回應對應的 <code>ARP Reply</code>。</p>
+<h3 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h3><p>看到這邊，我們用一張圖片，將上述的概念重新整合一次，將 <code>Table/Chain</code> 與 <code>ebtables</code> 進行整合。</p>
+<p><img src="https://i.imgur.com/q1SSG2l.png" alt="Imgur"></p>
+<p>首先，關於該圖片中我大致上分成三個層次，分別</p>
+<ol>
+<li><code>user-space</code> 的任何網路應用程式</li>
+<li><code>kernel-space</code> 裡面偏向 <code>Layer3</code> 相關的處理，這部份其實是<code>iptables</code>的主戰場，但是因為整體架構的原因，這邊只會稍微帶過</li>
+<li><code>kernel-space</code> 裡面偏向 <code>Layer2</code> 相關的處理，這邊就是偏向 <code>ebtalbes</code> 的處理</li>
+</ol>
+<p>首先當封包從跟<code>Linux Bridge</code>有關的網卡，左邊的<code>nic</code> 近來之後，首先會先進入到 <code>brouting</code> 這個 <code>chain</code>，<code>brouting</code> 這個 <code>chain</code> 裡面只支援 <code>brouintg Table</code>, 若有任何規則要將該封包直接透過<code>routing</code>處理的話，封包就會直接拉到 <code>kernel-space/layer3</code> 層級來處理， 這個範例中先用一個 <code>Magic</code> 的概念來代表任何跟 <code>Layer3</code> 有關的操作。</p>
+<p>接者封包會跑到 <code>Prerouting</code> 這邊，該<code>chain</code>裡面只有<code>nat</code>可以執行，這意味到這個階段頂多只能對封包進行內容的修改，還沒有辦法丟棄。<br>這邊要注意，這時候還沒決定到底封包該怎麼轉送，所以可以透過修改封包的目標 <code>Mac Address</code> 來影響到底之後該怎麼轉送封包，因此這也是這邊 <code>Chian</code> 為什麼叫做 <code>PreRouting</code>.</p>
+<p>接下來就會到所謂的 <code>Bridging Decision</code>. 這邊其實就會運行 <code>Learning Bridging</code> 相關的算法，根據 <code>Mac Address</code> 來決定轉發的方向，若目標對象是 <code>Linux Bridge</code> 本身，則會透過 <code>input chain</code> 一路往上送到 <code>Layer3</code> 去處理。<br>對於 <code>input</code> 來說，可以透過 <code>filter</code> 來進行封包的處理，決定哪些封包要過，哪些不要過。</p>
+<p>如果只是該 <code>Linux Bridge</code> 下不同連接埠的轉發的話，就會走 <code>Forward</code> 這邊，最後透過 <code>Postrouting</code> 這邊進行後續的修改，最後就從目標的網卡將該封包送出去。</p>
+<p>如果今天是主機上面的應用程式要送封包出去，且該封包目的地最後會透過 <code>Linux Bridge</code> 來轉發<br>則該封包最後經過 <code>Layer3</code> 神祕的處理後，最後會跑回到 <code>Layer2</code> 這邊，並且經過 <code>output chain</code> 以及 <code>postrouting</code> 依序的處理，最後也走到網卡出去。</p>
+<p>本文到這邊我們先建立一個基本的概念，到底 <code>iptables/ebtables</code> 的組成元件以及對應的概念。<br>同時也稍微觀看了一下 <code>ebtables</code> 本身的封包傳輸流程。<br>然而只有單單的 <code>ebtables</code> 是沒有辦法理解以及解釋整個 <code>docker bridge network</code> 的運作及傳輸。<br>因此我們會在下篇文章以相同的觀點來分析 <code>iptables</code>, 並且將 <code>iptables</code> 以及 <code>ebtables</code> 給整合起來分析整體的運作流程。<br>到時候在分析 <code>docker bridge network</code> 的時候，能夠有更詳細的概念與背景去瞭解整體封包的傳輸過程</p>
+<h2 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://linux.die.net/man/8/ebtables">ebtables man page</a></li>
+<li><a target="_blank" rel="noopener" href="http://ebtables.netfilter.org/br_fw_ia/br_fw_ia.html">ebtables&#x2F;iptables interaction on a Linux-based bridge</a></li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/Kernel/" rel="tag"># Kernel</a>
+              <a href="/tags/Netfilter/" rel="tag"># Netfilter</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/travisci-step-job-stage.html" rel="prev" title="[DevOps] Travis CI - Step/Job/Stage">
+                  <i class="fa fa-chevron-left"></i> [DevOps] Travis CI - Step/Job/Stage
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/netfilter-eiptables-ii.html" rel="next" title="[netfilter] Introduction to iptables">
+                  [netfilter] Introduction to iptables <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

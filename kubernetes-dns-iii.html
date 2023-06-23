@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="在前篇文章有跟大家分享過實際部屬上遇到的 DNS 問題，並且透過實驗佐證去觀察結果, 本篇文章則是透過另外一種觀點來觀察結果,透過閱讀原始碼的方式來觀察到底 kubernetes 再創建相關的 Pod 時會如何去處理 DNS 相關的設定，由於整個過程牽扯到 kubernetes 以及 CRI(Container Runtime Interface)的操作，而我們預設使用的則是 Docker 作為底">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Kubernetes] DNS Setting with Dockerd(原始碼分析上)">
+<meta property="og:url" content="https://www.hwchiu.com/kubernetes-dns-iii.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="在前篇文章有跟大家分享過實際部屬上遇到的 DNS 問題，並且透過實驗佐證去觀察結果, 本篇文章則是透過另外一種觀點來觀察結果,透過閱讀原始碼的方式來觀察到底 kubernetes 再創建相關的 Pod 時會如何去處理 DNS 相關的設定，由於整個過程牽扯到 kubernetes 以及 CRI(Container Runtime Interface)的操作，而我們預設使用的則是 Docker 作為底">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/t5jQGmd.png">
+<meta property="og:image" content="https://i.imgur.com/6xsRAD1.png">
+<meta property="article:published_time" content="2018-08-12T08:02:59.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.628Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="SourceCode">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="Docker">
+<meta property="article:tag" content="DNS">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/t5jQGmd.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/kubernetes-dns-iii.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/kubernetes-dns-iii.html","path":"kubernetes-dns-iii.html","title":"[Kubernetes] DNS Setting with Dockerd(原始碼分析上)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>[Kubernetes] DNS Setting with Dockerd(原始碼分析上) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%AD%A3%E6%96%87"><span class="nav-number">2.</span> <span class="nav-text">正文</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Kubernetes"><span class="nav-number">3.</span> <span class="nav-text">Kubernetes</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#CRI-%E6%B5%81%E7%A8%8B%E5%9C%96"><span class="nav-number">4.</span> <span class="nav-text">CRI 流程圖</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%A8%8B%E5%BC%8F%E7%A2%BC%E8%BF%BD%E8%B9%A4"><span class="nav-number">5.</span> <span class="nav-text">程式碼追蹤</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#kube-runtime"><span class="nav-number">5.1.</span> <span class="nav-text">kube runtime</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#createPodSandbox"><span class="nav-number">5.1.1.</span> <span class="nav-text">createPodSandbox</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#generatePodSandboxConfig"><span class="nav-number">5.1.2.</span> <span class="nav-text">generatePodSandboxConfig</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#GetPodDNS"><span class="nav-number">5.1.3.</span> <span class="nav-text">GetPodDNS</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#DocekrShim"><span class="nav-number">5.2.</span> <span class="nav-text">DocekrShim</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#RunPodSandbox"><span class="nav-number">5.2.1.</span> <span class="nav-text">RunPodSandbox</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#rewriteResolvFile"><span class="nav-number">5.2.2.</span> <span class="nav-text">rewriteResolvFile</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%B5%90%E8%AB%96"><span class="nav-number">6.</span> <span class="nav-text">結論</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">7.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/kubernetes-dns-iii.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="[Kubernetes] DNS Setting with Dockerd(原始碼分析上) | Hwchiu Learning Note">
+      <meta itemprop="description" content="在前篇文章有跟大家分享過實際部屬上遇到的 DNS 問題，並且透過實驗佐證去觀察結果, 本篇文章則是透過另外一種觀點來觀察結果,透過閱讀原始碼的方式來觀察到底 kubernetes 再創建相關的 Pod 時會如何去處理 DNS 相關的設定，由於整個過程牽扯到 kubernetes 以及 CRI(Container Runtime Interface)的操作，而我們預設使用的則是 Docker 作為底層容器的操作. 由於篇幅過長，所以本文會著重於 kubernetes 原始碼的部分，而 Docker 相關的部分則會餘下篇文章來研究.">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          [Kubernetes] DNS Setting with Dockerd(原始碼分析上)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-08-12 16:02:59" itemprop="dateCreated datePublished" datetime="2018-08-12T16:02:59+08:00">2018-08-12</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">在前篇文章有跟大家分享過實際部屬上遇到的 DNS 問題，並且透過實驗佐證去觀察結果, 本篇文章則是透過另外一種觀點來觀察結果,透過閱讀原始碼的方式來觀察到底 kubernetes 再創建相關的 Pod 時會如何去處理 DNS 相關的設定，由於整個過程牽扯到 kubernetes 以及 CRI(Container Runtime Interface)的操作，而我們預設使用的則是 Docker 作為底層容器的操作. 由於篇幅過長，所以本文會著重於 kubernetes 原始碼的部分，而 Docker 相關的部分則會餘下篇文章來研究.</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>此篇文章是 Kubernetes Pod-DNS 系列文章第三篇<br>此系列文會從使用者的用法到一些問題的發掘，最後透過閱讀程式碼的方式去分析這些問題</p>
+<p>相關的文章連結如下</p>
+<ul>
+<li><a href="https://www.hwchiu.com/kubernetes-dns.html">[Kubernetes] DNS setting in your Pod</a></li>
+<li><a href="https://www.hwchiu.com/kubernetes-dns-ii.html">[Kubernetes] DNS Setting with Dockerd</a></li>
+<li><a href="https://www.hwchiu.com/kubernetes-dns-iiii.html">[Kubernetes] DNS Setting with Dockerd(原始碼分析下)</a></li>
+</ul>
+<h1 id="正文"><a href="#正文" class="headerlink" title="正文"></a>正文</h1><p>在前篇文章<br><a href="https://www.hwchiu.com/kubernetes-dns-ii.html">[Kubernetes] DNS Setting with Dockerd</a> 中已經詳細介紹了整個問題的流程以及觀察結果。</p>
+<p>再次重申一次結論<br><code>kubernetes</code> 會先嘗試使用節點上 <code>/etc/resolv.conf</code> 的資料，但是若發現 <code>/etc/resolv.conf</code> 是空的，這時候就會去依賴 <code>dockerd</code> 幫忙產生的 <code>/etc/resolv.conf</code></p>
+<p>本篇會直接從 <code>kubernetes</code> 以及 <code>docker</code> 的原始碼來研究這個問題，並且佐證上篇文章的觀察結果。</p>
+<h1 id="Kubernetes"><a href="#Kubernetes" class="headerlink" title="Kubernetes"></a>Kubernetes</h1><p>在觀察這個現象前，我們必須要先思考方向，該怎麼去追這段程式碼?<br>到底程式碼的開頭應該從哪邊開始追起?</p>
+<p>要講起這個問題實在不是一言兩語可以解決的，這部份除非本身已經對 <code>kubernetes</code>原始碼很瞭解，否則就是要倚賴關鍵字加上本身對程式語言的經驗來判斷，趕緊找到一個正確的進入點。</p>
+<p>這邊直接先使用一個簡單的流程圖，來描述整個運作的邏輯，然後接下來會針對這段流程進行更進一步的分析來解決我們的疑問</p>
+<h1 id="CRI-流程圖"><a href="#CRI-流程圖" class="headerlink" title="CRI 流程圖"></a>CRI 流程圖</h1><p>這邊我們先簡單的知道， <code>kubernetes</code> 本身有非常多的插件，包含了 <code>Storage</code>, <code>Network</code>, <code>Device</code> 以及 <code>Runtime</code>。<br>這就是你會常常聽到 <code>CNI</code>, <code>CRI</code>, <code>CSI</code> 以及 <code>Device Plugin</code> 等這些名詞出現的理由</p>
+<p><code>Kubernetes</code> 藉由這些插件把部分功能都給模組化，讓任何符合該標準的第三方套件都能夠與 <code>kubernetes</code> 緊密合作。</p>
+<blockquote>
+<p>未來將會撰寫一系列的文章來介紹 CNI，從 CNI 概念到自己撰寫一個 CNI，敬請期待</p>
+</blockquote>
+<p>因為今天的問題主要是運行容器內的設定問題，這部份則是會跟 <code>CRI(Contaienr Runtime Interface)</code> 有關連, 因此我透過下圖稍微說明一下整個流程。</p>
+<p>在每個 <code>kubernetes</code> 的節點上都會運行一隻守護程序 <code>kubelet</code>，該 <code>kubelet</code> 內部有一個稱為 <code>kube-runtime</code> 的套件會用來管理在該節點上所有跟容器有關的操作。</p>
+<p><code>kube-runtime</code> 本身會遵守 <code>CRI</code> 的規範來管理容器，而 <code>CRI</code> 則是建立在 <code>gRPC</code> Client&#x2F;Server 的架構下運行的。</p>
+<p>因此 <code>kube runtime</code> 本身會扮演者 <code>gRPC</code> client 的角色，對 gRPC server <code>dockershim</code> 發送管理容器的請求。</p>
+<p>而 <code>dockershim</code> 則是一個 <code>kubernetes</code> 內部自行設計實作的一個基於 <code>docker container</code> 且相容 <code>CRI</code> 的 gRPC server.</p>
+<p>當 <code>dockershim</code> 收到請求後，就會透過 <code>Docker Container</code> 本身的 <code>API</code> 進行 <code>Docker Container</code> 相關的資源處理。</p>
+<p><img src="https://i.imgur.com/t5jQGmd.png" alt="Imgur"></p>
+<h1 id="程式碼追蹤"><a href="#程式碼追蹤" class="headerlink" title="程式碼追蹤"></a>程式碼追蹤</h1><p>藉由上述流程圖的幫忙後，我們可以有更進一步的方向去思考程式的進入點。</p>
+<p>首先我們知道透過對 <code>Pod</code> 設定 <code>dnsPolicy:default</code> 才會有這個問題，同時也觀察到 <code>dockerd</code> 本身的設定也會影響整個 <code>/etc/resolve.conf</code> 的結果。</p>
+<p>所以 <code>kube runtime</code> 這邊是一個可能線索，如何解析 <code>Pod</code> 本身的參數並處理是一個方向<br>同時 <code>dockershim</code> 這邊如何針對 <code>docker container</code> 則會是另外一個線索來追尋。</p>
+<p>針對這兩個方向，經過仔細的追尋後，我們可以得到類似下圖的流程<br>圖中藍色區域都是真實的函式名稱</p>
+<p><img src="https://i.imgur.com/6xsRAD1.png" alt="Imgur"></p>
+<p>當 <strong>1</strong> 號發出<code>Create Pod</code>的請求出來後， <code>kubelet</code> 裡面於 <code>kube runtime</code> 模組內則會呼叫到 <code>createPodSandbox</code> 的函式。<br>在 <code>createPodSandbox</code> 則會進行下列事情</p>
+<ol>
+<li>呼叫 <code>generatePodSandboxConfig</code></li>
+<li>透過 <code>CRI</code> 要求遠方執行 <code>RunPodSandbox</code></li>
+</ol>
+<h2 id="kube-runtime"><a href="#kube-runtime" class="headerlink" title="kube runtime"></a>kube runtime</h2><h3 id="createPodSandbox"><a href="#createPodSandbox" class="headerlink" title="createPodSandbox"></a>createPodSandbox</h3><p>整個函式如下</p>
+<figure class="highlight go"><figcaption><span>createPodSandbox</span><a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/f634f7dae4a49bb513ae8f5c53e5d115308231d3/pkg/kubelet/kuberuntime/kuberuntime_sandbox.go#L37">kuberuntime_sandbox.go</a></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// createPodSandbox creates a pod sandbox and returns (podSandBoxID, message, error).</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(m *kubeGenericRuntimeManager)</span></span> createPodSandbox(pod *v1.Pod, attempt <span class="type">uint32</span>) (<span class="type">string</span>, <span class="type">string</span>, <span class="type">error</span>) &#123;</span><br><span class="line">	podSandboxConfig, err := m.generatePodSandboxConfig(pod, attempt)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		message := fmt.Sprintf(<span class="string">&quot;GeneratePodSandboxConfig for pod %q failed: %v&quot;</span>, format.Pod(pod), err)</span><br><span class="line">		glog.Error(message)</span><br><span class="line">		<span class="keyword">return</span> <span class="string">&quot;&quot;</span>, message, err</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// Create pod logs directory</span></span><br><span class="line">	err = m.osInterface.MkdirAll(podSandboxConfig.LogDirectory, <span class="number">0755</span>)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		message := fmt.Sprintf(<span class="string">&quot;Create pod log directory for pod %q failed: %v&quot;</span>, format.Pod(pod), err)</span><br><span class="line">		glog.Errorf(message)</span><br><span class="line">		<span class="keyword">return</span> <span class="string">&quot;&quot;</span>, message, err</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	podSandBoxID, err := m.runtimeService.RunPodSandbox(podSandboxConfig)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		message := fmt.Sprintf(<span class="string">&quot;CreatePodSandbox for pod %q failed: %v&quot;</span>, format.Pod(pod), err)</span><br><span class="line">		glog.Error(message)</span><br><span class="line">		<span class="keyword">return</span> <span class="string">&quot;&quot;</span>, message, err</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> podSandBoxID, <span class="string">&quot;&quot;</span>, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="generatePodSandboxConfig"><a href="#generatePodSandboxConfig" class="headerlink" title="generatePodSandboxConfig"></a>generatePodSandboxConfig</h3><p><code>generatePodSandboxConfig</code> 這個函式很簡單，基本上就是從 <code>Pod</code> 本身 <code>yaml</code> 檔案裡面去讀取設定，根據這些設定來處理相關的資訊。<br>我們在意的部份就是 <code>DNS</code> 相關，所以以下就擷取 <code>DNS</code> 相關的函式內容</p>
+<figure class="highlight go"><figcaption><span>generatePodSandboxConfig</span><a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/f634f7dae4a49bb513ae8f5c53e5d115308231d3/pkg/kubelet/kuberuntime/kuberuntime_sandbox.go#L64">kuberuntime_sandbox.go</a></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// createPodSandbox creates a pod sandbox and returns (podSandBoxID, message, error).</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(m *kubeGenericRuntimeManager)</span></span> generatePodSandboxConfig(pod *v1.Pod, attempt <span class="type">uint32</span>) (*runtimeapi.PodSandboxConfig, <span class="type">error</span>) &#123;</span><br><span class="line">....</span><br><span class="line">	dnsConfig, err := m.runtimeHelper.GetPodDNS(pod)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">	&#125;</span><br><span class="line">	podSandboxConfig.DnsConfig = dnsConfig</span><br><span class="line">.....</span><br></pre></td></tr></table></figure>
+
+<p>這邊可以看到呼叫了 <code>GetPodDNS</code> 來取得對應的設定，然後我們就一路往下追</p>
+<h3 id="GetPodDNS"><a href="#GetPodDNS" class="headerlink" title="GetPodDNS"></a>GetPodDNS</h3><figure class="highlight go"><figcaption><span>GetPodDNS</span><a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/1ca851baec6a245bbb2bd3aea284e6cb4f364348/pkg/kubelet/network/dns/dns.go#L325">dns.go</a></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(c *Configurer)</span></span> GetPodDNS(pod *v1.Pod) (*runtimeapi.DNSConfig, <span class="type">error</span>) &#123;</span><br><span class="line">	dnsConfig, err := c.getHostDNSConfig(pod)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	dnsType, err := getPodDNSType(pod)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		glog.Errorf(<span class="string">&quot;Failed to get DNS type for pod %q: %v. Falling back to DNSClusterFirst policy.&quot;</span>, format.Pod(pod), err)</span><br><span class="line">		dnsType = podDNSCluster</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">switch</span> dnsType &#123;</span><br><span class="line">	<span class="keyword">case</span> podDNSNone:</span><br><span class="line">		<span class="comment">// DNSNone should use empty DNS settings as the base.</span></span><br><span class="line">		dnsConfig = &amp;runtimeapi.DNSConfig&#123;&#125;</span><br><span class="line">	<span class="keyword">case</span> podDNSCluster:</span><br><span class="line">        ...</span><br><span class="line">	<span class="keyword">case</span> podDNSHost:</span><br><span class="line">		<span class="comment">// When the kubelet --resolv-conf flag is set to the empty string, use</span></span><br><span class="line">		<span class="comment">// DNS settings that override the docker default (which is to use</span></span><br><span class="line">		<span class="comment">// /etc/resolv.conf) and effectively disable DNS lookups. According to</span></span><br><span class="line">		<span class="comment">// the bind documentation, the behavior of the DNS client library when</span></span><br><span class="line">		<span class="comment">// &quot;nameservers&quot; are not specified is to &quot;use the nameserver on the</span></span><br><span class="line">		<span class="comment">// local machine&quot;. A nameserver setting of localhost is equivalent to</span></span><br><span class="line">		<span class="comment">// this documented behavior.</span></span><br><span class="line">		<span class="keyword">if</span> c.ResolverConfig == <span class="string">&quot;&quot;</span> &#123;</span><br><span class="line">			<span class="keyword">switch</span> &#123;</span><br><span class="line">			<span class="keyword">case</span> c.nodeIP == <span class="literal">nil</span> || c.nodeIP.To4() != <span class="literal">nil</span>:</span><br><span class="line">				dnsConfig.Servers = []<span class="type">string</span>&#123;<span class="string">&quot;127.0.0.1&quot;</span>&#125;</span><br><span class="line">			<span class="keyword">case</span> c.nodeIP.To16() != <span class="literal">nil</span>:</span><br><span class="line">				dnsConfig.Servers = []<span class="type">string</span>&#123;<span class="string">&quot;::1&quot;</span>&#125;</span><br><span class="line">			&#125;</span><br><span class="line">			dnsConfig.Searches = []<span class="type">string</span>&#123;<span class="string">&quot;.&quot;</span>&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">return</span> c.formDNSConfigFitsLimits(dnsConfig, pod), <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>這邊的邏輯非常簡單</p>
+<ol>
+<li>先透過 <code>getHostDNSConfig</code> 取得當前 <code>/etc/resolv.conf</code> 的內容，並且存於變數 <strong>dnsCOnfig</strong></li>
+<li>接下來透過 <code>getPodDNSType</code> 該函式從 <code>Pod Yaml</code> 內讀取對應的 <code>dnsPolicy</code> 資訊，來決定當前 <code>Pod</code> 的 <code>dnsType</code></li>
+<li>第三步驟就是最重要的，根據當前 <code>dnsType</code> 來決定要如何處理 <code>dnsConfig</code>.<br>由於 <code>podDNSCluster</code> 的程式碼太多了，我這邊就先忽略掉，我們只要專注看 <code>DNSHost</code> 的案例。<br>裡面非常簡單，如果你當初運行 <code>kubelet</code> 的時候有特別設定不要使用 <code>/etc/resolv.conf</code> 的話，就會把 <code>dnsConfig</code> 補上一個 <code>127.0.0.1</code> 的資訊，不過這個 <code>Case</code> 我暫時還沒想到，可能就是機器本身就是一個 <code>DNSServer</code> 的情況吧。</li>
+<li>將 <code>dnsConfig</code> 回傳出去<br>所以在正常情況下，我們的 <code>dnsConfig</code> 理論上就會是節點上 <code>/etc/resolv.conf</code> 內的資料。</li>
+</ol>
+<p>到這邊為止，就是 <code>kube-runtime</code>  自行處理的部份，並且將得到的 <code>dnsConfig</code> 放置到變數 <code>podSandboxConfig.DnsConfig</code> 之中。</p>
+<p>接下來我們來看一下 <code>dockershim</code> 裡面的 <code>RunPodSandbox</code> 會怎麼處理這些 <code>DNS</code> 的資訊。</p>
+<h2 id="DocekrShim"><a href="#DocekrShim" class="headerlink" title="DocekrShim"></a>DocekrShim</h2><h3 id="RunPodSandbox"><a href="#RunPodSandbox" class="headerlink" title="RunPodSandbox"></a>RunPodSandbox</h3><p>由於 <code>RunPodSandbox</code> 的函式非常長，這邊就擷取跟 <code>DNS</code> 相關的部份來觀察</p>
+<figure class="highlight go"><figcaption><span>RunPodSandbox</span><a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/67ebbc675aac2b58abc95b186749a81236242625/pkg/kubelet/dockershim/docker_sandbox.go#L81">docker_sandbox.go</a></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(ds *dockerService)</span></span> RunPodSandbox(ctx context.Context, r *runtimeapi.RunPodSandboxRequest) (*runtimeapi.RunPodSandboxResponse, <span class="type">error</span>) &#123;</span><br><span class="line">	config := r.GetConfig()</span><br><span class="line">....</span><br><span class="line">	<span class="comment">// Rewrite resolv.conf file generated by docker.</span></span><br><span class="line">	<span class="comment">// <span class="doctag">NOTE:</span> cluster dns settings aren&#x27;t passed anymore to docker api in all cases,</span></span><br><span class="line">	<span class="comment">// not only for pods with host network: the resolver conf will be overwritten</span></span><br><span class="line">	<span class="comment">// after sandbox creation to override docker&#x27;s behaviour. This resolv.conf</span></span><br><span class="line">	<span class="comment">// file is shared by all containers of the same pod, and needs to be modified</span></span><br><span class="line">	<span class="comment">// only once per pod.</span></span><br><span class="line">	<span class="keyword">if</span> dnsConfig := config.GetDnsConfig(); dnsConfig != <span class="literal">nil</span> &#123;</span><br><span class="line">		containerInfo, err := ds.client.InspectContainer(createResp.ID)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">nil</span>, fmt.Errorf(<span class="string">&quot;failed to inspect sandbox container for pod %q: %v&quot;</span>, config.Metadata.Name, err)</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> err := rewriteResolvFile(containerInfo.ResolvConfPath, dnsConfig.Servers, dnsConfig.Searches, dnsConfig.Options); err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">nil</span>, fmt.Errorf(<span class="string">&quot;rewrite resolv.conf failed for pod %q: %v&quot;</span>, config.Metadata.Name, err)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">....</span><br><span class="line">	<span class="keyword">return</span> resp, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>其實這邊的程式碼已經有了滿不錯的註解來解釋相關的行為。<br>1.之前透過 <code>kube run-time</code> 得到的 <code>dns</code> 設定都只是一個存在於記憶體內的一堆資料而已，其實都還沒有跟真正的容器有任何關係。<br>2.透過 <code>dockershim</code> 的操作，這時候其實已經將對應的容器創見完畢，而且該容器內<code>/etc/resolv.conf</code>的內容是完全依賴 <code>docker container</code> 決定<br>3.<code>kubernetes</code> 這邊的邏輯非常簡單，如果我之前有產生過任何 <code>dns</code> 的設定，就直接將 <code>docker</code>  產生出來的 <code>/etc/resolv.conf</code> 給直接覆蓋掉。</p>
+<p>所以我們可以看一下 <code>rewriteResolvFile</code> 這個函式</p>
+<h3 id="rewriteResolvFile"><a href="#rewriteResolvFile" class="headerlink" title="rewriteResolvFile"></a>rewriteResolvFile</h3><figure class="highlight go"><figcaption><span>RunPodSandbox</span><a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/67ebbc675aac2b58abc95b186749a81236242625/pkg/kubelet/dockershim/docker_sandbox.go#L666">docker_sandbox.go</a></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// rewriteResolvFile rewrites resolv.conf file generated by docker.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">rewriteResolvFile</span><span class="params">(resolvFilePath <span class="type">string</span>, dns []<span class="type">string</span>, dnsSearch []<span class="type">string</span>, dnsOptions []<span class="type">string</span>)</span></span> <span class="type">error</span> &#123;</span><br><span class="line">...</span><br><span class="line">	<span class="keyword">var</span> resolvFileContent []<span class="type">string</span></span><br><span class="line">	<span class="keyword">for</span> _, srv := <span class="keyword">range</span> dns &#123;</span><br><span class="line">		resolvFileContent = <span class="built_in">append</span>(resolvFileContent, <span class="string">&quot;nameserver &quot;</span>+srv)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> <span class="built_in">len</span>(dnsSearch) &gt; <span class="number">0</span> &#123;</span><br><span class="line">		resolvFileContent = <span class="built_in">append</span>(resolvFileContent, <span class="string">&quot;search &quot;</span>+strings.Join(dnsSearch, <span class="string">&quot; &quot;</span>))</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> <span class="built_in">len</span>(dnsOptions) &gt; <span class="number">0</span> &#123;</span><br><span class="line">		resolvFileContent = <span class="built_in">append</span>(resolvFileContent, <span class="string">&quot;options &quot;</span>+strings.Join(dnsOptions, <span class="string">&quot; &quot;</span>))</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> <span class="built_in">len</span>(resolvFileContent) &gt; <span class="number">0</span> &#123;</span><br><span class="line">		resolvFileContentStr := strings.Join(resolvFileContent, <span class="string">&quot;\n&quot;</span>)</span><br><span class="line">		resolvFileContentStr += <span class="string">&quot;\n&quot;</span></span><br><span class="line"></span><br><span class="line">		glog.V(<span class="number">4</span>).Infof(<span class="string">&quot;Will attempt to re-write config file %s with: \n%s&quot;</span>, resolvFilePath, resolvFileContent)</span><br><span class="line">		<span class="keyword">if</span> err := rewriteFile(resolvFilePath, resolvFileContentStr); err != <span class="literal">nil</span> &#123;</span><br><span class="line">			glog.Errorf(<span class="string">&quot;resolv.conf could not be updated: %v&quot;</span>, err)</span><br><span class="line">			<span class="keyword">return</span> err</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>這邊也不能理解，就是根據之前存放於 <code>podSandboxConfig.DnsConfig</code> 內各式各樣關於 <code>DNS</code> 的設定組合起來，然後直接覆蓋掉本來的 <code>/etc/resolv.conf</code>.</p>
+<h1 id="結論"><a href="#結論" class="headerlink" title="結論"></a>結論</h1><p>到這邊，我們已經把整個問題給釐清一半了</p>
+<p>重新看一次之前的結論</p>
+<p><code>kubernetes</code> 會先嘗試使用節點上 <code>/etc/resolv.conf</code> 的資料，但是若發現 <code>/etc/resolv.conf</code> 是空的，這時候就會去依賴 <code>dockerd</code> 幫忙產生的 <code>/etc/resolv.conf</code></p>
+<p>我們的推論跟我們程式碼觀察的結果是完全吻合的，再 <code>dnsPolicy=default</code> 的前提下，只要 <code>kubernetes</code> 只要能夠獲得合法的 <code>/etc/resolv.conf</code> 就會使用，否則直接使用 <code>docekr container</code> 所創造的 <code>/etc/resolv.conf</code>.</p>
+<p>但是這邊還有留下一個謎點，到底 <code>dockerd</code> 的設定是如何影響 <code>/etc/resolv.conf</code> 以及 <code>8.8.8.8/8.8.4.4</code> 是如何出現的?</p>
+<p>由於再寫下去本篇文章會愈來愈長，所以決定將 <code>docker container</code> 相關的程式碼分析再寫一篇文章來處理。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/SourceCode/" rel="tag"># SourceCode</a>
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/Docker/" rel="tag"># Docker</a>
+              <a href="/tags/DNS/" rel="tag"># DNS</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/kubernetes-dns-ii.html" rel="prev" title="[Kubernetes] DNS Setting When DnsPolicy Is Default">
+                  <i class="fa fa-chevron-left"></i> [Kubernetes] DNS Setting When DnsPolicy Is Default
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/kubernetes-dns-iiii.html" rel="next" title="[Kubernetes] DNS Setting with Dockerd(原始碼分析下)">
+                  [Kubernetes] DNS Setting with Dockerd(原始碼分析下) <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

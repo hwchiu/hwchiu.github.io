@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本篇文章會就 device plugin 本身的架構來探討如何實做一個 device plugin 的解決方案，從其溝通介面到運作流程進行探討，透過這些理解與討論會對 device plugin 有更多的了解">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Device Plugin - Implementation">
+<meta property="og:url" content="https://www.hwchiu.com/k8s-device-plugin-implement.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本篇文章會就 device plugin 本身的架構來探討如何實做一個 device plugin 的解決方案，從其溝通介面到運作流程進行探討，透過這些理解與討論會對 device plugin 有更多的了解">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/94xAHmh.png">
+<meta property="article:published_time" content="2019-10-08T07:00:26.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.624Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="ITHOME">
+<meta property="article:tag" content="DevicePlugin">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/94xAHmh.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/k8s-device-plugin-implement.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/k8s-device-plugin-implement.html","path":"k8s-device-plugin-implement.html","title":"Device Plugin - Implementation"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Device Plugin - Implementation | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%9E%B6%E6%A7%8B"><span class="nav-number">2.</span> <span class="nav-text">架構</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#GetDevicePluginOptions"><span class="nav-number">2.1.</span> <span class="nav-text">GetDevicePluginOptions</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ListAndWatch"><span class="nav-number">2.2.</span> <span class="nav-text">ListAndWatch</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Alloocate"><span class="nav-number">2.3.</span> <span class="nav-text">Alloocate</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#PreStartContainer"><span class="nav-number">2.4.</span> <span class="nav-text">PreStartContainer</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%A8%BB%E5%86%8A"><span class="nav-number">3.</span> <span class="nav-text">註冊</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Allocate"><span class="nav-number">4.</span> <span class="nav-text">Allocate</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">5.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">6.</span> <span class="nav-text">個人資訊</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%83%E8%80%83"><span class="nav-number">7.</span> <span class="nav-text">參考</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/k8s-device-plugin-implement.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Device Plugin - Implementation | Hwchiu Learning Note">
+      <meta itemprop="description" content="本篇文章會就 device plugin 本身的架構來探討如何實做一個 device plugin 的解決方案，從其溝通介面到運作流程進行探討，透過這些理解與討論會對 device plugin 有更多的了解">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Device Plugin - Implementation
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-10-08 15:00:26" itemprop="dateCreated datePublished" datetime="2019-10-08T15:00:26+08:00">2019-10-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本篇文章會就 device plugin 本身的架構來探討如何實做一個 device plugin 的解決方案，從其溝通介面到運作流程進行探討，透過這些理解與討論會對 device plugin 有更多的了解</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>前篇文章已經探討了 <strong>device plugin</strong> 的設計理念以及基本使用流程，而本篇文章會比較以技術性的角度來探討這個框架，與此同時也可以看看這個框架的使用方式與前述的 <strong>CRI&#x2F;CNI&#x2F;CSI</strong> 這些標準的介面有何不同。</p>
+<p>前述提到過 <strong>device plugin</strong> 會透過 <strong>unix socket</strong> 與 <strong>kubelet</strong> 進行溝通，而實際上這個溝通的部分也是透過 <strong>gRPC + protobuf</strong> 描述的介面來進行溝通，因此官方針對 <strong>device plugin</strong> 的框架有定義了一系列的介面，每個解決方案都要滿足這些介面才可以順利地與 <strong>kubelet</strong> 溝通，最後順利的於 kubernetes 內運作。</p>
+<p>再探討 <strong>device plugin</strong> 前，必須要先針對版本有所共識，目前的 <strong>device plugin</strong> 本身的介面有兩個版本，分別是</p>
+<ol>
+<li><a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/master/pkg/kubelet/apis/deviceplugin/v1alpha/api.proto">v1alpha</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/master/pkg/kubelet/apis/deviceplugin/v1beta1/api.proto">v1beta1</a></li>
+</ol>
+<p>本文探討的主要基於 <strong>v1beta1</strong> 的版本來探討。</p>
+<h1 id="架構"><a href="#架構" class="headerlink" title="架構"></a>架構</h1><p>要實現一個基於 <strong>device plugin</strong> 框架的解決方案非常簡單，就是實現一個滿足介面需求的 <strong>gRPC</strong> 服務器，介面非常簡單，只有四個函式需要實現而已，如下</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">service DevicePlugin &#123;</span><br><span class="line">	<span class="comment">// GetDevicePluginOptions returns options to be communicated with Device</span></span><br><span class="line">        <span class="comment">// Manager</span></span><br><span class="line">	rpc GetDevicePluginOptions(Empty) returns (DevicePluginOptions) &#123;&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// ListAndWatch returns a stream of List of Devices</span></span><br><span class="line">	<span class="comment">// Whenever a Device state change or a Device disappears, ListAndWatch</span></span><br><span class="line">	<span class="comment">// returns the new list</span></span><br><span class="line">	rpc ListAndWatch(Empty) returns (stream ListAndWatchResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// Allocate is called during container creation so that the Device</span></span><br><span class="line">	<span class="comment">// Plugin can run device specific operations and instruct Kubelet</span></span><br><span class="line">	<span class="comment">// of the steps to make the Device available in the container</span></span><br><span class="line">	rpc Allocate(AllocateRequest) returns (AllocateResponse) &#123;&#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// PreStartContainer is called, if indicated by Device Plugin during registeration phase,</span></span><br><span class="line">        <span class="comment">// before each container start. Device plugin can run device specific operations</span></span><br><span class="line">        <span class="comment">// such as reseting the device before making devices available to the container</span></span><br><span class="line">	rpc PreStartContainer(PreStartContainerRequest) returns (PreStartContainerResponse) &#123;&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="GetDevicePluginOptions"><a href="#GetDevicePluginOptions" class="headerlink" title="GetDevicePluginOptions"></a>GetDevicePluginOptions</h2><p>這個功能滿簡單的，就是回傳一些關於本 <strong>device plugin</strong> 的一些能力，目前定義的能力非常少，只有一個，就是需不需要容器啟動前呼叫的掛勾點 (pre-start-hook)</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">message DevicePluginOptions &#123;</span><br><span class="line">        <span class="comment">// Indicates if PreStartContainer call is required before each container start</span></span><br><span class="line">	<span class="type">bool</span> pre_start_required = <span class="number">1</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="ListAndWatch"><a href="#ListAndWatch" class="headerlink" title="ListAndWatch"></a>ListAndWatch</h2><p>該函式有兩個目的</p>
+<ol>
+<li>讓 <strong>kubelet</strong> 去得知該 devices 的特性以及發現到有多少個 <strong>devices</strong></li>
+<li>由 <strong>device plugin</strong> 主動通知 <strong>kubelet</strong> 任何關於 <strong>device</strong> 狀態的改變</li>
+</ol>
+<h2 id="Alloocate"><a href="#Alloocate" class="headerlink" title="Alloocate"></a>Alloocate</h2><p><strong>kubelet</strong> 再創建 <strong>Pod&#x2F;Container</strong> 前會呼叫該函式來處理如何使得該 <strong>device</strong> 可以被容器掛載使用</p>
+<p>滿足這個介面的應用程式可透過下列其中之一方式部署到節點上</p>
+<ol>
+<li>kubenetes Pod</li>
+<li>實機部署</li>
+</ol>
+<p>接者透過註冊相關的函示主動通知 <strong>kubelet</strong> 需要註冊一個全新的 <strong>device plugin</strong>，完成這個步驟之後，接下來 <strong>kubelet</strong> 就會開始透過上述的兩個 <strong>gRPC</strong> 介面與解決方案互動</p>
+<p>整個過程可以用下圖來解釋<br><img src="https://i.imgur.com/94xAHmh.png"><br>上圖節錄自<a target="_blank" rel="noopener" href="https://github.com/kubernetes/community/blob/master/contributors/design-proposals/resource-management/device-plugin.md#device-manager-proposal">Device Plugin Device Manager Proposal
+</a></p>
+<p>首先一開始，當 <strong>device plugin</strong> 安裝完畢之後，會呼叫 <strong>Register</strong> 這個函式，而這個函式最重要的是背後必須要透過 <strong>gRPC</strong> 的方式與 <strong>kubelet</strong> 溝通，將本解決方案的相關資訊都告知 <strong>kubelet</strong>，所以可以注意到這邊是單線進行。</p>
+<p>一但 <strong>kubetlet</strong> 接收到註冊之後，接下來就會開始根據需求進行 <strong>ListWatch</strong> 以及 <strong>Alloacte</strong> 兩個的呼叫，這邊可以特別注意到的是 <strong>ListWatch</strong> 本身是雙向互動的，意味者兩邊都會根據需求互相呼叫對方的函式。而 <strong>Allocate</strong> 就是單一方向的。</p>
+<p>本圖片雖然來自官方文件，但是右下方的 <strong>Unload Drivers During Pre-Stop Hook</strong><br>只是早期設計時的發想，畢竟是 <strong>Proposal</strong>，實際上這個點反而很難做，譬如 <strong>Container crash</strong> 算不算 <strong>pre-stop</strong>?<br>因此不如透過 <strong>pre-start</strong> 的方ㄕ確保每個 <strong>container</strong> 啟動前都可以呼叫的方式去 <strong>reset</strong> 相關資源。</p>
+<h2 id="PreStartContainer"><a href="#PreStartContainer" class="headerlink" title="PreStartContainer"></a>PreStartContainer</h2><p>如果前述的 <strong>GetDevicePluginOptions</strong> 有描述有這個需求的話，那這個函式就會再有任何 <strong>Pod</strong> 要被創造前被呼叫，可以用來進行重設 <strong>device</strong> 確保下個 <strong>Pod</strong> 是用到新的。</p>
+<h1 id="註冊"><a href="#註冊" class="headerlink" title="註冊"></a>註冊</h1><p>為了能夠實現註冊功能， <strong>device plugin</strong> 一但創立的時候就必須要有能力跟 <strong>kubelet</strong> 溝通，並且通過 <strong>gRPC</strong> 的方式去呼叫註冊的函式。</p>
+<p>而目前這個方式都會透過 <strong>unix socket</strong>  的方式來滿足，正巧的是 <strong>kubelet</strong> 就有配置一個門用來溝通的 <strong>unix socket</strong>，預設情況下都在 <strong>&#x2F;var&#x2F;lib&#x2F;kubelet&#x2F;device-plugins&#x2F;kubelet.sock</strong>。<br>也因為這個原因，任何安裝 <strong>device-plugin</strong> 的 <strong>yaml</strong> 檔案內都會看到下列的設定</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">...</span></span><br><span class="line">        <span class="attr">volumeMounts:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">device-plugin</span></span><br><span class="line">            <span class="attr">mountPath:</span> <span class="string">/var/lib/kubelet/device-plugins</span></span><br><span class="line">      <span class="attr">volumes:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">device-plugin</span></span><br><span class="line">          <span class="attr">hostPath:</span></span><br><span class="line">            <span class="attr">path:</span> <span class="string">/var/lib/kubelet/device-plugins</span></span><br><span class="line"><span class="string">...</span></span><br></pre></td></tr></table></figure>
+
+<p>一旦這條路通上之後， <strong>device plugin</strong> 就需要準備一個基於 <strong>RegisterRequest</strong> 格式的內容去進行註冊，而該格式內包含了幾個重要資訊</p>
+<ol>
+<li>version<br>當前使用的版本基本上可以使用函式庫內的變數即可</li>
+<li>endpoint<br>後續進行 <strong>ListAndWatch</strong>, <strong>Allocate</strong> 等相關操作使用的 <strong>Unix-Socket</strong>。</li>
+<li>resoruce_name<br>預註冊的 <strong>device</strong> 名稱，其有規範，通常是 vendor-name&#x2F;device-name</li>
+<li>DevicePluginOptions<br>當前的 device plugin 有哪些額外參數要設定，目前只有是否需要 <strong>pre-start-hook</strong> 的選項</li>
+</ol>
+<p>一旦註冊成功，之後 <strong>kubelet</strong> 就會使用 <strong>endpoint</strong> 中描述的 <strong>UNIX Socket</strong> 來與 <strong>device plugin</strong> 進行溝通。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">message RegisterRequest &#123;</span><br><span class="line">	<span class="comment">// Version of the API the Device Plugin was built against</span></span><br><span class="line">	<span class="type">string</span> version = <span class="number">1</span>;</span><br><span class="line">	<span class="comment">// Name of the unix socket the device plugin is listening on</span></span><br><span class="line">	<span class="comment">// PATH = path.Join(DevicePluginPath, endpoint)</span></span><br><span class="line">	<span class="type">string</span> endpoint = <span class="number">2</span>;</span><br><span class="line">	<span class="comment">// Schedulable resource name. As of now it&#x27;s expected to be a DNS Label</span></span><br><span class="line">	<span class="type">string</span> resource_name = <span class="number">3</span>;</span><br><span class="line">        <span class="comment">// Options to be communicated with Device Manager</span></span><br><span class="line">        DevicePluginOptions options = <span class="number">4</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>這意味者一個有效的 <strong>device plugin</strong> 會透過兩個不同的 <strong>UNIX socket</strong> 來與 <strong>kubelet</strong> 溝通，一個是固定位置，專門用來註冊的，另外一個則是每個 <strong>device plugin</strong> 自行設定的位置，只要 <strong>kubelet</strong> 能夠存取即可。</p>
+<h1 id="Allocate"><a href="#Allocate" class="headerlink" title="Allocate"></a>Allocate</h1><p>接下來探討一下最重要的 <strong>Allocate</strong> 的函式，主要是要對這個函式有點大概的瞭解，則接下來去看任何的 <strong>device plugin</strong> 解決方案都會更容易理解其實作邏輯。</p>
+<p>首先我們知道，使用者可以於 <strong>Pod</strong> 中去要求<strong>整數數量</strong>的 <strong>device</strong>，當這些需求最後被 <strong>kubelet</strong> 轉換為實際需求送到 <strong>device plugin gRPC</strong> 服務器時，就會變成一個以陣列型態表示的 <strong>deviceID</strong>。</p>
+<p><strong>device plugin</strong> 本身依據這些流水號的 <strong>id</strong> 去分配對應的 <strong>device</strong> 資源，而分配的方式與內容都會於其回傳封包 ** AllocateResponse** 中設定。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// - Allocate is expected to be called during pod creation since allocation</span></span><br><span class="line"><span class="comment">//   failures for any container would result in pod startup failure.</span></span><br><span class="line"><span class="comment">// - Allocate allows kubelet to exposes additional artifacts in a pod&#x27;s</span></span><br><span class="line"><span class="comment">//   environment as directed by the plugin.</span></span><br><span class="line"><span class="comment">// - Allocate allows Device Plugin to run device specific operations on</span></span><br><span class="line"><span class="comment">//   the Devices requested</span></span><br><span class="line">message AllocateRequest &#123;</span><br><span class="line">	repeated ContainerAllocateRequest container_requests = <span class="number">1</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">message ContainerAllocateRequest &#123;</span><br><span class="line">	repeated <span class="type">string</span> devicesIDs = <span class="number">1</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>往下探討之前，先來複習一點東西，就是所謂的 <strong>device</strong> 到底跟容器可以怎麼用?<br>以 <strong>docker</strong> 為範例，常常使用 <strong>volume</strong> 會知道可以透過 <strong>-v</strong> 的方式標明來源與目的的映射關係，想要複雜一點的設定可以採用 <strong>–mount</strong> 來處理。<br>然而對於 <strong>device</strong> 來說，也有對應的指令，就是 <strong>–device</strong></p>
+<p>可以參考 Docker <a target="_blank" rel="noopener" href="https://docs.docker.com/engine/reference/commandline/run/#add-host-device-to-container---device">官網範例</a></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ docker run --device=/dev/sdc:/dev/xvdc \</span><br><span class="line">             --device=/dev/sdd --device=/dev/zero:/dev/nulo \</span><br><span class="line">             -i -t \</span><br><span class="line">             ubuntu <span class="built_in">ls</span> -l /dev/&#123;xvdc,sdd,nulo&#125;</span><br><span class="line"></span><br><span class="line">brw-rw---- 1 root disk 8, 2 Feb  9 16:05 /dev/xvdc</span><br><span class="line">brw-rw---- 1 root disk 8, 3 Feb  9 16:05 /dev/sdd</span><br><span class="line">crw-rw-rw- 1 root root 1, 5 Feb  9 16:05 /dev/nulo</span><br></pre></td></tr></table></figure>
+
+<p>由上述可以看到其使用方式與 <strong>volume(mount)</strong> 相似，都是透過路徑的方式來處理。<br>有了這個概念，接下來就可以看一下 <strong>Allocate</strong> 這個函式的回傳值 <strong>AllocateResponse</strong> 的格式。</p>
+<p>首先 <strong>Request</strong> 可以要求多個 <strong>device</strong>，所以 <strong>Response</strong> 本身的回傳也會是一個陣列，而每個陣列都是一個基於 <strong>ContainerAllocateResponse</strong> 的格式。</p>
+<p>該格式使用了四個欄位來輔助，分別是</p>
+<ol>
+<li>envs</li>
+<li>mounts</li>
+<li>devices</li>
+<li>annotations</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// AllocateResponse includes the artifacts that needs to be injected into</span></span><br><span class="line"><span class="comment">// a container for accessing &#x27;deviceIDs&#x27; that were mentioned as part of</span></span><br><span class="line"><span class="comment">// &#x27;AllocateRequest&#x27;.</span></span><br><span class="line"><span class="comment">// Failure Handling:</span></span><br><span class="line"><span class="comment">// if Kubelet sends an allocation request for dev1 and dev2.</span></span><br><span class="line"><span class="comment">// Allocation on dev1 succeeds but allocation on dev2 fails.</span></span><br><span class="line"><span class="comment">// The Device plugin should send a ListAndWatch update and fail the</span></span><br><span class="line"><span class="comment">// Allocation request</span></span><br><span class="line">message AllocateResponse &#123;</span><br><span class="line">	repeated ContainerAllocateResponse container_responses = <span class="number">1</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">message ContainerAllocateResponse &#123;</span><br><span class="line">  	<span class="comment">// List of environment variable to be set in the container to access one of more devices.</span></span><br><span class="line">	<span class="keyword">map</span>&lt;<span class="type">string</span>, <span class="type">string</span>&gt; envs = <span class="number">1</span>;</span><br><span class="line">	<span class="comment">// Mounts for the container.</span></span><br><span class="line">	repeated Mount mounts = <span class="number">2</span>;</span><br><span class="line">	<span class="comment">// Devices for the container.</span></span><br><span class="line">	repeated DeviceSpec devices = <span class="number">3</span>;</span><br><span class="line">	<span class="comment">// Container annotations to pass to the container runtime</span></span><br><span class="line">	<span class="keyword">map</span>&lt;<span class="type">string</span>, <span class="type">string</span>&gt; annotations = <span class="number">4</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>其中最重要的就是 <strong>mounts</strong> 以及 <strong>devics</strong>，其格式如下，可以看到格式非常類似，也非常清楚</p>
+<ol>
+<li>host_path</li>
+<li>container_path</li>
+<li>read_only&#x2F;permissions</li>
+</ol>
+<p>其中前面兩個資訊是不是與我們前述的 <strong>docekr</strong> 範例非常相似？<br>透過用路徑的方式去表達欲掛載到目標容器內的 <strong>volume</strong> 或是 <strong>devices</strong></p>
+<p>所以回傳的格式可能如下</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">&quot;devics&quot;</span><span class="punctuation">:</span><span class="punctuation">[</span></span><br><span class="line">            <span class="punctuation">&#123;</span></span><br><span class="line">                container_path<span class="punctuation">:</span> <span class="string">&quot;/dev/sda1&quot;</span><span class="punctuation">,</span></span><br><span class="line">                host_path<span class="punctuation">:</span> <span class="string">&quot;/dev/sda1&quot;</span><span class="punctuation">,</span></span><br><span class="line">                permissoin<span class="punctuation">:</span> <span class="string">&quot;rwm&quot;</span></span><br><span class="line">            <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">            <span class="punctuation">&#123;</span></span><br><span class="line">                container_path<span class="punctuation">:</span> <span class="string">&quot;/dev/sda2&quot;</span><span class="punctuation">,</span></span><br><span class="line">                host_path<span class="punctuation">:</span> <span class="string">&quot;/dev/sda2&quot;</span><span class="punctuation">,</span></span><br><span class="line">                permissoin<span class="punctuation">:</span> <span class="string">&quot;rwm&quot;</span></span><br><span class="line">            <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">            <span class="punctuation">&#123;</span></span><br><span class="line">                container_path<span class="punctuation">:</span> <span class="string">&quot;/dev/sda3&quot;</span><span class="punctuation">,</span></span><br><span class="line">                host_path<span class="punctuation">:</span> <span class="string">&quot;/dev/sda3&quot;</span><span class="punctuation">,</span></span><br><span class="line">                permissoin<span class="punctuation">:</span> <span class="string">&quot;rwm&quot;</span></span><br><span class="line">            <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="punctuation">]</span></span><br></pre></td></tr></table></figure>
+
+
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Mount specifies a host volume to mount into a container.</span></span><br><span class="line"><span class="comment">// where device library or tools are installed on host and container</span></span><br><span class="line">message Mount &#123;</span><br><span class="line">	<span class="comment">// Path of the mount within the container.</span></span><br><span class="line">	<span class="type">string</span> container_path = <span class="number">1</span>;</span><br><span class="line">	<span class="comment">// Path of the mount on the host.</span></span><br><span class="line">	<span class="type">string</span> host_path = <span class="number">2</span>;</span><br><span class="line">	<span class="comment">// If set, the mount is read-only.</span></span><br><span class="line">	<span class="type">bool</span> read_only = <span class="number">3</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// DeviceSpec specifies a host device to mount into a container.</span></span><br><span class="line">message DeviceSpec &#123;</span><br><span class="line">    <span class="comment">// Path of the device within the container.</span></span><br><span class="line">    <span class="type">string</span> container_path = <span class="number">1</span>;</span><br><span class="line">    <span class="comment">// Path of the device on the host.</span></span><br><span class="line">    <span class="type">string</span> host_path = <span class="number">2</span>;</span><br><span class="line">    <span class="comment">// Cgroups permissions of the device, candidates are one or more of</span></span><br><span class="line">    <span class="comment">// * r - allows container to read from the specified device.</span></span><br><span class="line">    <span class="comment">// * w - allows container to write to the specified device.</span></span><br><span class="line">    <span class="comment">// * m - allows container to create device files that do not yet exist.</span></span><br><span class="line">    <span class="type">string</span> permissions = <span class="number">3</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>看到這邊對於 <strong>Allocate</strong> 已經有一個基本的概念了，對於 <strong>device plugin</strong> 的解決方案來說，根據需求去配置需要的 <strong>device</strong>，如果有需要也可以準備相關的 <strong>volume</strong>，最後一起將這些路徑回傳回去，這樣對應的 <strong>Pod</strong> 再啟動的時候就會透過類似 <strong>docekr –device xxx –mount</strong> 的方式把這些資訊都掛載到容器內使用。</p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>本文透過實際探索 <strong>device plugin</strong> 框架的面貌來學習其解決方案會怎麼設計，相對於 <strong>CRI&#x2F;CNI&#x2F;CSI</strong>， 整個 <strong>device plugin</strong> 的內容非常簡單，只有少少四個介面需要設計，也因為如此的設計能夠讓第三方解決方案的人員，專心致力於 <strong>device</strong> 的處理與開發，就可以很順利的銜接到 <strong>kubernetes</strong> 叢集運算中。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/kubernetes/community/blob/master/contributors/design-proposals/resource-management/device-plugin.md#device-manager-proposal">https://github.com/kubernetes/community/blob/master/contributors/design-proposals/resource-management/device-plugin.md#device-manager-proposal</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/master/pkg/kubelet/apis/deviceplugin/v1beta1/api.proto">https://github.com/kubernetes/kubernetes/blob/master/pkg/kubelet/apis/deviceplugin/v1beta1/api.proto</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+              <a href="/tags/DevicePlugin/" rel="tag"># DevicePlugin</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/k8s-device-plugin.html" rel="prev" title=" Device Plugin - Introduction">
+                  <i class="fa fa-chevron-left"></i>  Device Plugin - Introduction
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/k8s-device-plugin-rdma.html" rel="next" title="Kubernetes - Device Plugin - RDMA">
+                  Kubernetes - Device Plugin - RDMA <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

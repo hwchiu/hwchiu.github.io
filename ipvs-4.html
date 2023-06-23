@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本文作為 IPVS 系列文第四篇，主要是跟大家介紹 IPVS 於 Linux Kernel 內的架構設計，透過理解其設計更可以幫助我們去瞭解 IPVS 與 IPTABLES 的差異，面對諸如此類的探討文章更能夠有足夠的背景去思考與學習">
+<meta property="og:type" content="article">
+<meta property="og:title" content="IPvS 學習手冊(四)">
+<meta property="og:url" content="https://www.hwchiu.com/ipvs-4.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文作為 IPVS 系列文第四篇，主要是跟大家介紹 IPVS 於 Linux Kernel 內的架構設計，透過理解其設計更可以幫助我們去瞭解 IPVS 與 IPTABLES 的差異，面對諸如此類的探討文章更能夠有足夠的背景去思考與學習">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/kHm5pXm.png">
+<meta property="og:image" content="https://i.imgur.com/GymG1h1.png">
+<meta property="og:image" content="https://i.imgur.com/M9aIyuT.png">
+<meta property="og:image" content="https://i.imgur.com/M9aIyuT.png">
+<meta property="article:published_time" content="2020-08-15T22:48:44.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.618Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="Kernel">
+<meta property="article:tag" content="IPVS">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/kHm5pXm.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/ipvs-4.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/ipvs-4.html","path":"ipvs-4.html","title":"IPvS 學習手冊(四)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>IPvS 學習手冊(四) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%92%B0%E5%A2%83"><span class="nav-number">2.</span> <span class="nav-text">環境</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Architecture"><span class="nav-number">3.</span> <span class="nav-text">Architecture</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#User-Space"><span class="nav-number">3.1.</span> <span class="nav-text">User Space</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Kernel-Space"><span class="nav-number">3.2.</span> <span class="nav-text">Kernel Space</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Source-Code"><span class="nav-number">4.</span> <span class="nav-text">Source Code</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%BC%89%E5%85%A5-Scheduling-Kernel-Module"><span class="nav-number">4.1.</span> <span class="nav-text">載入 Scheduling Kernel Module</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A8%BB%E5%86%8A-Netfilter-Function"><span class="nav-number">4.2.</span> <span class="nav-text">註冊 Netfilter Function</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#IPTABLES-%E6%AF%94%E8%BC%83"><span class="nav-number">5.</span> <span class="nav-text">IPTABLES 比較</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#IPVS-%E8%88%87-IPTABLES-%E7%9A%84%E5%8F%96%E4%BB%A3%E5%95%8F%E9%A1%8C"><span class="nav-number">5.1.</span> <span class="nav-text">IPVS 與 IPTABLES 的取代問題</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#IPVS-%E9%99%A4%E9%8C%AF%E4%B8%8D%E6%98%93"><span class="nav-number">5.2.</span> <span class="nav-text">IPVS 除錯不易</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%B5%90%E8%AB%96"><span class="nav-number">6.</span> <span class="nav-text">結論</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">7.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ipvs-4.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="IPvS 學習手冊(四) | Hwchiu Learning Note">
+      <meta itemprop="description" content="本文作為 IPVS 系列文第四篇，主要是跟大家介紹 IPVS 於 Linux Kernel 內的架構設計，透過理解其設計更可以幫助我們去瞭解 IPVS 與 IPTABLES 的差異，面對諸如此類的探討文章更能夠有足夠的背景去思考與學習">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          IPvS 學習手冊(四)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2020-08-16 06:48:44" itemprop="dateCreated datePublished" datetime="2020-08-16T06:48:44+08:00">2020-08-16</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本文作為 IPVS 系列文第四篇，主要是跟大家介紹 IPVS 於 Linux Kernel 內的架構設計，透過理解其設計更可以幫助我們去瞭解 IPVS 與 IPTABLES 的差異，面對諸如此類的探討文章更能夠有足夠的背景去思考與學習</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>本篇文章作為系列文章的第四篇，該系列文希望能夠從概念到實作，從簡單到複雜來探討 IPVS (IP Virtual Server) 的概念，目前規劃的主題包含：</p>
+<ul>
+<li><a href="https://www.hwchiu.com/ipvs-1.html">IPVS 的基本使用與概念</a></li>
+<li><a href="https://www.hwchiu.com/ipvs-2.html">IPVS 與 Kubernetes 的整合</a></li>
+<li><a href="https://www.hwchiu.com/ipvs-3.html">IPVS 除錯方式與基本 Kernel Module 概念</a></li>
+<li><a href="https://www.hwchiu.com/ipvs-4.html">IPVS Kernel 架構實現</a></li>
+</ul>
+<p>本文主要是從 Linux Kernel 出發，探討一下 IPVS 於 Kernel 的實作，並且將其與 IPTABLES 的實作進行比較，透過這些實作的差異，更可以理解在效能上為何兩者會有所差異</p>
+<h1 id="環境"><a href="#環境" class="headerlink" title="環境"></a>環境</h1><p>整篇文章都是基於 Linux Kernel 4.15 為基準去閱讀, 可以從 <strong><a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/tree/v4.15/net/netfilter/ipvs">Github</a></strong> 或是 <strong><a target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/v4.15/source">LXR</a></strong> 來進行線上閱讀</p>
+<h1 id="Architecture"><a href="#Architecture" class="headerlink" title="Architecture"></a>Architecture</h1><p>過往在使用 IPVS 的時候，都會透過工具 <code>ipvsadm</code> 來進行管理，而這個管理工具實際上本身只有設定的功用，真正的封包處理都是在 Kernel 內處理，更直接的可以說整個 Linux Kernel 就是一個運行的大伺服器，而 IPVS 則是可透過 <strong>Kernel Module</strong> 動態開啟的功能。</p>
+<p>接下來將會使用下列示意圖作為基底，來參考學習到底 IPVS 的底層實作概念</p>
+<p><img src="https://i.imgur.com/kHm5pXm.png"></p>
+<h2 id="User-Space"><a href="#User-Space" class="headerlink" title="User Space"></a>User Space</h2><p>就如同上述所說， <code>user space</code> 的工具就是 <code>ipvsadm</code>, 其本身都是透過 <strong>get&#x2F;set socketopt</strong> 這個方式與底層溝通，其相關的原始碼可以參考這份<a target="_blank" rel="noopener" href="https://github.com/formorer/pkg-ipvsadm">專案</a></p>
+<p>其中一個有趣的地方在於， <strong>ipvsadm</strong> 本身使用上不需要先自己安裝相關的 <strong>Kerenl Module</strong>，這部分是因為 <strong>ipvsadm</strong> 的原始碼裡面會先幫忙檢查當前系統是否已經存在對應的 <strong>ipvs.ko</strong>，如果不存在，則透過 <code>modprobe</code> 這個工具來安裝 <code>ip_vs</code>。<br>也是因為透過這個機制，大部分的 Linux 機器如果要成為 Kubernetes 節點並且啟動 <strong>IPVS</strong> 的功能，都不需要事先去安裝所需的 <strong>kernel module</strong>，對於系統設定來說省了一些工</p>
+<p>以下內容都可以於 <a target="_blank" rel="noopener" href="https://github.com/formorer/pkg-ipvsadm/blob/master/ipvsadm.c">ipvsadm.c</a> 中找到</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">(<span class="type">int</span> argc, <span class="type">char</span> **argv)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">int</span> result;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (ipvs_init()) &#123;</span><br><span class="line">		<span class="comment">/* try to insmod the ip_vs module if ipvs_init failed */</span></span><br><span class="line">		<span class="keyword">if</span> (modprobe_ipvs() || ipvs_init())</span><br><span class="line">			fail(<span class="number">2</span>, <span class="string">&quot;Can&#x27;t initialize ipvs: %s\n&quot;</span></span><br><span class="line">				<span class="string">&quot;Are you sure that IP Virtual Server is &quot;</span></span><br><span class="line">				<span class="string">&quot;built in the kernel or as module?&quot;</span>,</span><br><span class="line">			     ipvs_strerror(errno));</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* warn the user if the IPVS version is out of date */</span></span><br><span class="line">	check_ipvs_version();</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* list the table if there is no other arguement */</span></span><br><span class="line">	<span class="keyword">if</span> (argc == <span class="number">1</span>)&#123;</span><br><span class="line">		list_all(FMT_NONE);</span><br><span class="line">		ipvs_close();</span><br><span class="line">		<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* process command line arguments */</span></span><br><span class="line">	result = process_options(argc, argv, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">	ipvs_close();</span><br><span class="line">	<span class="keyword">return</span> result;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">modprobe_ipvs</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">char</span> *argv[] = &#123; <span class="string">&quot;/sbin/modprobe&quot;</span>, <span class="string">&quot;--&quot;</span>, <span class="string">&quot;ip_vs&quot;</span>, <span class="literal">NULL</span> &#125;;</span><br><span class="line">	<span class="type">int</span> child;</span><br><span class="line">	<span class="type">int</span> status;</span><br><span class="line">	<span class="type">int</span> rc;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!(child = fork())) &#123;</span><br><span class="line">		execv(argv[<span class="number">0</span>], argv);</span><br><span class="line">		<span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	rc = waitpid(child, &amp;status, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (rc == <span class="number">-1</span> || !WIFEXITED(status) || WEXITSTATUS(status)) &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="Kernel-Space"><a href="#Kernel-Space" class="headerlink" title="Kernel Space"></a>Kernel Space</h2><p><strong>IPVS</strong> 最主要的功能都是由 <strong>ip_vs.ko</strong> 這個模組提供的，該模組的功能粗略可以分成三大項</p>
+<ol>
+<li>處理與 <strong>UserSpace</strong> 的溝通，譬如提供接口供 <strong>Set&#x2F;Get Socketopt</strong> 介面使用</li>
+<li>處理與 <strong>Schduleing Algorithm</strong> 的溝通，每個 <strong>Schduleing</strong> 本身都是一個獨立的 <strong>kernel module</strong>，譬如 <strong>ipvs_rr.ko</strong><ul>
+<li><strong>ipvs.ko</strong> 本身也會自動插入對應的 kernel module，所以使用者並不需要事先安裝，只要確保系統上有相關的 <strong>kernel module</strong> 檔案，而這部分 <strong>Ubuntu</strong> 發行版本都有，其餘的發行版本則不確定</li>
+</ul>
+</li>
+<li>真正處理封包的核心邏輯，這部分分成 <strong>什麼時間處理封包</strong> 以及 <strong>怎麼處理封包</strong><ul>
+<li><strong>ipvs.ko</strong> 本身包含了眾多的 <strong>function</strong> 來解決 <strong>怎麼處理封包</strong>，這部分包含查找對應的資料結構，呼叫對應的 <strong>scheduling algorithm</strong> 選擇後端伺服器以及封包轉發</li>
+<li><strong>netfilter</strong> 的架構則提供了 <strong>什麼時間處理封包</strong>，這部分與常見的 <strong>IPTABLES</strong> 時間點一樣，譬如 <strong>PREROUTING</strong>, <strong>POSTROUTING</strong>, <strong>INPUT</strong>, <strong>OUTPUT</strong> 等</li>
+</ul>
+</li>
+</ol>
+<p>實際上，(3)處理封包核心邏輯的實作則是將兩個概念結合， <strong>ipvs.ko</strong> 將處理封包的 function 透過 Linux Kernel 的介面去跟 netfilter 註冊，要求當封包經過特定的 <strong>HOOK</strong> 點的時候，呼叫相關的 function 來處理封包</p>
+<p>下圖是一個基本的 <strong>IPTABLES&#x2F;Netfilter</strong> 流程圖，基本上就是<strong>五個</strong>時間點，每個時間點內都會有不同對應的 <strong>TABLE</strong>，而這些 <strong>TABLE</strong> 內也有相對應的 <strong>Rules</strong><br>實際上的運作流程就是封包到達這些時間點後，會依序跳到個 <strong>TABLE</strong> 裡面，並且依序執行 <strong>RULES</strong>。<br><img src="https://i.imgur.com/GymG1h1.png"></p>
+<p>下圖則是將 <strong>IPVS</strong> 與 <strong>IPTABLES&#x2F;Netfilter</strong> 結合後的圖片，差異性就是<strong>五個</strong>時間點內中有三個時間點變動，分別是 <strong>INPUT&#x2F;OUTPUT&#x2F;FORWARD</strong>.<br><strong>ipvs.ko</strong> 針對這三個時間點分別去註冊三個不同的 <strong>Function</strong>，而這些 <strong>Function</strong> 的執行點都不同。<br><img src="https://i.imgur.com/M9aIyuT.png"></p>
+<ol>
+<li>INPUT:<br>註冊的 function 會在 <strong>Filter TABLE</strong> 後執行，而 function 完畢後則會跳去執行 <strong>NAT TABLE</strong>.</li>
+<li>OUTPUT:<br>註冊的 function 會在 <strong>nat TABLE</strong> 後執行，而 function 完畢後則會跳去執行 <strong>filter TABLE</strong>.</li>
+<li>FORWARD:<br>註冊的 function 會在 <strong>Filter TABLE</strong> 後執行，而 function 完畢後則會結束整個 <strong>Forward</strong> 時間點的處理，讓 Netfilter 繼續往下處理</li>
+</ol>
+<p>這邊針對整個架構做一個總結</p>
+<ol>
+<li>UserSpace 的工具會透過事先定義好的介面與 Kernel 溝通，而定義該介面的則是 <strong>ip_vs.ko</strong> 這個 Kernel Module</li>
+<li><strong>ip_vs.ko</strong> 做非常多事情，包含了<br> a. 定義封包處理的 function，並且透過 netfilter 框架註冊這些 function. 未來封包在 kernel 內遊走的時候就會被這些 function 處理<br> b. 根據參數設立相關的資料結構，包含有哪些 backend server, 採用哪套 scheduling 演算法<br> c. 根據需求動態載入對應 scheduling 的 kernel module.</li>
+</ol>
+<p>接下來我們就會從原始碼的部分稍微看一下 <strong>ip_vs.ko</strong> 這些事情實際上是怎麼實作的</p>
+<h1 id="Source-Code"><a href="#Source-Code" class="headerlink" title="Source Code"></a>Source Code</h1><p>原始碼的部分，基於 Linux Kernel 4.15 為基準去閱讀, 可以從 <strong><a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/tree/v4.15/net/netfilter/ipvs">Github</a></strong> 或是 <strong><a target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/v4.15/source">LXR</a></strong> 來進行線上閱讀</p>
+<h2 id="載入-Scheduling-Kernel-Module"><a href="#載入-Scheduling-Kernel-Module" class="headerlink" title="載入 Scheduling Kernel Module"></a>載入 Scheduling Kernel Module</h2><p>這部分的程式碼都在 <a target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/v4.15/source/net/netfilter/ipvs/ip_vs_sched.c">ip_vs_sched.c</a> 裡面，重要的有幾個</p>
+<ol>
+<li>提供介面根據字串去找出對應的 Scheduler, 如果不存在，就嘗試幫忙載入</li>
+<li>提供介面給呼叫者去註冊，闡明自己是個 Scheduler</li>
+</ol>
+<p>1)的部分主要是下列的程式碼，首先嘗試取得，如果取得失敗就去幫忙載入，並且再次讀取</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> *  Lookup scheduler and try to load it if it doesn&#x27;t exist</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">struct</span> ip_vs_scheduler *<span class="title function_">ip_vs_scheduler_get</span><span class="params">(<span class="type">const</span> <span class="type">char</span> *sched_name)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">ip_vs_scheduler</span> *<span class="title">sched</span>;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 *  Search for the scheduler by sched_name</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	sched = ip_vs_sched_getbyname(sched_name);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 *  If scheduler not found, load the module and search again</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">if</span> (sched == <span class="literal">NULL</span>) &#123;</span><br><span class="line">		request_module(<span class="string">&quot;ip_vs_%s&quot;</span>, sched_name);</span><br><span class="line">		sched = ip_vs_sched_getbyname(sched_name);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> sched;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>2)的部分如下，基本上就是一些資料結構的處理，呼叫者則會是那些不同算法的 Scheduler</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">register_ip_vs_scheduler</span><span class="params">(<span class="keyword">struct</span> ip_vs_scheduler *scheduler)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">ip_vs_scheduler</span> *<span class="title">sched</span>;</span></span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!scheduler) &#123;</span><br><span class="line">		pr_err(<span class="string">&quot;%s(): NULL arg\n&quot;</span>, __func__);</span><br><span class="line">		<span class="keyword">return</span> -EINVAL;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!scheduler-&gt;name) &#123;</span><br><span class="line">		pr_err(<span class="string">&quot;%s(): NULL scheduler_name\n&quot;</span>, __func__);</span><br><span class="line">		<span class="keyword">return</span> -EINVAL;</span><br><span class="line">	&#125;</span><br><span class="line">.....</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>基本上所有的 IPVS Scheduling 的實作都會再 Kernel Module 初始化的過程去呼叫 <strong>register_ip_vs_scheduler</strong>，舉例來說 <a target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/v4.15/source/net/netfilter/ipvs/ip_vs_rr.c">ip_vs_rr.c</a> 這個 kernel module 被系統載入後，第一件事情就是呼叫 <strong>register_ip_vs_scheduler</strong>，將自己的物件註冊進去，所以之後有任何人透過 <strong>ipvsadm</strong> 去表示我要使用 <strong>rr</strong> 這個算法的時候，底下的 kernel module(ip_vs.ko) 就有辦法找到對應的 scheduler 來使用。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> __init <span class="title function_">ip_vs_rr_init</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="keyword">return</span> register_ip_vs_scheduler(&amp;ip_vs_rr_scheduler);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">void</span> __exit <span class="title function_">ip_vs_rr_cleanup</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">	unregister_ip_vs_scheduler(&amp;ip_vs_rr_scheduler);</span><br><span class="line">	synchronize_rcu();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">module_init(ip_vs_rr_init);</span><br><span class="line">module_exit(ip_vs_rr_cleanup);</span><br><span class="line">MODULE_LICENSE(<span class="string">&quot;GPL&quot;</span>);</span><br></pre></td></tr></table></figure>
+
+<h2 id="註冊-Netfilter-Function"><a href="#註冊-Netfilter-Function" class="headerlink" title="註冊 Netfilter Function"></a>註冊 Netfilter Function</h2><p><strong>ip_vs</strong> 這個 Kernel Module 本身被載入後，也會有相關的初始步驟，該步驟會其實是呼叫的 <code>__ip_vs_init</code> 這個函式</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> *	Initialize IP Virtual Server netns mem.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> __net_init __ip_vs_init(<span class="keyword">struct</span> net *net)</span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">netns_ipvs</span> *<span class="title">ipvs</span>;</span></span><br><span class="line">	<span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">	ipvs = net_generic(net, ip_vs_net_id);</span><br><span class="line">	<span class="keyword">if</span> (ipvs == <span class="literal">NULL</span>)</span><br><span class="line">		<span class="keyword">return</span> -ENOMEM;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Hold the beast until a service is registerd */</span></span><br><span class="line">	ipvs-&gt;enable = <span class="number">0</span>;</span><br><span class="line">	ipvs-&gt;net = net;</span><br><span class="line">	<span class="comment">/* Counters used for creating unique names */</span></span><br><span class="line">	ipvs-&gt;gen = <span class="type">atomic_read</span>(&amp;ipvs_netns_cnt);</span><br><span class="line">	<span class="type">atomic_inc</span>(&amp;ipvs_netns_cnt);</span><br><span class="line">	net-&gt;ipvs = ipvs;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (ip_vs_estimator_net_init(ipvs) &lt; <span class="number">0</span>)</span><br><span class="line">		<span class="keyword">goto</span> estimator_fail;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (ip_vs_control_net_init(ipvs) &lt; <span class="number">0</span>)</span><br><span class="line">		<span class="keyword">goto</span> control_fail;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (ip_vs_protocol_net_init(ipvs) &lt; <span class="number">0</span>)</span><br><span class="line">		<span class="keyword">goto</span> protocol_fail;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (ip_vs_app_net_init(ipvs) &lt; <span class="number">0</span>)</span><br><span class="line">		<span class="keyword">goto</span> app_fail;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (ip_vs_conn_net_init(ipvs) &lt; <span class="number">0</span>)</span><br><span class="line">		<span class="keyword">goto</span> conn_fail;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (ip_vs_sync_net_init(ipvs) &lt; <span class="number">0</span>)</span><br><span class="line">		<span class="keyword">goto</span> sync_fail;</span><br><span class="line"></span><br><span class="line">	ret = nf_register_net_hooks(net, ip_vs_ops, ARRAY_SIZE(ip_vs_ops));</span><br><span class="line">	<span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">		<span class="keyword">goto</span> hook_fail;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Error handling</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"></span><br><span class="line">hook_fail:</span><br><span class="line">	ip_vs_sync_net_cleanup(ipvs);</span><br><span class="line">sync_fail:</span><br><span class="line">	ip_vs_conn_net_cleanup(ipvs);</span><br><span class="line">conn_fail:</span><br><span class="line">	ip_vs_app_net_cleanup(ipvs);</span><br><span class="line">app_fail:</span><br><span class="line">	ip_vs_protocol_net_cleanup(ipvs);</span><br><span class="line">protocol_fail:</span><br><span class="line">	ip_vs_control_net_cleanup(ipvs);</span><br><span class="line">control_fail:</span><br><span class="line">	ip_vs_estimator_net_cleanup(ipvs);</span><br><span class="line">estimator_fail:</span><br><span class="line">	net-&gt;ipvs = <span class="literal">NULL</span>;</span><br><span class="line">	<span class="keyword">return</span> -ENOMEM;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>這邊最重要的就是 <code>nf_register_net_hooks</code> 這個函式，該函式會傳入 <strong>ip_vs_ops</strong> 這個物件，而這個函式就是跟 <code>netfilter</code> 去註冊，接下來實際看一下 <strong>ip_vs_ops</strong> 物件(忽略 ipv6, 因為跟 ipv4 概念雷同)</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">nf_hook_ops</span> <span class="title">ip_vs_ops</span>[] =</span> &#123;</span><br><span class="line">	<span class="comment">/* After packet filtering, change source only for VS/NAT */</span></span><br><span class="line">	&#123;</span><br><span class="line">		.hook		= ip_vs_reply4,</span><br><span class="line">		.pf		= NFPROTO_IPV4,</span><br><span class="line">		.hooknum	= NF_INET_LOCAL_IN,</span><br><span class="line">		.priority	= NF_IP_PRI_NAT_SRC - <span class="number">2</span>,</span><br><span class="line">	&#125;,</span><br><span class="line">	<span class="comment">/* After packet filtering, forward packet through VS/DR, VS/TUN,</span></span><br><span class="line"><span class="comment">	 * or VS/NAT(change destination), so that filtering rules can be</span></span><br><span class="line"><span class="comment">	 * applied to IPVS. */</span></span><br><span class="line">	&#123;</span><br><span class="line">		.hook		= ip_vs_remote_request4,</span><br><span class="line">		.pf		= NFPROTO_IPV4,</span><br><span class="line">		.hooknum	= NF_INET_LOCAL_IN,</span><br><span class="line">		.priority	= NF_IP_PRI_NAT_SRC - <span class="number">1</span>,</span><br><span class="line">	&#125;,</span><br><span class="line">	<span class="comment">/* Before ip_vs_in, change source only for VS/NAT */</span></span><br><span class="line">	&#123;</span><br><span class="line">		.hook		= ip_vs_local_reply4,</span><br><span class="line">		.pf		= NFPROTO_IPV4,</span><br><span class="line">		.hooknum	= NF_INET_LOCAL_OUT,</span><br><span class="line">		.priority	= NF_IP_PRI_NAT_DST + <span class="number">1</span>,</span><br><span class="line">	&#125;,</span><br><span class="line">	<span class="comment">/* After mangle, schedule and forward local requests */</span></span><br><span class="line">	&#123;</span><br><span class="line">		.hook		= ip_vs_local_request4,</span><br><span class="line">		.pf		= NFPROTO_IPV4,</span><br><span class="line">		.hooknum	= NF_INET_LOCAL_OUT,</span><br><span class="line">		.priority	= NF_IP_PRI_NAT_DST + <span class="number">2</span>,</span><br><span class="line">	&#125;,</span><br><span class="line">	<span class="comment">/* After packet filtering (but before ip_vs_out_icmp), catch icmp</span></span><br><span class="line"><span class="comment">	 * destined for 0.0.0.0/0, which is for incoming IPVS connections */</span></span><br><span class="line">	&#123;</span><br><span class="line">		.hook		= ip_vs_forward_icmp,</span><br><span class="line">		.pf		= NFPROTO_IPV4,</span><br><span class="line">		.hooknum	= NF_INET_FORWARD,</span><br><span class="line">		.priority	= <span class="number">99</span>,</span><br><span class="line">	&#125;,</span><br><span class="line">	<span class="comment">/* After packet filtering, change source only for VS/NAT */</span></span><br><span class="line">	&#123;</span><br><span class="line">		.hook		= ip_vs_reply4,</span><br><span class="line">		.pf		= NFPROTO_IPV4,</span><br><span class="line">		.hooknum	= NF_INET_FORWARD,</span><br><span class="line">		.priority	= <span class="number">100</span>,</span><br><span class="line">	&#125;,</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<p>ip_vs_ops 是一個 <strong>nf_hook_ops</strong> 的陣列物件，每個物件內都有四個成員被使用，分別是</p>
+<ol>
+<li>hook</li>
+<li>pf</li>
+<li>hooknum</li>
+<li>priority</li>
+</ol>
+<p>這四個組合起來的含義就是，我準備了一個 <strong>hook</strong> 的函式，希望當封包符合 <strong>pf</strong> 描述的格式，且封包目前運行到 <strong>hooknum</strong> 這個時間點的時候，根據我描述的 <strong>proiroty</strong> 於正確的時間點呼叫我準備的 <strong>hook</strong> 函式。</p>
+<p>我們取其中一個範例來進行比較詳細的解釋</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">	.hook		= ip_vs_reply4,</span><br><span class="line">	.pf		= NFPROTO_IPV4,</span><br><span class="line">	.hooknum	= NF_INET_LOCAL_IN,</span><br><span class="line">	.priority	= NF_IP_PRI_NAT_SRC - <span class="number">2</span>,</span><br><span class="line">&#125;,</span><br></pre></td></tr></table></figure>
+
+<p>首先，<code>hook</code> 的值是 <code>ip_vs_reply4</code>，這個其實是一個 <strong>function</strong>，內容如下</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> *	It is hooked at the NF_INET_FORWARD and NF_INET_LOCAL_IN chain,</span></span><br><span class="line"><span class="comment"> *	used only for VS/NAT.</span></span><br><span class="line"><span class="comment"> *	Check if packet is reply for established ip_vs_conn.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">static</span> <span class="type">unsigned</span> <span class="type">int</span></span><br><span class="line"><span class="title function_">ip_vs_reply4</span><span class="params">(<span class="type">void</span> *priv, <span class="keyword">struct</span> sk_buff *skb,</span></span><br><span class="line"><span class="params">	     <span class="type">const</span> <span class="keyword">struct</span> nf_hook_state *state)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="keyword">return</span> ip_vs_out(net_ipvs(state-&gt;net), state-&gt;hook, skb, AF_INET);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>pf</code> 的值則是 <strong>NFPROTO_IPV4</strong>，其他相關的變數則定義於 <a target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/v4.15/source/include/uapi/linux/netfilter.h#L67">netfilter.h</a></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">enum</span> &#123;</span></span><br><span class="line">	NFPROTO_UNSPEC =  <span class="number">0</span>,</span><br><span class="line">	NFPROTO_INET   =  <span class="number">1</span>,</span><br><span class="line">	NFPROTO_IPV4   =  <span class="number">2</span>,</span><br><span class="line">	NFPROTO_ARP    =  <span class="number">3</span>,</span><br><span class="line">	NFPROTO_NETDEV =  <span class="number">5</span>,</span><br><span class="line">	NFPROTO_BRIDGE =  <span class="number">7</span>,</span><br><span class="line">	NFPROTO_IPV6   = <span class="number">10</span>,</span><br><span class="line">	NFPROTO_DECNET = <span class="number">12</span>,</span><br><span class="line">	NFPROTO_NUMPROTO,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>hooknum</code> 則是我們一直強調的時間點，對應到 <strong>netfilter&#x2F;iptables</strong> 的架構圖，就是 <strong>LOCAL_IN</strong>，封包經由 <strong>routing</strong> 後決定要送到本機處理的時間點，其他相關的變數則定義於<br> <a target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/v4.15/source/include/uapi/linux/netfilter.h#L67">netfilter.h</a></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">enum</span> <span class="title">nf_inet_hooks</span> &#123;</span></span><br><span class="line">	NF_INET_PRE_ROUTING,</span><br><span class="line">	NF_INET_LOCAL_IN,</span><br><span class="line">	NF_INET_FORWARD,</span><br><span class="line">	NF_INET_LOCAL_OUT,</span><br><span class="line">	NF_INET_POST_ROUTING,</span><br><span class="line">	NF_INET_NUMHOOKS</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>可以由上面的原始碼看到這些變數的名稱都與我們熟悉的 <strong>IPTABLES</strong> 用法熟悉，這是因為都基於 <strong>Netfilter</strong> 架構的原因</p>
+<p>最後的 <strong>priority</strong> 則是一個優先度，數值愈小代表優先度愈高，也先執行，其他相關的變數則定義於<a target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/v4.15/source/include/uapi/linux/netfilter_ipv4.h#L68">netfilter_ipv4.h</a></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">enum</span> <span class="title">nf_ip_hook_priorities</span> &#123;</span></span><br><span class="line">	NF_IP_PRI_FIRST = INT_MIN,</span><br><span class="line">	NF_IP_PRI_CONNTRACK_DEFRAG = <span class="number">-400</span>,</span><br><span class="line">	NF_IP_PRI_RAW = <span class="number">-300</span>,</span><br><span class="line">	NF_IP_PRI_SELINUX_FIRST = <span class="number">-225</span>,</span><br><span class="line">	NF_IP_PRI_CONNTRACK = <span class="number">-200</span>,</span><br><span class="line">	NF_IP_PRI_MANGLE = <span class="number">-150</span>,</span><br><span class="line">	NF_IP_PRI_NAT_DST = <span class="number">-100</span>,</span><br><span class="line">	NF_IP_PRI_FILTER = <span class="number">0</span>,</span><br><span class="line">	NF_IP_PRI_SECURITY = <span class="number">50</span>,</span><br><span class="line">	NF_IP_PRI_NAT_SRC = <span class="number">100</span>,</span><br><span class="line">	NF_IP_PRI_SELINUX_LAST = <span class="number">225</span>,</span><br><span class="line">	NF_IP_PRI_CONNTRACK_HELPER = <span class="number">300</span>,</span><br><span class="line">	NF_IP_PRI_CONNTRACK_CONFIRM = INT_MAX,</span><br><span class="line">	NF_IP_PRI_LAST = INT_MAX,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>透過這些資訊，我們可以瞭解到上述的含義就是請幫我於 <strong>LOCAL_IN</strong> 這個時間點註冊一個 function(ip_vs_reply4)，若封包是 IPV4 的格式且請比 <strong>NAT_SRC(SOURCE NAT)</strong> 還要提早處理。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">	.hook		= ip_vs_reply4,</span><br><span class="line">	.pf		= NFPROTO_IPV4,</span><br><span class="line">	.hooknum	= NF_INET_LOCAL_IN,</span><br><span class="line">	.priority	= NF_IP_PRI_NAT_SRC - <span class="number">2</span>,</span><br><span class="line">&#125;,</span><br></pre></td></tr></table></figure>
+
+<p>這也是為什麼我們架構圖會於 <strong>INPUT(LOCAL_IN)</strong> 裡面將 <strong>IPVS</strong> 放到 <strong>NAT</strong> 前面執行<br><img src="https://i.imgur.com/M9aIyuT.png"></p>
+<p>其他的 <strong>FORWARD</strong>, <strong>OUTPUT(LOCAL_OUT)</strong> 的概念是完全一樣的</p>
+<p>這邊還有一個有趣的概念就是，其實這些 <strong>Talbe (NAT&#x2F;FILTER&#x2F;MANGLE)</strong> 的本質都是一個函式，舉例來說 <a target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/v4.15/source/net/ipv4/netfilter/iptable_nat.c#L34">iptable_net.c</a>  裡面就定義了 <strong>NAT</strong> 相關的操作</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">nf_hook_ops</span> <span class="title">nf_nat_ipv4_ops</span>[] =</span> &#123;</span><br><span class="line">	<span class="comment">/* Before packet filtering, change destination */</span></span><br><span class="line">	&#123;</span><br><span class="line">		.hook		= iptable_nat_ipv4_in,</span><br><span class="line">		.pf		= NFPROTO_IPV4,</span><br><span class="line">		.hooknum	= NF_INET_PRE_ROUTING,</span><br><span class="line">		.priority	= NF_IP_PRI_NAT_DST,</span><br><span class="line">	&#125;,</span><br><span class="line">	<span class="comment">/* After packet filtering, change source */</span></span><br><span class="line">	&#123;</span><br><span class="line">		.hook		= iptable_nat_ipv4_out,</span><br><span class="line">		.pf		= NFPROTO_IPV4,</span><br><span class="line">		.hooknum	= NF_INET_POST_ROUTING,</span><br><span class="line">		.priority	= NF_IP_PRI_NAT_SRC,</span><br><span class="line">	&#125;,</span><br><span class="line">	<span class="comment">/* Before packet filtering, change destination */</span></span><br><span class="line">	&#123;</span><br><span class="line">		.hook		= iptable_nat_ipv4_local_fn,</span><br><span class="line">		.pf		= NFPROTO_IPV4,</span><br><span class="line">		.hooknum	= NF_INET_LOCAL_OUT,</span><br><span class="line">		.priority	= NF_IP_PRI_NAT_DST,</span><br><span class="line">	&#125;,</span><br><span class="line">	<span class="comment">/* After packet filtering, change source */</span></span><br><span class="line">	&#123;</span><br><span class="line">		.hook		= iptable_nat_ipv4_fn,</span><br><span class="line">		.pf		= NFPROTO_IPV4,</span><br><span class="line">		.hooknum	= NF_INET_LOCAL_IN,</span><br><span class="line">		.priority	= NF_IP_PRI_NAT_SRC,</span><br><span class="line">	&#125;,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>，而所謂的 <strong>NAT Table</strong> 的概念其實就被上述的 <strong>hook</strong> 給處理掉，如下圖，其中 <strong>ipt_do_table</strong> 作為一個 <strong>function pointer</strong> 被上述的 <strong>hook</strong> 裡面使用，而這個函式內則是會透過 <code>do...while</code> 去依序執行相關的規則</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">unsigned</span> <span class="type">int</span> <span class="title function_">iptable_nat_do_chain</span><span class="params">(<span class="type">void</span> *priv,</span></span><br><span class="line"><span class="params">					 <span class="keyword">struct</span> sk_buff *skb,</span></span><br><span class="line"><span class="params">					 <span class="type">const</span> <span class="keyword">struct</span> nf_hook_state *state,</span></span><br><span class="line"><span class="params">					 <span class="keyword">struct</span> nf_conn *ct)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="keyword">return</span> ipt_do_table(skb, state, state-&gt;net-&gt;ipv4.nat_table);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">unsigned</span> <span class="type">int</span> <span class="title function_">iptable_nat_ipv4_fn</span><span class="params">(<span class="type">void</span> *priv,</span></span><br><span class="line"><span class="params">					<span class="keyword">struct</span> sk_buff *skb,</span></span><br><span class="line"><span class="params">					<span class="type">const</span> <span class="keyword">struct</span> nf_hook_state *state)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="keyword">return</span> nf_nat_ipv4_fn(priv, skb, state, iptable_nat_do_chain);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">unsigned</span> <span class="type">int</span> <span class="title function_">iptable_nat_ipv4_in</span><span class="params">(<span class="type">void</span> *priv,</span></span><br><span class="line"><span class="params">					<span class="keyword">struct</span> sk_buff *skb,</span></span><br><span class="line"><span class="params">					<span class="type">const</span> <span class="keyword">struct</span> nf_hook_state *state)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="keyword">return</span> nf_nat_ipv4_in(priv, skb, state, iptable_nat_do_chain);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">unsigned</span> <span class="type">int</span> <span class="title function_">iptable_nat_ipv4_out</span><span class="params">(<span class="type">void</span> *priv,</span></span><br><span class="line"><span class="params">					 <span class="keyword">struct</span> sk_buff *skb,</span></span><br><span class="line"><span class="params">					 <span class="type">const</span> <span class="keyword">struct</span> nf_hook_state *state)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="keyword">return</span> nf_nat_ipv4_out(priv, skb, state, iptable_nat_do_chain);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">unsigned</span> <span class="type">int</span> <span class="title function_">iptable_nat_ipv4_local_fn</span><span class="params">(<span class="type">void</span> *priv,</span></span><br><span class="line"><span class="params">					      <span class="keyword">struct</span> sk_buff *skb,</span></span><br><span class="line"><span class="params">					      <span class="type">const</span> <span class="keyword">struct</span> nf_hook_state *state)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="keyword">return</span> nf_nat_ipv4_local_fn(priv, skb, state, iptable_nat_do_chain);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>其他的 <strong>table</strong> 概念一樣，只是使用的介面不太一樣，都改使用 <strong>xt</strong> 系列的 API來處理</p>
+<h1 id="IPTABLES-比較"><a href="#IPTABLES-比較" class="headerlink" title="IPTABLES 比較"></a>IPTABLES 比較</h1><p>藉由上述原始碼的觀察，我們可以觀察到一個很重要的事情就是 <strong>IPVS</strong> 本身的運作是依賴 <strong>netfilter</strong> 架構來處理封包，而很剛好的是 <strong>IPTABLES</strong> 本身也是大量依賴 <strong>netfilter</strong> 來使用，這邊的比較我認為有幾個重點</p>
+<h2 id="IPVS-與-IPTABLES-的取代問題"><a href="#IPVS-與-IPTABLES-的取代問題" class="headerlink" title="IPVS 與 IPTABLES 的取代問題"></a>IPVS 與 IPTABLES 的取代問題</h2><p>我認為沒有辦法將 IPVS 與 IPTABLES 直接評比優劣，做出誰能夠取代誰的結論。<br>原因是兩者個功能面向完全不同， IPVS 能夠提供的功能很少，就是完全針對 LoadBalancing 實作而已，然而 IPTABLES 本身可以做的事情非常多，特別是透過 <code>-m</code>, <code>-j</code> 這些 module擴充後可以辦到的事情更多了。</p>
+<p>大部分的評比文章其實都是針對於 <strong>Load-Balancing</strong> 這件事情來比較，如果真的夠熟悉其底層架構就會理解到， <strong>IPVS</strong> 是專門針對 <strong>LB</strong> 去實作的，然而 <strong>IPTABLES</strong> 並不是，而是採用一些比較獵奇的方式來達到類似的功能<br>因此效能上會有差異也不足為奇，甚至說若 IPVS 沒有更好，根本沒有發展的必要(我認為)。</p>
+<h2 id="IPVS-除錯不易"><a href="#IPVS-除錯不易" class="headerlink" title="IPVS 除錯不易"></a>IPVS 除錯不易</h2><p>綜觀 IPVS 的使用文件與架構說明，基本上都不太會講到 IPVS 與 Netfilter 的關係，但是其實對於每個封包來說，其實都是基於 <strong>netfilter</strong> 的架構在跑，會先被 <strong>iptables</strong> 的規則處理(mangle&#x2F;filter)，接下來才被 IPVS 擷取去處理。<br>這種情況下，當發現問題時，其實不太容易知道問題點在哪裡，到底是 <strong>IPTABLES</strong> 的規則出錯，還是 <strong>IPVS</strong> 本身的功能或是設定出錯。<br>此外，對於 IPVS 使用者來說能夠觀察到的資訊大部分都是依賴 <strong>ipvsadm</strong> 這個工具，顯示的就只有 <strong>設定了哪些 server</strong>, <strong>分配了多少封包</strong> 等比較上層的資訊，對於除錯能夠提供的線索有限，最終還是要連同 <strong>iptables</strong> 一起觀看研究，才能夠鎖定問題的發生點。</p>
+<h1 id="結論"><a href="#結論" class="headerlink" title="結論"></a>結論</h1><p>拖了很久的第四篇 <strong>IPVS</strong> 文章終於寫完，這中間也經歷了一次的線上 Meetup 來濃縮四篇文章的介紹，該次 Meetup 也有<a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=6ZaUIRZ-SO8&t=14s">線上錄影</a>, 有興趣的也可以觀看</p>
+<p>藉由這四篇文章的學習，讓我對於 IPVS 的概念有更深的理解，同時也更能說出 IPVS 與 IPTABLES 的異同之處，對於相關文章也能夠有更深的背景去探討與思考。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/Kernel/" rel="tag"># Kernel</a>
+              <a href="/tags/IPVS/" rel="tag"># IPVS</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/gitops.html" rel="prev" title="淺談 GitOps 的概念">
+                  <i class="fa fa-chevron-left"></i> 淺談 GitOps 的概念
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/gitops-bad-and-ugly.html" rel="next" title="GitOps 帶來的痛點與反思">
+                  GitOps 帶來的痛點與反思 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

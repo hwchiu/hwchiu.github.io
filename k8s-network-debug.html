@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="淺談如何除錯 Kubernetes 中的各種網路問題">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kubernetes 網路除錯之旅">
+<meta property="og:url" content="https://www.hwchiu.com/k8s-network-debug.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="淺談如何除錯 Kubernetes 中的各種網路問題">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/0U11QvC.png">
+<meta property="og:image" content="https://i.imgur.com/MPkqvsx.jpg">
+<meta property="og:image" content="https://i.imgur.com/4nydb8X.png">
+<meta property="og:image" content="https://i.imgur.com/HctxXRo.png">
+<meta property="og:image" content="https://i.imgur.com/6Sqxou4.png">
+<meta property="og:image" content="https://i.imgur.com/TH8cbFw.png">
+<meta property="og:image" content="https://i.imgur.com/munPePk.png">
+<meta property="og:image" content="https://i.imgur.com/88hCder.jpg">
+<meta property="og:image" content="https://i.imgur.com/JRlBmpi.jpg">
+<meta property="og:image" content="https://i.imgur.com/PpgV90m.jpg">
+<meta property="og:image" content="https://i.imgur.com/4unDnS4.png">
+<meta property="og:image" content="https://i.imgur.com/ldaPp7j.png">
+<meta property="og:image" content="https://i.imgur.com/4vCOL5P.png">
+<meta property="article:published_time" content="2023-03-05T07:35:57.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.625Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Kubernetes">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/0U11QvC.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/k8s-network-debug.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/k8s-network-debug.html","path":"k8s-network-debug.html","title":"Kubernetes 網路除錯之旅"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Kubernetes 網路除錯之旅 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Kubernetes-%E7%B6%B2%E8%B7%AF"><span class="nav-number">2.</span> <span class="nav-text">Kubernetes 網路</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%97%E5%8C%97%E5%90%91"><span class="nav-number">2.1.</span> <span class="nav-text">南北向</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9D%B1%E8%A5%BF%E5%90%91"><span class="nav-number">2.2.</span> <span class="nav-text">東西向</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Kubernetes-%E7%9A%84%E7%B6%B2%E8%B7%AF%E5%85%83%E4%BB%B6"><span class="nav-number">3.</span> <span class="nav-text">Kubernetes 的網路元件</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BA%95%E5%B1%A4%E5%9F%BA%E7%A4%8E%E5%BB%BA%E8%A8%AD"><span class="nav-number">3.1.</span> <span class="nav-text">底層基礎建設</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Kubernetes-%E5%85%A7%E5%BB%BA%E7%B6%B2%E8%B7%AF%E5%8A%9F%E8%83%BD"><span class="nav-number">3.2.</span> <span class="nav-text">Kubernetes 內建網路功能</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#CNI"><span class="nav-number">3.3.</span> <span class="nav-text">CNI</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AC%AC%E4%B8%89%E6%96%B9%E8%A7%A3%E6%B1%BA%E6%96%B9%E6%A1%88%E6%95%B4%E5%90%88"><span class="nav-number">3.4.</span> <span class="nav-text">第三方解決方案整合</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Kubernetes-%E7%9A%84%E9%99%A4%E9%8C%AF%E6%80%9D%E8%B7%AF"><span class="nav-number">4.</span> <span class="nav-text">Kubernetes 的除錯思路</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E9%8C%84%E8%A3%BD%E5%B0%81%E5%8C%85%E7%9A%84%E9%BA%BB%E7%85%A9"><span class="nav-number">5.</span> <span class="nav-text">錄製封包的麻煩</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%85%B6%E9%A4%98%E5%B7%A5%E5%85%B7"><span class="nav-number">6.</span> <span class="nav-text">其餘工具</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%B8%BD%E7%B5%90"><span class="nav-number">7.</span> <span class="nav-text">總結</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">8.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/k8s-network-debug.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Kubernetes 網路除錯之旅 | Hwchiu Learning Note">
+      <meta itemprop="description" content="淺談如何除錯 Kubernetes 中的各種網路問題">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Kubernetes 網路除錯之旅
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2023-03-05 15:35:57" itemprop="dateCreated datePublished" datetime="2023-03-05T15:35:57+08:00">2023-03-05</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">淺談如何除錯 Kubernetes 中的各種網路問題</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>Kubernetes 多節點架構的設計與使用者介面讓使用者可以輕鬆的部屬應用程式到所謂的多節點環境，特別是網路部分則是透過簡易的抽象層來簡化所有底層封包流向與操作，讓使用者可以更簡易快速的去存取部署的 Kubernetes 應用程式。</p>
+<p>本篇文章會先快速的簡略一下 Kubernetes 內的網路流量，並且探討當遇到網路問題時應該保有何種思路來面對問題，並且逐一擊破找到問題點</p>
+<h1 id="Kubernetes-網路"><a href="#Kubernetes-網路" class="headerlink" title="Kubernetes 網路"></a>Kubernetes 網路</h1><p>Kubernetes 是一個多節點的叢集系統，以叢集為基準去觀看封包流向，大抵上可以分成東西向與南北向。</p>
+<h2 id="南北向"><a href="#南北向" class="headerlink" title="南北向"></a>南北向</h2><p><code>南北向</code> 代表的是流量有進出叢集，封包的來源或是目的有一端是不屬於叢集的一部份。</p>
+<p>大抵上可能會有幾種流量方式</p>
+<ol>
+<li>外部服務 如和存取 叢集內服務<ul>
+<li>Ingress</li>
+<li>API-Gateway</li>
+<li>Load-Balancer</li>
+<li>…等</li>
+</ul>
+</li>
+<li>叢集內服務 如何存取 外部網路 <ul>
+<li>NAT (Network Address Translation)</li>
+<li>Internet Gateway</li>
+</ul>
+</li>
+</ol>
+<p>下圖是一個用來描述南北向流量的簡易畫法</p>
+<p><img src="https://i.imgur.com/0U11QvC.png"></p>
+<p>這種圖只能單純描述封包的流量以及讓大家對於整個叢集封包流向有一點基本的概念，對於除錯整體是不夠的，因此若要針對網路問題除錯必須要能夠更細部的去描述整個參與到的元件，譬如下圖</p>
+<p><img src="https://i.imgur.com/MPkqvsx.jpg"></p>
+<p>舉例來說，該 Kubernetes 叢集外部配置一個 Load-Balancer，而該 Load-Balancer 將封包打到節點上並且透過 Service(Node-Port) 的方式把封包打到目標 Pod.<br>而目標 Pod 則是依賴 Routing Table 將封包都轉發到 NAT Gateway 讓 NAT GW 來處理 SNAT 並將封包給轉發到外部網路</p>
+<p>此外，下圖也是另外一種不同的底層實作</p>
+<p><img src="https://i.imgur.com/4nydb8X.png"></p>
+<p>Load-Balancer 與 Kubernetes Pod 天生就擁有共通的能力(AWS CNI, Azure CNI)<br>，這種情框下 Load-Balancer 就能夠直通 Pod 而不需要經過任何 Service(LB&#x2F;NodePort) 來處理。<br>每個節點都依賴各自的 NAT 服務來直接進行 SNAT 的處理並且直接將網路送到外部網路。</p>
+<p>第三種範例如下</p>
+<p><img src="https://i.imgur.com/HctxXRo.png"></p>
+<p>這種架構下可能的情況就是外部使用 L4 LoadBalancer 將流量全部導向 Kubernetes 內的 Ingress Controller，讓 Ingress 來處理 L7 層級的處理與轉發。<br>同時環境架構中包含了 Internal&#x2F;Public 兩種網路，節點會根據封包目的地搭配 Routing Table 來決定封包的走向。</p>
+<p>以上三種範例都可以達到最初簡易圖示的效果，但是其底層的實作卻是截然不同，因此若要針對網路除錯則第一步驟就是要有能力且系統化的去闡述網路封包中經過的元件，先理解流程與相關元件才有辦法進行後續的除錯</p>
+<h2 id="東西向"><a href="#東西向" class="headerlink" title="東西向"></a>東西向</h2><p>而 <code>東西向</code> 代表封包於節點中穿梭，封包的來源與目的兩端都是屬於叢集內的一部分，譬如屬於不同的 Pod 或是節點本身。</p>
+<ol>
+<li>存取方向<ul>
+<li>Pod &lt;–&gt; Service</li>
+<li>Pod &lt;–&gt; Pod</li>
+<li>Pod &lt;–&gt; Node</li>
+</ul>
+</li>
+<li>存取範圍<ul>
+<li>兩者屬於同節點</li>
+<li>兩者跨節點</li>
+</ul>
+</li>
+</ol>
+<p>東西向來說，最簡單的就是 Pod to Pod 之間的存取</p>
+<p><img src="https://i.imgur.com/6Sqxou4.png"></p>
+<p>然而大部分的應用程式為了搭配 Deployment 對 Pod 生命週期的管理，通常會使用 Service 來處理 Pod 的 IP 與存取，如下圖</p>
+<p><img src="https://i.imgur.com/TH8cbFw.png"></p>
+<p>基於 K8s Service 的概念，所有送到 Service 的封包會依賴 Kube-proxy 的設定來處理負載平衡的抉擇(iptables, ipvs).</p>
+<p>從以上的探討可以基本知道網路世界沒有一個萬用架構圖，不同的環境與情境都會有不同的網路流向，因此探討網路問題的基本原則就是</p>
+<ol>
+<li>釐清誰是送端，誰是收端</li>
+<li>釐清送端與收端與 Kubernetes 的定位</li>
+<li>釐清封包流向中經過的所有元件為何</li>
+</ol>
+<h1 id="Kubernetes-的網路元件"><a href="#Kubernetes-的網路元件" class="headerlink" title="Kubernetes 的網路元件"></a>Kubernetes 的網路元件</h1><p>K8s 網路架構基本上我認為可以分成四個面向去探討，這四個面向互相整合使得 K8s 提供完善的網路功能，但是只要其中有任何一個地方出錯就會使得整個網路不通不如預期，這個面向分別是</p>
+<ol>
+<li>底層基礎建設</li>
+<li>Kubernetes 內建網路功能</li>
+<li>CNI</li>
+<li>第三方解決方案整合</li>
+</ol>
+<h2 id="底層基礎建設"><a href="#底層基礎建設" class="headerlink" title="底層基礎建設"></a>底層基礎建設</h2><p>對於雲端使用者來說，這部分的設定就是仰賴雲端業者去完成，使用者則是花錢建設，譬如</p>
+<ol>
+<li>VPC</li>
+<li>Subnet</li>
+<li>Firewall</li>
+<li>Routing</li>
+<li>NAT&#x2F;Internet GW</li>
+</ol>
+<p>但是對於地端人員來說，這些東西就不是用滑鼠或是 Terraform 寫寫就會產生的資源，而是需要實際上架機器佈線與機房管理，譬如</p>
+<ol>
+<li>節點與節點之間的網路連線，透過 L2 Switch, VLAN… 等串接</li>
+<li>基本的節點 IP 發放，是靜態 IP 還是動態 IP 取得</li>
+<li>DNS Server 的建置與管理</li>
+<li>跨機櫃的 Switch&#x2F;Router 等</li>
+</ol>
+<p>可能架構如下</p>
+<p><img src="https://i.imgur.com/munPePk.png"></p>
+<h2 id="Kubernetes-內建網路功能"><a href="#Kubernetes-內建網路功能" class="headerlink" title="Kubernetes 內建網路功能"></a>Kubernetes 內建網路功能</h2><p>Kubernetes 內建多種網路相關資源，包含</p>
+<ol>
+<li><p>Kubernetes Service<br>這部分主要是取決於 kube-proxy 的實作，預設的 iptables 或是修改為 ipvs，除了基本規則匹配方式外還有負載平衡演算法的實作不同。</p>
+</li>
+<li><p>Kubernetes Ingress<br>Kubernetes 只提供單純的介面，實作則是根據安裝哪套 Ingress Controller，不同套的實作細節則不同，譬如 Nginx, Kong, Tarefik…等</p>
+</li>
+<li><p>CoreDNS<br>用來處理基本的 DNS 請求，所有內部 k8s service 的 DNS 都會由 CoreDNS 來解析處理，特別是有些網路環境還想要與外部 External DNS 進行整合。</p>
+</li>
+<li><p>Network Policy<br>針對 Pod 進行些許的防火牆規則，這部分也是單純的介面，實作都是由底層的 CNI 去完成。</p>
+</li>
+</ol>
+<p>將上述的概念給整合到前述圖片後，可能的架構如下<br><img src="https://i.imgur.com/88hCder.jpg"></p>
+<h2 id="CNI"><a href="#CNI" class="headerlink" title="CNI"></a>CNI</h2><p>Contaienr Network Interface(CNI) 主要用來幫忙處理</p>
+<ol>
+<li>Pod 的 IP 分配 (IPAM)<ul>
+<li>節點上分配私有 IP</li>
+<li>節點上分配一個 “基礎底層架構” 可以直接存取的 IP，譬如 EKS&#x2F;AKS 上的 IP 就來自 VPC 內的可用 IP</li>
+</ul>
+</li>
+<li>跨節點之間 Pod 的封包處理</li>
+</ol>
+<p>一個簡易的概念就是，每個節點上的私有IP (Pod) 要如何與其他節點上的私有 IP (Pod) 進行處理？<br>不同 CNI 都採取不同的網路技術處理<br>    - Calico (BGP&#x2F;IPIP)<br>    - Flannel (VXLAN)<br>    - Cilium (eBPF)<br>    - OVS (OpenFlow)<br>    - Cloud-Provider specified (AWS&#x2F;Azure)</p>
+<p>一切堆疊起來後的架構圖大致上如下</p>
+<p><img src="https://i.imgur.com/JRlBmpi.jpg"></p>
+<h2 id="第三方解決方案整合"><a href="#第三方解決方案整合" class="headerlink" title="第三方解決方案整合"></a>第三方解決方案整合</h2><p>剩下的額外功能我都歸類於第三方功能，譬如</p>
+<ol>
+<li>Service Mesh</li>
+<li>Cluster Federation</li>
+<li>… 等</li>
+</ol>
+<p>這些功能都要建立於一個 “可正常運作” 的 Kubernetes 上，同時疊加更多功能來提供更進階的網路處理，然而一體兩面，進階的網路功能也意味著整個架構更為複雜，如果沒有辦法掌握這些概念與原理，基本上就是一個按照 README.MD 來操作的 YAML 工程師。<br>YAML 工程師可用，環境可通，功能可行，困擾就在於如何客製化，如何除錯，如何根據需求調整架構</p>
+<p>舉例來說，假設 Cluster Federation 建立後，有可能會變成如下<br><img src="https://i.imgur.com/PpgV90m.jpg"></p>
+<h1 id="Kubernetes-的除錯思路"><a href="#Kubernetes-的除錯思路" class="headerlink" title="Kubernetes 的除錯思路"></a>Kubernetes 的除錯思路</h1><p>用上述的基本概念敘述可得知，網路用起來非常簡單但是實際上背後牽扯的元件非常多，特別是當環境安裝愈來愈多的網路功能時，愈來愈多的元件牽扯其中，因此遇到網路問題的思路我推薦是</p>
+<ol>
+<li>釐清方向性，到底問題是南北向還是東西向?</li>
+<li>問題發生點，到底問題是屬於哪個層級？<br>是基礎建設出問題? K8s 內建功能沒設定好？ CNI 出問題還是第三方整合的服務有 Bug?</li>
+</ol>
+<p>特別特別重要的事情是，網路問題千萬千萬不要用嘴除錯，每個人對網路的概念與背景知識不同，單純靠嘴巴用談有時候很難有一個相同的理解與共識，最好的做法就是畫圖，將圖畫出來逐一釐清縮小問題發生點。</p>
+<p>為了有效的實作上述思路，可以採用一種方式來處理</p>
+<ol>
+<li>畫出整個系統架構圖</li>
+<li>標示出你的網路情境，誰是發送端，誰是收端？</li>
+<li>將自己想像成一個封包，於整個架構圖上逐一解釋這個封包會怎麼流動<ul>
+<li>如果有一個部分沒有辦法解釋，就代表你對這個網路架構還是不夠熟悉，繼續念書學習</li>
+</ul>
+</li>
+<li>以上述過程為基礎開始除錯，縮小問題的可能範圍，針對範圍內可能是問題的元件進行除錯，不停循環整個流程最後定位整個問題發生點</li>
+</ol>
+<p>以下是一個 “我的 Pod 透過 Service 沒有辦法存取目標 Pod” 的範例</p>
+<p>簡單架構圖畫起來就會是<br><img src="https://i.imgur.com/4unDnS4.png"></p>
+<p>但是這張圖只能基本描述封包流向，對於除錯還是有些許的地方不夠清楚，這時候如果可以將這張圖用更為技術的細節去展開，可以得到下列這張圖</p>
+<p><img src="https://i.imgur.com/ldaPp7j.png"></p>
+<ol>
+<li>Pod 欲透過 Service DNS 存取服務</li>
+<li>Pod 內檢察系統的 &#x2F;etc&#x2F;resolve 找到 DNS 的 IP</li>
+<li>該 DNS 實際上會是 CoreDNS 的 Cluster SerivceIP</li>
+<li>DNS 請求打到 CoreDNS 去解析到後面的 Service ClusterIP</li>
+<li>Pod 將請求送到 ClusterIP 並讓 k8s 將其轉發到後續的 Pod</li>
+</ol>
+<p>然而上述的圖片也不是 100% 精準，有更多些許的網路細節被遺漏，譬如</p>
+<ol>
+<li>CoreDNS 本身是基於 Hostnetwork 的方式來部署，因此 Pod -&gt; CoreDNS 的部分會變成 Pod -&gt; Node 的存取方式</li>
+<li>Pod -&gt; Service ClusterIP 這中間牽扯到 iptables&#x2F;ipvs 的轉發，所以真正的流量並不會有一條 Pod -&gt; Service 的走向，而是節點本身進行 DNAT 找到一個合適的 Pod IP 後就直接打到目標 Pod</li>
+</ol>
+<p>光是一個簡簡單單的 Pod-&gt;Service 就有非常的多的細節牽扯其中，大部分情況下這些東西都運作得好好的，大家的網路都沒有問提，然而只要有一個小元件出錯整個網路就不通了。</p>
+<p>當理解上述的技術細節後，這個 Pod-&gt;Service 的問題可以有這樣去看待</p>
+<ol>
+<li>跟 DNS 解析有關？ 直接使用 ClusterIP 打看看?</li>
+<li>跟 Service 轉換是否有關? 直接打 PodIP 試試看?</li>
+<li>跟節點是否有關， 直接打看看同節點上的 Pod 看看？</li>
+<li>跟出發者是誰有關？ 嘗試從節點的看看？</li>
+<li>是否有 Network Policy 擋住？</li>
+</ol>
+<p>一切都嘗試後還是沒有辦法縮小問題，可以嘗試從不同發生點錄製封包來分析</p>
+<ol>
+<li>Server 沒收到封包</li>
+<li>Server 有收到封包，但是沒有回</li>
+<li>Server 有收到封包，也有回覆，但是 Client 沒有收到</li>
+</ol>
+<p>此外也要考慮到封包是不是可能被封包給 Kernel 給丟棄導致沒有錄製到封包?<br>如果封包都錄製不到有沒有可能是底層網路出問題？譬如網路線壞了？</p>
+<p>一個一個列出來來排除與確認每個元件的運作狀況。</p>
+<h1 id="錄製封包的麻煩"><a href="#錄製封包的麻煩" class="headerlink" title="錄製封包的麻煩"></a>錄製封包的麻煩</h1><p>當現存工具都沒有辦法釐清為什麼網路不通時，就可以借助抓取封包的方式來判端<br>但是錄製封包的一個前提是問題有辦法重製，否則事情已經發生錯誤的封包已經消失，這時候錄製封包通常沒有辦法得到什麼有用的情報。</p>
+<p>當決定要錄製封包時，有兩個問題要確認</p>
+<ol>
+<li>用什麼工具擷取分析</li>
+<li>要如何從茫茫大海流量中定位到目標封包</li>
+</ol>
+<p>常見的工具如 wireshark&#x2F;tcpdump&#x2F;tshark.. 等都可以用來錄製封包，但是有些環境不一定有 GUI 可以運行 wireshark，所以熟悉些 CLI 的工具是不可獲或缺的技能</p>
+<p>當有了工具後就要決定要誰去運行這些工具？</p>
+<ol>
+<li>Pod 本身<br>Pod 本身是否能夠運行 tcpdump 取決於容器當初的 image，很多時候不一定有 tcpdump 可以用，甚至一些 image 連基本的 sh&#x2F;ash&#x2F;busybox 都沒有，就算仰賴 ksniff 來動態安裝 tcpdump 也有可能遇到執行問題</li>
+<li>節點<br>因為所有容器都運行到節點上，所以從節點上去錄製封包可以看到 95% 的容器封包(少部分特殊如 SR-IOV, DPDK…etc等無法)，此外節點通常比較方便去安裝各式各樣的工具來進行除錯。<br>不過也要注意的是如果這些節點是動態安裝，譬如透過 auto-scaling group 的概念是否就會導致每次除錯都要一直安裝工具？</li>
+</ol>
+<p>當可以錄製封包的時候，這時候又必須要將 CNI 與基本架構給整合進來，以 Calico 為範例</p>
+<p><img src="https://i.imgur.com/4vCOL5P.png"></p>
+<p>節點之間透過 IP-IP 的 Tunneling 協定進行封包處理，因此這時候你如果錄製封包你看到的不會是單純的 IP 協定，而是 IP-IP 協定，因此若沒有這些網路知識與理解，你錄製封包也沒有辦法找到你要的資訊。</p>
+<p>如果想要從節點上去錄製封包且 CNI 是透過 veth 的方式將封包給轉發到容器內，如果你有能力找到每條 veth 與 Pod 的對應關係，你可以直接針對 veth 去錄製封包找到最直接往返 Pod 的封包，除錯的效率也是最佳的。</p>
+<h1 id="其餘工具"><a href="#其餘工具" class="headerlink" title="其餘工具"></a>其餘工具</h1><p>除了上述提到跟 Kubernetes 有關的範疇外， Linux 本身的網路工具也甚為重要，譬如</p>
+<ol>
+<li>ip&#x2F;tcpdump</li>
+<li>conntrack</li>
+<li>iptables&#x2F;ipvs</li>
+<li>ethtool</li>
+<li>routing,NAT,rp_filter</li>
+<li>…etc</li>
+</ol>
+<p>這些工具都有可能會影響節點層級的封包轉發，弄得不好就會使得封包不通。</p>
+<h1 id="總結"><a href="#總結" class="headerlink" title="總結"></a>總結</h1><p>網路部分牽扯元件眾多，單靠嘴巴想要除錯幾乎不可行，而身為一個資深的開發人員&#x2F;維運人員，遇到網路問題時千萬不要單純只用一句 “我網路不通” 簡單描述問題，能的話則是要詳細描述實際上遇到什麼問題，進行過什麼測試，排除過什麼困難，目前認為的可能問題為何。</p>
+<p>除了能夠讓彼此更加清楚當前問題，反覆多次的來回訓練其實也都是淺移默化的加強對底層網路能力的理解，久而久之只會愈來愈熟悉，未來面對各種問題的時候會有各種不同的想法與理解。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>詳細可以參閱<br>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/read-notes-65.html" rel="prev" title="閱讀筆記: 「SRE 的工作介绍」">
+                  <i class="fa fa-chevron-left"></i> 閱讀筆記: 「SRE 的工作介绍」
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/python-yaml.html" rel="next" title="ruamel.yaml 小筆記">
+                  ruamel.yaml 小筆記 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

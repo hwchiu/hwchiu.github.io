@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="在前述中我們已經學過了什麼是 kubernetes service 以及如何實現 ClusterIP&#x2F;NodePort 等 service 類型. 透過對 iptables 的探討與研究. 接下來要研究的則是 Service 裡面的一個參數, 叫做 SessionAffinity, 所謂的連線親和力, 透過該參數的設定,希望能夠讓符合特定條件的連線最後都會選用到相同的後端應用程式,目前有支援的選項">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Kubernetes] How to Implement Kubernetes Service - SessionAffinity">
+<meta property="og:url" content="https://www.hwchiu.com/kubernetes-service-iiii.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="在前述中我們已經學過了什麼是 kubernetes service 以及如何實現 ClusterIP&#x2F;NodePort 等 service 類型. 透過對 iptables 的探討與研究. 接下來要研究的則是 Service 裡面的一個參數, 叫做 SessionAffinity, 所謂的連線親和力, 透過該參數的設定,希望能夠讓符合特定條件的連線最後都會選用到相同的後端應用程式,目前有支援的選項">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/C18G0Ym.png">
+<meta property="og:image" content="https://i.imgur.com/r6Yr1eI.png">
+<meta property="og:image" content="https://i.imgur.com/9amwybH.png">
+<meta property="og:image" content="https://i.imgur.com/p9Cff8e.png">
+<meta property="og:image" content="https://i.imgur.com/bKvZgw4.png">
+<meta property="og:image" content="https://i.imgur.com/NP5xsGg.png">
+<meta property="article:published_time" content="2018-08-27T05:46:47.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.630Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="Iptables">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/C18G0Ym.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/kubernetes-service-iiii.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/kubernetes-service-iiii.html","path":"kubernetes-service-iiii.html","title":"[Kubernetes] How to Implement Kubernetes Service - SessionAffinity"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>[Kubernetes] How to Implement Kubernetes Service - SessionAffinity | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#What-Is-Connection"><span class="nav-number">2.</span> <span class="nav-text">What Is Connection</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#What-Is-SessionAffinity"><span class="nav-number">3.</span> <span class="nav-text">What Is SessionAffinity</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Configuration"><span class="nav-number">4.</span> <span class="nav-text">Configuration</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#How-It-Works"><span class="nav-number">5.</span> <span class="nav-text">How It Works</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Setup"><span class="nav-number">5.1.</span> <span class="nav-text">Setup</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#IPTABLES"><span class="nav-number">5.2.</span> <span class="nav-text">IPTABLES</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#recent-modules"><span class="nav-number">5.3.</span> <span class="nav-text">recent modules</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Save"><span class="nav-number">5.3.1.</span> <span class="nav-text">Save</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Read"><span class="nav-number">5.3.2.</span> <span class="nav-text">Read</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">6.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">7.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/kubernetes-service-iiii.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="[Kubernetes] How to Implement Kubernetes Service - SessionAffinity | Hwchiu Learning Note">
+      <meta itemprop="description" content="在前述中我們已經學過了什麼是 kubernetes service 以及如何實現 ClusterIP/NodePort 等 service 類型. 透過對 iptables 的探討與研究. 接下來要研究的則是 Service 裡面的一個參數, 叫做 SessionAffinity, 所謂的連線親和力, 透過該參數的設定,希望能夠讓符合特定條件的連線最後都會選用到相同的後端應用程式,目前有支援的選項是 ClinetIP, 這意味者只要連線的來源 IP 地址是相同的,最後都會被導向到相同的容器應用程式. 然而這部分到底是如何實現的, 本文會先介紹什麼叫做 Connection. 並且介紹 SessionAffinity 的使用方式以及使用後的結果. 最後一樣透過相同的思路, 藉由研究 iptables 的規則來學習到 SessionAffinity 要如何完成, 同時也可以學習到 iptables 衆多靈活的使用方式.">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          [Kubernetes] How to Implement Kubernetes Service - SessionAffinity
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-08-27 13:46:47" itemprop="dateCreated datePublished" datetime="2018-08-27T13:46:47+08:00">2018-08-27</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">在前述中我們已經學過了什麼是 kubernetes service 以及如何實現 ClusterIP/NodePort 等 service 類型. 透過對 iptables 的探討與研究. 接下來要研究的則是 Service 裡面的一個參數, 叫做 SessionAffinity, 所謂的連線親和力, 透過該參數的設定,希望能夠讓符合特定條件的連線最後都會選用到相同的後端應用程式,目前有支援的選項是 ClinetIP, 這意味者只要連線的來源 IP 地址是相同的,最後都會被導向到相同的容器應用程式. 然而這部分到底是如何實現的, 本文會先介紹什麼叫做 Connection. 並且介紹 SessionAffinity 的使用方式以及使用後的結果. 最後一樣透過相同的思路, 藉由研究 iptables 的規則來學習到 SessionAffinity 要如何完成, 同時也可以學習到 iptables 衆多靈活的使用方式.</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>本文章是屬於 <code>kubernetes</code> service 系列文之一，該系列文希望能夠與大家討論下量兩個觀念</p>
+<ol>
+<li>什麼是 <code>Kubernetes Service</code>, 為什麼我們需要它？ 它能夠幫忙解決什麼問題</li>
+<li><code>Kubernetes Service</code> 是怎麼實現的?， 讓我們用 iptables 來徹徹底底的理解他</li>
+</ol>
+<p>相關文章:<br><a href="https://www.hwchiu.com/kubernetes-service-i.html">[Kubernetes] What is Service</a><br><a href="https://www.hwchiu.com/kubernetes-service-ii.html">[Kubernetes] How To Implement Kubernetes Service - ClusterIP</a><br><a href="https://www.hwchiu.com/kubernetes-service-iii.html">[Kubernetes] How To Implement Kubernetes Service - NodePort</a></p>
+<p>本文銜接前續文章，繼續透過對 <code>iptables</code> 的分析來研究 <code>kubernetes service</code> 中 <code>SessionAffinity</code> 的實作原理。</p>
+<h1 id="What-Is-Connection"><a href="#What-Is-Connection" class="headerlink" title="What Is Connection"></a>What Is Connection</h1><p>在我們開始討論 <code>SessionAffinity</code> 之前，我們要先來討論一下，什麼叫做 <code>Connection</code>, 並且透過對 <code>Connection</code> 的瞭解，我們會更容易的理解到底 <code>SessionAffinity</code>  想要解決的問題。</p>
+<p>這邊我們使用下列的圖示來說明到底什麼是 <code>Connection</code></p>
+<p><img src="https://i.imgur.com/C18G0Ym.png" alt="Imgur"></p>
+<p>這個範例中，我們有一個 <code>kubernetes</code> 叢集，其透過 <code>kubernetes service(NodePort)</code> 的方式將內部的 <code>Nginx</code> 服務讓外界能夠存取。</p>
+<p>此時，在外部我們有兩台機器想要存取這些 <code>Nginx</code> 服務，其中第一台機器 <strong>Host1</strong> 上面有一個 <code>Client Application</code>, 透過 <code>kubernetes service</code> 的功用，其最後存取到了<code>Nginx1</code> 這個容器。<br>而第二台機器 <strong>Host2</strong> 上面則有兩個 <code>Client Application</code>, 其分別對應到的是 <code>Nginx2</code> 以及 <code>Nginx3</code> 這兩個容器。</p>
+<p>首先，本文中所有提到的 <code>Connection</code> 代表的就是如上圖所示的 <code>ClientApp</code> 到 <code>Nginx</code> 的連線，所以上述的範例總共有三個 <code>Connection</code>.</p>
+<p>這邊我們先思考一個問題，針對圖中 <code>ConnectionA</code> 來討論一下，該 <code>ConnectionA</code> 中所有的來回請求回應，都會走到 <code>Nginx1</code> 嘛?<br>這些所謂的請求回應，實際是都是網際網路世界中的封包，每個封包一旦到達 <code>Kubernetes </code> 叢集內就會遇到 <code>iptaables</code> 規則的處理。<br>在這個情況下，我們如何保證該 <code>ConnectionA</code> 裡面的所有封包都可以送達到同一個 <code>Nginx1</code> 也就是所謂的 <code>EndPoints</code>.</p>
+<p>這個問題其實已經解決了，是透過 <code>iptables</code> 解決的。<br>這個原理沒有辦法一言兩語解決，我之後若有時間會寫相關的文章介紹這邊的原理與實現。<br>這邊只要知道其方法是倚賴 <code>Linux Kernel</code> 裡面相關的技術去提供類似 <code>Cache</code> 的機制，確保相同的 <code>Connection</code> 內所有的來回封包都會執行相同的 <code>SNAT/DNAT</code>.</p>
+<p>有興趣的讀者可以使用下列關鍵字去搜尋相關文章，不然就是等我哪天有時間在來仔細介紹這邊的概念lol</p>
+<ol>
+<li>netfilter</li>
+<li>conntrack</li>
+<li>DNAT&#x2F;SNAT</li>
+</ol>
+<h1 id="What-Is-SessionAffinity"><a href="#What-Is-SessionAffinity" class="headerlink" title="What Is SessionAffinity"></a>What Is SessionAffinity</h1><p>假如相同 <code>Connection</code> 內的封包都已經可以保證連接到相同的 <code>Endpoints</code> 了，那到底什麼是 <code>SessionAffinity</code>?</p>
+<p>換個角度來說，我們有沒有辦法讓建立的新 <code>Connection</code> 都連接到相同的 <code>Endpoints</code> ?</p>
+<p>這個問題就是 <code>SessionAffinity</code> 想要解決並處理的，透過一種機制，讓不同的 <code>Client Application</code> 所建立新的 <code>Connection</code> 最後都會連接到相同的 <code>EndPoints</code>.</p>
+<p>以上圖的範例來說，有沒有可能讓 <code>Connection A,B,C</code> 都連接到相同的 <code>EndPoints</code>?</p>
+<h1 id="Configuration"><a href="#Configuration" class="headerlink" title="Configuration"></a>Configuration</h1><p>首先，我們先來看一下 <code>Kubernetes</code> 裡面定義的 <code>SessionAffinity</code> 要怎麼使用<br>目前總共有兩種類型可以選擇</p>
+<ol>
+<li>None</li>
+<li>ClientIP</li>
+</ol>
+<p>第一種 <code>None</code> 其實就是什麼都不做，針對每一條新的<code>Connection</code>都不去採去任何動作，基本上就是每條<code>Connection</code>都看運氣來選擇最後選擇到哪一個 <code>Endpoints</code>.</p>
+<p>第二種 <code>ClientIP</code> 則是真的有事情要做了，就如同字面上的意思，<code>Client IP</code>.<br>目的很簡單，對於每一條新建立的 <code>Connection</code>, 若其 <code>Client IP</code> 地址相同，就導到相同的 <code>Endpoints</code> 去使用。</p>
+<p>所以回到剛剛上述的問題<br>以上圖的範例來說，有沒有可能讓 <code>Connection A,B,C</code> 都連接到相同的 <code>EndPoints</code>?<br>按照目前 <code>kubernetes</code> 的設計，上述的答案是在最簡單的網路架構下，只能夠確保 <strong>Host2</strong> 上面所建立的所有 <strong>Connection</strong> 都可以連接到相同的 <strong>Endpoints</strong>.</p>
+<p>這邊假設這些 Host 都有自己的公開 <code>IP</code> 地址，不考慮任何 <code>SNAT</code> 的效果。</p>
+<h1 id="How-It-Works"><a href="#How-It-Works" class="headerlink" title="How It Works"></a>How It Works</h1><h2 id="Setup"><a href="#Setup" class="headerlink" title="Setup"></a>Setup</h2><p>接下來，我們繼續使用<a target="_blank" rel="noopener" href="https://github.com/hwchiu/kubeDemo">kubeDemo</a>來進行相關的服務部屬以及<code>iptables</code>規則研究。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:01:37:28 [~/go/src/github.com/hwchiu/kubeDemo/services](master)vagrant</span><br><span class="line"><span class="variable">$kubectl</span> apply -f service/nginx-</span><br><span class="line">nginx-affinity.yml  nginx-cluster.yml   nginx-node.yml</span><br><span class="line">vortex-dev:01:37:28 [~/go/src/github.com/hwchiu/kubeDemo/services](master)vagrant</span><br><span class="line"><span class="variable">$kubectl</span> apply -f service/nginx-affinity.yml</span><br><span class="line">service/k8s-nginx-affinity created</span><br></pre></td></tr></table></figure>
+
+<p>我們用下列指令確認一下剛剛部屬的 <code>kubernetes service</code> 是否真的有設定 <code>sessionAffinity</code></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">vortex-dev:01:40:58 [~/go/src/github.com/hwchiu/kubeDemo/services](master)vagrant</span><br><span class="line"><span class="variable">$kubectl</span> get service k8s-nginx-affinity -o jsonpath=<span class="string">&#x27;&#123;.spec.sessionAffinity&#125;&#x27;</span></span><br><span class="line">ClientIP</span><br></pre></td></tr></table></figure>
+
+<h2 id="IPTABLES"><a href="#IPTABLES" class="headerlink" title="IPTABLES"></a>IPTABLES</h2><p>按照慣例，最簡單的觀察方式就是直接觀察 <code>iptables</code> 的規則，這邊直接透過 <code>k8s-ngins-affinity</code> 這個關鍵字來查詢所有相關的規則</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable">$sudo</span> iptables-save | grep k8s-nginx-affinity</span><br><span class="line">-A KUBE-SEP-HDMJEKA4BFKBU6OK -s 10.244.0.145/32 -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-SEP-HDMJEKA4BFKBU6OK -p tcp -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -m recent --<span class="built_in">set</span> --name KUBE-SEP-HDMJEKA4BFKBU6OK --mask 255.255.255.255 --rsource -m tcp -j DNAT --to-destination 10.244.0.145:80</span><br><span class="line">-A KUBE-SEP-Q5HAFBJX4HVXF6EM -s 10.244.0.144/32 -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-SEP-Q5HAFBJX4HVXF6EM -p tcp -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -m recent --<span class="built_in">set</span> --name KUBE-SEP-Q5HAFBJX4HVXF6EM --mask 255.255.255.255 --rsource -m tcp -j DNAT --to-destination 10.244.0.144:80</span><br><span class="line">-A KUBE-SEP-YFKOY7G33LWKGTLC -s 10.244.0.143/32 -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-SEP-YFKOY7G33LWKGTLC -p tcp -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -m recent --<span class="built_in">set</span> --name KUBE-SEP-YFKOY7G33LWKGTLC --mask 255.255.255.255 --rsource -m tcp -j DNAT --to-destination 10.244.0.143:80</span><br><span class="line">-A KUBE-SERVICES ! -s 10.244.0.0/16 -d 10.109.59.245/32 -p tcp -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity: cluster IP&quot;</span> -m tcp --dport 80 -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-SERVICES -d 10.109.59.245/32 -p tcp -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity: cluster IP&quot;</span> -m tcp --dport 80 -j KUBE-SVC-UBXGHWUUHMMRNNE6</span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -m recent --rcheck --seconds 10800 --reap --name KUBE-SEP-YFKOY7G33LWKGTLC --mask 255.255.255.255 --rsource -j KUBE-SEP-YFKOY7G33LWKGTLC</span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -m recent --rcheck --seconds 10800 --reap --name KUBE-SEP-Q5HAFBJX4HVXF6EM --mask 255.255.255.255 --rsource -j KUBE-SEP-Q5HAFBJX4HVXF6EM</span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -m recent --rcheck --seconds 10800 --reap --name KUBE-SEP-HDMJEKA4BFKBU6OK --mask 255.255.255.255 --rsource -j KUBE-SEP-HDMJEKA4BFKBU6OK</span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -m statistic --mode random --probability 0.33332999982 -j KUBE-SEP-YFKOY7G33LWKGTLC</span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -m statistic --mode random --probability 0.50000000000 -j KUBE-SEP-Q5HAFBJX4HVXF6EM</span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -j KUBE-SEP-HDMJEKA4BFKBU6OK</span><br></pre></td></tr></table></figure>
+
+<p>稍微看了一下可以發現規則數量變多了，每個 <code>Endpoints</code> 本身多出兩條的規則出來，所以此範例中因為有三個<code>Endpoints</code>，所以總共會多出六條新的規則。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">-A KUBE-SEP-HDMJEKA4BFKBU6OK -p tcp -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -m recent --<span class="built_in">set</span> --name KUBE-SEP-HDMJEKA4BFKBU6OK --mask 255.255.255.255 --rsource -m tcp -j DNAT --to-destination 10.244.0.145:80</span><br><span class="line">-A KUBE-SEP-Q5HAFBJX4HVXF6EM -p tcp -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -m recent --<span class="built_in">set</span> --name KUBE-SEP-Q5HAFBJX4HVXF6EM --mask 255.255.255.255 --rsource -m tcp -j DNAT --to-destination 10.244.0.144:80</span><br><span class="line">-A KUBE-SEP-YFKOY7G33LWKGTLC -p tcp -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -m recent --<span class="built_in">set</span> --name KUBE-SEP-YFKOY7G33LWKGTLC --mask 255.255.255.255 --rsource -m tcp -j DNAT --to-destination 10.244.0.143:80</span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -m recent --rcheck --seconds 10800 --reap --name KUBE-SEP-YFKOY7G33LWKGTLC --mask 255.255.255.255 --rsource -j KUBE-SEP-YFKOY7G33LWKGTLC</span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -m recent --rcheck --seconds 10800 --reap --name KUBE-SEP-Q5HAFBJX4HVXF6EM --mask 255.255.255.255 --rsource -j KUBE-SEP-Q5HAFBJX4HVXF6EM</span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -m recent --rcheck --seconds 10800 --reap --name KUBE-SEP-HDMJEKA4BFKBU6OK --mask 255.255.255.255 --rsource -j KUBE-SEP-HDMJEKA4BFKBU6OK</span><br></pre></td></tr></table></figure>
+
+<p>在我們開始研究這些規則之前，我們還是要先來問自己一句話<br><strong>如果是我們自己來實作這個功能，我們會怎麼實作?</strong></p>
+<p>假設需求就是 <code>ClientIP</code> ，相同來源<code>IP</code>地址所建立的新連線都要分配到相同的 <code>EndPoints</code> 來使用<br>直覺下，我們可以用類似 <code>Cache</code> 的概念來完成這個功能，其流程如下</p>
+<ol>
+<li>收到新的連線請求, 檢查該來源<code>IP</code>地址是否存在 <code>Cache</code> 中</li>
+<li>若存在，直接使用該 <code>Cache</code> 內關於的目標 <code>Endpoints</code> 來使用</li>
+<li>若不存在，則嘗試從 <code>EndPoints</code> 內挑選出一個目標，並且將結果記錄到 <code>Cache</code> 之中.</li>
+</ol>
+<p>所以可以將該 <code>cache</code> 分成 <code>Read/Wrtie</code> 兩個功能面向來看待，以下圖來表示</p>
+<p><img src="https://i.imgur.com/r6Yr1eI.png" alt="Imgur"></p>
+<p>上述的流程看起來滿直觀且合理的，但是這些流程在 <code>iptables</code> 的規則中到底要怎麼完成?</p>
+<h2 id="recent-modules"><a href="#recent-modules" class="headerlink" title="recent modules"></a>recent modules</h2><p>我們將前面6條新規則縮減到兩條來單獨觀察就好**(因為每個EndPoints會有兩條)**</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">-A KUBE-SEP-HDMJEKA4BFKBU6OK -p tcp -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -m recent --<span class="built_in">set</span> --name KUBE-SEP-HDMJEKA4BFKBU6OK --mask 255.255.255.255 --rsource -m tcp -j DNAT --to-destination 10.244.0.145:80</span><br><span class="line"></span><br><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -m recent --rcheck --seconds 10800 --reap --name KUBE-SEP-HDMJEKA4BFKBU6OK --mask 255.255.255.255 --rsource -j KUBE-SEP-HDMJEKA4BFKBU6OK</span><br></pre></td></tr></table></figure>
+
+<p>為了加深各位的印象並且能夠順利的解讀 <code>ClusterIP</code> 的原理，需要再次複習一下這張圖片，並且確保知道下圖中各個項目的含意。<br><img src="https://i.imgur.com/9amwybH.png" alt="Imgur"></p>
+<h3 id="Save"><a href="#Save" class="headerlink" title="Save"></a>Save</h3><p>首先我們觀察第一條規則，其位於 <code>KUBE-SEP</code> 這個位置，這個其實就是真正執行 <code>DNAT</code> 的 <code>custom  chain</code>.<br>這邊做的事情與我們假想的流程完全一致, 當選出欲使用的 <code>Endoints</code> 並進行 <code>DNAT</code> 轉換之時，順便將該結果記錄到 <code>Cache</code> 內。<br><strong>若不存在，則嘗試從 <code>EndPoints</code> 內挑選出一個目標，並且將結果記錄到 <code>Cache</code> 之中.</strong></p>
+<p>我們來仔細看一下這條規則</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-A KUBE-SEP-HDMJEKA4BFKBU6OK -p tcp -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -m recent --<span class="built_in">set</span> --name KUBE-SEP-HDMJEKA4BFKBU6OK --mask 255.255.255.255 --rsource -m tcp -j DNAT --to-destination 10.244.0.145:80</span><br></pre></td></tr></table></figure>
+
+<p>裡面新增加的部份則是</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-m recent --<span class="built_in">set</span> --name KUBE-SEP-HDMJEKA4BFKBU6OK --mask 255.255.255.255 --rsource</span><br></pre></td></tr></table></figure>
+
+<p>這邊我們要介紹一個新的 <code>iptables</code> 的擴充模組 <strong>recent</strong>. 但是礙於篇幅沒有辦法詳細介紹其所有用法以及原理。<br>我們可以將 <code>recent</code> 想成他提供一個簡單的類似 <code>key/value</code> 的 <code>cache</code> 機制，同時支援 <strong>Read&#x2F;Write</strong> 等操作來存取該 <code>Cache</code>.</p>
+<p>這邊就針對這參數進行一個簡單的介紹</p>
+<ol>
+<li>-m recent: 使用擴充模組 <code>recent</code></li>
+<li>–set: 這次的行為想要進行儲存的動作，將某些 <code>key/value</code> 寫進到 <code>recent cache</code> 內</li>
+<li>–name KUBE-SEP-XXXXXXXX: 這邊對應的就是存到 <code>cache</code> 內的 <code>Value</code>.</li>
+<li>–mask 255.255.255.255: 這個搭配下一個參數使用</li>
+<li>–rsource: 這邊代表是的我要用什麼當做 <code>key</code>, 這邊使用的是 <code>souruce</code> 就是所謂的封包來源<code>IP</code>地址,既然有<code>IP</code>地址，就可以搭配前面的<code>mask</code>來調整<code>IP</code>位址的範圍，這個範例中就是**&#x2F;32**的設定，意味<code>IP</code>要完全一樣才行。</li>
+</ol>
+<p>所以歸納一下，若今天已經選定了一個<code>Endpoints</code>要來使用，首先會先跳到屬於該 <code>Endpoints</code> 專屬於的 <code>custom chani</code> <strong>KUBE-SEP-HDMJEKA4BFKBU6OK</strong>.<br>在進行 <code>DNAT</code> 之前，會先透過 <code>recent cache</code> 的方式去紀錄下列的對映關係</p>
+<p><strong>[來源IP地址] &#x3D;&gt; KUBE-SEP-HDMJEKA4BFKBU6OK</strong></p>
+<p>將上述的概念重新整理，目前的已知拼圖如下</p>
+<p><img src="https://i.imgur.com/p9Cff8e.png" alt="Imgur"></p>
+<p>另外，之前有提到過 <code>iptables</code> 的每個指令都是<code>符合特定規則</code>，執行<code>特定行為</code>.<br>所以其實 <code>recent</code> 模組內關於 <code>Set/Write</code> 相關的操作永遠都是回傳<code>符合</code>，讓上層的規則可以繼續往下執行。<br>畢竟針對 <code>Set/Write</code> 這類型操作本身就沒有要比對任何東西，只是被拿來進行其他的操作而已。</p>
+<h3 id="Read"><a href="#Read" class="headerlink" title="Read"></a>Read</h3><p>看完了第一題規則後，接下來來看一下最後一條，其實也就是第二條規則</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-A KUBE-SVC-UBXGHWUUHMMRNNE6 -m comment --comment <span class="string">&quot;default/k8s-nginx-affinity:&quot;</span> -m recent --rcheck --seconds 10800 --reap --name KUBE-SEP-HDMJEKA4BFKBU6OK --mask 255.255.255.255 --rsource -j KUBE-SEP-HDMJEKA4BFKBU6OK</span><br></pre></td></tr></table></figure>
+
+<p>這條規則其實就是 <code>Cache</code> 裡面關於 <code>Read</code> 的操作，但是這邊有一個點要注意，因為 <code>iptables</code> 的規則就是一條一條根據<code>比對條件</code>來判斷要不要執行<code>特定行為</code>.<br>所以這邊沒有辦法用程式化的方式去從 <code>Cache</code> 裡面取得對應的 <code>EndPoints</code> 名稱。</p>
+<p>我們先記住，該 <code>recent</code> 提供的方式是詢問請問該<code>Key</code>有沒有資料，有的話是不是這個<code>Value</code>。<br>在這種情況下，我們可以想像一下其運作原理。</p>
+<p>針對每一條 <code>KUBE-SVC-XXX</code> 裡面的規則，依序每個 <code>EndPoints</code> 執行下列操作</p>
+<ol>
+<li>請問<code>Cachue</code>裡面有沒有 <code>來源IP位址</code> &#x3D;&gt; <code>當前EndPoints</code> 的紀錄? 有的話就直接跳到對應的 <code>Endooints</code> 的<code>custom chain</code>去執行<code>DNAT</code>.</li>
+<li>如果沒有的話，嘗試第二個 <code>Endpoints</code></li>
+<li>所有的 <code>Endpoints</code> 嘗試後都沒有結果，那就透過機率的方式選擇一個可用的 <code>Endpoints</code></li>
+</ol>
+<p>有了這些概念後，我們從參數的部分來直接看一下 <code>iptables</code> 實際上的下法</p>
+<ol>
+<li>-m:recent 使用擴充模組 <code>recent</code></li>
+<li>–rcheck: 這邊我們執行 <code>READ</code> 的指令，要檢查 <code>cache</code> 內是否有對應的 <code>key/value</code></li>
+<li>–name: <code>value</code>, 就是 <code>Endpoints</code> 對應到的 <code>custom-chain name</code></li>
+<li>–rsouce&#x2F;–mask: <code>key</code>, 封包的來源 <code>IP</code></li>
+<li>–seconds: 每個 <code>cache</code> 內的記錄都會有一個過期的時間，這個時間的意思是只有上次設定該 <code>ket/value</code> 的時間距離現在<code>N</code>秒內的才算數，已這個範例來說就是 <code>10800秒</code> 內的 <code>cache</code> 記錄才算數，如果是超過 <code>10800秒</code> 前記錄的，就當失效。</li>
+<li>–reap: 這個是指每次查詢的時候，會將已經超過<code>有效時間</code> 的規則一併清除。</li>
+</ol>
+<p>把這整個流程全部重新組合後，我們用下面的這張圖來描述關於整個 <code>SessionAffinity</code> 的概念與實作<br><code>seconds</code> 相關的概念我就沒有加入到該圖片中了，因為篇幅有限，針對主要觀念去描述即可。</p>
+<p><img src="https://i.imgur.com/bKvZgw4.png" alt="Imgur"></p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>看到這邊，我們大概瞭解如何透過 <code>iptables</code> 的功能來達成 <code>SessionAffinity:ClientIP</code> 的功能，透過 <code>iptables</code> 的擴充模組 <code>recent</code> 提供類似 <code>key/value</code> 的 <code>cache</code> 機制來紀錄 <code>來源IP地址</code> 與 <code>Endpoints</code> 的關係。</p>
+<p>如果對於 <code>iptables</code> 擴充模組有興趣的讀者，之後我會撰寫一些文章介紹 <code>iptables</code> 的架構以及如何自己撰寫一個 <code>iptables</code> 的擴充模組。</p>
+<p>最後我們將本篇文章所學的概念與一直以來使用的關係圖給整合起來，當設定 <code>SessionAffinity</code> 時，我們會在<code>KUBE-SVC</code> 嘗試透過 <code>Recent/Cache</code> 的方式找到是否有使用過的 <code>Endpoints</code><br>之後再真正執行 <code>DNAT</code> 的 <code>KUBE-SEP-XXXX</code> 時會不停的更新 <code>Recent/Cache</code> 內的資料以及時間，避免該筆資料過期。</p>
+<p><img src="https://i.imgur.com/NP5xsGg.png" alt="Imgur"></p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/Iptables/" rel="tag"># Iptables</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/kubernetes-service-iii.html" rel="prev" title="[Kubernetes] How to Implement Kubernetes Service - NodePort">
+                  <i class="fa fa-chevron-left"></i> [Kubernetes] How to Implement Kubernetes Service - NodePort
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/mgo-aggregate.html" rel="next" title="[Golang] aggregate in mongo">
+                  [Golang] aggregate in mongo <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

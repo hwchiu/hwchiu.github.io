@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="Rancher 系列文第八篇，探討Rancher Fleet 的概念">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Rancher 系列文] - Fleet 的介紹與使用">
+<meta property="og:url" content="https://www.hwchiu.com/rancher-8.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="Rancher 系列文第八篇，探討Rancher Fleet 的概念">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/D26BxGL.png">
+<meta property="og:image" content="https://i.imgur.com/6NkmYFP.png">
+<meta property="og:image" content="https://i.imgur.com/2MnLVYF.png">
+<meta property="og:image" content="https://i.imgur.com/RKvXvYl.png">
+<meta property="og:image" content="https://i.imgur.com/crKNn9J.png">
+<meta property="og:image" content="https://i.imgur.com/JR4XHU6.png">
+<meta property="og:image" content="https://i.imgur.com/rbOOOtQ.png">
+<meta property="og:image" content="https://i.imgur.com/4PM93aR.png">
+<meta property="og:image" content="https://i.imgur.com/Se9QTqQ.png">
+<meta property="og:image" content="https://i.imgur.com/noIccKk.png">
+<meta property="og:image" content="https://i.imgur.com/W73XX5i.png">
+<meta property="og:image" content="https://i.imgur.com/H2wLe5q.png">
+<meta property="og:image" content="https://i.imgur.com/p4vYQ5o.png">
+<meta property="og:image" content="https://i.imgur.com/4m3JS12.png">
+<meta property="og:image" content="https://i.imgur.com/zG1Q5nQ.png">
+<meta property="og:image" content="https://i.imgur.com/9hAw5dL.png">
+<meta property="og:image" content="https://i.imgur.com/y2spnow.png">
+<meta property="og:image" content="https://i.imgur.com/H5l63mh.png">
+<meta property="og:image" content="https://i.imgur.com/BgO5dvT.png">
+<meta property="og:image" content="https://i.imgur.com/JDtrh4W.png">
+<meta property="og:image" content="https://i.imgur.com/BjBqZOn.png">
+<meta property="og:image" content="https://i.imgur.com/HqOHvNx.png">
+<meta property="og:image" content="https://i.imgur.com/44jcTgJ.png">
+<meta property="og:image" content="https://i.imgur.com/Ekolpcx.png">
+<meta property="og:image" content="https://i.imgur.com/vYpIApg.png">
+<meta property="article:published_time" content="2021-12-23T16:06:19.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.638Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="DevOps">
+<meta property="article:tag" content="GitOps">
+<meta property="article:tag" content="Rancher">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/D26BxGL.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/rancher-8.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/rancher-8.html","path":"rancher-8.html","title":"[Rancher 系列文] - Fleet 的介紹與使用"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>[Rancher 系列文] - Fleet 的介紹與使用 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%AE%89%E8%A3%9D"><span class="nav-number">1.</span> <span class="nav-text">安裝</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%A7%80%E5%AF%9F"><span class="nav-number">2.</span> <span class="nav-text">觀察</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#GitOps-Example"><span class="nav-number">3.</span> <span class="nav-text">GitOps Example</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Workspace"><span class="nav-number">3.1.</span> <span class="nav-text">Workspace</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%94%A8-Fleet-%E7%AE%A1-GitRepo"><span class="nav-number">3.2.</span> <span class="nav-text">用 Fleet 管 GitRepo</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%BD%89%E7%A7%BB-Cluster"><span class="nav-number">3.3.</span> <span class="nav-text">轉移 Cluster</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">4.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/rancher-8.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="[Rancher 系列文] - Fleet 的介紹與使用 | Hwchiu Learning Note">
+      <meta itemprop="description" content="Rancher 系列文第八篇，探討Rancher Fleet 的概念">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          [Rancher 系列文] - Fleet 的介紹與使用
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2021-12-24 00:06:19" itemprop="dateCreated datePublished" datetime="2021-12-24T00:06:19+08:00">2021-12-24</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">Rancher 系列文第八篇，探討Rancher Fleet 的概念</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="安裝"><a href="#安裝" class="headerlink" title="安裝"></a>安裝</h1><p><a target="_blank" rel="noopener" href="http://fleet.rancher.io/multi-cluster-install/">官方網站</a> 有列出非常詳細的安裝步驟，針對 Fleet Manager 安裝要用到的憑證與除錯方式，如何使用 Helm 安裝 CRD 與 Fleet Controller 都有介紹。<br>當 Fleet Manager 安裝與設定完畢後，接下來就可以參考 <a target="_blank" rel="noopener" href="http://fleet.rancher.io/cluster-overview/">Cluster Registration Overview</a> 這篇官方文章來學習如何將一個 Kubernetes 叢集作為 Fleet Agent 加入到 Fleet Manager 的管理中。</p>
+<p>不過這邊要特別注意的是，以上所提的安裝方式都是針對純 Fleet 解決方案時才需要考慮的部分，因為 Fleet 是 Rancher 開發與維護的，因此任何由 Rancher 管理與創建的 Kubernetes 叢集都已經內建 Fleet Agent，大幅度簡化使用者的安裝方式。</p>
+<p>當初安裝 Rancher 時會先準備一個 Kubernetes 叢集專門用來負責 Rancher 本身的維運，其他所有的叢集都會透過這個 Rancher 去創建與維護，Rancher Fleet 會採用相同的架構與方式去處理。專門用來部署 Rancher 的 Kubernetes 叢集會被安裝 Fleet Controller。</p>
+<p>基於以上兩點，只要所有叢集都是由 Rancher 去創建與管理的， Fleet 就不需要自己手動安裝，Fleet Manager 與 Fleet Agent 都會自動的被安裝與部署到相關叢集中。</p>
+<h1 id="觀察"><a href="#觀察" class="headerlink" title="觀察"></a>觀察</h1><p>前述所述，用來安裝 Rancher 服務的 Kubernetes 叢集本身也會安裝 Fleet Controller，這部分可以到 Apps 的頁面去看到底有哪些應用程式被安裝到叢集中。同時透過畫面中提供的 kubectl 指令去觀察 fleet-system namespace 中安裝的 Pod，如下圖。</p>
+<p><img src="https://i.imgur.com/D26BxGL.png"></p>
+<p>可以觀察到 local 也就是部署 Rancher 的 Kubernetes 叢集有部署三個 Pod，其中 fleet-controller 以及 gitjob 兩個 pod 是針對 fleet manager 而部署的 Pod，而 fleet-agent 則是給 fleet-agent 使用的。</p>
+<p>此架構意味者管理者可以透過該 Fleet 來管理 local 這套 Kubernetes 叢集。<br>之前提到 Fleet 與大部分的 Operator 有相同的開發流程，所以會使用一個 Kubernetes Controller 配上很多預先設定的 CRD 物件，所以透過 kubectl get crd 就可以看到 local 叢集上有各式各樣關於 Fleet 的 CRD。</p>
+<p>接下來觀察要被管理的 Kubernetes 叢集，譬如給 Dev 使用的叢集，這時候使用相同的方式去觀察該叢集內安裝的資源，可以觀察到 fleet-system 內只有安裝一個 Pod，該 Pod 就是扮演 Fleet Agent 的角色，讓該叢集能夠順利的 Fleet Manager 溝通，範例如下。</p>
+<p><img src="https://i.imgur.com/6NkmYFP.png"></p>
+<p>確認完畢之後就可以移動到 Rancher Fleet 的專屬頁面，移動的方式很簡單，不論當前是處於哪個叢集，點選左上方就可以找到一個名為 Continuous Delivery 的選項，點進去就會進入到 Rancher Fleet 的畫面。</p>
+<p><img src="https://i.imgur.com/2MnLVYF.png"></p>
+<p>進去畫面中後會看到如下的畫面，畫面中有非常多的新東西，接下來針對這些新東西慢慢探索</p>
+<p><img src="https://i.imgur.com/RKvXvYl.png"></p>
+<p>首先畫面最上方有一個下拉式選單可以選擇，該選單會列出所有可以使用的 Fleet Workspace，那到底什麼是 workspace 呢?</p>
+<p>Fleet workspace 是一個管理單位，就如同大部分專案的 workspace 概念一樣，每個 workspace 都會有自己獨立的 GitRepo, Group, Bundle 等概念。<br>一個實務上的上作法會創立多種不同的 workspace，譬如 dev, qa 及 prod。</p>
+<p>每個 workspace 內都可包含多個不同的 cluster 與其他的資源。</p>
+<p>預設的情況下有兩個 workspace，分別是 fleet-local 以及 fleet-default. 所有剛加入到 Rancher 的叢集都會被加入到 fleet-default 這個 workspace 中。</p>
+<p>畫面左邊有六個不同的資源</p>
+<p>Git Repos:<br>Git Repos 內的資源是告訴 Fleet 希望追蹤哪些 Git 專案，該 Git 專案中哪些資料夾的哪些檔案要讓 Fleet 幫忙管理與安裝。</p>
+<p>因為 Fleet 什麼都還沒有安裝與設定，所以 Git Repo 內目前是空空的，沒有任何要被安裝的應用程式。</p>
+<p>Clusters&#x2F;Cluster Groups:<br>這邊顯示的是該 workspace 中有多少個 cluster，目前的環境中先前創立三個不同的 Kubernetes 叢集，而這些叢集預設都會被放入到 fleet-default workspace 內的 group。</p>
+<p>假設 cluster 數量過多，還可以透過 Cluster Group 的概念來簡化操作，將相容用途的 cluster 用群組的方式來簡化之後的操作。</p>
+<p><img src="https://i.imgur.com/crKNn9J.png"></p>
+<p>Workspace:<br>Workspace 可以看到目前系統有多少個 workspace，可以看到系統中有 fleet-default 以及 fleet-local，同時也會顯示這些 workspace 中目前管理多少個 cluster 。</p>
+<p><img src="https://i.imgur.com/JR4XHU6.png"></p>
+<p>Bundles:<br>之前提過 Bundle 是 Fleet controller 掃過 GitRepo 專案後會產生的安裝資源檔案。<br>可以當前的範例非常奇妙，沒有任何 Git Repo 的內容卻擁有這些 Bundle 檔案，主要是因為這三個 Bundle 是非常奇妙與特殊的 Bundle，仔細看的話可以觀察到這些 Bundle 的名稱都是 Fleet-agent-c-xxxx，這些 bundle 是用來安裝 fleet-agent 到目前 Rancher 下的所有 Kubernetes 叢集。<br>這些安裝是 Rancher 內建強迫的，所以使用上會稍微跟正常用法有點不同。</p>
+<p><img src="https://i.imgur.com/rbOOOtQ.png"></p>
+<p>ClusterRegistrationTokens:<br>最後一個則是 Cluster(Fleet Agent) 要加入到 Fleet Manager 使用的 Token，不過因為目前的叢集全部都是由 Rancher 去管理與創造的，所以不需要參考官網自行安裝，因此 Rancher 會走比較特別的方式來將 Rancher 管理的叢集給加入到 Fleet manager 中，因此這邊就是空的。</p>
+<p>此外透過 Cluster 內的操作，可以將該 workspace 下的 cluster 給移轉到其他的 workspace，所以之後根據需求創立不同的 workspace 後，就可以透過這個方式將 cluster 給移轉到屬於該用途的 workspace。</p>
+<p><img src="https://i.imgur.com/4PM93aR.png"></p>
+<h1 id="GitOps-Example"><a href="#GitOps-Example" class="headerlink" title="GitOps Example"></a>GitOps Example</h1><p>為了使用 GitOps 來部署，必須要先準備一個 Git 的專案來放置要部署的資源，</p>
+<p>本篇文章使用的範例都會放到我準備的一個公開 Git Repo <a target="_blank" rel="noopener" href="https://github.com/hwchiu/fleet_demo">Fleet Demo</a></p>
+<h2 id="Workspace"><a href="#Workspace" class="headerlink" title="Workspace"></a>Workspace</h2><p>前述提到大部分 Rancher Fleet 的資源都是基於 Kubernetes CRD 去描述的，因此除了透過網頁操作外也是可以準備一個相關的 YAML 檔案，只要將該 YAML 給部署到 Kubernetes 內， Fleet Controller 就會根據該資源進行對應的操作與更新。</p>
+<p>一開始先從簡單的部分開始練習，嘗試透過 GitOps 幫忙創建與管理 Workspace，預設的情況下叢集會有 fleet-default 與 fleet-local 這兩個 workspace，所以目標是想要創造兩個不同的 workspace，分別是 prod 以及 testing.</p>
+<p>Workspace 的 YAML 非常簡單，一個範例如下</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">management.cattle.io/v3</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">FleetWorkspace</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">prod</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">prod</span></span><br></pre></td></tr></table></figure>
+
+<p>創建一個 FleetWorkspace 的物件，並且針對 name&#x2F;ns 給予相對應的資料即可，因此針對兩個 workspace 準備兩個檔案，並且將這兩個檔案放到 git 專案下的 workspace 資料夾底下。示意圖如下。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">╰─$ tree .</span><br><span class="line">.</span><br><span class="line">└── workspace</span><br><span class="line">    ├── production.yaml</span><br><span class="line">    └── testing.yaml</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>將上述內容給推向遠方 Git 專案中後，下一步就是要讓 Fleet 知道請追蹤這個 Git Repo 並且將相關的內容給部署到 Kubernetes 內。<br>切換到 Fleet 的介面，選擇到 Fleet-Local 這個 workspace 並且於 GitRepo 的頁面中點選創立，這時候可以看到如下的介面</p>
+<p><img src="https://i.imgur.com/Se9QTqQ.png"></p>
+<p>該介面中我們需要設定幾個資訊</p>
+<ol>
+<li>GitRepo 物件的名稱</li>
+<li>Git 專案的 URL</li>
+<li>Git 專案的 Branch</li>
+<li>Git 專案是否需要透過權限去純取。</li>
+<li>要從 Git 專案中的哪個位置去尋找相關 YAML 檔案。</li>
+</ol>
+<p>因為示範專案是公開的，所以(4)可以直接忽略。<br>第五點要特別設定成 workspace&#x2F;，因為前述我們將兩個 workspace 的 YAML 放到 workspace 資料夾底下。</p>
+<p>創立完畢後就會看到系統上創建了一個名為 workspace 的 Git 物件，該物件的狀態會從 GitUpdating 最後變成 Active。</p>
+<p>由於 fleet-local 這個 workspace 中只有一個 cluster，也就是 local，因此剛剛創立的 GitRepo 只會將相關資源給安裝到這個 local cluster 中，所以可以看到圖中顯示的 Clusters Ready 標示為 1。</p>
+<p><img src="https://i.imgur.com/noIccKk.png"></p>
+<p>點選 workspace 這個資源進去可以看到更多關於該 GitRepo 的資訊，譬如相關的資源有哪些。<br>範例中可以看到底下提供了兩個屬於 FleetWorkspace 的物件，分別為 prod 以及 testing，這兩個物件都安裝到對應的 namespace 中。</p>
+<p><img src="https://i.imgur.com/W73XX5i.png"></p>
+<p>之前也有提過針對每個 GitRepo 所掃描出來的物件都會創造出一個最基本的 Bundle 物件，該物件會描述這個應用程式的所有內容。所以切換到 Bundle 介面去尋找 workspace，可以看到如下的範例。</p>
+<p><img src="https://i.imgur.com/H2wLe5q.png"></p>
+<p>該 bundle 會把所有要安裝的資源都集中起來，同時因為這次的範例非常簡單，沒有要針對任何 Cluster 去客製化與過濾，所以 targets&#x2F;targetRestrictions 都是空白的。<br>此時點選 workspace 的介面或是上方的選單，會發現先前描述的 testing 與 prod 這兩個 workspace 已經被自動創立了，這意味者 Fleet 已經自動地從 Git 專案中學習到要部署什麼資源，並且把資源給成功的部署到 Kubernetes 內，最後的結果也如預期一樣。</p>
+<p><img src="https://i.imgur.com/p4vYQ5o.png"></p>
+<h2 id="用-Fleet-管-GitRepo"><a href="#用-Fleet-管-GitRepo" class="headerlink" title="用 Fleet 管 GitRepo"></a>用 Fleet 管 GitRepo</h2><p>下一個範例就是希望透過 Fleet 管理 GitRepo 物件，畢竟能夠盡可能減少 UI 操作是追求自動化過程中不可避免的一環。</p>
+<p>首先到 GitRepo 中將該 Workspace 的物件移除，移除後可以觀察到 Bundle 中關於 prod&#x2F;testing 的物件都不見，同時 workspace 中只剩下 fleet-local 以及 fleet-default.</p>
+<p><img src="https://i.imgur.com/4m3JS12.png"></p>
+<p>為了讓 Fleet 幫忙管理，我們需要準備一個描述 GitRepo 的 YAML 檔案，將該檔案放到專案中的 repos&#x2F;local 底下。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">kind:</span> <span class="string">GitRepo</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">fleet.cattle.io/v1alpha1</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">fleet-demo</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">fleet-local</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">repo:</span> <span class="string">https://github.com/hwchiu/fleet_demo.git</span></span><br><span class="line">  <span class="attr">branch:</span> <span class="string">master</span></span><br><span class="line">  <span class="attr">paths:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">workspace/</span></span><br><span class="line">  <span class="attr">targets:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">clusterSelector:</span> &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>該 Yaml 描述的內容跟前述透過 UI 創建 GitRepo 是一致的，當系統中有愈來愈多應用程式要管理的時候，就修改該物件，讓 Paths 指令更多路徑即可。</p>
+<p>準備好該物件後，接下來還是要到 Fleet UI 去創建一個 GitRepo 物件，該 GitRepo 物件是用來幫忙管理所有 GitRepo 物件的，因此必須要先手動創建一次，接下來就可以依賴 GitOps 的流程幫忙管理。</p>
+<p><img src="https://i.imgur.com/zG1Q5nQ.png"></p>
+<p>這邊先創造一個新的 GitRepo 物件，該物件指向 repos&#x2F;local。</p>
+<p><img src="https://i.imgur.com/9hAw5dL.png"></p>
+<p>所以整個流程就會變成</p>
+<ol>
+<li>Fleet 去讀取 Git 專案底下 repos&#x2F;local 內的物件</li>
+<li>repos&#x2F;local 內的物件被套用到 Kubernetes 後就會產生另外一個名為 fleet-demo 的 GitRepo 物件</li>
+<li>fleet-demo 物件會再次的去把專案內的 workspace&#x2F; 給抓進來進行後續安裝。</li>
+</ol>
+<p>一切準備完畢後，會觀察到 GitRepo 列表呈現的如下圖，會有兩個 GitRepo</p>
+<p><img src="https://i.imgur.com/y2spnow.png"></p>
+<p>這時候如果點進去 fleet-demo 這個 GitRepo，可以看到該 GitRepo 會部署兩個 workspace，同時最上方還有一個額外的 label，該 label 是由 helm 產生的。<br>前述提過 Fleet 會將所有資源都動態的轉換為 Helm 格式。</p>
+<p><img src="https://i.imgur.com/H5l63mh.png"></p>
+<h2 id="轉移-Cluster"><a href="#轉移-Cluster" class="headerlink" title="轉移 Cluster"></a>轉移 Cluster</h2><p>創立好兩個不同的 workspace 後，可以嘗試將三個預先創立的 k8s cluster 給搬移過去，舉例來說將<br>rke-qa 以及 ithome-dev 這兩套叢集搬移到 testing workspace，而 rke-it 則搬移到 prod workspace。</p>
+<p><img src="https://i.imgur.com/BgO5dvT.png"><br><img src="https://i.imgur.com/JDtrh4W.png"></p>
+<p>下一步就是真正實務上的需求，部署應用程式。為了讓 Fleet 安裝應用程式，所以也需要幫忙準備一個 GitRepo 的物件。針對 testing 以及 prod 各準備一個，並且依序放到 repos&#x2F;testing, repos&#x2F;prod 底下。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">╰─$ <span class="built_in">cat</span> prod/app-basic.yaml</span><br><span class="line">kind: GitRepo</span><br><span class="line">apiVersion: fleet.cattle.io/v1alpha1</span><br><span class="line">metadata:</span><br><span class="line">  name: prod-app</span><br><span class="line">  namespace: prod</span><br><span class="line">spec:</span><br><span class="line">  repo: https://github.com/hwchiu/fleet_demo.git</span><br><span class="line">  branch: master</span><br><span class="line">  paths:</span><br><span class="line">    - app/basic</span><br><span class="line">  targets:</span><br><span class="line">    - clusterSelector: &#123;&#125;</span><br><span class="line">╰─$ <span class="built_in">cat</span> testing/app-basic.yaml</span><br><span class="line">kind: GitRepo</span><br><span class="line">apiVersion: fleet.cattle.io/v1alpha1</span><br><span class="line">metadata:</span><br><span class="line">  name: testing-app</span><br><span class="line">  namespace: testing</span><br><span class="line">spec:</span><br><span class="line">  repo: https://github.com/hwchiu/fleet_demo.git</span><br><span class="line">  branch: master</span><br><span class="line">  paths:</span><br><span class="line">    - app/basic</span><br><span class="line">  targets:</span><br><span class="line">    - clusterSelector: &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>目前系統上還沒有 app&#x2F;basic 資料夾，可以先不用管它。</p>
+<p>上述兩個 GitRepo 的差異處有兩個</p>
+<ol>
+<li>名稱不同</li>
+<li>安裝的 namespace 不同，注意這邊的 namespace 要跟 workspace 的名稱一致。</li>
+</ol>
+<p>接者我們要讓最原始的 repos 一起幫忙處理這兩個 GitRepo，將 repos&#x2F;local 底下的檔案修改為</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">╰─$ cat local/repos.yaml</span><br><span class="line">kind: GitRepo</span><br><span class="line">apiVersion: fleet.cattle.io/v1alpha1</span><br><span class="line">metadata:</span><br><span class="line">  name: fleet-demo</span><br><span class="line">  namespace: fleet-local</span><br><span class="line">spec:</span><br><span class="line">  repo: https://github.com/hwchiu/fleet_demo.git</span><br><span class="line">  branch: master</span><br><span class="line">  paths:</span><br><span class="line">    - workspace/</span><br><span class="line">    - repos/testing</span><br><span class="line">    - repos/prod</span><br><span class="line">  targets:</span><br><span class="line">    - clusterSelector: &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>這時候整個專案呈現如下</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">╰─$ tree -l</span><br><span class="line">.</span><br><span class="line">├── repos</span><br><span class="line">│   ├── <span class="built_in">local</span></span><br><span class="line">│   │   └── repos.yaml</span><br><span class="line">│   ├── prod</span><br><span class="line">│   │   └── app-basic.yaml</span><br><span class="line">│   └── testing</span><br><span class="line">│       └── app-basic.yaml</span><br><span class="line">└── workspace</span><br><span class="line">    ├── production.yaml</span><br><span class="line">    └── testing.yaml</span><br></pre></td></tr></table></figure>
+
+<p>當這些修改都推到遠方 Git 專案後就會觀察到 fleet-local 下的兩個 GitRepo 物件都變成 NotReady 的狀態，如下</p>
+<p><img src="https://i.imgur.com/BjBqZOn.png"></p>
+<p>以 Fleet 的角度來解釋就是</p>
+<ol>
+<li>fleet-demo 這個 GitRepo 本身會希望安裝三個路徑底下的物件，分別是 workspace&#x2F; repos&#x2F;testing, repos&#x2F;prod, 只要其中有一個沒有順利部署完成，身為老爸的 fleet-demo 也就自然不能說自己完成</li>
+<li>fleet-demo 這個物件是由 repos 這個 GitRepo 去動態產生的，因此 fleet-demo 本身沒有順利完成的話，repos 物件也沒有辦法說自己順利完成。</li>
+</ol>
+<p>接者點進去 fleet-demo 看一下到底是什麼物件沒有順利完成，可以看到剛剛創立的 prod-app 以及 testing-app 這兩個物件也都沒有完成，所以跟 workspace 無關。</p>
+<p><img src="https://i.imgur.com/HqOHvNx.png"></p>
+<p>這時候切換到 testing 的 workspace，可以觀察到系統上的 testing-app GitRepo 是呈現紅色的字眼，叫做 Git Updating。<br>同時最上方有顯示相關錯誤訊息，告知使用者為什麼該專案目前不能正常運作。<br>其訊息告知 Fleet 沒有辦法從 專案底下的 app&#x2F;basic 路徑找到可以用的 Kubernetes 物件，因此沒有辦法順利安裝資源，所以標示為錯誤。</p>
+<p><img src="https://i.imgur.com/44jcTgJ.png"></p>
+<p>為了解決這個問題，我從官方範例中複製了一個簡單的 Deployment 物件，將該物件給放到 apps&#x2F;basic 底下。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">frontend</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">guestbook</span></span><br><span class="line">      <span class="attr">tier:</span> <span class="string">frontend</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">3</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">guestbook</span></span><br><span class="line">        <span class="attr">tier:</span> <span class="string">frontend</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">php-redis</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">gcr.io/google-samples/gb-frontend:v4</span></span><br><span class="line">        <span class="attr">resources:</span></span><br><span class="line">          <span class="attr">requests:</span></span><br><span class="line">            <span class="attr">cpu:</span> <span class="string">100m</span></span><br><span class="line">            <span class="attr">memory:</span> <span class="string">100Mi</span></span><br><span class="line">        <span class="attr">ports:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">containerPort:</span> <span class="number">80</span></span><br></pre></td></tr></table></figure>
+
+
+<p>將這個物件推向遠方的 Git 專案後就可以觀察到 testing-app 成功順利的安裝物件到叢集中，由於 testing 的 workspace 底下有兩個不同的 cluster， ithome-dev 以及 rke-qa。<br>所以這個物件就會自動的安裝到這兩個叢集中。</p>
+<p><img src="https://i.imgur.com/Ekolpcx.png"></p>
+<p>這時候如果去 cluster explorer 的介面可以看到 deployment 中有一個名為 frontend 的 deployment 物件被創建出來。</p>
+<p><img src="https://i.imgur.com/vYpIApg.png"></p>
+<p>本篇文章到這邊為止，我們嘗試透過 Fleet GitOps 的方式來管理 Fleet 本身並且部署了第一個應用程式，下一篇文章將來探討如何針對不同的 Cluster 給予不同的客製化，譬如 ithome-dev 跟 rke-qa 可以使用不同的參數或是檔案來部署。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法<br>詳細可以參閱<br>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/GitOps/" rel="tag"># GitOps</a>
+              <a href="/tags/Rancher/" rel="tag"># Rancher</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/software-experience.html" rel="prev" title="工作20 餘年的軟體架構經驗談">
+                  <i class="fa fa-chevron-left"></i> 工作20 餘年的軟體架構經驗談
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/stop-python-36.html" rel="next" title="是時候停止使用 python 3.6">
+                  是時候停止使用 python 3.6 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

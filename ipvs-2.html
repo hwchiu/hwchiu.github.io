@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本文作為 IPVS 系列文第二篇，主要是跟大家介紹 IPVS 與 Kubernetes 的互動，包含如何設定以及 IPVS 如何實踐 Kubernetes Service 的功能">
+<meta property="og:type" content="article">
+<meta property="og:title" content="IPvS 學習手冊(二)">
+<meta property="og:url" content="https://www.hwchiu.com/ipvs-2.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文作為 IPVS 系列文第二篇，主要是跟大家介紹 IPVS 與 Kubernetes 的互動，包含如何設定以及 IPVS 如何實踐 Kubernetes Service 的功能">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2020-03-20T22:38:55.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.618Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="IPVS">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/ipvs-2.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/ipvs-2.html","path":"ipvs-2.html","title":"IPvS 學習手冊(二)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>IPvS 學習手冊(二) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Kubernetes"><span class="nav-number">2.</span> <span class="nav-text">Kubernetes</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Service"><span class="nav-number">3.</span> <span class="nav-text">Service</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#ClusterIP-x2F-NodePort"><span class="nav-number">3.1.</span> <span class="nav-text">ClusterIP&#x2F;NodePort</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#IPSET"><span class="nav-number">3.2.</span> <span class="nav-text">IPSET</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#NODE-PORT"><span class="nav-number">3.2.1.</span> <span class="nav-text">NODE-PORT</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Dummy-Interface"><span class="nav-number">3.3.</span> <span class="nav-text">Dummy Interface</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Experiment"><span class="nav-number">3.3.1.</span> <span class="nav-text">Experiment</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">4.</span> <span class="nav-text">個人資訊</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Reference"><span class="nav-number">5.</span> <span class="nav-text">Reference</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ipvs-2.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="IPvS 學習手冊(二) | Hwchiu Learning Note">
+      <meta itemprop="description" content="本文作為 IPVS 系列文第二篇，主要是跟大家介紹 IPVS 與 Kubernetes 的互動，包含如何設定以及 IPVS 如何實踐 Kubernetes Service 的功能">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          IPvS 學習手冊(二)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2020-03-21 06:38:55" itemprop="dateCreated datePublished" datetime="2020-03-21T06:38:55+08:00">2020-03-21</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本文作為 IPVS 系列文第二篇，主要是跟大家介紹 IPVS 與 Kubernetes 的互動，包含如何設定以及 IPVS 如何實踐 Kubernetes Service 的功能</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>本篇文章作為系列文章的第二篇，該系列文希望能夠從概念到實作，從簡單到複雜來探討 IPVS (IP Virtual Server) 的概念，目前規劃的主題包含：</p>
+<ul>
+<li><a href="https://www.hwchiu.com/ipvs-1.html">IPVS 的基本使用與概念</a></li>
+<li><a href="https://www.hwchiu.com/ipvs-2.html">IPVS 與 Kubernetes 的整合</a></li>
+<li><a href="https://www.hwchiu.com/ipvs-3.html">IPVS 除錯方式與基本 Kernel Module 概念</a></li>
+<li><a href="https://www.hwchiu.com/ipvs-4.html">IPVS Kernel 架構實現</a></li>
+</ul>
+<p>本文主要是從 Kubernetes 出發，介紹如何在 Kubernetes 內使用 IPVS 而非原生的 IPTables，並且探討下 <strong>Kubernetes Service</strong> 是如何透過 <strong>IPVS</strong> 實踐的。</p>
+<p>本文中使用的所有檔案都可以於 <a target="_blank" rel="noopener" href="https://github.com/hwchiu/network-study/tree/master/ipvs">network-study:ipvs</a> 這個 repo找到，裡面包含了</p>
+<ol>
+<li>建設環境用的 Vagrant 檔案</li>
+<li>部署 Kubernetes Service 會用到的相關 yaml 檔案</li>
+</ol>
+<h1 id="Kubernetes"><a href="#Kubernetes" class="headerlink" title="Kubernetes"></a>Kubernetes</h1><p>Kube-Proxy 是 Kubernetes 用來控制 Service 轉發過程的一個元件，基本上每個節點上都要部署該元件。預設情況下， <strong>kube-proxy</strong> 會使用 <strong>iptables</strong> 作為 <strong>Kubernetes Service</strong> 的底層實現方式，而我們可以透過參數變化的方式要求其使用 <strong>IPVS</strong>。</p>
+<p>為了快速架設環境，我準備了一個基於 <strong>kubeadm</strong> 的安裝環境，內容如下</p>
+<figure class="highlight ruby"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># -*- mode: ruby -*-</span></span><br><span class="line"><span class="comment"># vi: set ft=ruby :</span></span><br><span class="line"></span><br><span class="line"><span class="title class_">Vagrant</span>.configure(<span class="string">&quot;2&quot;</span>) <span class="keyword">do</span> |<span class="params">config</span>|</span><br><span class="line">  config.vm.box = <span class="string">&quot;bento/ubuntu-18.04&quot;</span></span><br><span class="line">  config.vm.box_version =<span class="string">&#x27;201912.14.0&#x27;</span></span><br><span class="line">  config.vm.hostname = <span class="string">&#x27;k8s-dev&#x27;</span></span><br><span class="line">  config.vm.define vm_name = <span class="string">&#x27;k8s&#x27;</span></span><br><span class="line"></span><br><span class="line">  config.vm.provision <span class="string">&quot;shell&quot;</span>, <span class="symbol">privileged:</span> <span class="literal">false</span>, <span class="symbol">inline:</span> <span class="string">&lt;&lt;-SHELL</span></span><br><span class="line"><span class="string">    set -e -x -u</span></span><br><span class="line"><span class="string">    export DEBIAN_FRONTEND=noninteractive</span></span><br><span class="line"><span class="string">    #change the source.list</span></span><br><span class="line"><span class="string">    sudo apt-get update</span></span><br><span class="line"><span class="string">    sudo apt-get install -y vim git cmake build-essential tcpdump tig jq socat bash-completion ipvsadm</span></span><br><span class="line"><span class="string">    # Install Docker</span></span><br><span class="line"><span class="string">    export DOCKER_VERSION=&quot;5:19.03.5~3-0~ubuntu-bionic&quot;</span></span><br><span class="line"><span class="string">    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -</span></span><br><span class="line"><span class="string">    sudo add-apt-repository &quot;deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable&quot;</span></span><br><span class="line"><span class="string">    sudo apt-get update</span></span><br><span class="line"><span class="string">    sudo apt-get install -y docker-ce=$&#123;DOCKER_VERSION&#125;</span></span><br><span class="line"><span class="string">    sudo usermod -aG docker $USER</span></span><br><span class="line"><span class="string">    #Install module</span></span><br><span class="line"><span class="string">    sudo modprobe -- ip_vs</span></span><br><span class="line"><span class="string">    sudo modprobe -- ip_vs_rr</span></span><br><span class="line"><span class="string">    sudo modprobe -- ip_vs_wrr</span></span><br><span class="line"><span class="string">    sudo modprobe -- ip_vs_sh</span></span><br><span class="line"><span class="string">    sudo modprobe -- nf_conntrack_ipv4</span></span><br><span class="line"><span class="string">    #Disable swap</span></span><br><span class="line"><span class="string">    #https://github.com/kubernetes/kubernetes/issues/53533</span></span><br><span class="line"><span class="string">    sudo swapoff -a &amp;&amp; sudo sysctl -w vm.swappiness=0</span></span><br><span class="line"><span class="string">    sudo sed &#x27;/vagrant--vg-swap/d&#x27; -i /etc/fstab</span></span><br><span class="line"><span class="string">    git clone https://github.com/hwchiu/network-study.git</span></span><br><span class="line"><span class="string">    sudo apt-get update &amp;&amp; sudo apt-get install -y apt-transport-https curl</span></span><br><span class="line"><span class="string">    curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -</span></span><br><span class="line"><span class="string">    echo &quot;deb http://apt.kubernetes.io/ kubernetes-xenial main&quot; | sudo tee --append /etc/apt/sources.list.d/kubernetes.list</span></span><br><span class="line"><span class="string">    sudo apt-get update</span></span><br><span class="line"><span class="string">    sudo apt-get install -y kubelet kubeadm kubectl</span></span><br><span class="line"><span class="string">    sudo kubeadm init --config network-study/ipvs/kubeconfig.yaml</span></span><br><span class="line"><span class="string">    mkdir -p $HOME/.kube</span></span><br><span class="line"><span class="string">    sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config</span></span><br><span class="line"><span class="string">    sudo chown $(id -u):$(id -g) $HOME/.kube/config</span></span><br><span class="line"><span class="string">    kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/2140ac876ef134e0ed5af15c65e414cf26827915/Documentation/kube-flannel.yml</span></span><br><span class="line"><span class="string">    kubectl taint node k8s-dev node-role.kubernetes.io/master:NoSchedule-</span></span><br><span class="line"><span class="string">    echo &#x27;source &lt;(kubectl completion bash)&#x27; &gt;&gt;~/.bashrc</span></span><br><span class="line"><span class="string">  SHELL</span></span><br><span class="line"></span><br><span class="line">  config.vm.network <span class="symbol">:private_network</span>, <span class="symbol">ip:</span> <span class="string">&quot;172.17.8.111&quot;</span></span><br><span class="line">  config.vm.provider <span class="symbol">:virtualbox</span> <span class="keyword">do</span> |<span class="params">v</span>|</span><br><span class="line">      v.customize [<span class="string">&quot;modifyvm&quot;</span>, <span class="symbol">:id</span>, <span class="string">&quot;--cpus&quot;</span>, <span class="number">2</span>]</span><br><span class="line">      v.customize [<span class="string">&quot;modifyvm&quot;</span>, <span class="symbol">:id</span>, <span class="string">&quot;--memory&quot;</span>, <span class="number">4096</span>]</span><br><span class="line">      v.customize [<span class="string">&#x27;modifyvm&#x27;</span>, <span class="symbol">:id</span>, <span class="string">&#x27;--nicpromisc1&#x27;</span>, <span class="string">&#x27;allow-all&#x27;</span>]</span><br><span class="line">  <span class="keyword">end</span></span><br><span class="line"><span class="keyword">end</span></span><br></pre></td></tr></table></figure>
+
+<p>裡面有幾個比較值得注意的點</p>
+<ol>
+<li>apt-get 順便安裝 ipvsadm 與 ipset</li>
+<li>透過 <code>modprobe</code> 事先安裝相關的 <strong>kernel module</strong>, 包含了<ul>
+<li>ip_vs</li>
+<li>ip_vs_rr</li>
+<li>ip_vs_wrr</li>
+<li>ip_vs_sh</li>
+<li>nf_conntrack_ipv4<blockquote>
+<p>其中有幾個主要都是 <strong>Load Balancing</strong> 不同演算法實踐的 Module，之後探討底層實作的時候再來細看這些的差異。</p>
+</blockquote>
+</li>
+</ul>
+</li>
+<li>kubeadm init 的時候透過 <code>--config</code> 來預載設定檔案，其內容如下：<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">kubeproxy.config.k8s.io/v1alpha1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">KubeProxyConfiguration</span></span><br><span class="line"><span class="attr">mode:</span> <span class="string">ipvs</span></span><br><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">kubeadm.k8s.io/v1beta2</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">ClusterConfiguration</span></span><br><span class="line"><span class="attr">networking:</span></span><br><span class="line">  <span class="attr">podSubnet:</span> <span class="string">&quot;10.244.0.0/16&quot;</span></span><br></pre></td></tr></table></figure></li>
+</ol>
+<p>透過 <code>KubeProxtConfiguration</code> 的方式讓 <code>kubeadm</code> 產生對應的 <strong>configmap</strong> 給 <strong>kube-proxy</strong> 使用。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl -n kube-system get configmaps kube-proxy</span><br><span class="line">NAME         DATA   AGE</span><br><span class="line">kube-proxy   2      105m</span><br></pre></td></tr></table></figure>
+
+<p>而 <strong>ClusterConfiguration</strong> 則是因為底下使用 <strong>Flannel CNI</strong> 所以需要設定的 <strong>POD CIDR</strong> 的參數</p>
+<p>透過 <strong>vagrant up</strong> 將環境建置起來後，可以透過下列指令觀察最原始的 <strong>Kubernetes</strong> 設定。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo ipvsadm -Ln</span><br><span class="line">IP Virtual Server version 1.2.1 (size=4096)</span><br><span class="line">Prot LocalAddress:Port Scheduler Flags</span><br><span class="line">  -&gt; RemoteAddress:Port           Forward Weight ActiveConn InActConn</span><br><span class="line">TCP  10.96.0.1:443 rr</span><br><span class="line">  -&gt; 10.0.2.15:6443               Masq    1      3          0</span><br><span class="line">TCP  10.96.0.10:53 rr</span><br><span class="line">  -&gt; 10.244.0.2:53                Masq    1      0          0</span><br><span class="line">  -&gt; 10.244.0.3:53                Masq    1      0          0</span><br><span class="line">TCP  10.96.0.10:9153 rr</span><br><span class="line">  -&gt; 10.244.0.2:9153              Masq    1      0          0</span><br><span class="line">  -&gt; 10.244.0.3:9153              Masq    1      0          0</span><br><span class="line">UDP  10.96.0.10:53 rr</span><br><span class="line">  -&gt; 10.244.0.2:53                Masq    1      0          0</span><br><span class="line">  -&gt; 10.244.0.3:53                Masq    1      0          0</span><br></pre></td></tr></table></figure>
+
+<p>可以觀察到，預設情況下，系統中有四個 <strong>IPVS Service</strong></p>
+<ol>
+<li><strong>10.96.0.1:443</strong> (TCP)</li>
+<li><strong>10.96.0.10:53</strong> (TCP)</li>
+<li><strong>10.96.0.10:9153</strong> (TCP)</li>
+<li><strong>10.96.0.10:53</strong> (UDP)</li>
+</ol>
+<p>第一個則是 API Server 的服務，沒有太多的重點，主要是觀察後面三個服務<br>這三個服務都是對應 <code>CoreDNS</code> 的服務，可以透過下列指令觀察</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl -n kube-system get svc,ep</span><br><span class="line">NAME               TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)                  AGE</span><br><span class="line">service/kube-dns   ClusterIP   10.96.0.10   &lt;none&gt;        53/UDP,53/TCP,9153/TCP   126m</span><br><span class="line"></span><br><span class="line">NAME                                ENDPOINTS                                               AGE</span><br><span class="line">endpoints/kube-controller-manager   &lt;none&gt;                                                  126m</span><br><span class="line">endpoints/kube-dns                  10.244.0.2:53,10.244.0.3:53,10.244.0.2:53 + 3 more...   126m</span><br><span class="line">endpoints/kube-scheduler            &lt;none&gt;                                                  126m</span><br></pre></td></tr></table></figure>
+
+<p>所以可以看到，對於 <strong>IPVS</strong>來說，每一個 <strong>Kubernetes Service</strong> 可以產生多個 <strong>IPVS Service</strong>，主要看該 <strong>Service</strong> 要提供多少服務（協定+連接埠）。</p>
+<h1 id="Service"><a href="#Service" class="headerlink" title="Service"></a>Service</h1><p>接下來我們嘗試部署 ClusterIP 以及 NodePort 這兩個不同類型的服務，看看 <strong>IPVS</strong> 本身會有什麼改變。</p>
+<h2 id="ClusterIP-x2F-NodePort"><a href="#ClusterIP-x2F-NodePort" class="headerlink" title="ClusterIP&#x2F;NodePort"></a>ClusterIP&#x2F;NodePort</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl apply -f network-study/ipvs/service.yml -f network-study/ipvs/hello.yml</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ kubectl get svc,ep</span><br><span class="line">NAME                    TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE</span><br><span class="line">service/cluster-demo    ClusterIP   10.97.35.96     &lt;none&gt;        80/TCP         25s</span><br><span class="line">service/kubernetes      ClusterIP   10.96.0.1       &lt;none&gt;        443/TCP        18m</span><br><span class="line">service/nodeport-demo   NodePort    10.100.61.228   &lt;none&gt;        80:31543/TCP   25s</span><br><span class="line"></span><br><span class="line">NAME                      ENDPOINTS                                         AGE</span><br><span class="line">endpoints/cluster-demo    10.244.0.4:8080,10.244.0.5:8080,10.244.0.6:8080   25s</span><br><span class="line">endpoints/kubernetes      10.0.2.15:6443                                    18m</span><br><span class="line">endpoints/nodeport-demo   10.244.0.4:8080,10.244.0.5:8080,10.244.0.6:8080   25s</span><br></pre></td></tr></table></figure>
+
+<p>先確認一下</p>
+<ol>
+<li>ClusterIP 使用的是 <strong>10.97.35.96</strong></li>
+<li>NodePort 使用的是 <strong>10.100.61.228</strong> 同時使用的 Port是 <strong>31543</strong>。</li>
+</ol>
+<p>由於輸出過長，我們就忽略 <strong>Real Servers</strong> 的部分，專心看 <strong>IPVS Service</strong>。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo ipvsadm -Ln | grep rr</span><br><span class="line">TCP  10.96.0.1:443 rr</span><br><span class="line">TCP  10.96.0.10:53 rr</span><br><span class="line">TCP  10.96.0.10:9153 rr</span><br><span class="line">TCP  10.97.35.96:80 rr</span><br><span class="line">TCP  10.100.61.228:80 rr</span><br><span class="line">TCP  127.0.0.1:31543 rr</span><br><span class="line">TCP  172.17.8.111:31543 rr</span><br><span class="line">TCP  172.18.0.1:31543 rr</span><br><span class="line">TCP  10.0.2.15:31543 rr</span><br><span class="line">TCP  10.244.0.0:31543 rr</span><br><span class="line">TCP  10.244.0.1:31543 rr</span><br><span class="line">UDP  10.96.0.10:53 rr</span><br></pre></td></tr></table></figure>
+
+<p>首先 <strong>ClusterIP</strong> 的部分非常簡單，就 <code>TCP  10.97.35.96:80 rr</code> 一個規則而已，但是對於 <strong>NodePort</strong> 來說，這邊則是要針對系統上全部的 <strong>IP</strong> 都去設定，所以會看到總共有六個 <strong>IPVS Service</strong>，分別對應系統上六個<strong>IP</strong>，且都指向 <strong>31543</strong> 這個連接埠。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">TCP  127.0.0.1:31543 rr</span><br><span class="line">TCP  172.17.8.111:31543 rr</span><br><span class="line">TCP  172.18.0.1:31543 rr</span><br><span class="line">TCP  10.0.2.15:31543 rr</span><br><span class="line">TCP  10.244.0.0:31543 rr</span><br><span class="line">TCP  10.244.0.1:31543 rr</span><br></pre></td></tr></table></figure>
+
+<p>藉由上述的觀察，我們可以知道 <strong>IPVS</strong> 目前創造的規則如同下方所述，首先讓我們假設該 Serivce 有開放 <code>n</code> 個連接方式(L3+L4)：</p>
+<ol>
+<li>對於 ClusterIP 會創造 <strong>n</strong> 個 <strong>IPVS Service</strong></li>
+<li>對於 NodePort 來說, 對於系統上每一個網卡，都會創造 <strong>n</strong> 個 <strong>IPVS Service</strong>，所以假如系統中有五個對外 IP, 那就會有 <code>5*n</code> 個 <strong>IPVS Service</strong>。</li>
+</ol>
+<h2 id="IPSET"><a href="#IPSET" class="headerlink" title="IPSET"></a>IPSET</h2><p>除了 <strong>IPVS Service</strong> 以及 <strong>IPVS Real Servers</strong> 的組合外，kube-proxy(IPVS) 本身也會透過 <strong>IPSET</strong> 來輔佐整個網路連線的處理，舉例來說：</p>
+<ol>
+<li>防火牆</li>
+<li>SNAT (Masquerade)</li>
+</ol>
+<p>這兩個功能還是要依賴 <strong>IPtables</strong> 來幫忙完成，但是這邊為了讓 <strong>IPtables</strong> 的規則盡量得少，不想要每一個 <strong>IP</strong> 就一條規則，進而提升整體規則的匹配效能，於是採用了 <strong>IPSET</strong> 的方式來幫忙處理。</p>
+<p>用一個最快速的方式來講就是將一堆 <strong>IP:PORT</strong> 透過不同的方式放到一個 <strong>SET</strong> 裡面，而 <strong>IPTABLES</strong> 本身就針對這個 <strong>SET</strong> 去比較。 直接以下列範例來看</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo ipset list KUBE-NODE-PORT-TCP</span><br><span class="line">Name: KUBE-NODE-PORT-TCP</span><br><span class="line">Type: bitmap:port</span><br><span class="line">Revision: 3</span><br><span class="line">Header: range 0-65535</span><br><span class="line">Size <span class="keyword">in</span> memory: 8268</span><br><span class="line">References: 1</span><br><span class="line">Number of entries: 1</span><br><span class="line">Members:</span><br><span class="line">31543</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ sudo ipset list KUBE-CLUSTER-IP</span><br><span class="line">Name: KUBE-CLUSTER-IP</span><br><span class="line">Type: <span class="built_in">hash</span>:ip,port</span><br><span class="line">Revision: 5</span><br><span class="line">Header: family inet hashsize 1024 maxelem 65536</span><br><span class="line">Size <span class="keyword">in</span> memory: 472</span><br><span class="line">References: 2</span><br><span class="line">Number of entries: 6</span><br><span class="line">Members:</span><br><span class="line">10.96.0.10,udp:53</span><br><span class="line">10.96.0.10,tcp:53</span><br><span class="line">10.96.0.10,tcp:9153</span><br><span class="line">10.97.35.96,tcp:80</span><br><span class="line">10.100.61.228,tcp:80</span><br><span class="line">10.96.0.1,tcp:443</span><br></pre></td></tr></table></figure>
+
+<p>上面可以看到兩組 <strong>IPSET</strong>，其中第一組是針對 <strong>NODE PORT</strong> 去使用，其型態為 <strong>bitmap:port</strong>，這部分只針對 <strong>Port</strong> 去比對，所以裡面可以看到 <code>31543</code> 而已</p>
+<p>至於第二組則是針對所有的 <strong>ClusterIP</strong> 去使用，他的型態則是 <strong>hash:ip,port</strong>，所以每個資料都是 <strong>IP:Port</strong> 的規則，可以看到我們之前用到的全部 <strong>ClusterIP:Port</strong> 都在裡面。</p>
+<p>有了這兩組 <strong>IPSET</strong> 後，我們稍微看一下 <strong>IPTABLES</strong> 會怎麼使用 <strong>IPSET</strong> KUBE-NODE-PORT-TCP 來減少需要的規則數量。</p>
+<h3 id="NODE-PORT"><a href="#NODE-PORT" class="headerlink" title="NODE-PORT"></a>NODE-PORT</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo iptables-save  | grep KUBE-NODE</span><br><span class="line">-A KUBE-NODE-PORT -p tcp -m comment --comment <span class="string">&quot;Kubernetes nodeport TCP port for masquerade purpose&quot;</span> -m <span class="built_in">set</span> --match-set KUBE-NODE-PORT-TCP dst -j KUBE-MARK-MASQ</span><br><span class="line">-A KUBE-SERVICES -m addrtype --dst-type LOCAL -j KUBE-NODE-PORT</span><br></pre></td></tr></table></figure>
+
+<p>先觀察的第一個規則是 <code>KUBE-SERVICES</code>，本身使用 <strong>–dst-type LOCAL</strong> 來判斷封包是不是針對 <code>LOCAL</code> (本地網卡)是的話就跳到<code>KUBE-NODE-PORT</code> 去二次處理。<br><code>KUBE-NODE-PORT</code> 裡面透過 <code>-m set --match-set KUBE-NODE-PORT-TCP dst</code> 來判斷封包的目標 Port 有在 <strong>KUBE-NODE-PORT-TCP</strong> 這個 <strong>ipset</strong> 裡面，就去弄 <strong>KUBE-MARK-MASQ</strong> 相關的動作。</p>
+<p>因為最外層已經透過 <strong>dst-type LOCAL</strong> 來判斷是不是送往本地介面，所以這邊的 <strong>IPSET</strong> 只需要處理 <strong>Port</strong> 即可，就不用管 <strong>IP</strong>。</p>
+<p>更多關於 <strong>IPSET</strong> 的使用意思以及使用情境可以參考<a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/tree/master/pkg/proxy/ipvs#when-ipvs-falls-back-to-iptables">官方文件</a></p>
+<h2 id="Dummy-Interface"><a href="#Dummy-Interface" class="headerlink" title="Dummy Interface"></a>Dummy Interface</h2><p>最後最後，我們來探討一個有趣的事情，這些 <strong>ClusterIP</strong> 本身都是一個不存在的<strong>IP</strong>, 那我們到底是如何成功地讓封包被 <strong>IPVS</strong> 接手處理的？</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl get svc</span><br><span class="line">NAME            TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE</span><br><span class="line">cluster-demo    ClusterIP   10.97.35.96     &lt;none&gt;        80/TCP         63m</span><br><span class="line">kubernetes      ClusterIP   10.96.0.1       &lt;none&gt;        443/TCP        81m</span><br><span class="line">nodeport-demo   NodePort    10.100.61.228   &lt;none&gt;        80:31543/TCP   63m</span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ curl 10.97.35.96</span><br><span class="line">...</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>譬如上述，我們可以在節點內直接用 curl 的方式透過 <strong>clusterIP</strong> 去存取服務，可是之前在探討 <strong>IPVS</strong> 的時候，那時候你的 <strong>Service IP(VIP)</strong> 必須要真實存在才可以處理。<br>而這些 <strong>ClusterIP</strong> 本身又不在系統之中，那到底怎麼辦？</p>
+<p>為了解決這個問題，<strong>kube-proxy</strong>於系統內偷偷創造了一個 <strong>dummy interface kube-ipvs0</strong>，並且把所有的 <strong>clusterIP</strong> 都設定到該網卡上面了，可以用下面的指令觀察到：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ ip <span class="built_in">link</span> show <span class="built_in">type</span> dummy</span><br><span class="line">5: kube-ipvs0: &lt;BROADCAST,NOARP&gt; mtu 1500 qdisc noop state DOWN mode DEFAULT group default</span><br><span class="line">    <span class="built_in">link</span>/ether 62:c9:<span class="built_in">fc</span>:74:c4:f8 brd ff:ff:ff:ff:ff:ff</span><br><span class="line">vagrant@k8s-dev:~$ ip addr show dev kube-ipvs0</span><br><span class="line">5: kube-ipvs0: &lt;BROADCAST,NOARP&gt; mtu 1500 qdisc noop state DOWN group default</span><br><span class="line">    <span class="built_in">link</span>/ether 62:c9:<span class="built_in">fc</span>:74:c4:f8 brd ff:ff:ff:ff:ff:ff</span><br><span class="line">    inet 10.96.0.10/32 brd 10.96.0.10 scope global kube-ipvs0</span><br><span class="line">       valid_lft forever preferred_lft forever</span><br><span class="line">    inet 10.96.0.1/32 brd 10.96.0.1 scope global kube-ipvs0</span><br><span class="line">       valid_lft forever preferred_lft forever</span><br><span class="line">    inet 10.97.35.96/32 brd 10.97.35.96 scope global kube-ipvs0</span><br><span class="line">       valid_lft forever preferred_lft forever</span><br><span class="line">    inet 10.100.61.228/32 brd 10.100.61.228 scope global kube-ipvs0</span><br><span class="line">       valid_lft forever preferred_lft forever</span><br></pre></td></tr></table></figure>
+
+<p>上述的資料有一個要注意的就是，其狀態 <code>DOWN</code>, 這意味該 <strong>Interface</strong> 本身不是一個可運作的狀態，單純只是一個沒有被叫起來運作的 <strong>Interface</strong>。</p>
+<p>實際上 <strong>dummy interface</strong> 本身跟 <strong>IPVS</strong> 的協同合作只有一個目的，讓封包可以往 Kernel 送，只要封包可以順利送進去，接下來就可以被 <strong>IPVS</strong> 給接手處理</p>
+<p><strong>這部分的原理要等到下篇文章從 kernel + netfilter 看起才比較好說明原理</strong></p>
+<p>這邊直接快速用一個實驗來驗證上面推論</p>
+<h3 id="Experiment"><a href="#Experiment" class="headerlink" title="Experiment"></a>Experiment</h3><ol>
+<li>我們把該 Interface kube-ipvs0 叫起來</li>
+<li>隨便捏造一個假的 IP, 並且設定一條靜態路由指向 kube-ipvs0</li>
+<li>手動用 ipvsadm 根據上面假的 IP 去創造一個新的 <strong>IPVS Service</strong></li>
+<li>手動將我們的 <strong>pod IP</strong> 加入到上述創造的 <strong>IPVS Service</strong></li>
+<li>透過 Curl 去連接我們創造的假 IP</li>
+</ol>
+<p>假設我們捏造一個 <code>1.2.3.4/32</code> 的 <strong>IP</strong> 地址，然後後端的 <strong>POD IP:PORT</strong> 是 <code>10.244.0.4:8080,10.244.0.5:8080,10.244.0.6:8080</code>。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">sudo ifconfig kube-ipvs0 up</span><br><span class="line">sudo ip route add 1.2.3.4/32 table <span class="built_in">local</span> dev kube-ipvs0</span><br><span class="line">sudo ipvsadm -A -t 1.2.3.4:80</span><br><span class="line">sudo ipvsadm -a -t 1.2.3.4:80 -r 10.244.0.4:8080 -m</span><br><span class="line">sudo ipvsadm -a -t 1.2.3.4:80 -r 10.244.0.5:8080 -m</span><br><span class="line">sudo ipvsadm -a -t 1.2.3.4:80 -r 10.244.0.6:8080 -m</span><br><span class="line">curl 1.2.3.4</span><br></pre></td></tr></table></figure>
+
+<p>執行完 curl 就會順利的存取到後面伺服器的網頁內容，但是要注意的是<br><strong>這邊因為 IPVS 會根據 SyncPeriod 的設定定期去更新規則，所以上述創造的規則放一段時間就會被刪除</strong></p>
+<p>根據這個實驗可以驗證我們的猜想，其實 <strong>kube-ipvs0</strong> 這個 <strong>interface</strong> 本身根本不需要有任何的 <strong>IP Address</strong>，其目的只是一開始產生的 <strong>IP address</strong> 能夠產生一個對應的 <strong>Route Entry</strong>，把封包往系統內送，當封包走到系統內後，便會與 <strong>Netfilter</strong> 交互作用將封包轉接給 <strong>IPVS</strong> 的底層實作去處理，這時候就會根據 <strong>IPVS</strong> 的 <strong>Service</strong> 來決定是否有匹配的資料並且將其轉發到後端伺服器。</p>
+<p>下篇文章就會來開始探討到底 <strong>IPVS</strong> 與 <strong>IPTables</strong> 的差異在哪裏，並且嘗試解釋上面的推論過程其背後的實作原理</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+<h1 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/tree/master/pkg/proxy/ipvs">https://github.com/kubernetes/kubernetes/tree/master/pkg/proxy/ipvs</a></li>
+<li><a target="_blank" rel="noopener" href="https://godoc.org/k8s.io/kube-proxy/config/v1alpha1">https://godoc.org/k8s.io/kube-proxy/config/v1alpha1</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/IPVS/" rel="tag"># IPVS</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/ipvs-1.html" rel="prev" title="IPvS 學習手冊(一)">
+                  <i class="fa fa-chevron-left"></i> IPvS 學習手冊(一)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/ipvs-3.html" rel="next" title="IPvS 學習手冊(三)">
+                  IPvS 學習手冊(三) <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

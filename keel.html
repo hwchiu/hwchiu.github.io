@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本文介紹一種基於 Kubernetes 開發的 Continuous Deployment 解決方案 keel, Keel 透過部署相關應用於 Kubernetes 內並且直接針對 Container Registry 中的 Container Image 去讀取相關的資訊，同時搭配 Semantic Versioning 2.0.0 的格式來確保印象檔的新舊，並且針對新版來進行運行資源 (Pod">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[DevOps] 基於 Kubernetes 的自動部屬流程 - Keel">
+<meta property="og:url" content="https://www.hwchiu.com/keel.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文介紹一種基於 Kubernetes 開發的 Continuous Deployment 解決方案 keel, Keel 透過部署相關應用於 Kubernetes 內並且直接針對 Container Registry 中的 Container Image 去讀取相關的資訊，同時搭配 Semantic Versioning 2.0.0 的格式來確保印象檔的新舊，並且針對新版來進行運行資源 (Pod">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/naZJoMX.png">
+<meta property="article:published_time" content="2019-01-12T00:21:49.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.627Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="CI&#x2F;CD">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/naZJoMX.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/keel.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/keel.html","path":"keel.html","title":"[DevOps] 基於 Kubernetes 的自動部屬流程 - Keel"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>[DevOps] 基於 Kubernetes 的自動部屬流程 - Keel | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Introduction"><span class="nav-number">2.</span> <span class="nav-text">Introduction</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Problem"><span class="nav-number">2.1.</span> <span class="nav-text">Problem</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Keel"><span class="nav-number">2.2.</span> <span class="nav-text">Keel</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Keel-1"><span class="nav-number">3.</span> <span class="nav-text">Keel</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Registry"><span class="nav-number">3.1.</span> <span class="nav-text">Registry</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Detection-Approach"><span class="nav-number">3.1.1.</span> <span class="nav-text">Detection Approach</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Rules"><span class="nav-number">3.1.2.</span> <span class="nav-text">Rules</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Configuration-Monitor"><span class="nav-number">3.2.</span> <span class="nav-text">Configuration Monitor</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Native-Yaml"><span class="nav-number">3.2.1.</span> <span class="nav-text">Native Yaml</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Helm-Chart"><span class="nav-number">3.2.2.</span> <span class="nav-text">Helm Chart</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Notification"><span class="nav-number">3.3.</span> <span class="nav-text">Notification</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Misc"><span class="nav-number">3.4.</span> <span class="nav-text">Misc</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Example"><span class="nav-number">4.</span> <span class="nav-text">Example</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Install-Keel"><span class="nav-number">4.1.</span> <span class="nav-text">Install Keel</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Deploy-Application"><span class="nav-number">4.2.</span> <span class="nav-text">Deploy Application</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Update-Image"><span class="nav-number">4.3.</span> <span class="nav-text">Update Image</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#CheckResources"><span class="nav-number">4.4.</span> <span class="nav-text">CheckResources</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">5.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Reference"><span class="nav-number">6.</span> <span class="nav-text">Reference</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">7.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/keel.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="[DevOps] 基於 Kubernetes 的自動部屬流程 - Keel | Hwchiu Learning Note">
+      <meta itemprop="description" content="本文介紹一種基於 Kubernetes 開發的 Continuous Deployment 解決方案 keel, Keel 透過部署相關應用於 Kubernetes 內並且直接針對 Container Registry 中的 Container Image 去讀取相關的資訊，同時搭配 Semantic Versioning 2.0.0 的格式來確保印象檔的新舊，並且針對新版來進行運行資源 (Pod/Deployment..etc) 的更新">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          [DevOps] 基於 Kubernetes 的自動部屬流程 - Keel
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-01-12 08:21:49" itemprop="dateCreated datePublished" datetime="2019-01-12T08:21:49+08:00">2019-01-12</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本文介紹一種基於 Kubernetes 開發的 Continuous Deployment 解決方案 keel, Keel 透過部署相關應用於 Kubernetes 內並且直接針對 Container Registry 中的 Container Image 去讀取相關的資訊，同時搭配 Semantic Versioning 2.0.0 的格式來確保印象檔的新舊，並且針對新版來進行運行資源 (Pod/Deployment..etc) 的更新</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>隨者 <code>Kubernetes</code> 的風潮崛起，愈來愈多企業&#x2F;玩家&#x2F;研究人員嘗試使用 <code>Kubernetes</code> 作為其應用服務的底層平台。此外隨者 <code>DevOps</code> 的意識以及工作效率改善的風氣的流行，現在 <code>CI/CD</code> 這個詞更是眾人朗朗上口。<br>然而基於 <code>Container Image</code> 為軟體版本的 <code>Kubernetes</code> 平台遇到 <code>CI/CD(Continuous Integration/Deployment)</code> 流程是，是否能夠有很好的銜接方式，或是問再銜接上可能會有什麼問題? 本文要介紹的就是其中一種用來處理 <code>Kubernetes</code> 中 <code>CD</code> 流程的解決方案. <code>Keel</code>.</p>
+<h1 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h1><h2 id="Problem"><a href="#Problem" class="headerlink" title="Problem"></a>Problem</h2><p>再正式介紹 <code>Keel</code> 之前，我們先自己思考一下，如果遇到今天下列的情況，你可能會怎麼做?</p>
+<ol>
+<li>開發者提交程式碼，並且與 <code>CI</code> 系統有良好整合，確保程式品質</li>
+<li>希望最新版的程式碼能夠自動的部署到 <code>Kubernetes</code> 集群，不論是 <code>dev/staging/production/...etc</code></li>
+</ol>
+<p>基於上述的環境下，其實有滿多的方法可以完成，但是不同的方式其實都牽扯到不同的條件。譬如</p>
+<ol>
+<li>使用的 <code>CI</code> 是哪一套，是 <code>Drone/Jenkins/CircleCI/Travis</code> ? 是自架維運還是直接採用企業雲端服務?</li>
+<li>容器倉庫放置的地點是哪裡? Docker hub ? 還是公有雲相關的服務?</li>
+<li><code>Kubernetes</code> 部署的位置在哪裡? 是放置在公有雲裡面? 還是私人集群? 公有雲裡面是採用 <code>kubernetes service (GKE/EKS/AKS)</code> 還是透過 <code>VM</code> 的方式自行架設?</li>
+</ol>
+<p>不同的情境，對應到上述的問題都會有不同的解法。而本文的 <code>Keel</code> 則是用來解決上述問題的<code>其中一種</code>的解決方案<br>假設今天使用了 <code>雲端服務</code> 為主的 <code>CI</code> 解決系統，而此時相關的 <code>Kubernetes</code> 則是直接部署在三大公有雲裡面。</p>
+<p>這時候整個運作流程就是</p>
+<ol>
+<li>程式碼提交(這邊使用 <code>Github</code> 為範例), 並且觸發相關的 <code>CI</code> 流程</li>
+<li>該流程中，我們進行了相關的功能與測試，並且建置好相關的容器映像檔(Container Image)</li>
+<li>將該容器映像檔案部署到特定的容器倉庫 (Container Registry)</li>
+<li>透過特定的方式想辦法更新 <code>Kubernetes</code> 內運行的容器</li>
+</ol>
+<p>上述的流程牽扯到不同雲端服務，這意味者就牽扯到不同的權限控管。<br>舉例來說</p>
+<ol>
+<li>Github 與 <code>CI</code> 相關的資訊授權(不是本文重點)</li>
+<li><code>CI</code> 系統與容器倉庫平台的權限控管<ul>
+<li>通常來說可能只需要 <code>Push Image</code> 相關的權限.</li>
+<li><code>Push Image</code> 可能意味 <code>Write</code> 配上一些 <code>Read</code>. 這部分沒有唯一，看平台而定</li>
+</ul>
+</li>
+<li><code>CI</code> 系統與 <code>Kubernetes</code> 平台的權限控管<ul>
+<li>這部分應該會基於 <code>Kubernetes</code> 的 <code>Role (RBAC)</code> 來決定，根據應用程式的使用方式，可能會需要更強大的權限來部署相關的資源，如 <code>Pod/Deployment/Service/Ingress/Secret/ConfigMap</code></li>
+</ul>
+</li>
+</ol>
+<p>所以對我來說最困難的反而不是這些如何串聯起來，反而是就授權方面，該如何處理才是合宜的。</p>
+<p>我認為權限控管沒有一定的答案，根據自己所在環境的政策以及需求，並且針對風險與開發流程去評估最適合自己的處理方式才對。</p>
+<h2 id="Keel"><a href="#Keel" class="headerlink" title="Keel"></a>Keel</h2><p>基於上述的流程，如果今天<code>不希望</code>在 <code>CI</code> 系統擁有太多關於 <code>Kubernetes</code> 相關的權限，即不希望 <code>CI</code> 系統能夠主動的去更新 <code>kubernetes</code> 內的資源狀態。<br>一種相對應的解法就是，有沒有辦法讓 <code>Kubernetes</code> 自己去更新相關的資源狀態? 相關的概念可以是</p>
+<ol>
+<li><code>CI</code> 建置並且更新最新的 <code>Container Image</code> 後想辦法通知 <code>Kubernetes</code> 內部</li>
+<li><code>CI</code> 建置並且更新最新的 <code>Container Image</code> 後, <code>kubernetes</code> 本身自己去偵測是否需要更新相關的資源</li>
+</ol>
+<p>而 <code>keel</code> 就是上述概念的解決方案，透過相關的設定，自動偵測是否有新的 <code>Container Image</code> 並且更新相關的 <code>kubernetes</code> 資源</p>
+<p>Keel 的<a target="_blank" rel="noopener" href="https://keel.sh/v1/guide/#What-is-Keel">官方網站</a> 上面有更多的介紹，這邊我就直接使用其架構圖來介紹 <code>Keel</code></p>
+<p>以下的架構圖是基於 <code>Keel V1</code> 的版本。<br><img src="https://i.imgur.com/naZJoMX.png" alt="Imgur"></p>
+<p>在整個 <code>Keel</code> 的架構中，我們可以分成三大部分來看待</p>
+<h1 id="Keel-1"><a href="#Keel-1" class="headerlink" title="Keel"></a>Keel</h1><h2 id="Registry"><a href="#Registry" class="headerlink" title="Registry"></a>Registry</h2><p>在 <code>Keel</code> 裡面會需要針對 <code>Container Image</code> 去偵測，判別是否有新的版本，因此必須要與 <code>Container Registry</code> 有所連動，本身要有相關的權限可以去讀取相關的 <code>Container Image Information</code> 來判斷是否有新版.</p>
+<p>因此該架構圖左半部分描述的就是相關的 <code>Container Registry</code>. 從公有雲服務到自架的服務都有支援，譬如 <code>Dockerhub, Quay, GCR</code>. 此外 <code>程式碼比文件新</code>，實際上連 <code>AWS ECR</code> 也有支援.<br>詳細的支援列表可以參閱<a target="_blank" rel="noopener" href="https://keel.sh/v1/guide/documentation.html#Triggers">Keel Trigger</a></p>
+<h3 id="Detection-Approach"><a href="#Detection-Approach" class="headerlink" title="Detection Approach"></a>Detection Approach</h3><p><code>Keel</code> 要怎麼去偵測是否有新的 <code>Container Image</code>. 目前 <code>Keel</code> 裡面實現了兩種概念，分別為<code>被動接收 Webhook</code> 以及<code>主動定時詢問(Polling))</code></p>
+<p><code>Webhook</code> 的概念就是到各個 <code>Container Registry</code> 去設定的 <code>webhook</code>，並且將他指向 <code>keel</code>. 當該 <code>Contaienr Registry</code> 收到對應的 <code>Push Image Event</code> 時會主動通知 <code>Keel</code>  有新版的 <code>Image</code> 被更新了.</p>
+<p><code>Polling</code> 則相對簡單，<code>Keel</code> 對定期的去檢視相關的 <code>Container Registry/Container Image</code> 是否有產生新版。 相對於 <code>Trigger</code> 來說, <code>Polling</code> 的反應時間會比較長.</p>
+<p>此外，這兩個比較像是 <code>Webhook</code> 是一定會採用，而 <code>Polling</code> 是可以決定要不要使用，因此可以同時使用 <code>webhook + polling</code> 來監控，或是只有單純 <code>webhook</code>.</p>
+<h3 id="Rules"><a href="#Rules" class="headerlink" title="Rules"></a>Rules</h3><p>由於是根據 <code>Container Image</code> 的更新來判別是否有新版, 因此在比對的規則上就特別的重要。<br>到底什麼叫做新版? 什麼叫做舊版? 如果每次的 <code>image tag</code> 都只是一些看似亂碼的 <code>git commit hash tag</code> 的話，其實 <code>keel</code> 根本搞不清楚誰是新版本，誰是舊版本.</p>
+<p>因此 <code>Keel</code> 嚴格遵守 <a target="_blank" rel="noopener" href="https://semver.org/">Semantic Versioning 2.0.0</a>, 基於 <code>$&#123;Major&#125;.$&#123;Minor&#125;.$&#123;Patch&#125;-$&#123;Labels&#125;</code> 的規範來比對<br>詳細的比對規則可以參閱 <a target="_blank" rel="noopener" href="https://semver.org/">Semantic Versioning 2.0.0</a> 來學習更多。</p>
+<p>此外，有部分的需求是希望使用 <code>latest</code> 這種不會改變名稱的 <code>tag</code> 來進行更新。因此 <code>keel</code> 也有針對這類型的需求提供了設定方式。<br>針對特定不變的 <code>tag</code> 名稱, <code>keel</code> 會去讀去該 <code>image digest</code> 去判別其產生的時間，根據創建時間來判別版本的大小。</p>
+<h2 id="Configuration-Monitor"><a href="#Configuration-Monitor" class="headerlink" title="Configuration Monitor"></a>Configuration Monitor</h2><p>前述設定好相關的 <code>Container Registry</code> 之後, <code>Keel</code> 要怎麼知道去監控 <code>Kubernetes</code> 裡面的何種資源?</p>
+<p>這部分總共提供兩種方式, 分別是 <code>Native Yaml</code> 以及 <code>Helm Chart</code></p>
+<p>基本上兩者的使用概念完全一樣，只是設定的方式有所不同</p>
+<h3 id="Native-Yaml"><a href="#Native-Yaml" class="headerlink" title="Native Yaml"></a>Native Yaml</h3><p>在 <code>Native Yaml</code> 中，由於 <code>Yaml</code> 會被 <code>Kubernetes API Server</code> 先行處理，因此在格式上不能有太多的變化，因此所有的設定都是基於 <code>Annotation</code> 以及 <code>Labels</code> 的方式來設定</p>
+<p>譬如下列範例是透過 <code>keel.sh/policy: major</code> 去設定 <code>karolisr/webhook-demo:0.0.8</code> 的版本更新。<br>如果有收到任何 <code>webhook(預設是接收 webhook 更新)</code> 並且告知 <code>karolish/webhook-demo</code> 的 <code>image version</code> 有 <code>Major</code> 的版本更新，就幫我更新該運行的 <code>StatefulSet</code></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">StatefulSet</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">wd</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">&quot;wd&quot;</span></span><br><span class="line">      <span class="attr">keel.sh/policy:</span> <span class="string">major</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">image:</span> <span class="string">karolisr/webhook-demo:0.0.8</span></span><br><span class="line">          <span class="attr">imagePullPolicy:</span> <span class="string">Always</span></span><br><span class="line"><span class="string">...</span></span><br></pre></td></tr></table></figure>
+
+<p>下列範例則是採用 <code>Polling</code> 的方式，並且定期每<code>10分鐘</code>去檢查一下目標的 <code>Container Image</code> 是否有更新.</p>
+<p>此外 <code>policy:force</code> 代表的意思就是不考慮任何版本(SemVer), 而是針對 <code>Image Digest</code> 內的創建時間來更新新版即可，因此使用 <code>Latest</code> 的時候就會使用此作法。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">extensions/v1beta1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">wd</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">&quot;wd&quot;</span></span><br><span class="line">      <span class="attr">keel.sh/policy:</span> <span class="string">force</span></span><br><span class="line">      <span class="attr">keel.sh/trigger:</span> <span class="string">poll</span></span><br><span class="line">  <span class="attr">annotations:</span></span><br><span class="line">      <span class="attr">keel.sh/pollSchedule:</span> <span class="string">&quot;@every 10m&quot;</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line"><span class="string">...</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="Helm-Chart"><a href="#Helm-Chart" class="headerlink" title="Helm Chart"></a>Helm Chart</h3><p><code>Helm Chart</code> 的部分相對簡單,針對 <code>values.yaml</code> 去進行撰寫相關設定即可。</p>
+<p>以下述範例來說，會透過 <code>Polling</code> 的方式每<code>兩分鐘</code> 就去嘗試看看是否有 <code>karolisr/webhook-demo</code> 的版本更新了.<br>而特別注意的是 <code>policy:all</code> 代表的完整的 <code>SemVer</code> 有任何新版的就會直接採用。</p>
+<p>另外，版本的部分要透過 <code>keel.images.tag</code> 以及 <code>keel.image.repository</code> 的方式來設定，此範例則是參考到上面的 <code>image.repository</code> 以及 <code>image.tag</code>.</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">replicaCount:</span> <span class="number">1</span></span><br><span class="line"><span class="attr">image:</span></span><br><span class="line">  <span class="attr">repository:</span> <span class="string">karolisr/webhook-demo</span></span><br><span class="line">  <span class="attr">tag:</span> <span class="string">&quot;0.0.8&quot;</span></span><br><span class="line">  <span class="attr">pullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line"><span class="attr">service:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">webhookdemo</span></span><br><span class="line">  <span class="attr">type:</span> <span class="string">ClusterIP</span></span><br><span class="line">  <span class="attr">externalPort:</span> <span class="number">8090</span></span><br><span class="line">  <span class="attr">internalPort:</span> <span class="number">8090</span></span><br><span class="line"></span><br><span class="line"><span class="attr">keel:</span></span><br><span class="line">  <span class="comment"># keel policy (all/major/minor/patch/force)</span></span><br><span class="line">  <span class="attr">policy:</span> <span class="string">all</span></span><br><span class="line">  <span class="comment"># trigger type, defaults to events such as pubsub, webhooks</span></span><br><span class="line">  <span class="attr">trigger:</span> <span class="string">poll</span></span><br><span class="line">  <span class="comment"># polling schedule</span></span><br><span class="line">  <span class="attr">pollSchedule:</span> <span class="string">&quot;@every 2m&quot;</span></span><br><span class="line">  <span class="comment"># images to track and update</span></span><br><span class="line">  <span class="attr">images:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">repository:</span> <span class="string">image.repository</span></span><br><span class="line">      <span class="attr">tag:</span> <span class="string">image.tag</span></span><br></pre></td></tr></table></figure>
+
+
+<h2 id="Notification"><a href="#Notification" class="headerlink" title="Notification"></a>Notification</h2><p>假如一切都更新完成後，最後的部分就是通知了，如何將相關的部屬結果通知給管理者。<br>這方面 <code>keel</code> 整合了一些常見的溝通工具，譬如 <code>slack</code>, <code>mattermost</code>, <code>hipchat</code>.</p>
+<p>詳細的整合方式請參閱 <a target="_blank" rel="noopener" href="https://keel.sh/v1/guide/documentation.html#Notifications">Keel Notificaion</a></p>
+<h2 id="Misc"><a href="#Misc" class="headerlink" title="Misc"></a>Misc</h2><p>除了上述的部分外，還有一些功能可以使用，譬如 <code>Approval</code> 等投票機制，確認同意才會部署等相關的行為。<br>這些都可以在 <a target="_blank" rel="noopener" href="https://keel.sh/v1/guide/documentation.html">Keel Documentation</a> 找到。</p>
+<h1 id="Example"><a href="#Example" class="headerlink" title="Example"></a>Example</h1><p>接下來會直接採用一個簡單的範例來測試 <code>keel</code> 的功能。</p>
+<h2 id="Install-Keel"><a href="#Install-Keel" class="headerlink" title="Install Keel"></a>Install Keel</h2><p>安裝的部分可以採用 <code>Helm</code> 或是直接部署相關的 <code>Yaml</code> 即可。<br>基本上會在 <code>Kubernetes</code> 內安裝相對應的 <code>Deployment</code> 來提供上述所描述的所有功能。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">helm repo add keel-charts https://charts.keel.sh</span><br><span class="line">helm repo update</span><br><span class="line">helm upgrade --install keel --namespace=kube-system keel-charts/keel</span><br></pre></td></tr></table></figure>
+
+<p>詳細的安裝流程可參閱 <a target="_blank" rel="noopener" href="https://keel.sh/v1/guide/installation.html">Keel Installation</a></p>
+<p>安裝完畢後執行下列指令確認安裝完成</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">hwchiu~$ kubectl --namespace=kube-system get pods -l <span class="string">&quot;app=keel&quot;</span></span><br><span class="line">NAME                   READY   STATUS    RESTARTS   AGE</span><br><span class="line">keel-8b8447549-wsfqr   1/1     Running   0          5s</span><br></pre></td></tr></table></figure>
+
+<h2 id="Deploy-Application"><a href="#Deploy-Application" class="headerlink" title="Deploy Application"></a>Deploy Application</h2><p>這邊我是採用自己的 <code>Container Image</code> 來測試部署，並且打算採用<code>Dockhub</code> 作為後端的 <code>Container Registry</code>。 同時採用 <code>Polling</code> 的方式來偵測 <code>Container Image</code> 是否有更新</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">keel-demo</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">&quot;keel-demo&quot;</span></span><br><span class="line">      <span class="attr">keel.sh/policy:</span> <span class="string">all</span></span><br><span class="line">      <span class="attr">keel.sh/trigger:</span> <span class="string">poll</span></span><br><span class="line">  <span class="attr">annotations:</span></span><br><span class="line">      <span class="attr">keel.sh/pollSchedule:</span> <span class="string">&quot;@every 1m&quot;</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">keel-demo</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">name:</span> <span class="string">keel-demo</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">keel-demo</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">hwchiu/netutils:0.1.0</span></span><br><span class="line">        <span class="attr">imagePullPolicy:</span> <span class="string">Always</span></span><br><span class="line">        <span class="attr">name:</span> <span class="string">keel-demo</span></span><br></pre></td></tr></table></figure>
+
+<p>執行下列指令確認當前運行的 <code>Image</code>.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">hwchiu:~$ kubectl get pods -l<span class="string">&quot;name=keel-demo&quot;</span> -o jsonpath=<span class="string">&quot;&#123;.items[0].spec.containers[0].image&#125;&quot;</span></span><br><span class="line">hwchiu/netutils:0.1.0</span><br><span class="line">hwchiu:~$</span><br></pre></td></tr></table></figure>
+<h2 id="Update-Image"><a href="#Update-Image" class="headerlink" title="Update Image"></a>Update Image</h2><p>接下來我們透過 <code>docker tag/docker push</code> 的方式來更新相關的<br> <code>docker image</code>.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">hwchiu:~$ sudo docker tag hwchiu/netutils:0.1.0 hwchiu/netutils:0.1.1</span><br><span class="line">hwchiu:~$ sudo docker push hwchiu/netutils:0.1.1</span><br><span class="line">The push refers to a repository [docker.io/hwchiu/netutils]</span><br><span class="line">ab42d9bbb598: Layer already exists</span><br><span class="line">98d902303c2d: Layer already exists</span><br><span class="line">bcff331e13e3: Layer already exists</span><br><span class="line">2166dba7c95b: Layer already exists</span><br><span class="line">5e95929b2798: Layer already exists</span><br><span class="line">c2af38e6b250: Layer already exists</span><br><span class="line">0a42ee6ceccb: Layer already exists</span><br><span class="line">0.1.1: digest: sha256:f1a3643b8b10c98b4aa9e4ac8269b7587c1d9f415f134ff359f920b8539a6f76 size: 1776</span><br></pre></td></tr></table></figure>
+
+<h2 id="CheckResources"><a href="#CheckResources" class="headerlink" title="CheckResources"></a>CheckResources</h2><p>接下來我們透過 <code>watch</code> 指令來定時觀看</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">watch kubectl get pods -l<span class="string">&quot;name=keel-demo&quot;</span> -o jsonpath=<span class="string">&quot;&#123;.items[0].spec.containers[0].image&#125;&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>會得到下列的結果</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Every 2.0s: kubectl get pods -lname=keel-demo -o jsonpath=&#123;.items[0].spec.containers[0].image&#125;          Sat Jan 12 07:55:42 2019</span><br><span class="line"></span><br><span class="line">hwchiu/netutils:0.1.1</span><br></pre></td></tr></table></figure>
+
+<p>可以觀察到版本真的改變了，接下來嘗試修正 <code>Major</code> 版本看看</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">hwchiu:~$ sudo docker tag hwchiu/netutils:0.1.1 hwchiu/netutils:1.1.1</span><br><span class="line">hwchiu:~$ sudo docker push hwchiu/netutils:1.1.1</span><br><span class="line">The push refers to a repository [docker.io/hwchiu/netutils]</span><br><span class="line">ab42d9bbb598: Layer already exists</span><br><span class="line">98d902303c2d: Layer already exists</span><br><span class="line">bcff331e13e3: Layer already exists</span><br><span class="line">2166dba7c95b: Layer already exists</span><br><span class="line">5e95929b2798: Layer already exists</span><br><span class="line">c2af38e6b250: Layer already exists</span><br><span class="line">0a42ee6ceccb: Layer already exists</span><br><span class="line"><span class="built_in">sleep</span> 601.1.1: digest: sha256:f1a3643b8b10c98b4aa9e4ac8269b7587c1d9f415f134ff359f920b8539a6f76 size: 1776</span><br><span class="line">hwchiu:~$ <span class="built_in">sleep</span> 60;^C</span><br><span class="line">hwchiu:~$ kubectl get pods -l<span class="string">&quot;name=keel-demo&quot;</span> -o jsonpath=<span class="string">&quot;&#123;.items[0].spec.containers[0].image&#125;&quot;</span></span><br><span class="line">hwchiu/netutils:0.1.1</span><br><span class="line"></span><br><span class="line">hwchiu:~$ <span class="built_in">sleep</span> 60</span><br><span class="line">hwchiu:~$ kubectl get pods -l<span class="string">&quot;name=keel-demo&quot;</span> -o jsonpath=<span class="string">&quot;&#123;.items[0].spec.containers[0].image&#125;&quot;</span></span><br><span class="line">hwchiu/netutils:1.1.1</span><br></pre></td></tr></table></figure>
+
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>這次跟大家介紹一款針對 <code>Kubernetes</code> 量身打造的 <code>CD</code> 工具，不過適不適合各位的環境並不是一個絕對的答案，就讓各位自己去評估是否有這個需求。 畢竟通常越方便使用，有時候其彈性反而愈少，當未來有任何客製化需求的時候可能反而會綁手綁腳。</p>
+<h1 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://keel.sh/v1/guide/#What-is-Keel">Keel</a></li>
+<li><a target="_blank" rel="noopener" href="https://semver.org/">Semantic Versioning 2.0.0</a></li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/CI-CD/" rel="tag"># CI/CD</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/ingress-1.html" rel="prev" title="Introduction to Kubernetes Ingress (Nginx)">
+                  <i class="fa fa-chevron-left"></i> Introduction to Kubernetes Ingress (Nginx)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/b4-after.html" rel="next" title="[閱讀筆記] B4 and After: Managing Hierarchy, partitioning, and Asymmetry for Availability and Scale in Google's Software-Defined WAN">
+                  [閱讀筆記] B4 and After: Managing Hierarchy, partitioning, and Asymmetry for Availability and Scale in Google's Software-Defined WAN <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

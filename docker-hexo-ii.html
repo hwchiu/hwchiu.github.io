@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="Introduction這篇延續上一篇Docker image for Hexo (一)，要使用上次的概念來打造一個屬於我自己的 hexo docker image，至於這邊為什麼是說屬於我自己的？目前網路上其實也有不少關於 hexo 相關的 docker image，在使用上大致上可以分成兩類  將 docker image 當成一次性的使用，可能提供了 setup local server 或">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker image for Hexo (二)">
+<meta property="og:url" content="https://www.hwchiu.com/docker-hexo-ii.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="Introduction這篇延續上一篇Docker image for Hexo (一)，要使用上次的概念來打造一個屬於我自己的 hexo docker image，至於這邊為什麼是說屬於我自己的？目前網路上其實也有不少關於 hexo 相關的 docker image，在使用上大致上可以分成兩類  將 docker image 當成一次性的使用，可能提供了 setup local server 或">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2017-05-27T08:17:54.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.611Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="System">
+<meta property="article:tag" content="Docker">
+<meta property="article:tag" content="Container">
+<meta property="article:tag" content="Hexo">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/docker-hexo-ii.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/docker-hexo-ii.html","path":"docker-hexo-ii.html","title":"Docker image for Hexo (二)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Docker image for Hexo (二) | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Introduction"><span class="nav-number">1.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Steps"><span class="nav-number">2.</span> <span class="nav-text">Steps</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Usage"><span class="nav-number">3.</span> <span class="nav-text">Usage</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">4.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%B8%B8%E7%94%A8%E6%8C%87%E4%BB%A4"><span class="nav-number">5.</span> <span class="nav-text">常用指令</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/docker-hexo-ii.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Docker image for Hexo (二) | Hwchiu Learning Note">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Docker image for Hexo (二)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2017-05-27 16:17:54" itemprop="dateCreated datePublished" datetime="2017-05-27T16:17:54+08:00">2017-05-27</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h1><p>這篇延續上一篇<a href="https://www.hwchiu.com/docker-build-image.html">Docker image for Hexo (一)</a>，要使用上次的概念來打造一個屬於我自己的 <strong>hexo docker image</strong>，至於這邊為什麼是說屬於我自己的？<br>目前網路上其實也有不少關於 <strong>hexo</strong> 相關的 docker image，在使用上大致上可以分成兩類</p>
+<ul>
+<li>將 <strong>docker image</strong> 當成一次性的使用，可能提供了 <strong>setup local server</strong> 或者是 <strong>deploy to git</strong> 之類的服務<ul>
+<li>在這種架構下，通常都是把整個 blog 的 source 放在外面的 <strong>host</strong> 上，再透過 <strong>docker run</strong> 的時候，將這些檔案透過 <strong>volume</strong>的方式掛載到 <strong>container</strong> 內，然後 <strong>container</strong> 內就使用已經安裝好的 <strong>hexo</strong> 環境幫你產生一次性的 <strong>generate</strong>, <strong>deploy</strong> 之類的指令。</li>
+<li>這種 <strong>image</strong> 我覺得大概跟我差不多，都是為了練習而產生的，實際上使用沒有特別方便，原因在於 <strong>hexo</strong> 本身就是透過 <strong>npm</strong> 管理了，所有使用到的 <strong>modules</strong> 也都存放在自己本身的資料夾內，這種情況下根本沒有真的幫助使用者減少多少時間，畢竟 <strong>hexo</strong> 本身的安裝就一兩行就結束了。</li>
+<li>此外，這種模式最大的麻煩就是，因為你 <strong>hexo</strong> 的安裝都是在 <strong>image</strong>階段就結束了，你若有想要安裝額外的 <strong>npm modules</strong> 就會沒有辦法,所以其實使用上也不夠靈活</li>
+</ul>
+</li>
+</ul>
+<span id="more"></span>
+<ul>
+<li>第二種就比較偏向將整個 <strong>source</strong>都放進去 <strong>image</strong> 內，然後提供不同的方法讓作者可以編輯文章並且 <strong>generate</strong>&#x2F;<strong>deploy</strong>。 目前有看過的一種做法是讓他跟 <strong>github</strong>上面的 <strong>webhook</strong> 結合，然後當在 <strong>github</strong>編輯後，就會觸發 <strong>webhook</strong>，驅動 <strong>image</strong>內的 <strong>hexo</strong> 去進行 <strong>generate</strong>以及<strong>deploy</strong>。</li>
+</ul>
+<p>在比較兩種類型後，我的使用情境比較會偏向第二種，不過第二種要弄得很完美其實苦工多非常多，否則其實就只是一個撰寫環境的打包 <strong>image</strong>。<br>不過也沒關係，就當作一個經驗練練 <strong>docker</strong> 也好。<br>由於我自己的這個專案只有打算給自己用，我主要想要省下的時間有</p>
+<ol>
+<li>git&#x2F;zsh 相關環境以及習慣的設定</li>
+<li>hexo 相關專案的抓取</li>
+</ol>
+<p>所以我的 <strong>image</strong> 裡面做的事情大概如下</p>
+<ol>
+<li>安裝相關套件(vim&#x2F;zsh&#x2F;node)</li>
+<li>clone blog-source</li>
+<li>安裝 hexo<br>這樣之後就可以進去直接該 container 並且在裡面進行 <strong>generate</strong>&#x2F;<strong>deploy</strong>。<br>同時因為我的 hexo 是直接安裝我 blog-source 那一包檔案，因此我只要維護我自己 <strong>npm</strong>相關的檔案，image重新產生的時候裡面放的就會直接更新到最新的那一包 <strong>git repo</strong>了。</li>
+</ol>
+<p>不過由於第二點的路徑是綁死在 <strong>image</strong> 內，所以這整個 <strong>docker image</strong>就當作一個自我對於 <strong>docker</strong> 的練習即可。</p>
+<h1 id="Steps"><a href="#Steps" class="headerlink" title="Steps"></a>Steps</h1><p>接下來就介紹一下我自己的 <strong>Dockerfile</strong><br>在這之前，我有把我常用的操作設定檔<strong>vim&#x2F;git</strong>有開一個獨立的<strong>git repo</strong>，且我自己本身 <strong>blog</strong> 的 source 也有額外開一個 <strong>git repo</strong>，該repo內就是整個 <strong>hexo</strong> 的檔案，包含了 <strong>npm</strong> 安裝的資訊以及第三方 <strong>theme</strong> 的資訊。</p>
+<p>首先，一開始先安裝會用到的套件，這邊包含了 <strong>vim&#x2F;node&#x2F;git</strong>。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">RUN apt-get update &amp;&amp; \</span><br><span class="line">apt-get install -y git &amp;&amp;\</span><br><span class="line">apt-get install -y vim &amp;&amp;\</span><br><span class="line">apt-get install -y curl &amp;&amp;\</span><br><span class="line">curl -sL https://deb.nodesource.com/setup_6.x | bash - &amp;&amp; \</span><br><span class="line">apt-get install -y nodejs  &amp;&amp;\</span><br><span class="line">npm install npm -g  &amp;&amp;\</span><br><span class="line">apt-get clean &amp;&amp; \</span><br><span class="line"><span class="built_in">rm</span> -rf /var/lib/apt/lists/*</span><br></pre></td></tr></table></figure>
+
+<p>接者就要先把自己常用的安裝檔案透過 <strong>git</strong> 的方式給抓下來</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">WORKDIR /</span><br><span class="line">RUN git <span class="built_in">clone</span> https://xxxx/xxxxx/config.git &amp;&amp; \</span><br><span class="line">        <span class="built_in">cp</span> config/.gitconfig ~/</span><br></pre></td></tr></table></figure>
+
+<p>再來我們就要處理 <strong>hexo</strong>，我希望將 <strong>hexo</strong> 給存放到 <strong>&#x2F;hexo</strong> 這個路徑上，所以先透過 <strong>WORKDIR</strong> 切換當前位置。<br>接下來</p>
+<ol>
+<li>透過 <strong>git clone</strong> 整個 <strong>hexo source repo</strong></li>
+<li>透過 <strong>npm</strong> 安裝<strong>hexo-cli</strong><ul>
+<li>這邊若安裝成全系統的**-g**會遇到一些錯誤，似乎跟當前執行者的身分有關，這邊就沒有花太多時間去研究</li>
+<li>之後為了處理這個問題，就把 <strong>hexo-cli&#x2F;bin</strong> 加入倒當前 <strong>PATH</strong> 即可。</li>
+</ul>
+</li>
+<li>透過 <strong>npm</strong> 安裝相關套件</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">WORKDIR /Hexo</span><br><span class="line">RUN git <span class="built_in">clone</span> --recursive https://xxxx/xxxx/xxx.git &amp;&amp; \</span><br><span class="line">        <span class="built_in">cd</span> blog-source &amp;&amp; \</span><br><span class="line">        npm install hexo-cli &amp;&amp;\</span><br><span class="line">        npm install &amp;&amp;\</span><br></pre></td></tr></table></figure>
+
+<p>然後處理 <strong>zsh&#x2F;vim</strong> 的問題。</p>
+<ul>
+<li>zsh 這邊想要使用 <strong>oh-my-zsh</strong>，安裝步驟參考這篇<a target="_blank" rel="noopener" href="https://gist.github.com/tsabat/1498393">文章</a></li>
+<li>vim 的部分則是將之前上述步驟抓下來設定檔都複製到相關的位置<ul>
+<li>這邊需要 <strong>vim</strong> 原因是沒有調整過語系的 <strong>vim</strong>沒有辦法順利地開啟中文內容的檔案。</li>
+</ul>
+</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">apt-get update &amp;&amp; \</span><br><span class="line">apt-get install -y zsh &amp;&amp;\</span><br><span class="line">apt-get install -y git-core &amp;&amp;\</span><br><span class="line">apt-get install -y wget &amp;&amp;\</span><br><span class="line">apt-get install -y tig &amp;&amp;\</span><br><span class="line">wget https://github.com/robbyrussell/oh-my-zsh/raw/master/tools/install.sh -O - | zsh || <span class="literal">true</span> &amp;&amp;\</span><br><span class="line">chsh -s `<span class="built_in">which</span> zsh` &amp;&amp;\</span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;export PATH=<span class="variable">$PATH</span>:/Hexo/blog-source/node_modules/hexo-cli/bin/&quot;</span> &gt;&gt; ~/.zshrc  &amp;&amp;\</span><br><span class="line"><span class="built_in">mkdir</span> ~/.vim &amp;&amp;\</span><br><span class="line"><span class="built_in">cp</span> /config/vim/.vimrc ~/ &amp;&amp;\</span><br><span class="line"><span class="built_in">cp</span> -r /config/vim/colors ~/.vim</span><br></pre></td></tr></table></figure>
+
+<p>最後，為了讓透過 <strong>docker run</strong>執行後，可以直接採用 <strong>zsh</strong> 當作進去的 <strong>shell</strong>，我們要透過 <strong>ENTRYPOINT</strong>去設定進入點，加入下列敘述於 <strong>Dockerfile</strong> 之中。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ENTRYPOINT [<span class="string">&quot;/usr/bin/zsh&quot;</span>]</span><br></pre></td></tr></table></figure>
+
+<p>所以最後整個檔案的樣子大概就是類似</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">FROM ubuntu:16.04</span><br><span class="line">MAINTAINER sppsorrg@gmail.com</span><br><span class="line"></span><br><span class="line">RUN apt-get update &amp;&amp; \</span><br><span class="line">        apt-get install -y git &amp;&amp;\</span><br><span class="line">        apt-get install -y vim &amp;&amp;\</span><br><span class="line">    apt-get install -y curl &amp;&amp;\</span><br><span class="line">    curl -sL https://deb.nodesource.com/setup_6.x | bash - &amp;&amp; \</span><br><span class="line">    apt-get install -y nodejs  &amp;&amp;\</span><br><span class="line">    npm install npm -g  &amp;&amp;\</span><br><span class="line">    apt-get clean &amp;&amp; \</span><br><span class="line">    <span class="built_in">rm</span> -rf /var/lib/apt/lists/*</span><br><span class="line"></span><br><span class="line">WORKDIR /</span><br><span class="line">RUN git <span class="built_in">clone</span> https://xxxx/xxxxx/config.git &amp;&amp; \</span><br><span class="line">        <span class="built_in">cp</span> config/.gitconfig ~/</span><br><span class="line">WORKDIR /Hexo</span><br><span class="line">RUN git <span class="built_in">clone</span> --recursive https://xxxx/xxxx/xxx.git &amp;&amp; \</span><br><span class="line">        <span class="built_in">cd</span> blog-source &amp;&amp; \</span><br><span class="line">        npm install hexo-cli &amp;&amp;\</span><br><span class="line">        npm install &amp;&amp;\</span><br><span class="line">        apt-get update &amp;&amp; \</span><br><span class="line">        apt-get install -y zsh &amp;&amp;\</span><br><span class="line">        apt-get install -y git-core &amp;&amp;\</span><br><span class="line">        apt-get install -y wget &amp;&amp;\</span><br><span class="line">        apt-get install -y tig &amp;&amp;\</span><br><span class="line">        wget https://github.com/robbyrussell/oh-my-zsh/raw/master/tools/install.sh -O - | zsh || <span class="literal">true</span> &amp;&amp;\</span><br><span class="line">        chsh -s `<span class="built_in">which</span> zsh` &amp;&amp;\</span><br><span class="line">        <span class="built_in">echo</span> <span class="string">&quot;export PATH=<span class="variable">$PATH</span>:/Hexo/blog-source/node_modules/hexo-cli/bin/&quot;</span> &gt;&gt; ~/.zshrc  &amp;&amp;\</span><br><span class="line">        <span class="built_in">mkdir</span> ~/.vim &amp;&amp;\</span><br><span class="line">        <span class="built_in">cp</span> /config/vim/.vimrc ~/ &amp;&amp;\</span><br><span class="line">        <span class="built_in">cp</span> -r /config/vim/colors ~/.vim</span><br><span class="line"></span><br><span class="line"><span class="comment">#set fileencodings=utf-8,ucs-bom,gb18030,gbk,gb2312,cp936</span></span><br><span class="line"><span class="comment">#set termencoding=utf-8</span></span><br><span class="line"><span class="comment">#set encoding=utf-8</span></span><br><span class="line"></span><br><span class="line">ENTRYPOINT [<span class="string">&quot;/usr/bin/zsh&quot;</span>]</span><br></pre></td></tr></table></figure>
+
+<h1 id="Usage"><a href="#Usage" class="headerlink" title="Usage"></a>Usage</h1><p>接下來要使用的話，先透過 <strong>docker build</strong> 產生對應的 <strong>image</strong>，最後使用 <strong>docker run</strong>運行對應的 <strong>container</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker build -t hwchiu:<span class="built_in">test</span> .</span><br><span class="line">docker run --name gg -it hwchiu:<span class="built_in">test</span></span><br></pre></td></tr></table></figure>
+
+<p>進去該 <strong>container</strong> 後，可以先到 <strong>&#x2F;Hexo&#x2F;blog-source</strong> 執行 <strong>hexo g</strong> 確定可以產生文章，且透過 <strong>vim</strong>觀看文章都沒問題後，就透過 <strong>ssh-keygen -t rsa -b 4096 -C “<a href="mailto:&#x79;&#x6f;&#117;&#114;&#95;&#x65;&#x6d;&#97;&#x69;&#108;&#64;&#x65;&#120;&#97;&#x6d;&#x70;&#108;&#101;&#x2e;&#x63;&#111;&#109;">&#x79;&#x6f;&#117;&#114;&#95;&#x65;&#x6d;&#97;&#x69;&#108;&#64;&#x65;&#120;&#97;&#x6d;&#x70;&#108;&#101;&#x2e;&#x63;&#111;&#109;</a>“</strong> 產生對應的 <strong>key</strong><br>接者將上述產生的 <strong>public key</strong>送到 <strong>GITHUB</strong> 去，這樣就可以使用 <strong>hexo deploy</strong> 此功能了。</p>
+<ul>
+<li>這邊是因為我的 git 是採用 <strong>https</strong>的方式去抓的，所以這邊要去特別設定。</li>
+</ul>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>經由本次一個簡單的練習，將常用的 <strong>hexo</strong> 的環境給打包起來，雖然不算完美，在編輯文章上還是要透過別的方法先撰寫好，在透過 <strong>vim</strong> 貼到 <strong>hexo</strong> 內來產生跟發布。也許哪天有機會再來嘗試改善，看看是否可以把<a target="_blank" rel="noopener" href="https://www.npmjs.com/package/hexo-editor">hexo-editor</a>整合進去，這樣該 <strong>container</strong> 也可以提供一個外部的網頁服務，直接編輯內部的 <strong>hexo project</strong>。</p>
+<h1 id="常用指令"><a href="#常用指令" class="headerlink" title="常用指令"></a>常用指令</h1><ul>
+<li>docker images</li>
+<li>docker rm i xxx</li>
+<li>docker stop <code>docker ps -q -l</code></li>
+<li>docker rm <code>docker ps -q -l</code></li>
+<li>docker run -it -name xxx xxx:xxx</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/System/" rel="tag"># System</a>
+              <a href="/tags/Docker/" rel="tag"># Docker</a>
+              <a href="/tags/Container/" rel="tag"># Container</a>
+              <a href="/tags/Hexo/" rel="tag"># Hexo</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/ceph-network-iii.html" rel="prev" title="Ceph Network Architecture 研究(三)">
+                  <i class="fa fa-chevron-left"></i> Ceph Network Architecture 研究(三)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/ceph-async-connection.html" rel="next" title="Ceph Network - AsyncConnection">
+                  Ceph Network - AsyncConnection <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

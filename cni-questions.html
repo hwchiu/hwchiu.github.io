@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本篇文章紀錄了作者這陣子以來與大家討論 CNI 時常常被問到的問題，透過對這些問題的理解可以更加深入的去學習什麼是 CNI, 以及 CNI 本身能夠能夠觸擊的功能與範圍。同時也附上一些相關的資源讓大家可以從不同角度更深入的去研究 CNI 的領域。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CNI 常見問題整理">
+<meta property="og:url" content="https://www.hwchiu.com/cni-questions.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本篇文章紀錄了作者這陣子以來與大家討論 CNI 時常常被問到的問題，透過對這些問題的理解可以更加深入的去學習什麼是 CNI, 以及 CNI 本身能夠能夠觸擊的功能與範圍。同時也附上一些相關的資源讓大家可以從不同角度更深入的去研究 CNI 的領域。">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2018-10-19T22:49:39.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.607Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="CNI">
+<meta property="article:tag" content="Docker">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/cni-questions.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/cni-questions.html","path":"cni-questions.html","title":"CNI 常見問題整理"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>CNI 常見問題整理 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Questions"><span class="nav-number">2.</span> <span class="nav-text">Questions</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%80%E9%BA%BC%E6%98%AF-CNI"><span class="nav-number">2.1.</span> <span class="nav-text">什麼是 CNI</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%88%91%E7%8F%BE%E5%9C%A8%E4%BD%BF%E7%94%A8-kubernetes-%E5%88%B0%E5%BA%95%E8%A6%81%E9%81%B8%E6%93%87%E5%93%AA%E5%80%8B-CNI"><span class="nav-number">2.2.</span> <span class="nav-text">我現在使用 kubernetes, 到底要選擇哪個 CNI</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%81%BD%E8%AA%AA-CNI-%E5%8F%AF%E4%BB%A5%E8%A8%AD%E5%AE%9A-DNS-%E9%82%A3%E7%82%BA%E4%BB%80%E9%BA%BC%E6%88%91%E5%9C%A8-kubernetes-%E7%92%B0%E5%A2%83%E4%B8%AD%E9%80%99%E4%BA%9B%E8%A8%AD%E5%AE%9A%E9%83%BD%E6%B2%92%E6%9C%89%E8%A2%AB%E6%8E%A1%E7%94%A8"><span class="nav-number">2.3.</span> <span class="nav-text">聽說 CNI 可以設定 DNS, 那為什麼我在 kubernetes 環境中這些設定都沒有被採用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%88%91%E6%9C%89%E6%B2%92%E6%9C%89%E8%BE%A6%E6%B3%95%E9%80%8F%E9%81%8E-CNI-%E5%8E%BB%E6%9B%B4%E5%BD%88%E6%80%A7%E7%9A%84%E8%A8%AD%E5%AE%9A-Pod-%E7%9A%84-IP-%E5%9C%B0%E5%9D%80"><span class="nav-number">2.4.</span> <span class="nav-text">我有沒有辦法透過 CNI 去更彈性的設定 Pod 的 IP 地址</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#CNI-%E6%9C%89%E6%B2%92%E6%9C%89%E6%94%AF%E6%8F%B4-HA"><span class="nav-number">2.5.</span> <span class="nav-text">CNI 有沒有支援 HA</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%88%91%E6%83%B3%E8%A6%81%E5%9C%A8-Pod-%E6%9C%89%E5%A4%9A%E5%BC%B5%E7%B6%B2%E5%8D%A1%E7%94%9A%E8%87%B3%E6%98%AF%E5%90%8C%E6%99%82%E9%81%8B%E8%A1%8C%E8%A8%B1%E5%A4%9A%E7%8F%BE%E6%9C%89%E7%9A%84-CNI%EF%BC%8C%E5%8F%AF%E4%BB%A5%E6%80%8E%E9%BA%BC%E5%81%9A"><span class="nav-number">2.6.</span> <span class="nav-text">我想要在 Pod 有多張網卡甚至是同時運行許多現有的 CNI，可以怎麼做?</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%88%91%E8%A6%81%E5%A6%82%E4%BD%95%E7%9F%A5%E9%81%93%E6%88%91%E7%9A%84-kubernetes-%E5%88%B0%E5%BA%95%E7%8F%BE%E5%9C%A8%E6%98%AF%E7%94%A8%E5%93%AA%E5%80%8B-CNI"><span class="nav-number">2.7.</span> <span class="nav-text">我要如何知道我的 kubernetes 到底現在是用哪個 CNI</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A6%81%E5%A6%82%E4%BD%95%E7%B0%A1%E5%96%AE%E5%81%B5%E9%8C%AF-CNI-%E6%98%AF%E5%90%A6%E6%9C%89%E9%81%8B%E4%BD%9C%E6%AD%A3%E5%B8%B8"><span class="nav-number">2.8.</span> <span class="nav-text">要如何簡單偵錯 CNI 是否有運作正常</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%88%91%E7%9A%84-Pod-%E7%B6%B2%E8%B7%AF%E6%9C%89%E5%95%8F%E9%A1%8C%EF%BC%8C%E6%88%91%E5%8F%AF%E4%BB%A5%E6%80%8E%E9%BA%BC%E8%BE%A6"><span class="nav-number">2.9.</span> <span class="nav-text">我的 Pod 網路有問題，我可以怎麼辦</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Kubernetes-%E8%A3%A1%E9%9D%A2%E6%88%91%E5%8F%AF%E4%BB%A5%E6%AF%8F%E5%80%8B%E7%AF%80%E9%BB%9E%E9%83%BD%E7%94%A8%E4%B8%8D%E5%90%8C%E7%9A%84-CNI-%E5%97%8E"><span class="nav-number">2.10.</span> <span class="nav-text">Kubernetes 裡面我可以每個節點都用不同的 CNI 嗎</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%88%91%E5%A5%BD%E6%83%B3%E5%AF%AB%E7%A8%8B%E5%BC%8F%E5%91%80%EF%BC%81-%E6%9C%89%E6%B2%92%E6%9C%89%E8%BE%A6%E6%B3%95%E8%87%AA%E5%B7%B1%E6%92%B0%E5%AF%AB-CNI"><span class="nav-number">2.11.</span> <span class="nav-text">我好想寫程式呀！ 有沒有辦法自己撰寫 CNI</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">3.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">4.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/cni-questions.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="CNI 常見問題整理 | Hwchiu Learning Note">
+      <meta itemprop="description" content="本篇文章紀錄了作者這陣子以來與大家討論 CNI 時常常被問到的問題，透過對這些問題的理解可以更加深入的去學習什麼是 CNI, 以及 CNI 本身能夠能夠觸擊的功能與範圍。同時也附上一些相關的資源讓大家可以從不同角度更深入的去研究 CNI 的領域。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          CNI 常見問題整理
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-10-20 06:49:39" itemprop="dateCreated datePublished" datetime="2018-10-20T06:49:39+08:00">2018-10-20</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本篇文章紀錄了作者這陣子以來與大家討論 CNI 時常常被問到的問題，透過對這些問題的理解可以更加深入的去學習什麼是 CNI, 以及 CNI 本身能夠能夠觸擊的功能與範圍。同時也附上一些相關的資源讓大家可以從不同角度更深入的去研究 CNI 的領域。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>這篇文章用來記錄這陣子以來遇到跟 CNI 有關的任何問題，大部分都是偏向使用上的用法，或是對 CNI 功能上的疑慮</p>
+<h1 id="Questions"><a href="#Questions" class="headerlink" title="Questions"></a>Questions</h1><h2 id="什麼是-CNI"><a href="#什麼是-CNI" class="headerlink" title="什麼是 CNI"></a>什麼是 CNI</h2><ol>
+<li>簡單的說，就是可以讓你的 <code>Container</code> 上網的一種方法，其中包括了讓你的 <code>Container</code> 能夠有對外存取的方法，IP 的設定甚至到 <code>Container</code> 內部關於 <code>DNS</code> 伺服器的設定都可以</li>
+<li>複雜的答案參考 <a href="https://www.hwchiu.com/introduce-cni-ii.html">[Container Network Interface] CNI Introduction</a> 這篇文章，有比較詳細的介紹 <code>Container Network Interface(CNI)</code> 的概念</li>
+</ol>
+<h2 id="我現在使用-kubernetes-到底要選擇哪個-CNI"><a href="#我現在使用-kubernetes-到底要選擇哪個-CNI" class="headerlink" title="我現在使用 kubernetes, 到底要選擇哪個 CNI"></a>我現在使用 kubernetes, 到底要選擇哪個 CNI</h2><ol>
+<li>這個問題非常容易聽到，但是基本上沒有辦法回答，因為網路的架構太過於複雜且龐大，沒有明確的需求之前沒有辦法得到一個較好的答案。</li>
+<li>如果你只是想要 <code>Pod</code> 之間可以正常連線，沒有其他的考量的話，就選擇 <code>Flannel</code> 吧。</li>
+<li>有其他網路使用相關的需求，甚至是 <code>Network Policy</code> 的話，就要在尋求其他的 CNI 解決方案</li>
+<li>可以參閱<a href="https://www.hwchiu.com/cni-compare.html">常見 CNI (Container Network Interface) Plugin 介紹</a></li>
+</ol>
+<h2 id="聽說-CNI-可以設定-DNS-那為什麼我在-kubernetes-環境中這些設定都沒有被採用"><a href="#聽說-CNI-可以設定-DNS-那為什麼我在-kubernetes-環境中這些設定都沒有被採用" class="headerlink" title="聽說 CNI 可以設定 DNS, 那為什麼我在 kubernetes 環境中這些設定都沒有被採用"></a>聽說 CNI 可以設定 DNS, 那為什麼我在 kubernetes 環境中這些設定都沒有被採用</h2><ol>
+<li>CNI 的確有提供 DNS 的選項，但是會不會採用要依賴使用該 <code>CNI</code> 的管理系統的決策，對於 <code>Kubernetes</code> 來說, 因為已經可以透過 <code>Pod</code> 的設定檔來處理相關的 <code>DNS</code> 設定了，所以 <code>CNI</code> 本身回傳的 <code>DNS</code> 設定就忽略掉，並不會採用。</li>
+<li>可以參考這篇文章學習如何透過 DNSPolicy 來個別設定 Pod 裡面的 DNS欄位, <a href="https://www.hwchiu.com/kubernetes-dns.html">DNS setting in your Pod</a></li>
+<li>相關的 <code>Gihub</code> 討論可以參考這篇 <a target="_blank" rel="noopener" href="https://github.com/containernetworking/plugins/issues/128">Unable to add custom DNS to container using flannel plugin</a></li>
+</ol>
+<h2 id="我有沒有辦法透過-CNI-去更彈性的設定-Pod-的-IP-地址"><a href="#我有沒有辦法透過-CNI-去更彈性的設定-Pod-的-IP-地址" class="headerlink" title="我有沒有辦法透過 CNI 去更彈性的設定 Pod 的 IP 地址"></a>我有沒有辦法透過 CNI 去更彈性的設定 <code>Pod</code> 的 IP 地址</h2><ol>
+<li>在 <code>CNI</code> 裡面有 <code>IPAM</code> 相關的模組在進行 IP 地址的計算與分配，在預設的情況下，大部分的 <code>CNI</code> 都會使用 <code>IPAM(host-local)</code> 搭配使用者預先輸入的一組網段來分配 <code>IP</code> 地址給每個運行的 <code>Pod</code>.</li>
+<li>由於這邊沒有狀態紀錄的概念，所以相同 <code>Deployment</code> 產生的<code>Pod</code>每次都會拿到不一樣的 <code>IP</code> 是很正常的。</li>
+<li>如果想要做到一些特別的需求，譬如 Static IP，或是 <code>Container</code> 容器重啟可以拿到相同的 <code>IP</code> 地址，這部分目前都要依賴重新撰寫 <code>IPAM</code> 的模組來達成這個功能。</li>
+</ol>
+<h2 id="CNI-有沒有支援-HA"><a href="#CNI-有沒有支援-HA" class="headerlink" title="CNI 有沒有支援 HA"></a>CNI 有沒有支援 HA</h2><ol>
+<li>其實這個問題我聽到的時候也愣住了，我其實聽不太懂這個問題，所以忽略吧</li>
+<li>認真討論的話這個東西跟 CNI 架構無關，是你採用的那套 CNI 本身有沒有幫你實現網路相關的 HA 功能</li>
+</ol>
+<h2 id="我想要在-Pod-有多張網卡甚至是同時運行許多現有的-CNI，可以怎麼做"><a href="#我想要在-Pod-有多張網卡甚至是同時運行許多現有的-CNI，可以怎麼做" class="headerlink" title="我想要在 Pod 有多張網卡甚至是同時運行許多現有的 CNI，可以怎麼做?"></a>我想要在 Pod 有多張網卡甚至是同時運行許多現有的 CNI，可以怎麼做?</h2><ol>
+<li>對於 Kubernetes 來說對於每個 <code>Pod</code> 都只會呼叫一次 <code>CNI</code>. 所以如果想要在一個 <code>Pod</code> 裡面有多張網卡或是執行多次 CNI 的話，有兩種方式</li>
+</ol>
+<ul>
+<li>自行重新撰寫一個 CNI, 當該 CNI 被呼叫將相關的參數傳遞到想要呼叫的所有 CNI 來達成目的</li>
+<li>使用現有的解決方案來達成上述目標</li>
+</ul>
+<ol start="2">
+<li>目前我自己知道能夠處理這個問題的 CNI 專案有三個，如果有人看到更多的歡迎告訴我</li>
+</ol>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/intel/multus-cni">Intel Multus</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/Huawei-PaaS/CNI-Genie">Huawei Genie</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/nokia/danm/blob/master/README.md#introduction">Nokia DANM</a></li>
+</ul>
+<ol start="3">
+<li>這三個解決方案裡面我個人比較熟悉的是偏向 Intel Multus, 其功能跟 Huawei Genie 比較類似，都是專注於提供 <code>CNI Chain</code> 的概念，可以透過設定檔去描述多個 <code>CNI</code> 並且依序執行這些 <code>CNI</code> 來幫 <code>Pod</code> 提供網路功能</li>
+<li>相對於上述兩者而言， <code>Nokia DANM</code> 提供的功能更廣大，<code>CNI Chain</code> 只是其中一項功能而已，有興趣的朋友可以在閱讀其官方說明文件</li>
+</ol>
+<h2 id="我要如何知道我的-kubernetes-到底現在是用哪個-CNI"><a href="#我要如何知道我的-kubernetes-到底現在是用哪個-CNI" class="headerlink" title="我要如何知道我的 kubernetes 到底現在是用哪個 CNI"></a>我要如何知道我的 kubernetes 到底現在是用哪個 CNI</h2><ol>
+<li>先確認你的 <code>kubelet</code> 是採用 <code>CNI</code>，這部分可以透過觀察 <code>kubelet</code> 的參數來得知<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">root      1173  3.3  2.6 634128 105920 ?       Ssl  Oct16 164:30 /usr/bin/kubelet --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf</span><br><span class="line">--kubeconfig=/etc/kubernetes/kubelet.conf</span><br><span class="line">--config=/var/lib/kubelet/config.yaml</span><br><span class="line">--cgroup-driver=cgroupfs</span><br><span class="line">--cni-bin-dir=/opt/cni/bin</span><br><span class="line">--cni-conf-dir=/etc/cni/net.d</span><br><span class="line">--network-plugin=cni</span><br></pre></td></tr></table></figure>
+有三個跟 <code>CNI</code> 有關的參數，其中兩個分別描述 <code>執行檔</code> 以及 <code>設定檔</code> 的位置</li>
+<li>接下來到 ${cni-conf-dir} 的位置去看， <code>kubernetes</code> 會從裡面根據<code>字母排序</code>的方式找到第一個<code>設定檔案</code>來使用。<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">hwchiu@k8s-dev:~$ ll /etc/cni/net.d/total 12</span><br><span class="line">drwxr-xr-x 2 root root 4096 Oct  8 15:10 ./</span><br><span class="line">drwxr-xr-x 3 root root 4096 Oct  6 13:52 ../</span><br><span class="line">-rw-r--r-- 1 root root   92 Oct  8 15:10 10-flannel.conf</span><br></pre></td></tr></table></figure></li>
+</ol>
+<h2 id="要如何簡單偵錯-CNI-是否有運作正常"><a href="#要如何簡單偵錯-CNI-是否有運作正常" class="headerlink" title="要如何簡單偵錯 CNI 是否有運作正常"></a>要如何簡單偵錯 CNI 是否有運作正常</h2><ol>
+<li>這部分其實滿難的，以 <code>Kubernetes</code> 來說，除了每個 <code>CNI</code> 解決方案本身是否有相關的 <code>Daemon</code> 或是其他方式可以觀察 Log 之外，剩下的就是依賴 <code>kubelet</code> 本身呼叫 <code>CNI</code> 的結果。這部分可以透過 <code>journalctl</code> 來觀察 <code>kubelet</code> 的輸出訊息(前提是你有用 systemd) 控管</li>
+<li>使用 <code>sudo journalctl -xe</code> 觀察的話，可以專心觀察 <code>cni.go</code> 的輸出訊息</li>
+</ol>
+<h2 id="我的-Pod-網路有問題，我可以怎麼辦"><a href="#我的-Pod-網路有問題，我可以怎麼辦" class="headerlink" title="我的 Pod 網路有問題，我可以怎麼辦"></a>我的 <code>Pod</code> 網路有問題，我可以怎麼辦</h2><ol>
+<li><strong>放大招</strong>,砍掉 Kubernetes, 重新安裝</li>
+<li>先看看自己使用的是哪套 <code>CNI</code>, 然後搜尋看看那個 <code>CNI</code> 有沒有相關的 <code>Issue</code></li>
+<li>手動<code>Debug</code>, 通常我遇到這種情況我會採取下列步驟</li>
+</ol>
+<ul>
+<li>先透過 <code>nslookup</code> 等工具觀察 <code>DNS</code> 解析是否正常。</li>
+<li>透過 <code>ping/telnet</code> 等工具觀察連線是否正常</li>
+<li>透過 <code>ip route/route</code> 觀察路由目標是否正常</li>
+<li>透過 <code>tcpdump</code> 抓取封包，觀察封包的流向</li>
+<li>透過 <code>iptables</code> 肉眼觀察是否多餘或是缺少特定的規則導致連線起不來</li>
+</ul>
+<ol start="4">
+<li>上述 <code>debug</code> 的步驟有些會牽扯到 <code>Host</code> 主機，有些會牽扯到 <code>Container</code>，基本上要對整個網路跟封包傳輸的流程要有些概念才會比較知道自己在做什麼，以及該怎麼解讀看到的資訊。這部分需要時間與經驗去學習</li>
+</ol>
+<h2 id="Kubernetes-裡面我可以每個節點都用不同的-CNI-嗎"><a href="#Kubernetes-裡面我可以每個節點都用不同的-CNI-嗎" class="headerlink" title="Kubernetes 裡面我可以每個節點都用不同的 CNI 嗎"></a>Kubernetes 裡面我可以每個節點都用不同的 <code>CNI</code> 嗎</h2><ol>
+<li>可以，因為 <code>CNI</code> 是跟者 <code>kubelet</code> 一起跑的，所以每台節點都是獨立設定，互相不影響</li>
+<li>在 <code>CNI</code> 的解決方案中，有的方案會讓管理者用起來很方便，不需要每台設定，譬如 <code>Flannel</code> 等則是會透過 <code>DaemonSet</code> 的方式自動幫每個節點安裝對應的 <code>CNI Config</code>。</li>
+<li>然而也有些 <code>CNI</code> 本身的使用上就需要特別去注意每台機器的資訊，特別是跟硬體網卡資訊有關聯的 <code>CNI</code> 解決方案，譬如 <code>SR-IOV/DPDK/Host-Device</code></li>
+<li>假設每個節點都用不同的 <code>CNI</code>, 那你要擔心的可能是不同節點之間的 <code>Pod</code> 會不會因為 <code>CNI</code> 分配不同的 <code>IP</code> 位址，同時有沒有對應的 <code>路由規則</code> 來幫忙處理不同 <code>Pod</code> 之間的網路連線</li>
+</ol>
+<h2 id="我好想寫程式呀！-有沒有辦法自己撰寫-CNI"><a href="#我好想寫程式呀！-有沒有辦法自己撰寫-CNI" class="headerlink" title="我好想寫程式呀！ 有沒有辦法自己撰寫 CNI"></a>我好想寫程式呀！ 有沒有辦法自己撰寫 CNI</h2><ol>
+<li>CNI 本身其實滿容易撰寫的，只要瞭解其基本概念並且知道自己想要做什麼就差不多可以完成了</li>
+<li>CNI 本身沒有限定任何語言實現，只要可以提供一個 <code>Binary</code> 執行檔即可</li>
+<li>如果對於用 <code>Golang</code> 撰寫一個簡單的 <code>Bridge CNI</code> 可以參考下列文章 <a href="https://www.hwchiu.com/introduce-cni-iii.html">[Container Network Interface] Implement Your CNI In Golang</a></li>
+</ol>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p><code>Container Network Interface(CNI)</code> 本身概念不難，困難的其實都是網路本身，封包怎麼傳輸，不同節點之間怎麼路由，Overlay Network怎麼做，<code>Network Policy</code> 怎麼實現等諸多的網路問題實際上才是最令人頭疼的地方。<br>目前沒有看到任何一套 <code>CNI</code> 可以滿足所有的需求，所以在選擇 <code>CNI</code> 的部分還是要謹記自己的需求，從自己的需求出發，看看有沒有現成的解決方案可以採用，如果都沒有則需要評估是否需要自己開發一套 <code>CNI</code> 來實現所缺的功能。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/CNI/" rel="tag"># CNI</a>
+              <a href="/tags/Docker/" rel="tag"># Docker</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/tools-ncdu.html" rel="prev" title="NCurses Disk Usage(ncdu)">
+                  <i class="fa fa-chevron-left"></i> NCurses Disk Usage(ncdu)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/costco-salmon.html" rel="next" title="costco 冷凍鮭魚排紀錄">
+                  costco 冷凍鮭魚排紀錄 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

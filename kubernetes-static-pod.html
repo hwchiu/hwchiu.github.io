@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本文主要跟大家分享如何透過 Static Pod 的方式來滿足用 Kuberentes 管理 API-Server&#x2F;Controller&#x2F;Scheduler 這些 Kubernetes 的基礎元件，其中 Static Pod 更是 Kubeadm 的架設原理，透過這個方式我們也可以更加了解 Kubeadm 的安裝方式">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Kubernetes] Static Pod 介紹">
+<meta property="og:url" content="https://www.hwchiu.com/kubernetes-static-pod.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文主要跟大家分享如何透過 Static Pod 的方式來滿足用 Kuberentes 管理 API-Server&#x2F;Controller&#x2F;Scheduler 這些 Kubernetes 的基礎元件，其中 Static Pod 更是 Kubeadm 的架設原理，透過這個方式我們也可以更加了解 Kubeadm 的安裝方式">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2020-03-09T23:05:00.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.630Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="Container">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/kubernetes-static-pod.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/kubernetes-static-pod.html","path":"kubernetes-static-pod.html","title":"[Kubernetes] Static Pod 介紹"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>[Kubernetes] Static Pod 介紹 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Environment"><span class="nav-number">2.</span> <span class="nav-text">Environment</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#How-Kubeadm-Works"><span class="nav-number">3.</span> <span class="nav-text">How Kubeadm Works</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Static-Pod"><span class="nav-number">4.</span> <span class="nav-text">Static Pod</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Hands-on"><span class="nav-number">5.</span> <span class="nav-text">Hands-on</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">6.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%AA%B2%E7%A8%8B%E5%88%86%E4%BA%AB"><span class="nav-number">7.</span> <span class="nav-text">課程分享</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Reference"><span class="nav-number">8.</span> <span class="nav-text">Reference</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">9.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/kubernetes-static-pod.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="[Kubernetes] Static Pod 介紹 | Hwchiu Learning Note">
+      <meta itemprop="description" content="本文主要跟大家分享如何透過 Static Pod 的方式來滿足用 Kuberentes 管理 API-Server/Controller/Scheduler 這些 Kubernetes 的基礎元件，其中 Static Pod 更是 Kubeadm 的架設原理，透過這個方式我們也可以更加了解 Kubeadm 的安裝方式">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          [Kubernetes] Static Pod 介紹
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2020-03-10 07:05:00" itemprop="dateCreated datePublished" datetime="2020-03-10T07:05:00+08:00">2020-03-10</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本文主要跟大家分享如何透過 Static Pod 的方式來滿足用 Kuberentes 管理 API-Server/Controller/Scheduler 這些 Kubernetes 的基礎元件，其中 Static Pod 更是 Kubeadm 的架設原理，透過這個方式我們也可以更加了解 Kubeadm 的安裝方式</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>本文想要跟大家來分享討論一下另外一種部署 Kubernetes Pod 的方式，稱之為 Static Pod，這個部署方式最大的示範情境就是 Kubeadm 的使用。</p>
+<p>當部署完 Kubeadm 後，透過 <code>kubectl -n kube-system get pods</code>，是不是會看到 <code>kube-scheduler</code>, <code>kube-apiserver</code> 以及 <code>kube-controller-manager</code>.</p>
+<p>那..這些核心元件組成了 Kubernetes Control-Plane，但是本身卻又是被 Kubernetes 所管理，那到底是這中間是怎麼運作的?</p>
+<p>這個問題就要從 Static Pod 的部署來談起</p>
+<h1 id="Environment"><a href="#Environment" class="headerlink" title="Environment"></a>Environment</h1><p>本文觀察環境基於下列版本</p>
+<ol>
+<li>kubeadm: v1.17.3</li>
+<li>kubectl: v1.17.3</li>
+<li>Kubernetes: v1.17.3</li>
+</ol>
+<p>如果有使用 Vagrant 的人，可以用下列的檔案建置相關環境</p>
+<figure class="highlight ruby"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># -*- mode: ruby -*-</span></span><br><span class="line"><span class="comment"># vi: set ft=ruby :</span></span><br><span class="line"></span><br><span class="line"><span class="title class_">Vagrant</span>.configure(<span class="string">&quot;2&quot;</span>) <span class="keyword">do</span> |<span class="params">config</span>|</span><br><span class="line">  config.vm.box = <span class="string">&quot;bento/ubuntu-18.04&quot;</span></span><br><span class="line">  config.vm.box_version =<span class="string">&#x27;201912.14.0&#x27;</span></span><br><span class="line">  config.vm.hostname = <span class="string">&#x27;k8s-dev&#x27;</span></span><br><span class="line">  config.vm.define vm_name = <span class="string">&#x27;k8s&#x27;</span></span><br><span class="line"></span><br><span class="line">  config.vm.provision <span class="string">&quot;shell&quot;</span>, <span class="symbol">privileged:</span> <span class="literal">false</span>, <span class="symbol">inline:</span> <span class="string">&lt;&lt;-SHELL</span></span><br><span class="line"><span class="string">    set -e -x -u</span></span><br><span class="line"><span class="string">    export DEBIAN_FRONTEND=noninteractive</span></span><br><span class="line"><span class="string">    #change the source.list</span></span><br><span class="line"><span class="string">    sudo apt-get update</span></span><br><span class="line"><span class="string">    sudo apt-get install -y vim git cmake build-essential tcpdump tig jq socat bash-completion</span></span><br><span class="line"><span class="string">    # Install Docker</span></span><br><span class="line"><span class="string">    export DOCKER_VERSION=&quot;5:19.03.5~3-0~ubuntu-bionic&quot;</span></span><br><span class="line"><span class="string">    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -</span></span><br><span class="line"><span class="string">    sudo add-apt-repository &quot;deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable&quot;</span></span><br><span class="line"><span class="string">    sudo apt-get update</span></span><br><span class="line"><span class="string">    sudo apt-get install -y docker-ce=$&#123;DOCKER_VERSION&#125;</span></span><br><span class="line"><span class="string">    sudo usermod -aG docker $USER</span></span><br><span class="line"><span class="string">    #Disable swap</span></span><br><span class="line"><span class="string">    #https://github.com/kubernetes/kubernetes/issues/53533</span></span><br><span class="line"><span class="string">    sudo swapoff -a &amp;&amp; sudo sysctl -w vm.swappiness=0</span></span><br><span class="line"><span class="string">    sudo sed &#x27;/vagrant--vg-swap/d&#x27; -i /etc/fstab</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    sudo apt-get update &amp;&amp; sudo apt-get install -y apt-transport-https curl</span></span><br><span class="line"><span class="string">    curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -</span></span><br><span class="line"><span class="string">    echo &quot;deb http://apt.kubernetes.io/ kubernetes-xenial main&quot; | sudo tee --append /etc/apt/sources.list.d/kubernetes.list</span></span><br><span class="line"><span class="string">    sudo apt-get update</span></span><br><span class="line"><span class="string">    sudo apt-get install -y kubelet kubeadm kubectl</span></span><br><span class="line"><span class="string">    sudo kubeadm init --pod-network-cidr=10.244.0.0/16</span></span><br><span class="line"><span class="string">    mkdir -p $HOME/.kube</span></span><br><span class="line"><span class="string">    sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config</span></span><br><span class="line"><span class="string">    sudo chown $(id -u):$(id -g) $HOME/.kube/config</span></span><br><span class="line"><span class="string">    kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/2140ac876ef134e0ed5af15c65e414cf26827915/Documentation/kube-flannel.yml</span></span><br><span class="line"><span class="string">    echo &#x27;source &lt;(kubectl completion bash)&#x27; &gt;&gt;~/.bashrc</span></span><br><span class="line"><span class="string">  SHELL</span></span><br><span class="line"></span><br><span class="line">  config.vm.network <span class="symbol">:private_network</span>, <span class="symbol">ip:</span> <span class="string">&quot;172.17.8.111&quot;</span></span><br><span class="line">  config.vm.provider <span class="symbol">:virtualbox</span> <span class="keyword">do</span> |<span class="params">v</span>|</span><br><span class="line">      v.customize [<span class="string">&quot;modifyvm&quot;</span>, <span class="symbol">:id</span>, <span class="string">&quot;--cpus&quot;</span>, <span class="number">2</span>]</span><br><span class="line">      v.customize [<span class="string">&quot;modifyvm&quot;</span>, <span class="symbol">:id</span>, <span class="string">&quot;--memory&quot;</span>, <span class="number">4096</span>]</span><br><span class="line">      v.customize [<span class="string">&#x27;modifyvm&#x27;</span>, <span class="symbol">:id</span>, <span class="string">&#x27;--nicpromisc1&#x27;</span>, <span class="string">&#x27;allow-all&#x27;</span>]</span><br><span class="line">  <span class="keyword">end</span></span><br><span class="line"><span class="keyword">end</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+
+<h1 id="How-Kubeadm-Works"><a href="#How-Kubeadm-Works" class="headerlink" title="How Kubeadm Works"></a>How Kubeadm Works</h1><p>為了部署一個 Pod 到 Kubernetes 節點上，其中牽扯了多個元件，從 API Server, Scheduler, Controller 到節點上的 kubelet, Container Runtime。</p>
+<p>然而對於 Scheduler&#x2F;Controller&#x2F;API Server 這三個核心元件說，到底該怎麼建制以及維護？</p>
+<ol>
+<li>Native Application, 直接運行三個不同的 Binary 執行檔案<ul>
+<li>可透過 systemd 來包裝這些應用程式</li>
+</ul>
+</li>
+<li>透過已經包裝好的 Container Image 來執行這三個服務</li>
+</ol>
+<p>以 <code>Kubeadm</code> 為範例，其先透過 <code>systemd</code> 的方式來管理 <code>kubelet</code>，確保 <code>kubelet</code> 這個 daemon 本身可以被監控，如果有問題會自動重新起動，甚至重新開機後都可以滿足叫起來提供服務。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ systemctl status kubelet</span><br><span class="line">● kubelet.service - kubelet: The Kubernetes Node Agent</span><br><span class="line">   Loaded: loaded (/lib/systemd/system/kubelet.service; enabled; vendor preset: enabled)</span><br><span class="line">  Drop-In: /etc/systemd/system/kubelet.service.d</span><br><span class="line">           └─10-kubeadm.conf</span><br><span class="line">   Active: active (running) since Tue 2020-03-10 04:42:30 UTC; 1h 20min ago</span><br><span class="line">     Docs: https://kubernetes.io/docs/home/</span><br><span class="line"> Main PID: 646 (kubelet)</span><br><span class="line">    Tasks: 21 (<span class="built_in">limit</span>: 4659)</span><br><span class="line">   CGroup: /system.slice/kubelet.service</span><br><span class="line">           └─646 /usr/bin/kubelet --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kub</span><br></pre></td></tr></table></figure>
+
+
+
+<p>至於上述三個元件本身都有相關的容器映像檔，其實最簡單的方式就是於節點上直接透過 Container Runtime 去運行這三個節點即可。</p>
+<p>可以看到安裝完畢 kubeadm 的環境後，系統上都有這些相關的 container image.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ docker images | grep k8s.gcr</span><br><span class="line">k8s.gcr.io/kube-proxy                v1.17.3             ae853e93800d        3 weeks ago         116MB</span><br><span class="line">k8s.gcr.io/kube-controller-manager   v1.17.3             b0f1517c1f4b        3 weeks ago         161MB</span><br><span class="line">k8s.gcr.io/kube-apiserver            v1.17.3             90d27391b780        3 weeks ago         171MB</span><br><span class="line">k8s.gcr.io/kube-scheduler            v1.17.3             d109c0821a2b        3 weeks ago         94.4MB</span><br><span class="line">k8s.gcr.io/coredns                   1.6.5               70f311871ae1        4 months ago        41.6MB</span><br><span class="line">k8s.gcr.io/etcd                      3.4.3-0             303ce5db0e90        4 months ago        288MB</span><br><span class="line">k8s.gcr.io/pause                     3.1                 da86e6ba6ca1        2 years ago         742kB</span><br></pre></td></tr></table></figure>
+
+<p>為了能夠運行起整個 <code>Kubernetes</code>, 只要透過(以範例來說) <strong>docker start</strong> 的方式並且給予相關的參數，就能夠將整個 API-Server&#x2F;Controller&#x2F;Schduler 運行起來搭建一個 Kubernetes 叢集。</p>
+<p>然而實際上你透過下列指令你卻會發現 <code>kube-system</code> 中卻有這三個容器的存在</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl -n kube-system get pods</span><br><span class="line">NAME                              READY   STATUS    RESTARTS   AGE</span><br><span class="line">coredns-6955765f44-gdvrd          1/1     Running   1          15d</span><br><span class="line">coredns-6955765f44-p4wj2          1/1     Running   1          15d</span><br><span class="line">etcd-k8s-dev                      1/1     Running   1          15d</span><br><span class="line">kube-apiserver-k8s-dev            1/1     Running   1          15d</span><br><span class="line">kube-controller-manager-k8s-dev   1/1     Running   1          15d</span><br><span class="line">kube-flannel-ds-amd64-k2w8g       1/1     Running   1          15d</span><br><span class="line">kube-proxy-6nnrt                  1/1     Running   1          15d</span><br><span class="line">kube-scheduler-k8s-dev            1/1     Running   1          15d</span><br></pre></td></tr></table></figure>
+
+
+<p>更特別的是，由下列幾種方式可以推論出基本上沒有使用更上層的管理 <strong>Deployment</strong>, <strong>ReplicaSet</strong>, <strong>DaemonSet</strong>, <strong>StatefulSet</strong>, <strong>ReplicatController</strong></p>
+<ol>
+<li>Pod 的命名規則</li>
+<li>Pod 裡面的 ownerReference<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl -n kube-system get pod kube-scheduler-k8s-dev -o json | jq <span class="string">&#x27;.metadata.ownerReferences&#x27;</span></span><br><span class="line">[</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="string">&quot;apiVersion&quot;</span>: <span class="string">&quot;v1&quot;</span>,</span><br><span class="line">    <span class="string">&quot;controller&quot;</span>: <span class="literal">true</span>,</span><br><span class="line">    <span class="string">&quot;kind&quot;</span>: <span class="string">&quot;Node&quot;</span>,</span><br><span class="line">    <span class="string">&quot;name&quot;</span>: <span class="string">&quot;k8s-dev&quot;</span>,</span><br><span class="line">    <span class="string">&quot;uid&quot;</span>: <span class="string">&quot;b8755102-968b-41ac-a923-0e2cceacaf03&quot;</span></span><br><span class="line">  &#125;</span><br><span class="line">]</span><br></pre></td></tr></table></figure></li>
+<li>kubectl -n kube-system get all</li>
+</ol>
+<p>對一個沒有任何更高階的 <strong>Controller</strong> 管理的 <strong>Pod</strong> 來說，你如果嘗試將這些 <strong>Pod</strong> 移除，你會發現這些 <strong>Pod</strong> 都會自己重生</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl -n kube-system get pods -l component=kube-controller-manager</span><br><span class="line">NAME                              READY   STATUS    RESTARTS   AGE</span><br><span class="line">kube-controller-manager-k8s-dev   1/1     Running   1          15d</span><br><span class="line">vagrant@k8s-dev:~$ kubectl -n kube-system delete pod kube-controller-manager-k8s-dev</span><br><span class="line">pod <span class="string">&quot;kube-controller-manager-k8s-dev&quot;</span> deleted</span><br><span class="line">vagrant@k8s-dev:~$ kubectl -n kube-system get pods -l component=kube-controller-manager</span><br><span class="line">NAME                              READY   STATUS    RESTARTS   AGE</span><br><span class="line">kube-controller-manager-k8s-dev   0/1     Pending   0          3s</span><br></pre></td></tr></table></figure>
+
+<p>但是如果你自己創立一個 <strong>pod</strong> 並且刪除，就真的完全刪除不會重啟。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ kubectl get pods</span><br><span class="line">No resources found <span class="keyword">in</span> default namespace.</span><br><span class="line">vagrant@k8s-dev:~$ kubectl run --generator=run-pod/v1 nginx --image=nginx</span><br><span class="line">pod/nginx created</span><br><span class="line">vagrant@k8s-dev:~$ kubectl get pods</span><br><span class="line">NAME    READY   STATUS              RESTARTS   AGE</span><br><span class="line">nginx   0/1     ContainerCreating   0          3s</span><br><span class="line">vagrant@k8s-dev:~$ kubectl get pods</span><br><span class="line">NAME    READY   STATUS    RESTARTS   AGE</span><br><span class="line">nginx   1/1     Running   0          6s</span><br><span class="line">vagrant@k8s-dev:~$ kubectl get pods nginx -o json | jq <span class="string">&#x27;.metadata.ownerReferences&#x27;</span></span><br><span class="line">null</span><br><span class="line">vagrant@k8s-dev:~$ kubectl delete pod nginx</span><br><span class="line">pod <span class="string">&quot;nginx&quot;</span> deleted</span><br><span class="line">vagrant@k8s-dev:~$ kubectl get pods</span><br><span class="line">No resources found <span class="keyword">in</span> default namespace.</span><br><span class="line">vagrant@k8s-dev:~$</span><br><span class="line">vagrant@k8s-dev:~$</span><br><span class="line">vagrant@k8s-dev:~$ kubectl get pods</span><br><span class="line">No resources found <span class="keyword">in</span> default namespace.</span><br><span class="line">vagrant@k8s-dev:~$</span><br></pre></td></tr></table></figure>
+
+<p>這其中的奧妙就在於 <strong>ownerReferences</strong>，自行創立的 <strong>pod</strong> 是完全空的，但是 <strong>kubeadm</strong> 裡面的 <strong>API Server&#x2F;Controller&#x2F;Scheduler</strong> 卻是有資料，並且資料是</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">[</span></span><br><span class="line">  <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;apiVersion&quot;</span><span class="punctuation">:</span> <span class="string">&quot;v1&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;controller&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;kind&quot;</span><span class="punctuation">:</span> <span class="string">&quot;Node&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;name&quot;</span><span class="punctuation">:</span> <span class="string">&quot;k8s-dev&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;uid&quot;</span><span class="punctuation">:</span> <span class="string">&quot;b8755102-968b-41ac-a923-0e2cceacaf03&quot;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">]</span></span><br></pre></td></tr></table></figure>
+
+<p>其實這邊已經透漏出了玄機，這些 <strong>Pod</strong> 是由 <strong>節點Node</strong> 本身去維護的，本身不依賴任何我們到的 workload 型態。 節點取代了過往的 <strong>Kuberentes Controller</strong> 去確保三個核心功能的 Pod 必須活者</p>
+<p>而這個用法就是所謂的 Static Pod</p>
+<h1 id="Static-Pod"><a href="#Static-Pod" class="headerlink" title="Static Pod"></a>Static Pod</h1><p>相對於透過 <strong>Kubernetess</strong> 控制平面來管理這些 <strong>Pod</strong>, <strong>Static Pod</strong> 有一些特性</p>
+<ol>
+<li>沒有 Schedule 的概念，就是固定於該節點運行</li>
+<li>由 Kubelet 去進行監控並且管理，一旦該 Pod 結束則會重新啟動</li>
+<li>Kubelet 本身會 Mirror 該 Pod 的資訊，所以才可以透過 kubectl 等相關資訊去看到</li>
+</ol>
+<p>其中如果(3)的部分可以參閱 <a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/v1.17.3/pkg/kubelet/kubelet.go#L1638">kubelet 原始碼</a></p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Create Mirror Pod for Static Pod if it doesn&#x27;t already exist</span></span><br><span class="line"><span class="keyword">if</span> kubetypes.IsStaticPod(pod) &#123;</span><br><span class="line">	podFullName := kubecontainer.GetPodFullName(pod)</span><br><span class="line">	deleted := <span class="literal">false</span></span><br><span class="line">	<span class="keyword">if</span> mirrorPod != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">if</span> mirrorPod.DeletionTimestamp != <span class="literal">nil</span> || !kl.podManager.IsMirrorPodOf(mirrorPod, pod) &#123;</span><br><span class="line">			<span class="comment">// The mirror pod is semantically different from the static pod. Remove</span></span><br><span class="line">			<span class="comment">// it. The mirror pod will get recreated later.</span></span><br><span class="line">			klog.Infof(<span class="string">&quot;Trying to delete pod %s %v&quot;</span>, podFullName, mirrorPod.ObjectMeta.UID)</span><br><span class="line">			<span class="keyword">var</span> err <span class="type">error</span></span><br><span class="line">			deleted, err = kl.podManager.DeleteMirrorPod(podFullName, &amp;mirrorPod.ObjectMeta.UID)</span><br><span class="line">			<span class="keyword">if</span> deleted &#123;</span><br><span class="line">				klog.Warningf(<span class="string">&quot;Deleted mirror pod %q because it is outdated&quot;</span>, format.Pod(mirrorPod))</span><br><span class="line">			&#125; <span class="keyword">else</span> <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">				klog.Errorf(<span class="string">&quot;Failed deleting mirror pod %q: %v&quot;</span>, format.Pod(mirrorPod), err)</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> mirrorPod == <span class="literal">nil</span> || deleted &#123;</span><br><span class="line">		node, err := kl.GetNode()</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> || node.DeletionTimestamp != <span class="literal">nil</span> &#123;</span><br><span class="line">			klog.V(<span class="number">4</span>).Infof(<span class="string">&quot;No need to create a mirror pod, since node %q has been removed from the cluster&quot;</span>, kl.nodeName)</span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			klog.V(<span class="number">4</span>).Infof(<span class="string">&quot;Creating a mirror pod for static pod %q&quot;</span>, format.Pod(pod))</span><br><span class="line">			<span class="keyword">if</span> err := kl.podManager.CreateMirrorPod(pod); err != <span class="literal">nil</span> &#123;</span><br><span class="line">				klog.Errorf(<span class="string">&quot;Failed creating a mirror pod for %q: %v&quot;</span>, format.Pod(pod), err)</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>對於 Kubelet 來說，其本身有一個設定叫做 <code>staticPodPath</code>, 這是一個資料夾，只要放到該資料夾下的檔案都會被 <strong>kubelet</strong> 用來創立 <strong>static pod</strong>.</p>
+<p>至於 <strong>Kubelet</strong> 創造 <strong>Pod</strong> 的方式其實還是遵循 <strong>Kubernetes</strong> 的走法，並非直接使用 <strong>docker start</strong>(舉例) 來創立。這部分是為了讓所有的 <strong>Container</strong> 操作全部都經由 <strong>Container Runtime Interface</strong> 來管理，進而提供更好的相容性。</p>
+<h1 id="Hands-on"><a href="#Hands-on" class="headerlink" title="Hands-on"></a>Hands-on</h1><p>接下來我們就動手觀察一下相關的參數，首先根據剛剛 <strong>systemd</strong> 的提示，我們知道用來控管 <strong>kubelet</strong> 的啟動檔案於 <strong>&#x2F;etc&#x2F;systemd&#x2F;system&#x2F;kubelet.service.d&#x2F;10-kubeadm.conf</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo <span class="built_in">cat</span> /etc/systemd/system/kubelet.service.d/10-kubeadm.conf</span><br><span class="line"><span class="comment"># Note: This dropin only works with kubeadm and kubelet v1.11+</span></span><br><span class="line">[Service]</span><br><span class="line">Environment=<span class="string">&quot;KUBELET_KUBECONFIG_ARGS=--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf&quot;</span></span><br><span class="line">Environment=<span class="string">&quot;KUBELET_CONFIG_ARGS=--config=/var/lib/kubelet/config.yaml&quot;</span></span><br><span class="line"><span class="comment"># This is a file that &quot;kubeadm init&quot; and &quot;kubeadm join&quot; generates at runtime, populating the KUBELET_KUBEADM_ARGS variable dynamically</span></span><br><span class="line">EnvironmentFile=-/var/lib/kubelet/kubeadm-flags.env</span><br><span class="line"><span class="comment"># This is a file that the user can use for overrides of the kubelet args as a last resort. Preferably, the user should use</span></span><br><span class="line"><span class="comment"># the .NodeRegistration.KubeletExtraArgs object in the configuration files instead. KUBELET_EXTRA_ARGS should be sourced from this file.</span></span><br><span class="line">EnvironmentFile=-/etc/default/kubelet</span><br><span class="line">ExecStart=</span><br><span class="line">ExecStart=/usr/bin/kubelet <span class="variable">$KUBELET_KUBECONFIG_ARGS</span> <span class="variable">$KUBELET_CONFIG_ARGS</span> <span class="variable">$KUBELET_KUBEADM_ARGS</span> <span class="variable">$KUBELET_EXTRA_ARGS</span></span><br></pre></td></tr></table></figure>
+
+<p>裡面要注意的是 <strong>KUBELET_CONFIG_ARGS</strong> 這個變數，裡面使用了 <strong>–config&#x3D;&#x2F;var&#x2F;lib&#x2F;kubelet&#x2F;config.yaml</strong> 來指名 <strong>kubelet</strong> 的參數檔案</p>
+<p>因此接下來看一下其內容</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo <span class="built_in">cat</span>  /var/lib/kubelet/config.yaml</span><br><span class="line">apiVersion: kubelet.config.k8s.io/v1beta1</span><br><span class="line">authentication:</span><br><span class="line">  anonymous:</span><br><span class="line">    enabled: <span class="literal">false</span></span><br><span class="line">  webhook:</span><br><span class="line">    cacheTTL: 0s</span><br><span class="line">    enabled: <span class="literal">true</span></span><br><span class="line">  x509:</span><br><span class="line">    clientCAFile: /etc/kubernetes/pki/ca.crt</span><br><span class="line">authorization:</span><br><span class="line">  mode: Webhook</span><br><span class="line">  webhook:</span><br><span class="line">    cacheAuthorizedTTL: 0s</span><br><span class="line">    cacheUnauthorizedTTL: 0s</span><br><span class="line">clusterDNS:</span><br><span class="line">- 10.96.0.10</span><br><span class="line">clusterDomain: cluster.local</span><br><span class="line">cpuManagerReconcilePeriod: 0s</span><br><span class="line">evictionPressureTransitionPeriod: 0s</span><br><span class="line">fileCheckFrequency: 0s</span><br><span class="line">healthzBindAddress: 127.0.0.1</span><br><span class="line">healthzPort: 10248</span><br><span class="line">httpCheckFrequency: 0s</span><br><span class="line">imageMinimumGCAge: 0s</span><br><span class="line">kind: KubeletConfiguration</span><br><span class="line">nodeStatusReportFrequency: 0s</span><br><span class="line">nodeStatusUpdateFrequency: 0s</span><br><span class="line">rotateCertificates: <span class="literal">true</span></span><br><span class="line">runtimeRequestTimeout: 0s</span><br><span class="line">staticPodPath: /etc/kubernetes/manifests</span><br><span class="line">streamingConnectionIdleTimeout: 0s</span><br><span class="line">syncFrequency: 0s</span><br><span class="line">volumeStatsAggPeriod: 0s</span><br></pre></td></tr></table></figure>
+
+<p>其中吸引我們注意的是  <strong>staticPodPath</strong> 這個參數，接下來看一下該資料夾的位置</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ sudo <span class="built_in">ls</span> /etc/kubernetes/manifests</span><br><span class="line">etcd.yaml  kube-apiserver.yaml  kube-controller-manager.yaml  kube-scheduler.yaml</span><br></pre></td></tr></table></figure>
+
+<p>可以看到裡面放了四個 <strong>yaml</strong> 檔案(包含 etcd)，如果打開這些 <strong>yaml</strong> 就會是我們所熟悉的 <strong>Kubernetes</strong> 格式了。</p>
+<p>如果這時候隨便放入一個 <strong>yaml</strong> 到該資料夾中，會發生什麼事情?</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="built_in">cat</span> &lt;&lt;<span class="string">EOF | sudo tee /etc/kubernetes/manifests/static-debug.yaml</span></span><br><span class="line"><span class="string">apiVersion: v1</span></span><br><span class="line"><span class="string">kind: Pod</span></span><br><span class="line"><span class="string">metadata:</span></span><br><span class="line"><span class="string">  name: static-debug</span></span><br><span class="line"><span class="string">spec:</span></span><br><span class="line"><span class="string">  containers:</span></span><br><span class="line"><span class="string">    - name: hwchiu</span></span><br><span class="line"><span class="string">      image: hwchiu/netutils</span></span><br><span class="line"><span class="string">EOF</span></span><br><span class="line"></span><br><span class="line">vagrant@k8s-dev:~$ kubectl get  pods</span><br><span class="line">NAME                   READY   STATUS    RESTARTS   AGE</span><br><span class="line">static-debug-k8s-dev   1/1     Running   0          27s</span><br><span class="line">vagrant@k8s-dev:~$ kubectl delete pod static-debug-k8s-dev</span><br><span class="line">pod <span class="string">&quot;static-debug-k8s-dev&quot;</span> deleted</span><br><span class="line">vagrant@k8s-dev:~$ kubectl get  pods</span><br><span class="line">NAME                   READY   STATUS    RESTARTS   AGE</span><br><span class="line">static-debug-k8s-dev   0/1     Pending   0          1s</span><br><span class="line">vagrant@k8s-dev:~$ kubectl get  pods</span><br><span class="line">NAME                   READY   STATUS    RESTARTS   AGE</span><br><span class="line">static-debug-k8s-dev   1/1     Running   0          3s</span><br></pre></td></tr></table></figure>
+<p>這邊可以看到馬上就會產生對應的 <strong>Pod</strong> 並且也獲得了自動重啓的能力。</p>
+<p>最後！ 我們透過 <strong>docker  ps</strong> 觀察一下</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">vagrant@k8s-dev:~$ docker ps | grep kube-controller</span><br><span class="line">5f16cb76460f        b0f1517c1f4b           <span class="string">&quot;kube-controller-man…&quot;</span>   2 hours ago         Up 2 hours                              k8s_kube-controller-manager_kube-controller-manager-k8s-dev_kube-system_25245994bd78f09602b6f5c3e5d2246c_1</span><br><span class="line">a94f104316af        k8s.gcr.io/pause:3.1   <span class="string">&quot;/pause&quot;</span>                 2 hours ago         Up 2 hours                              k8s_POD_kube-controller-manager-k8s-dev_kube-system_25245994bd78f09602b6f5c3e5d2246c_1vagrant@k8s-dev:~$ docker ps | grep kube-controller</span><br><span class="line">5f16cb76460f        b0f1517c1f4b           <span class="string">&quot;kube-controller-man…&quot;</span>   2 hours ago         Up 2 hours                              k8s_kube-controller-manager_kube-controller-manager-k8s-dev_kube-system_25245994bd78f09602b6f5c3e5d2246c_1</span><br><span class="line">a94f104316af        k8s.gcr.io/pause:3.1   <span class="string">&quot;/pause&quot;</span>                 2 hours ago         Up 2 hours                              k8s_POD_kube-controller-manager-k8s-dev_kube-system_25245994bd78f09602b6f5c3e5d2246c_1</span><br></pre></td></tr></table></figure>
+<p>可以看到針對 <strong>kube-controller-manager</strong>  這個 <strong>Pod</strong> 來說，其實背後也是有 <strong>Pause Container</strong> 作為整個 <strong>Pod</strong> 的沙盒，這也證明了這些 <strong>Static Pod</strong> 的創建也是基於 <strong>CRI</strong> 的標準所創立的，並非是直接透過 <strong>docker command</strong> 來創立。</p>
+<ul>
+<li>CRI 內的基本單位都是 Pod, 而非 Container, 有興趣的可以參考他們的 gRPC 介面</li>
+</ul>
+<p>另外，其實 <strong>kubeadm</strong> 的安裝過程就已經透露出相關資訊</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">[control-plane] Using manifest folder <span class="string">&quot;/etc/kubernetes/manifests&quot;</span></span><br><span class="line">[control-plane] Creating static Pod manifest <span class="keyword">for</span> <span class="string">&quot;kube-apiserver&quot;</span></span><br><span class="line">[control-plane] Creating static Pod manifest <span class="keyword">for</span> <span class="string">&quot;kube-controller-manager&quot;</span></span><br><span class="line">W0310 06:57:46.902862    2798 manifests.go:214] the default kube-apiserver authorization-mode is <span class="string">&quot;Node,RBAC&quot;</span>; using <span class="string">&quot;Node,RBAC&quot;</span></span><br><span class="line">[control-plane] Creating static Pod manifest <span class="keyword">for</span> <span class="string">&quot;kube-scheduler&quot;</span></span><br><span class="line">W0310 06:57:46.903651    2798 manifests.go:214] the default kube-apiserver authorization-mode is <span class="string">&quot;Node,RBAC&quot;</span>; using <span class="string">&quot;Node,RBAC&quot;</span></span><br><span class="line">[etcd] Creating static Pod manifest <span class="keyword">for</span> <span class="built_in">local</span> etcd <span class="keyword">in</span> <span class="string">&quot;/etc/kubernetes/manifests&quot;</span></span><br><span class="line">[wait-control-plane] Waiting <span class="keyword">for</span> the kubelet to boot up the control plane as static Pods from directory <span class="string">&quot;/etc/kubernetes/manifes</span></span><br><span class="line"><span class="string">ts&quot;</span>. This can take up to 4m0s</span><br></pre></td></tr></table></figure>
+
+
+
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>這次我們探討了關於 <strong>Static Pod</strong> 的概念，雖然實際部署上比較少這樣使用，但是透過這次的探討我們可以更了解 <strong>Kubeadm</strong> 是如何安裝 <strong>Kubernetes</strong> 環境，<br>並且也學習到了一些 <strong>Kubernetes</strong> 本身的特性。</p>
+<h1 id="課程分享"><a href="#課程分享" class="headerlink" title="課程分享"></a>課程分享</h1><p>最後，我目前於 Hiskio 上面有開設一門 Kubernetes 入門篇的課程，裡面會探討運算&#x2F;網路&#x2F;儲存三個最重要的平台資源，此外對於 CRI&#x2F;CNI&#x2F;CSI 也都有簡單的介紹，主要會基於 <strong>Kubernetes</strong> 本身的設計原理及各資源的用法與情境去介紹。<br>如果本身已經很熟練的使用 Kubernetes 於環境中就不太適合這門課程，主要是給想要踏入到 Kubernetes 世界中的朋友，有興趣的幫忙捧場或推廣<br>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a></p>
+<h1 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/">https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/v1.17.3/pkg/kubelet/kubelet.go#L1637-L1638">https://github.com/kubernetes/kubernetes/blob/v1.17.3/pkg/kubelet/kubelet.go#L1637-L1638</a></li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/Container/" rel="tag"># Container</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/k8s-course.html" rel="prev" title="Kubernetes 線上課程">
+                  <i class="fa fa-chevron-left"></i> Kubernetes 線上課程
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/ipvs-1.html" rel="next" title="IPvS 學習手冊(一)">
+                  IPvS 學習手冊(一) <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

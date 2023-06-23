@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本文為電子書本[GitOps: What You Need to Know Now](https:&#x2F;&#x2F;info.container-solutions.com&#x2F;gitops-what-you-need-to-know-now) 的心得第五篇。已獲得作者授權同意">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[書本導讀]- GitOps實作上的挑戰">
+<meta property="og:url" content="https://www.hwchiu.com/gitops-book-ch5.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文為電子書本[GitOps: What You Need to Know Now](https:&#x2F;&#x2F;info.container-solutions.com&#x2F;gitops-what-you-need-to-know-now) 的心得第五篇。已獲得作者授權同意">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2020-10-04T03:50:33.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.615Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="Devops">
+<meta property="article:tag" content="GitOps">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/gitops-book-ch5.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/gitops-book-ch5.html","path":"gitops-book-ch5.html","title":"[書本導讀]- GitOps實作上的挑戰"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>[書本導讀]- GitOps實作上的挑戰 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Technical"><span class="nav-number">1.</span> <span class="nav-text">Technical</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#SealedSecrets"><span class="nav-number">1.1.</span> <span class="nav-text">SealedSecrets</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Storing-Encrpyted-Secrets-directly-in-your-source-reposiroty"><span class="nav-number">1.2.</span> <span class="nav-text">Storing Encrpyted Secrets directly in your source reposiroty</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Storing-secrts-with-source-control-separately-from-source"><span class="nav-number">1.3.</span> <span class="nav-text">Storing secrts with source control separately from source</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Storing-encrypted-secrets-with-your-source-control-tool-separately-from-source"><span class="nav-number">1.4.</span> <span class="nav-text">Storing encrypted secrets with your source-control tool separately from source</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Storing-secrets-with-your-cloud-vendor-in-a-secrets-management-system"><span class="nav-number">1.5.</span> <span class="nav-text">Storing secrets with your cloud vendor in a secrets-management system</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Integrating-with-a-third-party-secrets-management-tool"><span class="nav-number">1.6.</span> <span class="nav-text">Integrating with a third party secrets-management tool</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Staffing"><span class="nav-number">2.</span> <span class="nav-text">Staffing</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Regulatory-and-Legacy-Tooling-x2F-Processes"><span class="nav-number">3.</span> <span class="nav-text">Regulatory and Legacy Tooling&#x2F;Processes</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Time-to-Market"><span class="nav-number">4.</span> <span class="nav-text">Time to Market</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">5.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/gitops-book-ch5.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="[書本導讀]- GitOps實作上的挑戰 | Hwchiu Learning Note">
+      <meta itemprop="description" content="本文為電子書本[GitOps: What You Need to Know Now](https://info.container-solutions.com/gitops-what-you-need-to-know-now) 的心得第五篇。已獲得作者授權同意">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          [書本導讀]- GitOps實作上的挑戰
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2020-10-04 11:50:33" itemprop="dateCreated datePublished" datetime="2020-10-04T11:50:33+08:00">2020-10-04</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本文為電子書本[GitOps: What You Need to Know Now](https://info.container-solutions.com/gitops-what-you-need-to-know-now) 的心得第五篇。已獲得作者授權同意</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>本文大部分內容主要擷取自 <a target="_blank" rel="noopener" href="https://info.container-solutions.com/gitops-what-you-need-to-know-now">GitOps: What You Need to Know Now</a> ，已獲得作者授權同意</p>
+<p>本文為 GitOps 系列文，主要探討 GitOps 的種種議題，從今生由來，說明介紹，工具使用到實作上的種種挑戰，讓大家可以從不同角度來學習 GitOps。</p>
+<p>如果你想要嘗試將 GitOps 的概念導入到現有的團隊之中，這接下來我們會介紹一些實作是可能會遇到的問題。</p>
+<h1 id="Technical"><a href="#Technical" class="headerlink" title="Technical"></a>Technical</h1><p>上篇文章中，我們探討了 GitOps 相關的工具選擇，然而這些工具發展快速，有些是基於開軟體，有些則是廠商的收費服務。廠商的服務通常都直接提供點到點的解決方案，所以如何選擇這些解決方案就是一個很困難的事情。對於已經團隊內已經運行很久的系統，通常都已經搭配不少工具來整合，這種情況下，如果要採用這些點到點全面的解決方案，勢必會有一些架構上的衝突。相反的，開源軟體很多都是獨立個體，彼此沒有太強烈的連結性，這種情況下也許會是一個更好的選擇。<br>當然如果今天要做的是一個全新的產品，沒有任何技術債的問題，那也許可以考慮點到點的解決方案。</p>
+<p>當使用的工具選擇完畢之後，其實還有很多的技術問題要挑戰。譬如如何整合以及使用這些你選擇的工具，譬如 Secrets 這種機密資訊的管理，如果要整合到 GitOps 的環節中，該怎麼處理。</p>
+<p>基於安全性為由，這些機密資訊絕對不能直接存放於任何 Git 專案下。否則任何能夠看到 Git 資訊的人都可以直接獲取你的機密資訊，為了解決這類型的問題，以下列出安全性相關的專案與類別。</p>
+<h2 id="SealedSecrets"><a href="#SealedSecrets" class="headerlink" title="SealedSecrets"></a>SealedSecrets</h2><ol>
+<li><a target="_blank" rel="noopener" href="https://github.com/bitnami-labs/sealed-secrets">Bitnami Implementation</a></li>
+</ol>
+<h2 id="Storing-Encrpyted-Secrets-directly-in-your-source-reposiroty"><a href="#Storing-Encrpyted-Secrets-directly-in-your-source-reposiroty" class="headerlink" title="Storing Encrpyted Secrets directly in your source reposiroty"></a>Storing Encrpyted Secrets directly in your source reposiroty</h2><ol>
+<li><a target="_blank" rel="noopener" href="https://github.com/sobolevn/git-secret">git-secret</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/AGWA/git-crypt">git-crypt</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/StackExchange/blackbox">BlackBox</a></li>
+</ol>
+<h2 id="Storing-secrts-with-source-control-separately-from-source"><a href="#Storing-secrts-with-source-control-separately-from-source" class="headerlink" title="Storing secrts with source control separately from source"></a>Storing secrts with source control separately from source</h2><ol>
+<li><a target="_blank" rel="noopener" href="https://docs.gitlab.com/ee/ci/variables/#protect-a-custom-variable">GitLab protected variables</a></li>
+</ol>
+<h2 id="Storing-encrypted-secrets-with-your-source-control-tool-separately-from-source"><a href="#Storing-encrypted-secrets-with-your-source-control-tool-separately-from-source" class="headerlink" title="Storing encrypted secrets with your source-control tool separately from source"></a>Storing encrypted secrets with your source-control tool separately from source</h2><ol>
+<li><a target="_blank" rel="noopener" href="https://help.github.com/en/actions/configuring-and-managing-workflows/creating-and-storing-encrypted-secrets">GitHub encrypted secrets</a></li>
+</ol>
+<h2 id="Storing-secrets-with-your-cloud-vendor-in-a-secrets-management-system"><a href="#Storing-secrets-with-your-cloud-vendor-in-a-secrets-management-system" class="headerlink" title="Storing secrets with your cloud vendor in a secrets-management system"></a>Storing secrets with your cloud vendor in a secrets-management system</h2><ol>
+<li><a target="_blank" rel="noopener" href="https://aws.amazon.com/secrets-manager/">AWS Secrets Manager</a></li>
+<li>[Google Cloud Secets Manager])(<a target="_blank" rel="noopener" href="https://cloud.google.com/secret-manager">https://cloud.google.com/secret-manager</a>)</li>
+<li><a target="_blank" rel="noopener" href="https://azure.microsoft.com/en-gb/services/key-vault/">Azure Key Vault</a></li>
+</ol>
+<h2 id="Integrating-with-a-third-party-secrets-management-tool"><a href="#Integrating-with-a-third-party-secrets-management-tool" class="headerlink" title="Integrating with a third party secrets-management tool"></a>Integrating with a third party secrets-management tool</h2><ol>
+<li><a target="_blank" rel="noopener" href="https://www.vaultproject.io/">Hashicorp Vault</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/mozilla/sops">Mozilla SOPS</a></li>
+</ol>
+<p>上述只是粗略的列出了跟安全性相關的專案，每個專案的用法與情境都截然不同。對於團隊來說，要花多少心力於這些安全性解決方案上取決於你們團隊對於安全性的重視度有多高及需求有什麼。<br>此外，最好定期檢視這些安全性的設定來確保一切設定都符合安全需求。</p>
+<h1 id="Staffing"><a href="#Staffing" class="headerlink" title="Staffing"></a>Staffing</h1><p>第二個問題與第一個問題息息相關，要找到一位對 Cloud Native 相關技術有經驗的人已經屬實困難，更何況要找到一位還要對 GitOps 熟悉有經驗的負責人。除此之外，要如何將這些概念擴散到整個團隊，讓團隊成員有相同的能力與背景共同處理這些流程，其難度更高。</p>
+<p>一個比較可行的做法是透過學習的方式，讓員工之間花時間去學習分享與研究，藉此降低每個人之間對於 GitOps 認知的鴻溝，最後讓彼此都能夠掌握整個系統</p>
+<h1 id="Regulatory-and-Legacy-Tooling-x2F-Processes"><a href="#Regulatory-and-Legacy-Tooling-x2F-Processes" class="headerlink" title="Regulatory and Legacy Tooling&#x2F;Processes"></a>Regulatory and Legacy Tooling&#x2F;Processes</h1><p>GitOps 本身對於有監管需求的團隊來說是非常值得嘗試的，透過公開透明的檢查及瀏覽機制，可以讓團隊更能夠有效率地去知道什麼時候被修改，誰進行了修改，什麼內容被修改。</p>
+<p>GitOps 下的做法相對簡單，只要將其與現有的技術與工具整合。舉例來說，如果今天團隊內使用 LDAP 或 AD 這種權限控管工具，可以很輕鬆的將其與 GitLab 進行整合。這樣就可以透過 LDAP&#x2F;AD 來限制員工的權限，什麼群組的人可以觀看什麼 Repo，進行什麼操作。<br>這種概念的整合是個非常有效率的做法，特別是對大型的組織來說，能夠用這種整合的方式直接把現有的規則與政策都直接套用到新產品架構上，而不用重新打造一特全新作法。</p>
+<p>然而，GitOps 的這些作法再某些領域上可能不會這麼順利，特別是跟些已經存在的工具有相反思維時。這邊就以 <code>Pull Request</code> 這種工作流程為範例，如果過去的開發習慣是手動硬上且一個帳號專門使用的系統，那就與 GitOps 的流程非常不和，因為沒有辦法做到稽核的效果。<br>另一方面，對於一些資深且不熟悉 Git 操作的管理人員來說，要其登入 Git 並且發送 Pull Request 可能會有些操作上的困難。</p>
+<p>最後導致的就是，當你導入 GitOps 到團隊時，為了配合團隊舊有的工具或是稽核流程， GitOps 本身所強調的特性可能會被犧牲一些。 你甚至可能要花一些時間來研究現有機制，並且想辦法說服上層説為什麼採用全新的 GitOps 流程會是更好的解決方案。<br>這一切都沒有標準解答，完全是看各團隊到底習慣用什麼，怎麼用符合大家需求</p>
+<h1 id="Time-to-Market"><a href="#Time-to-Market" class="headerlink" title="Time to Market"></a>Time to Market</h1><p>GitOps 方式帶來的好處非常容易透過白板解釋給技術背景的員工，但是要將其實踐並且整合則需要花費不少時間。 整個實踐過程需要仰賴非常紀律的方式去部署應用程式，手動介入的操作都要盡量避免，所有的測試都要寫好寫滿來確保工作流程。</p>
+<p>事實上這種紀律的要求不是只有 GitOps 流派下才會需要，不論是測試驅動開發或是 DevOps 等都需要一定程度的紀律與準則來要求整個團隊。 這些紀律短期上可能看不出好處，但是其效益都是為了長期所打算的，當然這樣的做法帶來的缺點就是如果你要向上層展示其好處與優點，短期內可能很難展現。</p>
+<p>上述提到的所有挑戰與困難都會增加團隊產品與市場接軌的時間，這可能會是 GitOps 實作上最大的挑戰。當面對一些真實市場的壓力與需求，團隊可能會傾向使用舊方法來處理產品部署的方式。</p>
+<p>作者認為如果你沒有堅持下去，而是放棄使用過去的舊方法，那隨者時間久了，有一些競爭對手開始享受到 GitOps 帶來的長期效益時，這時候你的團隊在各方面就會追不上對方。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/Devops/" rel="tag"># Devops</a>
+              <a href="/tags/GitOps/" rel="tag"># GitOps</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/gitops-book-ch4.html" rel="prev" title="[書本導讀]-GitOps工具的選擇">
+                  <i class="fa fa-chevron-left"></i> [書本導讀]-GitOps工具的選擇
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/gitops-book-ch6.html" rel="next" title="[書本導讀]-GitOps後續">
+                  [書本導讀]-GitOps後續 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

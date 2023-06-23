@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本文基於 SDN Controller Floodlight 的原始碼進行了一次簡單的分析，藉由分析這些原始碼更可以學習到其內部是如何轉送封包的，藉由 Topology 模組提供的 Global Topology 資訊, Floodlight 可以從該資訊中對於任何一個點到點的之間的連線找到一條傳送路徑。接者針對這傳送路徑上所有的交換機輸入對應的 Openflow 規則來幫忙轉送封包。相對於文件的">
+<meta property="og:type" content="article">
+<meta property="og:title" content="FloodlightModule-Forwarding">
+<meta property="og:url" content="https://www.hwchiu.com/floodlightmodule-forwarding.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文基於 SDN Controller Floodlight 的原始碼進行了一次簡單的分析，藉由分析這些原始碼更可以學習到其內部是如何轉送封包的，藉由 Topology 模組提供的 Global Topology 資訊, Floodlight 可以從該資訊中對於任何一個點到點的之間的連線找到一條傳送路徑。接者針對這傳送路徑上所有的交換機輸入對應的 Openflow 規則來幫忙轉送封包。相對於文件的">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2013-08-06T07:26:00.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.613Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="SDN">
+<meta property="article:tag" content="Floodlight">
+<meta property="article:tag" content="Openflow">
+<meta property="article:tag" content="SourceCode">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/floodlightmodule-forwarding.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/floodlightmodule-forwarding.html","path":"floodlightmodule-forwarding.html","title":"FloodlightModule-Forwarding"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>FloodlightModule-Forwarding | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Architecture"><span class="nav-number">2.</span> <span class="nav-text">Architecture</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Hight-Level-Overview"><span class="nav-number">3.</span> <span class="nav-text">Hight-Level Overview</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Low-Level-implementation"><span class="nav-number">4.</span> <span class="nav-text">Low-Level implementation</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Drop"><span class="nav-number">4.1.</span> <span class="nav-text">Drop</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Flood"><span class="nav-number">4.2.</span> <span class="nav-text">Flood</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Forward"><span class="nav-number">4.3.</span> <span class="nav-text">Forward</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%B5%90%E8%AB%96"><span class="nav-number">5.</span> <span class="nav-text">結論</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/floodlightmodule-forwarding.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="FloodlightModule-Forwarding | Hwchiu Learning Note">
+      <meta itemprop="description" content="本文基於 SDN Controller Floodlight 的原始碼進行了一次簡單的分析，藉由分析這些原始碼更可以學習到其內部是如何轉送封包的，藉由 Topology 模組提供的 Global Topology 資訊, Floodlight 可以從該資訊中對於任何一個點到點的之間的連線找到一條傳送路徑。接者針對這傳送路徑上所有的交換機輸入對應的 Openflow 規則來幫忙轉送封包。相對於文件的更新，程式碼本身的迭代速度更為敏捷，因此常常會發生文件跟不上實際運行功能的案例。藉由學習閱讀原始碼，我們可以更快也更清楚的掌握當前這些開源軟體的發展狀態，甚至也能夠貢獻社群幫忙補齊文件。">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          FloodlightModule-Forwarding
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2013-08-06 15:26:00" itemprop="dateCreated datePublished" datetime="2013-08-06T15:26:00+08:00">2013-08-06</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本文基於 SDN Controller Floodlight 的原始碼進行了一次簡單的分析，藉由分析這些原始碼更可以學習到其內部是如何轉送封包的，藉由 Topology 模組提供的 Global Topology 資訊, Floodlight 可以從該資訊中對於任何一個點到點的之間的連線找到一條傳送路徑。接者針對這傳送路徑上所有的交換機輸入對應的 Openflow 規則來幫忙轉送封包。相對於文件的更新，程式碼本身的迭代速度更為敏捷，因此常常會發生文件跟不上實際運行功能的案例。藉由學習閱讀原始碼，我們可以更快也更清楚的掌握當前這些開源軟體的發展狀態，甚至也能夠貢獻社群幫忙補齊文件。</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>Floodlight中，最基本用來轉送封包的module就是Forwarding Module,這邊稍為介紹一下心得:</p>
+<h1 id="Architecture"><a href="#Architecture" class="headerlink" title="Architecture"></a>Architecture</h1><p>Forwarding 擴充了 <em>ForwardingBase</em>,<br>ForwardingBase位於&#x2F;routing&#x2F;底下，之後會再詳細介紹這個module.<br>其主要功能就是幫忙把一個route給送到對應的switches，透過flow-modify的封包來寫入flow-entry到每個路徑上的switch。<br>當有封包近來的時候就會呼叫<code>processPacketInMessage</code>此function<br>ForwardingBase本身並沒有實作該function，把這判斷的部分交給其他的module處理，這邊就是由forwarding modules來處理。</p>
+<h1 id="Hight-Level-Overview"><a href="#Hight-Level-Overview" class="headerlink" title="Hight-Level Overview"></a>Hight-Level Overview</h1><p>當有一個PacketIn event送到controller時，Forwarding中會根據ㄧ些已經決定的decision (如firewall)來決定如何處理<br>如果沒有決定的話，就採用預設的行為處理</p>
+<span id="more"></span>
+
+
+<ol>
+<li>Drop</li>
+<li>Flood (default for broadcast or multicast in Ethernet header)</li>
+<li>Forward (default)</li>
+</ol>
+<h1 id="Low-Level-implementation"><a href="#Low-Level-implementation" class="headerlink" title="Low-Level implementation"></a>Low-Level implementation</h1><h2 id="Drop"><a href="#Drop" class="headerlink" title="Drop"></a>Drop</h2><ul>
+<li>Create Openflow Flow-Modify Packet with no action ( no action means drop)</li>
+<li>Send Flow-Modify Packet to switch.</li>
+</ul>
+<p><strong>得到一個Openflow Flow-Modify類型的封包</strong><br><code>OFFlowMod fm =(OFFlowMod) floodlightProvider.getOFMessageFactory().getMessage(OFType.FLOW_MOD);</code></p>
+<p><strong>設定一個Actions,然後不增加任何action,這樣就會事drop的行為</strong><br><code>List&lt;OFAction&gt; actions = new ArrayList&lt;OFAction&gt;();</code></p>
+<p><strong>設定Flow-Modify Packet的ㄧ些欄位，譬如HardTimeout,IdleTimeout…,這邊沒有設定Command預設就是flow_add</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">fm.setCookie(cookie)</span><br><span class="line">  .setHardTimeout((<span class="type">short</span>) <span class="number">0</span>)</span><br><span class="line">  .setIdleTimeout((<span class="type">short</span>) <span class="number">5</span>)</span><br><span class="line">  .setBufferId(OFPacketOut.BUFFER_ID_NONE)</span><br><span class="line">  .setMatch(match)</span><br><span class="line">  .setActions(actions)</span><br><span class="line">  .setLengthU(OFFlowMod.MINIMUM_LENGTH);</span><br></pre></td></tr></table></figure>
+
+<p><strong>把訊息藉由messageDamper送給switch</strong><br><code>messageDamper.write(sw, fm, cntx);</code></p>
+<h2 id="Flood"><a href="#Flood" class="headerlink" title="Flood"></a>Flood</h2><ul>
+<li>Check the ingress port is allowed broadcast ( according broadcast tree)</li>
+<li>Create Packout packet with Flood action</li>
+<li>Send Packout to switch.</li>
+</ul>
+<p><strong>根據BroadCast Tree判斷發送PacketIn Event的{swtich,port}是否能夠廣播，避免造成broadcast storm</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (topology.isIncomingBroadcastAllowed(sw.getId(),</span><br><span class="line">    pi.getInPort()) == <span class="literal">false</span>) &#123;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>創造一個Packet Out的封包</strong><br><code>OFPacketOut po =(OFPacketOut) floodlightProvider.getOFMessageFactory().getMessage(OFType.PACKET_OUT)</code></p>
+<p><strong>創造actions,放入一個flood的action,根據ㄧ些property來決定要送到哪個logical port</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">List&lt;OFAction&gt; actions = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;OFAction&gt;();</span><br><span class="line"><span class="keyword">if</span> (sw.hasAttribute(IOFSwitch.PROP_SUPPORTS_OFPP_FLOOD)) &#123;</span><br><span class="line">    actions.add(<span class="keyword">new</span> <span class="title class_">OFActionOutput</span>(OFPort.OFPP_FLOOD.getValue(),</span><br><span class="line">    (<span class="type">short</span>)<span class="number">0xFFFF</span>));</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    actions.add(<span class="keyword">new</span> <span class="title class_">OFActionOutput</span>(OFPort.OFPP_ALL.getValue(),</span><br><span class="line">    (<span class="type">short</span>)<span class="number">0xFFFF</span>));</span><br><span class="line">&#125;</span><br><span class="line">po.setActions(actions);</span><br><span class="line">po.setActionsLength((<span class="type">short</span>) OFActionOutput.MINIMUM_LENGTH);</span><br></pre></td></tr></table></figure>
+
+<p><strong>把封包的資料一併傳下去，然後flood</strong><br><strong>如果PacketIn是送bufferID而不是packetData的話，這邊是否要額外判斷???</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">byte[] packetData = pi.getPacketData();</span><br><span class="line">poLength += packetData.length;</span><br><span class="line">po.setPacketData(packetData);</span><br></pre></td></tr></table></figure>
+<p><strong>把訊息藉由messageDamper送給switch</strong><br><code>messageDamper.write(sw, po, cntx);</code></p>
+<h2 id="Forward"><a href="#Forward" class="headerlink" title="Forward"></a>Forward</h2><ul>
+<li>check we know the desination device</li>
+<li>check source device and destination device are same cluseter</li>
+<li>find all attach switch</li>
+<li>find route between souce device and destination device</li>
+<li>use <em>forwardingBase</em>‘s method to push a route to all swith which on route.</li>
+</ul>
+<p><strong>先取得source 跟 destination device</strong><br><strong>每個device 是用IP、MAC、VLAN來做為區別的</strong><br><code>IDevice dstDevice = IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_DST_DEVICE);</code><br><code>IDevice srcDevice = IDeviceService.fcStore.get(cntx, IDeviceService.CONTEXT_SRC_DEVICE);</code></p>
+<p><strong>接下來根據pkacetIN進來的switch取得其所屬的cluster.</strong><br><code>Long srcIsland = topology.getL2DomainId(sw.getId());</code></p>
+<p><strong>去探訪destination device所連接到的switch,看看是否有跟發生PacketIn的switch是在同一個Cluster,<br>是的話才有辦法轉送，否則就Flood出去</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> (SwitchPort dstDap : dstDevice.getAttachmentPoints()) &#123;</span><br><span class="line">    <span class="type">Long</span> <span class="variable">dstSwDpid</span> <span class="operator">=</span> dstDap.getSwitchDPID();</span><br><span class="line">    <span class="type">Long</span> <span class="variable">dstIsland</span> <span class="operator">=</span> topology.getL2DomainId(dstSwDpid);`</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> ((dstIsland != <span class="literal">null</span>) &amp;&amp; dstIsland.equals(srcIsland))</span><br><span class="line">on_same_island = <span class="literal">true</span>;</span><br></pre></td></tr></table></figure>
+
+
+<p><strong>取得source &#x2F; destination device所連接到的所有switch</strong><br><strong>目前還不是很清楚怎樣的情形下，可以一個device連接到多個switch 也許用hub吧</strong></p>
+<p><code>SwitchPort[] srcDaps = srcDevice.getAttachmentPoints(); </code>SwitchPort[] dstDaps &#x3D; dstDevice.getAttachmentPoints();&#96;</p>
+<p><strong>利用routingEngine來取得兩個switch間的最短路徑 (dijstra)</strong><br><code>Route route = routingEngine.getRoute(srcDap.getSwitchDPID(),(short)srcDap.getPort(),dstDap.getSwitchDPID(), (short)dstDap.getPort(), 0);</code></p>
+<p><strong>接者透過ForwardingBase的pushRoute,會把路徑上所有的switch都發送一個Flow-Modify的封包</strong><br><code>pushRoute(route, match, wildcard_hints, pi, sw.getId(), cookie,cntx, requestFlowRemovedNotifn,                         false, OFFlowMod.OFPFC_ADD);</code></p>
+<p><strong>處理完這組switch後，繼續嘗試其他連接的switch</strong><br><code>iSrcDaps++;</code><br><code>iDstDaps++;</code></p>
+<h1 id="結論"><a href="#結論" class="headerlink" title="結論"></a>結論</h1><p>Forwarding是個很基本的module,原始的情況下就是把封包給forward或是flood的而已，<br>目前裡面的設計是希望能夠取得多個attach points,但是我目前嘗試各種拓樸，都沒有辦法讓一個device連接到多個switch,不知道是否要使用hub之類的東西來完成，這部分要再嘗試看看。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/SDN/" rel="tag"># SDN</a>
+              <a href="/tags/Floodlight/" rel="tag"># Floodlight</a>
+              <a href="/tags/Openflow/" rel="tag"># Openflow</a>
+              <a href="/tags/SourceCode/" rel="tag"># SourceCode</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2013-07-01-python-pack-unpack.html" rel="prev" title="Python-pack_unpack">
+                  <i class="fa fa-chevron-left"></i> Python-pack_unpack
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/floodlightmodule-topology.html" rel="next" title="FloodlightModule-Topology module">
+                  FloodlightModule-Topology module <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

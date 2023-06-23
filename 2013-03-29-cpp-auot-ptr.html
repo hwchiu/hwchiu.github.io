@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="在寫C++的時候，常常會使用new來獲取heap的空間，來取得heap的空間，如下。 123456789void Test1()&amp;#123;   char* name &#x3D; new char(100);   &#x2F;&#x2F;process something   delete name;&amp;#125;char* GetHeap(char* name)&amp;#123;   char* name &#x3D; new char(1">
+<meta property="og:type" content="article">
+<meta property="og:title" content="淺談auto_ptr">
+<meta property="og:url" content="https://www.hwchiu.com/2013-03-29-cpp-auot-ptr.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="在寫C++的時候，常常會使用new來獲取heap的空間，來取得heap的空間，如下。 123456789void Test1()&amp;#123;   char* name &#x3D; new char(100);   &#x2F;&#x2F;process something   delete name;&amp;#125;char* GetHeap(char* name)&amp;#123;   char* name &#x3D; new char(1">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2013-03-29T06:18:00.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.587Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="C">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/2013-03-29-cpp-auot-ptr.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/2013-03-29-cpp-auot-ptr.html","path":"2013-03-29-cpp-auot-ptr.html","title":"淺談auto_ptr"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>淺談auto_ptr | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-overview-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/2013-03-29-cpp-auot-ptr.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="淺談auto_ptr | Hwchiu Learning Note">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          淺談auto_ptr
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2013-03-29 14:18:00" itemprop="dateCreated datePublished" datetime="2013-03-29T14:18:00+08:00">2013-03-29</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>在寫C++的時候，常常會使用new來獲取heap的空間，來取得heap的空間，如下。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">Test1</span><span class="params">()</span></span>&#123;</span><br><span class="line">   <span class="type">char</span>* name = <span class="keyword">new</span> <span class="built_in">char</span>(<span class="number">100</span>);</span><br><span class="line">   <span class="comment">//process something</span></span><br><span class="line">   <span class="keyword">delete</span> name;</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="type">char</span>* <span class="title">GetHeap</span><span class="params">(<span class="type">char</span>* name)</span></span>&#123;</span><br><span class="line">   <span class="type">char</span>* name = <span class="keyword">new</span> <span class="built_in">char</span>(<span class="number">100</span>);</span><br><span class="line">   <span class="keyword">return</span> name;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>然而對程式設計師來說，最麻煩的過於一旦new出空間後，一定要執行delete把空間回收，以免發生memory leak的行為</p>
+<span id="more"></span>
+
+
+<blockquote>
+<p>memory leak: 某塊記憶體再也沒有檔案去reference,當妳new出空間後，沒有去delete回收空間時，很容易發生</p>
+</blockquote>
+<pre><code>void Test2()&#123;
+char* name = new char(100); //要空間
+&#125;//沒有回收，就會造成剛剛取得的空間會變成記憶體中的孤兒
+</code></pre>
+<p>所以在學習 new&#x2F;delete時，總是被不斷的叮嚀，有new就要有delete，一定要成對出現。</p>
+<p>在C++的標準中，提供了一個叫做auto_ptr的標準，就是專門用來處理這種情況，</p>
+<p>只要當這個指標沒有繼續reference時，便會自動回收自己，讓程式設計師更方便，能夠遠離new&#x2F;delete之苦。</p>
+<p>可惜如此良好想法的設計，在目前C++標準中，卻是不建議被使用的，因為其某些特性，反而會使得程式碼變得難以捉模。</p>
+<hr>
+<p>以下就來正式介紹 <strong>auto_ptr</strong></p>
+<p>俗稱智慧型指標，保證只要本身被摧毀，必定釋放其所指資源</p>
+<p>是一種指向所屬物件擁有者的指標。所以當身為物件擁有者的auto_ptr被摧毀時，該物件也會被摧毀</p>
+<p>auto_ptr要求，一個物件只能有一個擁有者，嚴禁一物二主(<strong>這點卻造成困擾</strong>)</p>
+<p>本身不支援指標算數(++之類)</p>
+<p>不允許一般指標慣用的賦值初始化方式，必須直接使用顯示轉換來初始化，因為在其實作中，有使用到explicit關鍵字。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">Test3</span><span class="params">()</span></span>&#123;</span><br><span class="line">   <span class="function">auto_ptr&lt;<span class="type">int</span>&gt; <span class="title">ptr</span><span class="params">(<span class="keyword">new</span> <span class="type">int</span>[<span class="number">100</span>])</span></span>;  <span class="comment">//ok</span></span><br><span class="line">   auto_ptr&lt;<span class="type">int</span>&gt; ptr = <span class="keyword">new</span> <span class="type">int</span>[<span class="number">100</span>];  <span class="comment">//error</span></span><br><span class="line">   <span class="comment">//process something</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>#擁有權的轉移<br>auto_ptr 所界定的是嚴格的擁有權概念，由於一個auto_ptr會刪除所擁有的物件，不應該發生同時間有多個auto_ptr共同擁有一個物件</p>
+<p>否則就會出現問題，程式設計師要特別小心避免寫出這樣的程式碼，</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">auto_ptr&lt;<span class="type">int</span>&gt; <span class="title">ptr1</span><span class="params">(<span class="keyword">new</span> <span class="type">int</span>[<span class="number">100</span>])</span></span>;  <span class="comment">//declare a auto_ptr pointer toint</span></span><br><span class="line"> *ptr1=<span class="number">123</span>;                        <span class="comment">//change value</span></span><br><span class="line"> cout&lt;&lt;*ptr1&lt;&lt;endl;</span><br><span class="line"> <span class="function">auto_ptr&lt;<span class="type">int</span>&gt; <span class="title">ptr2</span><span class="params">(ptr1)</span></span>;         <span class="comment">//initial ptr2 via ptr1 and ptr1 trans its ownership</span></span><br><span class="line"> <span class="keyword">if</span>(ptr1.<span class="built_in">get</span>()==<span class="literal">NULL</span>)</span><br><span class="line">    cout&lt;&lt;<span class="string">&quot;ptr1 has transfered ownership to ptr2&quot;</span>&lt;&lt;endl;</span><br><span class="line"> cout&lt;&lt;*ptr2&lt;&lt;endl;</span><br><span class="line"> <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">------------------</span><br><span class="line">output:</span><br><span class="line"><span class="number">123</span></span><br><span class="line">ptr1 has transfered ownership to ptr2</span><br><span class="line"><span class="number">123</span></span><br></pre></td></tr></table></figure>
+
+
+<p>執行第二行的時候，ptr1會把所有權轉移給ptr2,所以此行一旦結束，ptr1就會是個null。</p>
+<p>同樣的問題也會發生在assign的情況下</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">auto_ptr&lt;<span class="type">int</span>&gt; <span class="title">ptr1</span><span class="params">(<span class="keyword">new</span> <span class="type">int</span>[<span class="number">100</span>])</span></span>;</span><br><span class="line">auto_ptr&lt;<span class="type">int</span>&gt; ptr2;</span><br><span class="line">ptr2 = ptr1 ; <span class="comment">//transfers ownership from ptr1 to ptr2</span></span><br></pre></td></tr></table></figure>
+
+
+<p>此外，如果ptr2被賦值前擁有另外一個物件，則被賦值後，便會釋放該物件，並呼叫destructor。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span><span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span><span class="string">&lt;memory&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"><span class="keyword">class</span> <span class="title class_">Student</span>&#123;</span><br><span class="line">    <span class="keyword">public</span>:</span><br><span class="line">      <span class="built_in">Student</span>(<span class="type">int</span> index):_index(index)&#123;</span><br><span class="line">       cout&lt;&lt;<span class="string">&quot;Student&quot;</span>&lt;&lt;_index&lt;&lt;<span class="string">&quot; constructor&quot;</span>&lt;&lt;endl;</span><br><span class="line">      &#125;;</span><br><span class="line">      ~<span class="built_in">Student</span>()&#123;</span><br><span class="line">       cout&lt;&lt;<span class="string">&quot;Student&quot;</span>&lt;&lt;_index&lt;&lt;<span class="string">&quot; destructor&quot;</span>&lt;&lt;endl;</span><br><span class="line">      &#125;</span><br><span class="line">    <span class="keyword">private</span>:</span><br><span class="line">      <span class="type">int</span> _index;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"> <span class="function">auto_ptr&lt;Student&gt; <span class="title">ptr1</span><span class="params">(<span class="keyword">new</span> Student(<span class="number">1</span>))</span></span>;</span><br><span class="line"> <span class="function">auto_ptr&lt;Student&gt; <span class="title">ptr2</span><span class="params">(<span class="keyword">new</span> Student(<span class="number">2</span>))</span></span>;</span><br><span class="line"></span><br><span class="line"> ptr2 = ptr1 ;  <span class="comment">//ptr2&#x27;s object will release</span></span><br><span class="line"> cout&lt;&lt;<span class="string">&quot;over&quot;</span>&lt;&lt;endl;</span><br><span class="line"> <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">------------------</span><br><span class="line">output:</span><br><span class="line">Student1 constructor</span><br><span class="line">Student2 constructor</span><br><span class="line">Student2 destructor</span><br><span class="line">over</span><br><span class="line">Student1 destructor</span><br></pre></td></tr></table></figure>
+
+<p>#缺陷</p>
+<p>由於auto_ptr本身就涵蓋擁有權，如果無意去轉換擁有權，絕對不要在參數中使用auto_ptr，也不要另auto_ptr作為返回值，否則會有很大的災難。以下是個範例</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span><span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">bad_print</span><span class="params">(auto_ptr&lt;<span class="type">int</span>&gt; p)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">   <span class="keyword">if</span>(p.<span class="built_in">get</span>()==<span class="literal">NULL</span>)&#123;</span><br><span class="line">     cout&lt;&lt;<span class="string">&quot;NULL&quot;</span>&lt;&lt;endl;</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="keyword">else</span></span><br><span class="line">     cout&lt;&lt;*p&lt;&lt;endl;</span><br><span class="line">   &#125;</span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">   <span class="function">auto_ptr&lt;<span class="type">int</span>&gt; <span class="title">ptr</span><span class="params">(<span class="keyword">new</span> <span class="type">int</span>)</span></span>;</span><br><span class="line">   *ptr=<span class="number">123</span>;</span><br><span class="line">   <span class="built_in">bad_print</span>(ptr);</span><br><span class="line">   *ptr=<span class="number">456</span>;</span><br><span class="line">   <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">-------------</span><br><span class="line">output:</span><br><span class="line"><span class="number">123</span></span><br><span class="line"><span class="function">Segmentation <span class="title">fault</span> <span class="params">(core dumped)</span></span></span><br></pre></td></tr></table></figure>
+<p>因為在參數中，使用了auto_ptr，所以當呼叫此function的時候，便會把所有權轉移到function中的臨時變數，然後當function結束後，</p>
+<p>這個區域的臨時變數又會銷毀，而在main中的ptr,因為呼叫function後擁有權轉移，所以第二次執行賦值的動作，就會出現runtime error了，</p>
+<p>因為此時ptr並沒有任何指向任何物件，所以導致此崩壞行為。</p>
+<p>在這種情況下，我們可以考慮採用pass by reference的方式來傳遞變數，可惜對於auto_ptr來說反而會製造更多麻煩，更難去掌握擁有權轉移的順序，</p>
+<p>因此能避免就盡量避免使用auto_ptr跟pass by reference。</p>
+<p>如果今天真的有要當參數傳入的需求，這時候可以使用<strong>constant reference</strong>,如此一來可以使得auot_ptrs本身無法轉移所有權。</p>
+<p>以下的例子就會編譯錯誤，可提醒設計師轉移權的問題。與一般不同的是，這邊的const代表的並不是不能修改指標所擁有的物件，而是不能更改</p>
+<p>auto_ptr的擁有權，更像是T* const ptr;</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span><span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">bad_print</span><span class="params">(<span class="type">const</span> auto_ptr&lt;<span class="type">int</span>&gt; p)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">   <span class="keyword">if</span>(p.<span class="built_in">get</span>()==<span class="literal">NULL</span>)&#123;</span><br><span class="line">    cout&lt;&lt;<span class="string">&quot;NULL&quot;</span>&lt;&lt;endl;</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="keyword">else</span></span><br><span class="line">    cout&lt;&lt;*p&lt;&lt;endl;</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">   <span class="function"><span class="type">const</span> auto_ptr&lt;<span class="type">int</span>&gt; <span class="title">p</span><span class="params">(<span class="keyword">new</span> <span class="type">int</span>)</span></span>;</span><br><span class="line">   *p = <span class="number">123</span>;</span><br><span class="line">   <span class="built_in">bad_print</span>(p); <span class="comment">//COMPILE TIME ERROR</span></span><br><span class="line">   *p = <span class="number">456</span>;</span><br><span class="line">   <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>總結<br>auto_ptrs之間不能共享擁有權</p>
+<p>auto_ptr間沒辦法同時擁有一個物件，因此當把兩個auto_ptr指向對方時，就會使得本來的一方釋放其所擁有的物件，之後若是再透過該指標去操作，就會出現錯誤。</p>
+<p>並不存在針對array設計的auto_ptr。</p>
+<p>auto_ptr的內部設計是delete,而非delete[],所以不可以指向array。<br>auto_ptr並非萬能指標。</p>
+<p>由於auto_ptr並非一個計數型指標(或者是上限為一的計數型指標)，因此在使用上有非常多的限制，如果設計師沒有完全瞭解其特性，很容易就會讓程式出錯。</p>
+<p>千萬別在STL 容器中使用auto_ptr。</p>
+<p>因為STL標準規定，C++標準容器容易必須要符合”copy-constructible” 跟 “assignable.” ，亦即容器中的元素必須都要能夠被複製跟賦值，然而auto_ptr的特性並不相容上述行為，所以切忌使用，否則容易出錯。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/C/" rel="tag"># C</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2013-03-29-cpp.html" rel="prev" title="explicit修飾">
+                  <i class="fa fa-chevron-left"></i> explicit修飾
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/windows-vpn.html" rel="next" title="windows_vpn">
+                  windows_vpn <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本文作為網路系列文章的第一篇，將從 Container Network Interface 下手，相對於 Container Runtime Interface, CNI 以是個類似的架構，但是主打網路能力為主，至於網路能力這個字眼其實很模糊，畢竟不同情境，不同需求都會有不同的實現方式，很難用一個通用的說法來函索有可能力。本文會跟大家介紹 CNI 的相關資訊，包括標準的內容，相關設定，最後也會透過">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Container Network Interface 介紹">
+<meta property="og:url" content="https://www.hwchiu.com/cni.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本文作為網路系列文章的第一篇，將從 Container Network Interface 下手，相對於 Container Runtime Interface, CNI 以是個類似的架構，但是主打網路能力為主，至於網路能力這個字眼其實很模糊，畢竟不同情境，不同需求都會有不同的實現方式，很難用一個通用的說法來函索有可能力。本文會跟大家介紹 CNI 的相關資訊，包括標準的內容，相關設定，最後也會透過">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/K95n3LP.png">
+<meta property="article:published_time" content="2019-09-25T00:09:58.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.607Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="CNI">
+<meta property="article:tag" content="ITHOME">
+<meta property="article:tag" content="Container">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/K95n3LP.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/cni.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/cni.html","path":"cni.html","title":"Container Network Interface 介紹"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Container Network Interface 介紹 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#CNI"><span class="nav-number">2.</span> <span class="nav-text">CNI</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Specification"><span class="nav-number">2.1.</span> <span class="nav-text">Specification</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Sandbox-Container"><span class="nav-number">2.1.1.</span> <span class="nav-text">Sandbox Container</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Network-Configuration"><span class="nav-number">2.1.2.</span> <span class="nav-text">Network Configuration</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#cniVersion-Required"><span class="nav-number">2.1.2.1.</span> <span class="nav-text">cniVersion(Required)</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#name-Required"><span class="nav-number">2.1.2.2.</span> <span class="nav-text">name(Required)</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#type-Required"><span class="nav-number">2.1.2.3.</span> <span class="nav-text">type(Required)</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#args"><span class="nav-number">2.1.2.4.</span> <span class="nav-text">args</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#ipMasq"><span class="nav-number">2.1.2.5.</span> <span class="nav-text">ipMasq</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#dns"><span class="nav-number">2.1.2.6.</span> <span class="nav-text">dns</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#ipam"><span class="nav-number">2.1.2.7.</span> <span class="nav-text">ipam</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">3.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%8F%83%E8%80%83"><span class="nav-number">4.</span> <span class="nav-text">參考</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">5.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/cni.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Container Network Interface 介紹 | Hwchiu Learning Note">
+      <meta itemprop="description" content="本文作為網路系列文章的第一篇，將從 Container Network Interface 下手，相對於 Container Runtime Interface, CNI 以是個類似的架構，但是主打網路能力為主，至於網路能力這個字眼其實很模糊，畢竟不同情境，不同需求都會有不同的實現方式，很難用一個通用的說法來函索有可能力。本文會跟大家介紹 CNI 的相關資訊，包括標準的內容，相關設定，最後也會透過一些比較跟大家介紹不同 Container 實現方式其最後底層去操作 CNI 的方式也截然不同">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Container Network Interface 介紹
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-09-25 08:09:58" itemprop="dateCreated datePublished" datetime="2019-09-25T08:09:58+08:00">2019-09-25</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本文作為網路系列文章的第一篇，將從 Container Network Interface 下手，相對於 Container Runtime Interface, CNI 以是個類似的架構，但是主打網路能力為主，至於網路能力這個字眼其實很模糊，畢竟不同情境，不同需求都會有不同的實現方式，很難用一個通用的說法來函索有可能力。本文會跟大家介紹 CNI 的相關資訊，包括標準的內容，相關設定，最後也會透過一些比較跟大家介紹不同 Container 實現方式其最後底層去操作 CNI 的方式也截然不同</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p><code>kubernetes</code> 自架的安裝過程中，所有人都會遇到的一個問題及步驟就是，安裝 <code>CNI</code>，而官方教學文章下能夠選擇的 <code>CNI</code> 也是洋洋灑灑一大堆，對於第一次踏入 <code>kubernetes</code> 的使用者來說，往往覺得一頭霧水，到底要選哪個 <code>CNI</code> 安裝，同時這些 <code>CNI</code> 分別有什麼效果，對於使用者來說會有差別嗎?</p>
+<p>之前與大家探討過 <code>Contaienr Runtime Interface (CRI)</code> 這種標準架構，使得 <code>kubernetes</code> 能夠很順利的切換各種不同 <code>Kubernetes Wokrload</code> 的底層實現，你可以使用原本的 <code>dockershim</code>，或是切到整合度更高的 <code>containetd</code>, <code>cri-o</code>甚至是直接使用基於 <code>virtual machine</code> 的 <code>virtlet</code>， 這一切都依賴 <code>CRI</code> 標準來完成。</p>
+<h1 id="CNI"><a href="#CNI" class="headerlink" title="CNI"></a>CNI</h1><p><code>CNI</code> 就是一個與 <code>CRI</code> 相當的標準架構，其針對的則是 <code>kubernetes</code> 內的網路功能，這網路功能就目前所知，可以包括以下幾項</p>
+<ol>
+<li>提供 <code>Pod</code> 上網能力，通常都會希望能夠有連接外網的能力</li>
+<li>分配 <code>IP</code> 地址，幫每個 <code>Pod</code> 找一個獨立不重複的 <code>IP</code>，至於是 <code>ipv4</code> 或是 <code>ipv6</code> 都可以。從  kubernetes 1.16 開始支援 <code>ipv6</code> 之後對於使用 <code>ipv6</code> 的<code>Pod</code> 再管理上會顯得相對容易</li>
+<li>幫忙實現 Network Policy， kubernetes 內部有 Network Policy 去限制 <code>Pod</code> 與 <code>Pod</code> 之間的網路傳輸，然而 <code>kubernetes</code> 本身只有定義介面，仰賴各個 <code>CNI</code> 去完成。</li>
+</ol>
+<p>我個人對於上面這些所謂的網路功能都是抱持者非必要的選項，因為網路世界的使用情境實在太多種，舉例來說也有 <code>CNI</code> 是不給 <code>IP</code> 地址的，完全針對特殊應用情境採用 <code>point to point (layer2)</code> 來連接，因為這個世界上還是有非 <code>TCP/IP</code> 的應用繼續存在。</p>
+<p>至於 <code>Network Policy</code> 其實說到底也不是 <code>CNI</code> 標準介面要解決的事情，只是有些 <code>CNI</code> 解決方案會額外額外實現控制器來滿足 <code>Network Policy</code> 的需求。</p>
+<p><code>CNI</code> 相關的檔案都可以到 <a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni">GitHub</a> 找到，目前其最新版本是 <strong>0.4.0</strong></p>
+<p>有興趣的可以點選下列連結到不同版本的 <code>spec</code> 去看詳細內容。</p>
+<table>
+<thead>
+<tr>
+<th>tag</th>
+<th>spec permalink</th>
+<th>major changes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni/releases/tag/spec-v0.4.0"><code>spec-v0.4.0</code></a></td>
+<td><a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni/blob/spec-v0.4.0/SPEC.md">spec at v0.4.0</a></td>
+<td>Introduce the CHECK command and passing prevResult on DEL</td>
+</tr>
+<tr>
+<td><a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni/releases/tag/spec-v0.3.1"><code>spec-v0.3.1</code></a></td>
+<td><a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni/blob/spec-v0.3.1/SPEC.md">spec at v0.3.1</a></td>
+<td>none (typo fix only)</td>
+</tr>
+<tr>
+<td><a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni/releases/tag/spec-v0.3.0"><code>spec-v0.3.0</code></a></td>
+<td><a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni/blob/spec-v0.3.0/SPEC.md">spec at v0.3.0</a></td>
+<td>rich result type, plugin chaining</td>
+</tr>
+<tr>
+<td><a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni/releases/tag/spec-v0.2.0"><code>spec-v0.2.0</code></a></td>
+<td><a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni/blob/spec-v0.2.0/SPEC.md">spec at v0.2.0</a></td>
+<td>VERSION command</td>
+</tr>
+<tr>
+<td><a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni/releases/tag/spec-v0.1.0"><code>spec-v0.1.0</code></a></td>
+<td><a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni/blob/spec-v0.1.0/SPEC.md">spec at v0.1.0</a></td>
+<td>initial version</td>
+</tr>
+</tbody></table>
+<h2 id="Specification"><a href="#Specification" class="headerlink" title="Specification"></a>Specification</h2><p>接下來跟大家探討一下 <code>CNI</code> 的標準介面以及是如何運作的，不同於 <code>CRI</code> 是定義 <code>gRPC</code> 介面， <code>CNI</code> 的標準要求 <code>CNI</code> 解決方案需要提供一個執行檔(為了方便我接下來都用 binary 稱呼），該 binary 要能夠接收不同的參數來處理不同的網路生命週期，譬如創建網路，回收網路。</p>
+<p>當 <code>kubernetes</code> 創建或刪除 <code>Pod</code> 時，就會準備好一系列的參數與設定檔案，然後呼叫該執行擋來幫忙提供網路能力。</p>
+<p>舉例來說，假設今天 <code>kubelet</code> 決定要創建一個 <code>Pod</code>， 透過 <code>CRI</code> 已經準備好相關資源，如 <code>network namespace</code> 後，就會呼叫該 binary，同時帶入下列參數</p>
+<ul>
+<li>Container ID<br>當前要被提供網路能力的 Container ID，基本上就是一個唯一不重複的數值，有些 <code>CNI </code>解決方案可能會用此 ID 作為一些資料索引之類的需求。</li>
+<li>Network namespace path.<br>這個是最重要的參數，就是目標 <code>container</code> 其真正 <code>network namespace</code> 的路徑，之前提到過這些 <code>namespace</code> 都是透過 <code>linux kernel</code> 的方式來達成的，所以其實大家可以到 <code>host</code> 上找到這些 <code>network namespace</code> 並且對其操作。<br>因此大部分的 <code>CNI</code> 的 binary 就是會根據這個位置，然後找到該 <code>network namespace</code> 最後進入到該空間去進行一些網路設定</li>
+<li>Network configuration<br>這個部分非常長，等等再來說明</li>
+<li>Extra arguments<br>一個彈性的部分，以 <code>Container</code> 為單位的不同參數，主要是要看上面的呼叫者怎麼處理，因為 <code>CNI</code> 其實不是只有單純 <code>kubernetes</code> 有支援，所以最上層的應用可以根據自己的需求傳入這些額外的參數，同時只要你選擇的 <code>CNI</code> 解決方案會去處理這些參數即可</li>
+<li>Name of the interface inside the container<br>最後這個就是會在該 <code>Container</code> 內被創建的 <code>network interface</code> 名稱，常見的基本上都是 <code>eth0</code>, <code>enp0s8</code>  這種變化</li>
+</ul>
+<p>假設今天有一個名為 <code>mycni</code> 的 <code>CNI</code> binary，且假設 <code>Network Configuration</code> 的內容存放一個名為 <code>config</code> 的檔案。</p>
+<p>那執行一個 <code>CNI</code> 的過程就類似如下<br>其中 <code>CNI_COMMAND</code> 要告訴該 binary 目前要執行 ADD 的功能，剩下的 CONTAINERID, NETNS, IFNAME 就如同上面所述。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ sudo ip netns add ns1</span><br><span class="line">$ sudo CNI_COMMAND=ADD CNI_CONTAINERID=ns1 CNI_NETNS=/var/run/netns/ns1 CNI_IFNAME=eth10 CNI_PATH=`<span class="built_in">pwd</span>` ./mycni &lt; config</span><br></pre></td></tr></table></figure>
+
+<h3 id="Sandbox-Container"><a href="#Sandbox-Container" class="headerlink" title="Sandbox Container"></a>Sandbox Container</h3><p>這邊有一個觀點要先大家討論一下，就是 <code>network namespace</code> 共用的議題，每個 <code>contaienr</code> 都會有一個 <code>network namespace</code> 是個常態，但是並非絕對。實際上可以多個 <code>container</code> 共用一個相同的 <code>network  namespace</code>，這樣這些 <code>container</code> 就會看到相同的網路介面，譬如 <code>network interface name</code> 以及 IP 地址。</p>
+<p>看到這邊有沒有想到關於 <code>kubernetes POD</code> 的定義?</p>
+<blockquote>
+<p>The applications in a Pod all use the same network namespace (same IP and port space), and can thus “find” each other and communicate using localhost. Because of this, applications in a Pod must coordinate their usage of ports. Each Pod has an IP address in a flat shared networking space that has full communication with other physical computers and Pods across the network.</p>
+</blockquote>
+<p>如果你手邊能夠操作 <code>docker</code> 的話，其實我們也可以透過 <code>docker run</code> 中的 <code>--net=container:xxx</code> 這個參數來指定目標的 <code>container id</code>，希望他的網路與特定 <code>container</code> 是綁定再一起的。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">$ sudo docker run -d --name c1 hwchiu/netutils</span><br><span class="line">$ sudo docker <span class="built_in">exec</span> c1 ifconfig</span><br><span class="line">eth0      Link encap:Ethernet  HWaddr 02:42:ac:12:00:02</span><br><span class="line">          inet addr:172.18.0.2  Bcast:172.18.255.255  Mask:255.255.0.0</span><br><span class="line">          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1</span><br><span class="line">          RX packets:13 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:0</span><br><span class="line">          RX bytes:1046 (1.0 KB)  TX bytes:0 (0.0 B)</span><br><span class="line">...</span><br><span class="line">$ c1_id=$(sudo docker ps | grep hwchiu/netutils | awk <span class="string">&#x27;&#123;print $1&#125;&#x27;</span>)</span><br><span class="line">$ sudo docker run -d --net=container:<span class="variable">$&#123;c1_id&#125;</span> --name c2 hwchiu/netutils</span><br><span class="line">$ sudo docker <span class="built_in">exec</span> c2 ifconfig</span><br><span class="line">eth0      Link encap:Ethernet  HWaddr 02:42:ac:12:00:02</span><br><span class="line">          inet addr:172.18.0.2  Bcast:172.18.255.255  Mask:255.255.0.0</span><br><span class="line">          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1</span><br><span class="line">          RX packets:14 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:0</span><br><span class="line">          RX bytes:1116 (1.1 KB)  TX bytes:0 (0.0 B)</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>在上述的測試中，我們先創建了 <code>c1</code> container，並且讓 <code>c2</code> 跟 <code>c1</code> 共用同樣一個 <code>network namespace</code>. 試想一個情況，這時候如果 <code>c1</code> container 終止了，整個情況會變成怎樣?</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">$ sudo docker <span class="built_in">exec</span>  c2 ifconfig</span><br><span class="line">eth0      Link encap:Ethernet  HWaddr 02:42:ac:12:00:02</span><br><span class="line">          inet addr:172.18.0.2  Bcast:172.18.255.255  Mask:255.255.0.0</span><br><span class="line">          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1</span><br><span class="line">          RX packets:15 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:0</span><br><span class="line">          RX bytes:1242 (1.2 KB)  TX bytes:0 (0.0 B)</span><br><span class="line">...</span><br><span class="line">$ sudo docker stop c1</span><br><span class="line">$ sudo docker <span class="built_in">exec</span>  c2 ifconfig</span><br><span class="line">lo        Link encap:Local Loopback</span><br><span class="line">          inet addr:127.0.0.1  Mask:255.0.0.0</span><br><span class="line">          UP LOOPBACK RUNNING  MTU:65536  Metric:1</span><br><span class="line">          RX packets:0 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:1000</span><br><span class="line">          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>可以觀察到當 <code>c1</code> 結束後， <code>c2</code> 的 <code>container</code> 其實還在運作，但是最重要的 <code>eth0</code> 這個網卡卻消失了，這是因為 <code>c1</code> 離開使得其<code>network namespace</code> 的 <code>owner</code> 一併消失。如果 <code>c2</code> 這時候有一些對外的網路服務，就會沒有辦法存取與使用。</p>
+<p>在這種狀況下，我們可以思考一下假如我想要有一個類似 <code>Pod</code> 的服務，裡面可以同時運行多個 <code>Container</code> 且可以共用同的 <code>network namespace</code>，到底該怎麼設計才可以滿足這個需求又要避免上述的問題。</p>
+<p>通常的一個作法是於背後創造一個非常簡單 <code>container</code>，本身可能就是睡眠等待信號中斷來結束自己的 <code>sandbox container</code>，接下來所有使用者請求的 <code>container</code> 全部都掛到這個 <code>sandbox container</code> 上，這樣使用者請求的任何一個 <code>container</code> 出現問題終止，甚至重啟都不會影響到其他 <code>container</code> 的網路環境。</p>
+<p>整個運作流程可以參考下圖，當 <code>contaienrtd</code> 創造好整個 <code>Pod</code> 所需要的一切資源後，最上層的呼叫者 <code>cri-contaienrd</code> 就會去呼叫 <code>CNI</code> 並且傳入上述所描述的參數。</p>
+<p><img src="https://i.imgur.com/K95n3LP.png"><br>上圖節錄自<a target="_blank" rel="noopener" href="https://kubernetes.io/blog/2017/11/containerd-container-runtime-options-kubernetes/">Containerd Brings More Container Runtime Options for Kubernetes
+</a></p>
+<h3 id="Network-Configuration"><a href="#Network-Configuration" class="headerlink" title="Network Configuration"></a>Network Configuration</h3><p>前面沒有講完的 Network  Configuration，這個本質是上一個 json 格式的檔案內容，由於是 json 的格式，所以其內容格式是由兩種規格所組成</p>
+<ol>
+<li>CNI 標準所定義</li>
+<li>各自 <code>CNI</code> 解決方案所定義</li>
+</ol>
+<p>所以未來去看每個 <code>CNI</code> 解決方案所使用的設定檔案時就會覺得看起來都很像，但是又看起來不像，原因就在於每個解決方案都有自己需要的資訊。</p>
+<p>根據 <a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni/blob/master/SPEC.md#network-configuration">CNI Spec</a>，目前的 Network Configuration 有下列欄位</p>
+<h4 id="cniVersion-Required"><a href="#cniVersion-Required" class="headerlink" title="cniVersion(Required)"></a>cniVersion(Required)</h4><p>設定檔案希望對應到的 <code>CNI</code> 版本，如果不符合的話 <code>CNI Plugin</code> binary 要回報錯誤</p>
+<h4 id="name-Required"><a href="#name-Required" class="headerlink" title="name(Required)"></a>name(Required)</h4><p>一個單純用來標示的名稱，本身沒有額外作用，唯一即可</p>
+<h4 id="type-Required"><a href="#type-Required" class="headerlink" title="type(Required)"></a>type(Required)</h4><p>這個非常重要，他對應的就是 <code>CNI Plugin</code> binary 的名稱。上層工具會先解析這個名稱，接者去找到對應的 binary 來執行，因此只要知道這個名稱就可以知道會被呼叫的 binary 是哪隻，反之依然這個名稱錯打錯，那整個 CNI 就不會順利執行，網路也就不會順利建立。</p>
+<h4 id="args"><a href="#args" class="headerlink" title="args"></a>args</h4><p>一些額外的參數，主要是由上層呼叫 <code>CNI</code>的應用程式填入的，譬如上述的 <code>cri-containerd</code> 如果有一些額外資訊也可以這邊提供。</p>
+<h4 id="ipMasq"><a href="#ipMasq" class="headerlink" title="ipMasq"></a>ipMasq</h4><p>標明當前這個 <code>CNI Plugin</code> 會不會幫忙做 <code>SNAT</code> 的動作，實作都還在各自 <code>CNI</code> 解決方案裡面，本身只是個欄位</p>
+<h4 id="dns"><a href="#dns" class="headerlink" title="dns"></a>dns</h4><p>如果希望該 <code>CNI</code> 幫忙設定 DNS 相關資訊的話，可以在這邊去設定 DNS 譬如</p>
+<ul>
+<li>name servers</li>
+<li>search</li>
+<li>domain</li>
+<li>options<br>這樣要特別注意的是雖然 <code>CNI</code> 有這個欄位，但是 <code>kubernetes</code> 本身並不希望 <code>CNI</code> 去設定 <code>DNS</code>，而是透過 <code>Pod Yaml</code> 裡面的欄位去處理，因此 <code>kubernetes</code> 處理這邊得時候會忽略這個值。</li>
+</ul>
+<h4 id="ipam"><a href="#ipam" class="headerlink" title="ipam"></a>ipam</h4><p>IP Address Management Plugin(IPAM), 專門負責管理 IP 的分配，這部分目前常見的有 <code>host-local</code> 以及 <code>dhcp</code></p>
+<p>這邊這個欄位的意思是讓 <code>CNI</code> binary 知道當前設定的 <code>IPAM</code> 是哪個應用程式，請呼叫該 <code>ipam</code> 去取得可用的 <code>IP address</code> 並且套用到相關的 <code>network namespace</code> 上。</p>
+<p>之後會有一篇文章詳細的介紹 IPAM 的運作原理。</p>
+<p>下面是兩個範例，可以觀察到範例中有一些欄位是上述標準沒有定義的，則是該 <code>CNI Plugin</code> 自己需要的欄位。</p>
+<ul>
+<li>使用名為 <code>bridge</code> 的 <code>CNI</code> 解決方案，其中希望 <code>IPAM</code> 透過 <code>host-local</code> 去處理，並且分發的網段是 <code>10.1.0.0/16</code>。</li>
+<li>DNS 的部份希望可以設定成 <code>10.1.0.1</code>。</li>
+<li>自定義參數有 <code>bridge</code>。<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;cniVersion&quot;: &quot;0.4.0&quot;,</span><br><span class="line">  &quot;name&quot;: &quot;dbnet&quot;,</span><br><span class="line">  &quot;type&quot;: &quot;bridge&quot;,</span><br><span class="line">  // type (plugin) specific</span><br><span class="line">  &quot;bridge&quot;: &quot;cni0&quot;,</span><br><span class="line">  &quot;ipam&quot;: &#123;</span><br><span class="line">    &quot;type&quot;: &quot;host-local&quot;,</span><br><span class="line">    // ipam specific</span><br><span class="line">    &quot;subnet&quot;: &quot;10.1.0.0/16&quot;,</span><br><span class="line">    &quot;gateway&quot;: &quot;10.1.0.1&quot;</span><br><span class="line">  &#125;,</span><br><span class="line">  &quot;dns&quot;: &#123;</span><br><span class="line">    &quot;nameservers&quot;: [ &quot;10.1.0.1&quot; ]</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+<p>下面這個範例則是</p>
+<ul>
+<li><p>使用名為 <code>ovs</code> 的 <code>CNI</code> binary</p>
+</li>
+<li><p><code>ipam</code> 的部份希望採用 <code>dhcp</code>，並且希望最後可以加入一些 <code>routes</code> 相關的資訊。</p>
+</li>
+<li><p>自定義參數有 <code>bridge</code>, <code>bxlanID</code> 等</p>
+</li>
+</ul>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;cniVersion&quot;</span><span class="punctuation">:</span> <span class="string">&quot;0.4.0&quot;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;name&quot;</span><span class="punctuation">:</span> <span class="string">&quot;pci&quot;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;ovs&quot;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="comment">// type (plugin) specific</span></span><br><span class="line">  <span class="attr">&quot;bridge&quot;</span><span class="punctuation">:</span> <span class="string">&quot;ovs0&quot;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;vxlanID&quot;</span><span class="punctuation">:</span> <span class="number">42</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;ipam&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;dhcp&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;routes&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;dst&quot;</span><span class="punctuation">:</span> <span class="string">&quot;10.3.0.0/16&quot;</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;dst&quot;</span><span class="punctuation">:</span> <span class="string">&quot;10.4.0.0/16&quot;</span> <span class="punctuation">&#125;</span> <span class="punctuation">]</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="comment">// args may be ignored by plugins</span></span><br><span class="line">  <span class="attr">&quot;args&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;labels&quot;</span> <span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;appVersion&quot;</span> <span class="punctuation">:</span> <span class="string">&quot;1.0&quot;</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>最後最後要談的是 <strong>Network Configuration Lists</strong>， <code>CNI</code> 標準中還提供了類似 <code>Plugin List</code> 的功能，允許對於相同 <code>network namespace</code> 運行多次 <code>CNI</code> 來創建多次網路，其中有個特別的點在於上層的 <code>CNI</code> 呼叫者需要把當前 <code>CNI</code> binary 的輸出結果當作下一個 <code>CNI</code> binary 的輸入一併傳入。</p>
+<p>這種情況下會使用名為 <strong>plugins</strong> 的方式創造一個 <strong>Network Configuration Array</strong>，範例如下。</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;name&quot;</span><span class="punctuation">:</span> <span class="string">&quot;cbr0&quot;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;plugins&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">    <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;flannel&quot;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;delegate&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;hairpinMode&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span><span class="punctuation">,</span></span><br><span class="line">        <span class="attr">&quot;isDefaultGateway&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span></span><br><span class="line">      <span class="punctuation">&#125;</span></span><br><span class="line">    <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;portmap&quot;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;capabilities&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">        <span class="attr">&quot;portMappings&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span></span><br><span class="line">      <span class="punctuation">&#125;</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">]</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>對於上層呼叫 <code>CNI</code> 的應用程式，每個處理的邏輯跟流程並不一定相同，這個完全是看最上層的應用程式想要怎麼使用 <code>CNI</code>，這邊以 <strong>dockershim</strong> 為範例</p>
+<ol>
+<li>尋找 <code>CNI</code> 放置設定檔案的資料夾，並且排序所有檔案(*.conf *conflist *json)</li>
+<li>如果是 *.conflist 的檔案，就用 <code>Network Configuration List</code>的格式去讀取解析, 否則就用 <code>Network Configuration</code> 的格式去讀取來解析</li>
+<li>找到第一個合法的 <code>CNI</code> 設定檔案後，就根據裡面的 <code>type</code> 去執行對應的 CNI  binary。</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">getDefaultCNINetwork</span><span class="params">(confDir <span class="type">string</span>, binDirs []<span class="type">string</span>)</span></span> (*cniNetwork, <span class="type">error</span>) &#123;</span><br><span class="line">	files, err := libcni.ConfFiles(confDir, []<span class="type">string</span>&#123;<span class="string">&quot;.conf&quot;</span>, <span class="string">&quot;.conflist&quot;</span>, <span class="string">&quot;.json&quot;</span>&#125;)</span><br><span class="line">	<span class="keyword">switch</span> &#123;</span><br><span class="line">	<span class="keyword">case</span> err != <span class="literal">nil</span>:</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">	<span class="keyword">case</span> <span class="built_in">len</span>(files) == <span class="number">0</span>:</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">nil</span>, fmt.Errorf(<span class="string">&quot;no networks found in %s&quot;</span>, confDir)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	cniConfig := &amp;libcni.CNIConfig&#123;Path: binDirs&#125;</span><br><span class="line"></span><br><span class="line">	sort.Strings(files)</span><br><span class="line">	<span class="keyword">for</span> _, confFile := <span class="keyword">range</span> files &#123;</span><br><span class="line">		<span class="keyword">var</span> confList *libcni.NetworkConfigList</span><br><span class="line">		<span class="keyword">if</span> strings.HasSuffix(confFile, <span class="string">&quot;.conflist&quot;</span>) &#123;</span><br><span class="line">			confList, err = libcni.ConfListFromFile(confFile)</span><br><span class="line">			<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">				klog.Warningf(<span class="string">&quot;Error loading CNI config list file %s: %v&quot;</span>, confFile, err)</span><br><span class="line">				<span class="keyword">continue</span></span><br><span class="line">			&#125;</span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			conf, err := libcni.ConfFromFile(confFile)</span><br><span class="line">			<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">				klog.Warningf(<span class="string">&quot;Error loading CNI config file %s: %v&quot;</span>, confFile, err)</span><br><span class="line">				<span class="keyword">continue</span></span><br><span class="line">			&#125;</span><br><span class="line">			<span class="comment">// Ensure the config has a &quot;type&quot; so we know what plugin to run.</span></span><br><span class="line">			<span class="comment">// Also catches the case where somebody put a conflist into a conf file.</span></span><br><span class="line">			<span class="keyword">if</span> conf.Network.Type == <span class="string">&quot;&quot;</span> &#123;</span><br><span class="line">				klog.Warningf(<span class="string">&quot;Error loading CNI config file %s: no &#x27;type&#x27;; perhaps this is a .conflist?&quot;</span>, confFile)</span><br><span class="line">				<span class="keyword">continue</span></span><br><span class="line">			&#125;</span><br><span class="line"></span><br><span class="line">			confList, err = libcni.ConfListFromConf(conf)</span><br><span class="line">			<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">				klog.Warningf(<span class="string">&quot;Error converting CNI config file %s to list: %v&quot;</span>, confFile, err)</span><br><span class="line">				<span class="keyword">continue</span></span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">if</span> <span class="built_in">len</span>(confList.Plugins) == <span class="number">0</span> &#123;</span><br><span class="line">			klog.Warningf(<span class="string">&quot;CNI config list %s has no networks, skipping&quot;</span>, confFile)</span><br><span class="line">			<span class="keyword">continue</span></span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="comment">// Before using this CNI config, we have to validate it to make sure that</span></span><br><span class="line">		<span class="comment">// all plugins of this config exist on disk</span></span><br><span class="line">		caps, err := cniConfig.ValidateNetworkList(context.TODO(), confList)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			klog.Warningf(<span class="string">&quot;Error validating CNI config %v: %v&quot;</span>, confList, err)</span><br><span class="line">			<span class="keyword">continue</span></span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		klog.V(<span class="number">4</span>).Infof(<span class="string">&quot;Using CNI configuration file %s&quot;</span>, confFile)</span><br><span class="line"></span><br><span class="line">		<span class="keyword">return</span> &amp;cniNetwork&#123;</span><br><span class="line">			name:          confList.Name,</span><br><span class="line">			NetworkConfig: confList,</span><br><span class="line">			CNIConfig:     cniConfig,</span><br><span class="line">			Capabilities:  caps,</span><br><span class="line">		&#125;, <span class="literal">nil</span></span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span>, fmt.Errorf(<span class="string">&quot;no valid networks found in %s&quot;</span>, confDir)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>本篇文章開始跟大家討論什麼是 Container Network Interface (CNI)， 由於 CNI 牽扯到的內容實在太多，同時網路這個詞就是個概念，能夠做的事情實在太多，一時之間沒有辦法再一篇文章內講述並消化所有的事情。</p>
+<p>因此本篇文章主要先有一個基本概念就是 CNI 本身的標準長什麼樣，會有什麼樣的設定<br>接下來會先探討 CNI 與 Kubernetes 的整合，包含了 kubelet 的設定檔案，以及相關 sandbox container 的架構。</p>
+<p>再 CNI 的世界裡面，一切都是透過 <code>binary</code> 來呼叫對方，同時透過 STDOUT&#x2F;STDIN 來傳輸資料，因此幾乎所有的 CNI 解決方案都是由不少個 Binary 組成的</p>
+<p>因此我會特別介紹 IPAM(HostLocal) 以及 Linux Bridge (CNI) 這兩個最常被使用的工具，其被廣泛地使用到各個 CNI 解決方案內，原因就是他們提供的功能基本上很基本，但是也很好用。</p>
+<h1 id="參考"><a href="#參考" class="headerlink" title="參考"></a>參考</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/containernetworking/cni">https://github.com/containernetworking/cni</a></li>
+<li><a target="_blank" rel="noopener" href="https://kubernetes.io/blog/2017/11/containerd-container-runtime-options-kubernetes/">https://kubernetes.io/blog/2017/11/containerd-container-runtime-options-kubernetes/</a></li>
+<li><a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/workloads/pods/pod/">https://kubernetes.io/docs/concepts/workloads/pods/pod/</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/master/pkg/kubelet/dockershim/network/cni/cni.go">https://github.com/kubernetes/kubernetes/blob/master/pkg/kubelet/dockershim/network/cni/cni.go</a></li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/CNI/" rel="tag"># CNI</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+              <a href="/tags/Container/" rel="tag"># Container</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/container-runtime-vm.html" rel="prev" title="Container Runtime - Virtual Machine">
+                  <i class="fa fa-chevron-left"></i> Container Runtime - Virtual Machine
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/kubernetes-cni.html" rel="next" title="kubernetes 與 CNI 的互動">
+                  kubernetes 與 CNI 的互動 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

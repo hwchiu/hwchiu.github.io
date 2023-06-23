@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="This post shoes about what the system do when we install the OpenvSwitch in your system. The architecture of OpenvSwitch covers both user-space and kernel-space and we can see functions of each part i">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenvSwitch - overview">
+<meta property="og:url" content="https://www.hwchiu.com/openvswitch-overview.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="This post shoes about what the system do when we install the OpenvSwitch in your system. The architecture of OpenvSwitch covers both user-space and kernel-space and we can see functions of each part i">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://user-image.logdown.io/user/415/blog/415/post/167510/x1arC8nSTiOAQ0AoLtjj_test.png">
+<meta property="og:image" content="http://user-image.logdown.io/user/415/blog/415/post/167510/a9o3mQ2iR2GrYSRMKuIN_%E6%93%B7%E5%8F%961.PNG">
+<meta property="og:image" content="http://user-image.logdown.io/user/415/blog/415/post/167510/Tt1PPwiHSMiBWmKiztJM_2.PNG">
+<meta property="og:image" content="http://user-image.logdown.io/user/415/blog/415/post/167510/eHZ7vqScSjCAaFJMDiIn_%E6%93%B7%E5%8F%96.PNG">
+<meta property="og:image" content="http://user-image.logdown.io/user/415/blog/415/post/167510/A5R1wlMlQMGHHmAMjURg_%E6%93%B7%E5%8F%963.PNG">
+<meta property="og:image" content="http://user-image.logdown.io/user/415/blog/415/post/167510/22cYSkNQQwmksjbBcDPq_%E6%93%B7%E5%8F%963.PNG">
+<meta property="og:image" content="http://user-image.logdown.io/user/415/blog/415/post/167510/jdtSnR6SbCZRX2QcwTqQ_%E6%93%B7%E5%8F%963.PNG">
+<meta property="og:image" content="http://user-image.logdown.io/user/415/blog/415/post/167510/Lioqm31mTWqVrFUAkbTZ_%E6%93%B7%E5%8F%963.PNG">
+<meta property="og:image" content="http://user-image.logdown.io/user/415/blog/415/post/167510/iQ4NzZPtTEyHzA4XyXln_%E6%93%B7%E5%8F%963.PNG">
+<meta property="og:image" content="http://user-image.logdown.io/user/415/blog/415/post/167510/itUv393WQbS2dl34nKjG_%E6%93%B7%E5%8F%963.PNG">
+<meta property="og:image" content="http://user-image.logdown.io/user/415/blog/415/post/167510/VJcdFvSAawgDpSoLDrVA_%E6%93%B7%E5%8F%963.PNG">
+<meta property="article:published_time" content="2013-12-17T07:13:00.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.635Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="SDN">
+<meta property="article:tag" content="OpenvSwitch">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://user-image.logdown.io/user/415/blog/415/post/167510/x1arC8nSTiOAQ0AoLtjj_test.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/openvswitch-overview.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/openvswitch-overview.html","path":"openvswitch-overview.html","title":"OpenvSwitch - overview"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>OpenvSwitch - overview | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Environment"><span class="nav-number">1.</span> <span class="nav-text">Environment</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#kernel-module"><span class="nav-number">2.</span> <span class="nav-text">kernel module</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#ovs-vswitchd"><span class="nav-number">3.</span> <span class="nav-text">ovs-vswitchd</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Adding-bridge"><span class="nav-number">4.</span> <span class="nav-text">Adding bridge</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Adding-vports"><span class="nav-number">5.</span> <span class="nav-text">Adding vports</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Set-Controller"><span class="nav-number">6.</span> <span class="nav-text">Set-Controller</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Target-command"><span class="nav-number">7.</span> <span class="nav-text">Target command</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/openvswitch-overview.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="OpenvSwitch - overview | Hwchiu Learning Note">
+      <meta itemprop="description" content="This post shoes about what the system do when we install the OpenvSwitch in your system. The architecture of OpenvSwitch covers both user-space and kernel-space and we can see functions of each part in this porsts.">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          OpenvSwitch - overview
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2013-12-17 15:13:00" itemprop="dateCreated datePublished" datetime="2013-12-17T15:13:00+08:00">2013-12-17</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">This post shoes about what the system do when we install the OpenvSwitch in your system. The architecture of OpenvSwitch covers both user-space and kernel-space and we can see functions of each part in this porsts.</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Environment"><a href="#Environment" class="headerlink" title="Environment"></a>Environment</h1><ul>
+<li>Three PCs.</li>
+<li>One for openvswitch (with a 4-port ethernet card).</li>
+<li>Two for hosts.</li>
+<li>OVS version 1.9</li>
+</ul>
+<span id="more"></span>
+
+<p><img src="http://user-image.logdown.io/user/415/blog/415/post/167510/x1arC8nSTiOAQ0AoLtjj_test.png" alt="test.png"></p>
+<h1 id="kernel-module"><a href="#kernel-module" class="headerlink" title="kernel module"></a>kernel module</h1><p><code>insmod datapath/linux/openvswitch.ko</code></p>
+<p>When we load the <strong>openvswitch</strong>‘s kernel module, it will register four <strong>generic netlink</strong> event including<br><code>datapath</code>, <code>vport</code>, <code>flow</code> and <code>packet</code>.</p>
+<p><img src="http://user-image.logdown.io/user/415/blog/415/post/167510/a9o3mQ2iR2GrYSRMKuIN_%E6%93%B7%E5%8F%961.PNG" alt="擷取1.PNG"></p>
+<p>In the <strong>datapath.c</strong>, we can see those four <strong>generic netlink</strong>  type.</p>
+<p><img src="http://user-image.logdown.io/user/415/blog/415/post/167510/Tt1PPwiHSMiBWmKiztJM_2.PNG" alt="2.PNG"></p>
+<p>Take the <strong>vport</strong> for example, there’re four command we can excute via this <strong>netlink</strong> type.<br>If we want the kernel to create a new port, we can send the <strong>vport</strong> type <strong>netlink</strong> with the command <strong>OVS_VPORT_CMD_NEW</strong><br>, and the command handler (<strong>doit</strong>) ovs_vport_cmd_new will be excuted to create the new vport.</p>
+<p><img src="http://user-image.logdown.io/user/415/blog/415/post/167510/eHZ7vqScSjCAaFJMDiIn_%E6%93%B7%E5%8F%96.PNG" alt="擷取.PNG"></p>
+<h1 id="ovs-vswitchd"><a href="#ovs-vswitchd" class="headerlink" title="ovs-vswitchd"></a>ovs-vswitchd</h1><p><code> ovsdb-server ...</code><br><code>ovs-vswitchd --pidfile --detach</code></p>
+<ul>
+<li>First, the <code>ovsdb-server</code> will start a database daemon, In addition, there’re some user-space tool will work with it, like <strong>ove-vsctl</strong>, <strong>ovs-ofctl</strong>..etc.</li>
+<li>The user-space process <strong>ovs-vswitchd</strong> play a importmant role about <strong>openflow</strong> in OpenvSwitch.<br>It will parse the openflow protocol and handle it (you can use the keyword <strong>ofproto</strong> to find the resource about it)</li>
+</ul>
+<p>ovs-vswitchd:</p>
+<ul>
+<li>Process openflow messages</li>
+<li>Manage the datapath (which actually in kernel space)</li>
+<li>Maintain two flow table (exactly flow &amp; wildcard flow)</li>
+</ul>
+<p><img src="http://user-image.logdown.io/user/415/blog/415/post/167510/A5R1wlMlQMGHHmAMjURg_%E6%93%B7%E5%8F%963.PNG" alt="擷取3.PNG"></p>
+<h1 id="Adding-bridge"><a href="#Adding-bridge" class="headerlink" title="Adding bridge"></a>Adding bridge</h1><p><code>ovs-vsctl add-br br0</code></p>
+<p>When we excute the <code>ovs-vsctl</code>, it will send a command to <strong>ovsdb</strong> and the DB will store this information.<br>After that, the <strong>ovsdb</strong> will pass the command to <strong>ovs-vswitchd</strong>, and the <strong>ovs-vswitch</strong> send the <strong>netlink</strong>  with <strong>datapath</strong> type to the kernel.<br>Since we have installed the kernel module before, the datapath will receive the netlink and excute the corresponding command handler.<br>In this case, it will excute <strong>ovs_dp_cmd_new</strong>.<br>Finally, the <strong>datapath</strong> will be created and it will be managed by <strong>ovs-vswitchd</strong>.</p>
+<p>datapath:</p>
+<ul>
+<li>Maintain one flow table (exactly flow) <strong>This study is based on the OVS v1.9</strong></li>
+<li>Act as the software switch (look up flow, forward the packet)</li>
+</ul>
+<p><img src="http://user-image.logdown.io/user/415/blog/415/post/167510/22cYSkNQQwmksjbBcDPq_%E6%93%B7%E5%8F%963.PNG" alt="擷取3.PNG"></p>
+<h1 id="Adding-vports"><a href="#Adding-vports" class="headerlink" title="Adding vports"></a>Adding vports</h1><p><code>ovs-vsctl add-port br0 eth1</code></p>
+<p>Like the above discussion about <strong>datapath</strong>, <strong>ovs-vswitchd</strong> send the <strong>netlink</strong> to the kernel.<br>In the command handler <strong>ovs_vport_cmd_new</strong>.</p>
+<p>1.Find the the <strong>struct net_device</strong> object in the kernel by the user typing interface name (<strong>eth1</strong>)<br>2.Modify the receive_handler of that <strong>net_device</strong> to the OpenvSwitch’s packet handler.</p>
+<p><img src="http://user-image.logdown.io/user/415/blog/415/post/167510/jdtSnR6SbCZRX2QcwTqQ_%E6%93%B7%E5%8F%963.PNG" alt="擷取3.PNG"></p>
+<h1 id="Set-Controller"><a href="#Set-Controller" class="headerlink" title="Set-Controller"></a>Set-Controller</h1><p><code>ovs-vsctl set-controller br0 tcp:xxx.xxx.xxx.xxx:6633</code></p>
+<ul>
+<li>Set the controller setting and it will be done in <strong>ovs-vswitchd</strong>.</li>
+</ul>
+<p><img src="http://user-image.logdown.io/user/415/blog/415/post/167510/Lioqm31mTWqVrFUAkbTZ_%E6%93%B7%E5%8F%963.PNG" alt="擷取3.PNG"></p>
+<p>##In the following example, we use a simple case to explain how the ping works</p>
+<h1 id="Target-command"><a href="#Target-command" class="headerlink" title="Target command"></a>Target command</h1><p><code>hostA ping hostB</code></p>
+<p>We devide the picture into two parts by the red line.</p>
+<p><strong>Upper Part</strong></p>
+<ul>
+<li>This part show the physical view of thie case.</li>
+<li>The middle PC has installed the Ubuntu 12.04 and OVS 1.9.</li>
+<li>The left PC connect to the OVS’s nic <strong>eth1</strong></li>
+<li>The right PC connect to the OVS’s nic <strong>eth2</strong></li>
+</ul>
+<p><strong>Lower Part</strong></p>
+<ul>
+<li>This part show the system view of the switch PC (middle one)</li>
+<li>We use the dash-line to separate the user-space and kernel-space.</li>
+</ul>
+<p><strong>Analysis</strong></p>
+<p>After the OVS receives the ICMP packet from the left PC.<br>What will happen about OVS?</p>
+<p><img src="http://user-image.logdown.io/user/415/blog/415/post/167510/iQ4NzZPtTEyHzA4XyXln_%E6%93%B7%E5%8F%963.PNG" alt="擷取3.PNG"></p>
+<ol>
+<li>The NIC <strong>eth1</strong> receives the ICMP packet.</li>
+<li>Call the <strong>receive_handler</strong> to handler this ICMP packet.</li>
+<li>Do <code>flow_lookup</code>, it will look up the flow table maintained by the kernel-space. All the flow entry in this table is <strong>exactly</strong> flow entry, which means there’re no any wildcard.<br>This architecture will speed up the look-up since we don’t need to consider the wildcard field.<br>In the OpenvSwtich, it use the <strong>struct sw_flow_key</strong> to present a <strong>exactly flow</strong>.</li>
+<li>If we find the flow entry in the flow table, excute its <strong>flow actiojn</strong>.</li>
+<li>Otherwise, we need the help from controller. so the <strong>datapath.ko</strong> will send this flow to the user-space via the f unction <strong>upcall</strong><br>(actually, it’s a netlink message)</li>
+</ol>
+<p>What will happen when the <strong>ovs-vswitch</strong> receive the flow from the kernel-space.</p>
+<p><img src="http://user-image.logdown.io/user/415/blog/415/post/167510/itUv393WQbS2dl34nKjG_%E6%93%B7%E5%8F%963.PNG" alt="擷取3.PNG"></p>
+<ul>
+<li>Both <strong>exactly matching flow</strong> and <strong>wildcard matching flow</strong> are stored in the user-space (by Openflow protocol).</li>
+<li>Since the <strong>exactly matching</strong> has high priority than <strong>wildcard matching</strong>, we need to lookup the <strong>exactly macthing flow table</strong> first.</li>
+<li>Look up the flow entry in the user-space by <strong>exactly matching</strong>, if we find it, send <strong>two</strong> netlink message to the kernel (we will discuss these two nelitnkj message later)</li>
+<li>Otherwise, look up the flow entry by <strong>wildcard matching</strong>, if we find it, generate a corrsponding exactly flow entry and send <strong>two</strong> netlink message to the kernel.</li>
+<li>If we can’t find any flow entry in the flow-table, we issue a <strong>Packet_In</strong> to the controller.</li>
+</ul>
+<p>After the kernel-space receive those <strong>two</strong> netlink message which sending from user-space.</p>
+<ol>
+<li>Excute the <strong>flow_actiojn</strong> about that flow entry.</li>
+<li>Insert that <strong>exactly mactching flow</strong> into the kernel’s flow-table. That will create the cache for that connection  and crease the processing time for nect packets.</li>
+</ol>
+<p><img src="http://user-image.logdown.io/user/415/blog/415/post/167510/VJcdFvSAawgDpSoLDrVA_%E6%93%B7%E5%8F%963.PNG" alt="擷取3.PNG"></p>
+<p><strong>Summary</strong></p>
+<ul>
+<li>There is a limitation about the size of flow table in kernel, it use the cache (exactly macthing) to speed up the look-up.For the recently activity connection, those packets can be handled quickly.</li>
+<li>The flow-table in the user-space is the same as the what the controller see. It support the wildcard matching. We can reduce the size of flow entries by wildcard matching but it will bring the overhaed for look-up</li>
+</ul>
+<p><strong>MISC</strong></p>
+<ol>
+<li>You can use the <strong>ovs-dpctl dump-flows</strong> to dump the flow table of kernel-space</li>
+<li>This article is based on the OVS v1.9 and the architecture has some change after v1.11</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/SDN/" rel="tag"># SDN</a>
+              <a href="/tags/OpenvSwitch/" rel="tag"># OpenvSwitch</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/openvswitch-3.html" rel="prev" title="OpenvSwitch source code(2)">
+                  <i class="fa fa-chevron-left"></i> OpenvSwitch source code(2)
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/openvswitch-source-code3.html" rel="next" title="OpenvSwitch source code(3)">
+                  OpenvSwitch source code(3) <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

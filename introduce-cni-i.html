@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="The most import feature of the container is the resource isolation, including the mount, network, user, UTC and PID. that&#39;s the reason why we can&#39;t see those resources status of the host. The resource">
+<meta property="og:type" content="article">
+<meta property="og:title" content="[Container Network Interface] Bridge Network In Docker">
+<meta property="og:url" content="https://www.hwchiu.com/introduce-cni-i.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="The most import feature of the container is the resource isolation, including the mount, network, user, UTC and PID. that&#39;s the reason why we can&#39;t see those resources status of the host. The resource">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/M3xBS32.png">
+<meta property="og:image" content="https://i.imgur.com/Kd5YbZN.png">
+<meta property="og:image" content="https://i.imgur.com/Yb59fsy.png">
+<meta property="og:image" content="https://i.imgur.com/HhsX4io.png">
+<meta property="article:published_time" content="2018-04-05T08:59:57.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.616Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Network">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="Kernel">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="CNI">
+<meta property="article:tag" content="Docker">
+<meta property="article:tag" content="Ubuntu">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/M3xBS32.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/introduce-cni-i.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/introduce-cni-i.html","path":"introduce-cni-i.html","title":"[Container Network Interface] Bridge Network In Docker"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>[Container Network Interface] Bridge Network In Docker | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Introduction"><span class="nav-number">2.</span> <span class="nav-text">Introduction</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Implementation"><span class="nav-number">3.</span> <span class="nav-text">Implementation</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Linux-Bridge"><span class="nav-number">3.1.</span> <span class="nav-text">Linux Bridge</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Network-Namespace"><span class="nav-number">3.2.</span> <span class="nav-text">Network Namespace</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Veth"><span class="nav-number">3.2.1.</span> <span class="nav-text">Veth</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ip-management"><span class="nav-number">3.2.2.</span> <span class="nav-text">ip management</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#iptables"><span class="nav-number">3.2.3.</span> <span class="nav-text">iptables</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">4.</span> <span class="nav-text">Summary</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/introduce-cni-i.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="[Container Network Interface] Bridge Network In Docker | Hwchiu Learning Note">
+      <meta itemprop="description" content="The most import feature of the container is the resource isolation, including the mount, network, user, UTC and PID. that's the reason why we can't see those resources status of the host. The resources isolation are supported by the Linux Kernel and we will demostrate the networking part by the network namespace and also show you how does the docekr use the network namespace and Linux Bridge to proivde the network connectivity for each container.">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          [Container Network Interface] Bridge Network In Docker
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2018-04-05 16:59:57" itemprop="dateCreated datePublished" datetime="2018-04-05T16:59:57+08:00">2018-04-05</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">The most import feature of the container is the resource isolation, including the mount, network, user, UTC and PID. that's the reason why we can't see those resources status of the host. The resources isolation are supported by the Linux Kernel and we will demostrate the networking part by the network namespace and also show you how does the docekr use the network namespace and Linux Bridge to proivde the network connectivity for each container.</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>It’s a series post about the Container Network Interface and you can find other posts below.<br><a href="https://www.hwchiu.com/introduce-cni-ii.html">[Container Network Interface] CNI Introduction </a><br><a href="https://www.hwchiu.com/introduce-cni-iii.html">[Container Network Interface] Write a CNI Plugin By Golang</a></p>
+<p>If you have any experience about setuping a kubernetes cluster before, you must notice that you need to choose one CNI in your kubernetes cluster, and there’re many candidate that you can choose, including the <code>flannel</code>, <code>weave</code>, <code>calico</code> and so on.</p>
+<p>Most of the kubernetes users and operators don’t know what is the different between those CNI plgins and the only thing they care is that the CNI can make the network works well.</p>
+<p>So, I will introduce the Container Network Interface (CNI) in the following articles.</p>
+<ul>
+<li>First, I will explain what is the bridge network in docekr and hot it works. Besides, I also introduce the <code>Linux Network Namespace (ns)</code> and use the <code>Linux Network Namespace</code> to create a simple environment.</li>
+<li>Second, We have the basic knowhow about network namespace and we can start to learn what is CNI, why we need the CNI and how CNI works. we also use the simple CNI to demostrate how CNI works with network namespace.</li>
+<li>Third, We have learned what is the CNI before, and we will start to implement our own CNI which is a simple CNI just like the bridge network (the default network of docker). That article will be a tutorial about how to write a CNI in <code>golang</code></li>
+</ul>
+<h1 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h1><p>We all know that the docker is very easy to use and we can setup any server we want in one command <code>docker run</code></p>
+<p>For example, If I want to run a busybox, I can use the <code>docker run busybox</code> to run a busybox container in my environment.</p>
+<p>The more complicated example is the we can run a simple nginx server with the <code>docekr run</code> and we can see the example in the <code>nginx</code> <a target="_blank" rel="noopener" href="https://hub.docker.com/_/nginx/">docker hub repo</a>.<br>Just type the following command in your docker-ready environment.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker run --name some-nginx -d -p 8080:80 some-content-nginx</span><br></pre></td></tr></table></figure>
+<p>You will run a nginx server which listens on its network with port 80 and you can connect to the nginx server with <code>http://localhost:8080</code> or <code>http://containerIP:80</code></p>
+<p>Now, type the following again.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker run --name some-nginx -d -p 8081:80 some-content-nginx2</span><br></pre></td></tr></table></figure>
+<p>We will run another nginx server which listens to its network with port 80 and you  can connect to it with <code>http://localhost:8081</code></p>
+<p>There is one question, How does the docker do that? why can we run two nginx server listening to 80 port in the same time?</p>
+<p>If you have any experience about writing the<code>socket programming</code>, you must know that we can’t <code>bind/listen</code> the same tuple(IP,TCP&#x2F;UDP,Port) in two processes.</p>
+<p>We need to choose difference port for each process and that’s why there’re so many well-known port numbers, such as <code>22,80,443</code> and we should avoid to use those ports in our appliction.</p>
+<p>The reason why we can do it in the docker is <code>Linux Network Namespace</code>.</p>
+<p>The magic how the docker do that is via the <code>Linux Network Namespace</code>. In the <code>linux kernel</code>, each network namespace has its own network configuration, including the network interfaces, routing tables, netfilters and we can learn more about in this <a target="_blank" rel="noopener" href="https://blog.scottlowe.org/2013/09/04/introducing-linux-network-namespaces/">website</a>.</p>
+<p>So, when we run a docker container, the system will create a new network namespace and put it inside the docekr container.<br>In our previous example, the system will create two network namepsace when we run two nginx docker container and each container has its own <code>network stack</code>.</p>
+<h1 id="Implementation"><a href="#Implementation" class="headerlink" title="Implementation"></a>Implementation</h1><p>Now, we will learn why we can use the <code>http://localhost:8080</code> to access the nginx container in the follwing tutorials.<br>Besides, we will operates the network namespace and linux bridge to simulate what docker do when we create a docker container.</p>
+<h2 id="Linux-Bridge"><a href="#Linux-Bridge" class="headerlink" title="Linux Bridge"></a>Linux Bridge</h2><p>In the default behavior, the docker will create a linux bridge <code>docker0</code> when you install the docker.io&#x2F;docker.ce into your system.<br>and it will handle the network connectivity for every docker container (use the –net&#x3D;bridge and it is docker default option)<br>You can use the following command to see the linux bridge after you install the docker package.</p>
+<p>We can create our own linux bridge via the <code>brctl command</code> and you can get it by installing the <code>bridge-utils</code> package.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ apt-get install bridge-utils</span><br></pre></td></tr></table></figure>
+
+<p>Create our own linux bridge and assign a IP address to it.</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">brctl addbr br0</span></span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">ifconfig br0 up</span></span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">ifconfig br0 172.17.0.0 netmask 255.255.0.0</span></span><br></pre></td></tr></table></figure>
+
+<p>If you have installed the docker package, you can see there’s a interface <code>docker0</code> in the system and it’s IP address is <code>172.17.0.0/16</code>. If that, you should change your <code>br0</code> IP address to other CIDR subnet.</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">brctl show</span></span><br><span class="line">bridge name     bridge id               STP enabled     interfaces</span><br><span class="line">docker0         8000.0242b8582904       no</span><br><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">ifconfig docker0</span></span><br><span class="line">docker0   Link encap:Ethernet  HWaddr 02:42:b8:58:29:04</span><br><span class="line">          inet addr:172.17.0.1  Bcast:0.0.0.0  Mask:255.255.0.0</span><br><span class="line">          UP BROADCAST MULTICAST  MTU:1500  Metric:1</span><br><span class="line">          RX packets:0 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:0</span><br><span class="line">          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)</span><br></pre></td></tr></table></figure>
+
+<p>We can use the following figure to show the system view of the system now.<br>The default ip address of the <code>docker0</code> is <code>172.17.0.0/16</code> and it can be configured via the docker config.</p>
+<p>We won’t discuss what is layer2 bridging here, the only thing we need to know is that docker will use this bridge to forward the packets between hosts and containers.<br><img src="https://i.imgur.com/M3xBS32.png"></p>
+<h2 id="Network-Namespace"><a href="#Network-Namespace" class="headerlink" title="Network Namespace"></a>Network Namespace</h2><p>Now, what will happen when we create a docker container?</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$$ docker run --name some-nginx -d -p 8080:80 some-content-nginx</span><br></pre></td></tr></table></figure>
+<p>First, the docker will create a docker container and also create a network namespace indise that container.<br>The whole system looks like below figure. there’re a linux bridge (docekr0) and a docker container (nginx).<br><img src="https://i.imgur.com/Kd5YbZN.png"></p>
+<p>In our example, we won’t use the docker but network namespace, so we can create a network namepsace here.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ip netns add ns1</span><br></pre></td></tr></table></figure>
+
+<p>Up to now, the container(network namespace) doesn’t have the network connectivity which measn any process inside that contaner can’t setup a network connection with outside.</p>
+<h3 id="Veth"><a href="#Veth" class="headerlink" title="Veth"></a>Veth</h3><p>In order to make the <code>docker container nginx/netowkr namespace</code> has the network connectivity, we need to connect two <code>network namespaces</code> togehter first. the linux host and the docekr container.<br>since the <code>network namespace</code> is a logical concept in the <code>linux system</code>, we can use another linux technology <code>veth</code> to help us.<br>The <code>veth</code> is represent to a <code>virtual link</code> and it can connect to two different network namespace, each <code>veth</code> pair is made up by two <code>virtual network interface</code><br>For example, type the following command to create a <code>veth</code> pair.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">$ sudo ip link add ve_A type veth peer name ve_B</span><br><span class="line">$ ip link</span><br><span class="line">15: ve_B@ve_A: &lt;BROADCAST,MULTICAST,M-DOWN&gt; mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000</span><br><span class="line">    link/ether be:8f:26:d9:22:50 brd ff:ff:ff:ff:ff:ff</span><br><span class="line">16: ve_A@ve_B: &lt;BROADCAST,MULTICAST,M-DOWN&gt; mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000</span><br><span class="line">    link/ether a2:9b:75:06:51:30 brd ff:ff:ff:ff:ff:ff</span><br></pre></td></tr></table></figure>
+<p>In the above example, we create a veth pair and the <code>virtual network interface</code> of it is <code>ve_A</code> and <code>ve_B</code>. you can use the some network utils to see them, such as <code>ip link</code>, <code>ifconfig</code>.</p>
+<p>The system view loooks like beflow, we have a veth pair now but two sides of the veth pair still in the same <code>network namespace</code>.</p>
+<p><img src="https://i.imgur.com/Yb59fsy.png"></p>
+<p>Next, we need to move one side of the <code>veth</code> pair into the docker container, specifically, is the network namespace.</p>
+<p>Just like we say before, the <code>veth</code> pair is used to connect two network namespace. we can do that via the <code>ip</code> command.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ sudo ip link set ve_B netns ns1</span><br><span class="line">$ sudo ip netns exec ns1 ip link set ve_B name eth0</span><br></pre></td></tr></table></figure>
+<p>Now, the ve_B is moved into the network namespace <code>ns1</code> and rename as <code>eth1</code>, we can execute commands in the networl namespace to list the interface.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ sudo ip netns exec ns1 ifconfig -a</span><br><span class="line">eth0       ink encap:Ethernet  HWaddr be:8f:26:d9:22:50</span><br><span class="line">          BROADCAST MULTICAST  MTU:1500  Metric:1</span><br><span class="line">          RX packets:0 errors:0 dropped:0 overruns:0 frame:0</span><br><span class="line">          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0</span><br><span class="line">          collisions:0 txqueuelen:1000</span><br><span class="line">          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)</span><br></pre></td></tr></table></figure>
+<p>and you should see the interface <code>eth1</code>with any IP configuration.</p>
+<p>At last, we need to attach another side of <code>veth</code> pair into the <code>linux bridge docker0</code>, just use the <code>brctl</code> command.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">brctkl addif docker0 ve_A</span><br></pre></td></tr></table></figure>
+
+<p>Good, We have setup differentes network namespace and connect it via the <code>veth</code> and <code>linux bridge</code>.<br><img src="https://i.imgur.com/HhsX4io.png"></p>
+<h3 id="ip-management"><a href="#ip-management" class="headerlink" title="ip management"></a>ip management</h3><p>The next thing we need to handle it to assign an IP addess to the <code>docekr container/network namespace</code>. Just like above, use the <code>ip netns exec ns1 ifconfig eth1 xxxxxx netmask xxxxx</code> to set the ip address to the interface eth1.</p>
+<p>The problem is how do we decide what IP address we use?</p>
+<p>Since we use the <code>linux bridge</code> for layer2 forwarding, we sholud put all the <code>docker container/network namespace</code> and bridge in the same subnet.<br>Which means we should choose any IP address from <code>172.17.0.0/16</code>.<br>How to choose the IP address is designed by docker and you.<br>You should avoid to use the duplicate IP address since it will cause the ARP problem.<br>After choosing the IP address, set to the interface in the <code>docker continer/network namespace</code></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ sudo ip netns exec ns1 ifconfig eth1 172.16.x.x netmask 255.255.0.0</span><br></pre></td></tr></table></figure>
+<p>After that, you can repeat above example to create more network namespace with different IP address and try to use the command <code>ping</code> to test the network connectivity in the layer 2 network.</p>
+<h3 id="iptables"><a href="#iptables" class="headerlink" title="iptables"></a>iptables</h3><p>The last one we need to understand is <code>iptables</code>, and it’s a optional step.<br>For a docker container, if we want to access the container from outside network, we should use the <code>-p</code> flag to indicate the port mapping in the <code>docker run</code> command.</p>
+<p>For example, when we use the following command to create a docker container.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ docker run --name some-nginx -d -p 8080:80 some-content-nginx</span><br></pre></td></tr></table></figure>
+<p>It will also insert some rules into the <code>iptables</code> and those rules will do</p>
+<ol>
+<li>if the destination port number of a packet is <code>8080</code>, forward it to the container <code>some-content-nginx</code>.<ul>
+<li>modify the destination ip to the ip address of container <code>some-content-nginx</code></li>
+<li>modify the destination port number from <code>8080</code> to <code>80</code></li>
+</ul>
+</li>
+</ol>
+<p>But if we don’t need to access it from outside? we don’t the iptables rules to do that. that why I mean it’s a optional step.</p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>Accoding to the above example, we know that the docker network is based on the <code>linux network namespace</code>.</p>
+<p>What will happen when we run a <code>docker container</code>?</p>
+<ol>
+<li>setup a linux bridge (usually be created when you install docker)</li>
+<li>create a network namespace</li>
+<li>create a veth pair (virutal ether link)</li>
+<li>attach the veth pair to target network namespace.</li>
+<li>find a unique IP address and assign to the taget network namespace.</li>
+<li>setup the iptables rules if you want to access it from outside.</li>
+</ol>
+<p>In the next posts, I will talk about what is CNI and why we need CNI and how CNI works.</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Network/" rel="tag"># Network</a>
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/Kernel/" rel="tag"># Kernel</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/CNI/" rel="tag"># CNI</a>
+              <a href="/tags/Docker/" rel="tag"># Docker</a>
+              <a href="/tags/Ubuntu/" rel="tag"># Ubuntu</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/paper-tensorflow-with-rdma.html" rel="prev" title="[論文導讀] - Towards Zero Copy Dataflows using RDMA">
+                  <i class="fa fa-chevron-left"></i> [論文導讀] - Towards Zero Copy Dataflows using RDMA
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/introduce-cni-ii.html" rel="next" title="[Container Network Interface] CNI Introduction">
+                  [Container Network Interface] CNI Introduction <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

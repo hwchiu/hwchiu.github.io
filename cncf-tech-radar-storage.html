@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="本篇文章節錄自 CNCF End User Technology Radar 關於 Storage 的報告，擷取相關重點並加上個人心得來跟大家分享現在 CNCF 社群是怎麼選擇自己適合的 Storage 解決方案">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CNCF Storage 使用者調查報告">
+<meta property="og:url" content="https://www.hwchiu.com/cncf-tech-radar-storage.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="本篇文章節錄自 CNCF End User Technology Radar 關於 Storage 的報告，擷取相關重點並加上個人心得來跟大家分享現在 CNCF 社群是怎麼選擇自己適合的 Storage 解決方案">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://i.imgur.com/7gdQkCB.png">
+<meta property="og:image" content="https://i.imgur.com/ExWvRdH.png">
+<meta property="og:image" content="https://i.imgur.com/ZVY4Nd9.png">
+<meta property="article:published_time" content="2021-03-13T13:53:27.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.604Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="Devops">
+<meta property="article:tag" content="CNCF">
+<meta property="article:tag" content="Storage">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.imgur.com/7gdQkCB.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/cncf-tech-radar-storage.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/cncf-tech-radar-storage.html","path":"cncf-tech-radar-storage.html","title":"CNCF Storage 使用者調查報告"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>CNCF Storage 使用者調查報告 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Radar"><span class="nav-number">2.</span> <span class="nav-text">Radar</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Level"><span class="nav-number">3.</span> <span class="nav-text">Level</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%B3%87%E6%96%99%E4%BE%86%E6%BA%90"><span class="nav-number">4.</span> <span class="nav-text">資料來源</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%A0%B1%E5%91%8A"><span class="nav-number">5.</span> <span class="nav-text">報告</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%B5%90%E8%AB%96"><span class="nav-number">6.</span> <span class="nav-text">結論</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">7.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/cncf-tech-radar-storage.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="CNCF Storage 使用者調查報告 | Hwchiu Learning Note">
+      <meta itemprop="description" content="本篇文章節錄自 CNCF End User Technology Radar 關於 Storage 的報告，擷取相關重點並加上個人心得來跟大家分享現在 CNCF 社群是怎麼選擇自己適合的 Storage 解決方案">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          CNCF Storage 使用者調查報告
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2021-03-13 21:53:27" itemprop="dateCreated datePublished" datetime="2021-03-13T21:53:27+08:00">2021-03-13</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">本篇文章節錄自 CNCF End User Technology Radar 關於 Storage 的報告，擷取相關重點並加上個人心得來跟大家分享現在 CNCF 社群是怎麼選擇自己適合的 Storage 解決方案</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>CNCF Storage 使用者調查報告</p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>今天要分享的 CNCF Radar 是 2020&#x2F;11 所公布的報告，該報告所瞄準的範圍是 Database Storage。</p>
+<p>就如同前篇文章所述 CNCF Continuous Delivery 使用者調查報告， CNCF 雷達主要是針對 CNCF 會員的使用經驗進行調查，根據這些經驗回饋來統計當前 CNCF 會員對於各項解決方案的推薦程度。</p>
+<p>本篇文章翻譯自 <a target="_blank" rel="noopener" href="https://radar.cncf.io/2020-11-database-storage">Database Storage, November 2020
+</a>，並且加上個人心得</p>
+<p>詳細的訪談影片可以參閱 <a target="_blank" rel="noopener" href="https://www.youtube.com/watch?time_continue=151&v=Ypq9P-9WBQI&feature=emb_logo">CNCF End User Technology Radar: Database Storage, November 2020
+</a></p>
+<h1 id="Radar"><a href="#Radar" class="headerlink" title="Radar"></a>Radar</h1><p>Technology Radar 旨在成為特定領域的一個意見參考指南，因此 CNCF End User Techonlogy Radar 就是一個針對科技領域受眾所建立的一個專案參考指南，這些專案領域都聚焦於 Clou Native 上，透過這個報告可以知道 CNCF End User Community 內這些公司他們實際上都使用哪些解決方案，對於這些方案保持什麼樣的看法</p>
+<h1 id="Level"><a href="#Level" class="headerlink" title="Level"></a>Level</h1><p>為了簡單量化這些調查報告，所有的調查都會要求使用者對於是否推薦這個專案給予下列答案之一</p>
+<ul>
+<li>Adopt<br>這個答案代表該使用者(通常是廠商)是明確的推薦這個技術，使用者已經使用這個專案一段時間，而且也被團隊內證實的確是穩定且有幫助的</li>
+<li>Trail<br>這個答案代表使用者有成功的使用過這些技術且推薦大家要多關注這些技術的發展</li>
+<li>Assess<br>這個答案代表使用者有嘗試使用過且認為他們是有未來的，推薦大家當你專案內有特別需求的時候可以去看看這些專案<br>基本上我的認知就是信心程度，由上到下遞減。</li>
+</ul>
+<p>除了上述三個答案之外，還有一個選項就是 HOLD，顧名思義就是可以停一下，不要太執著這個專案甚至不要使用。</p>
+<p>關於這個專案的一些運作，譬如題目跟專案的選擇，甚至一些概念的介紹都可以參閱<a target="_blank" rel="noopener" href="https://radar.cncf.io/how-it-works">官方網站</a></p>
+<h1 id="資料來源"><a href="#資料來源" class="headerlink" title="資料來源"></a>資料來源</h1><p>這次的報告總共有來自 26 個 CNCF 會員參與，全部票數有 273 票，參與的廠商規模有大小，領域也不同，下圖節錄自官方報告</p>
+<p><img src="https://i.imgur.com/7gdQkCB.png"></p>
+<p>從人數規模來看，基本上每個公司都是百人規模以上，甚至一半以上都是千人等級，還有六家公司是萬人等級。</p>
+<h1 id="報告"><a href="#報告" class="headerlink" title="報告"></a>報告</h1><p>下圖節錄自官方的結論報告<br><img src="https://i.imgur.com/ExWvRdH.png"></p>
+<p>該報告就是根據上面的標準，讓參與的 CNCF 會員來回報對這些專案的推薦程度</p>
+<blockquote>
+<p>這邊要注意，這邊的結果是粗略的統計結果，沒有太多明確的數學定義到底什麼樣的等級可以歸類為 ADOPT，所以觀看時就當做一個參考看看即可</p>
+</blockquote>
+<p><img src="https://i.imgur.com/ZVY4Nd9.png"></p>
+<p>上述的統計報表中，可以觀察到一些資訊</p>
+<ol>
+<li>Redis, Elasticsearch, PostgreSQL 這三個專案的推薦程度都是一致性的高，幾乎是有使用過的團隊都會推薦</li>
+<li>MySQL, MongoDB, Cassandra 這三個專案獲得較多的 <code>Assess</code> 票數，也就是有不少團隊使用後並沒有強烈推崇繼續使用，反而保持觀望的角度。</li>
+<li>Kafka, Memcached 等知名專案也都有很高的關注度及支持度</li>
+<li>AWS 底下的 DynamoDB 以及 Aurora 都有上榜，算是雲端廠商內提供這塊服務做得最好的</li>
+</ol>
+<h1 id="結論"><a href="#結論" class="headerlink" title="結論"></a>結論</h1><ol>
+<li>Companies are cautious with their data and slow to adopt newer technologies.<blockquote>
+<p>團隊傾向謹慎且小心地去導入全新的儲存技術來處理資料，調查報告中的新專案如 CockroachDB, TiDB, Vitess 都沒有於調查報告中獲得廣大的迴響。</p>
+</blockquote>
+</li>
+</ol>
+<blockquote>
+<p>有很多理由使得團隊會謹慎小心的去採用新儲存技術，其中最主要的原因就是太難去管理。當團隊需要轉移大量資料，從數 TB 到 PB 這種層級時，這中間花費的成本非常巨大，因此轉移帶來的好處要是不能夠蓋掉轉移的成本的話，很難說服團隊去進行儲存專案的轉移</p>
+</blockquote>
+<blockquote>
+<p>其他導致謹慎選擇的可能原因是很難找到一個新專案技術的專家</p>
+</blockquote>
+<blockquote>
+<p>令人感到興趣的是知名的 etcd 竟然沒有出現在報告中。大部分 etcd 的使用都是基於 Kubernetes 的需求。看起來很少團隊會單獨使用 etcd 來管理其資料。</p>
+</blockquote>
+<ol start="2">
+<li>Choosing a managed database service depends heavily on use cases.<blockquote>
+<p>報告中檢視使用雲端管理的儲存技術得票數並不高，這令人感到驚訝。一種解讀方式是雲端管理的資料技術非常仰賴使用情境，譬如應用程式最終部署的位置，資料的使用量以及團隊是否本來就使用該雲端產品。</p>
+</blockquote>
+</li>
+</ol>
+<blockquote>
+<p>如果應用程式產生的資料非常大量，使用這些雲端管理的儲存技術可能會帶來非常巨大的花費</p>
+</blockquote>
+<blockquote>
+<p>是否使用雲端管理的儲存設備一個很大的影響原因是該團隊是否已經使用該雲端服務。假如一個團隊所有服務都是地端自行架設，不太可能單獨將資料放到雲端去保存。</p>
+</blockquote>
+<blockquote>
+<p>團隊如果處理的是非常敏感機密的資料的話，更有可能將資料給部署到自己的機器上而非使用雲端管理的儲存設備。</p>
+</blockquote>
+<blockquote>
+<p>訪談中談到 AWS RDS 這個服務，其獲得的票數也非常的少所以最終被移除出報告之中。<br>3. Keep an open mind!<br>Storage 領域依然處於一個開發演化的階段，可以發現到很多專案都是非常久遠且知名的大專案。這些專案藉由其穩定且運作來好的特性帶來了很高量的 ADOPT 票數</p>
+</blockquote>
+<blockquote>
+<p>愈來愈多針對 Cloud Native 環境下所開發的儲存專案，而這些專案都有專屬的使用情境使得很難落入使用者雷達這種比較全面性的調查報告中。</p>
+</blockquote>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>詳細可以參閱<br>矽谷牛線上學院<a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/Devops/" rel="tag"># Devops</a>
+              <a href="/tags/CNCF/" rel="tag"># CNCF</a>
+              <a href="/tags/Storage/" rel="tag"># Storage</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/k8s-tcpdump.html" rel="prev" title="Kubernetes 之封包去哪兒">
+                  <i class="fa fa-chevron-left"></i> Kubernetes 之封包去哪兒
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/cncf-tech-radar-secrets.html" rel="next" title="CNCF Secrets 使用者調查報告">
+                  CNCF Secrets 使用者調查報告 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="ITHOME-2020 系列文章">
+<meta property="og:type" content="article">
+<meta property="og:title" content="鐵人賽系列文章- Day 5 淺談本地部署 Kubernetes 的各類選擇">
+<meta property="og:url" content="https://www.hwchiu.com/ithome-20202-cicd-5.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="ITHOME-2020 系列文章">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2020-11-04T11:39:26.000Z">
+<meta property="article:modified_time" content="2023-06-23T05:16:12.623Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="DevOps">
+<meta property="article:tag" content="ITHOME">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/ithome-20202-cicd-5.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/ithome-20202-cicd-5.html","path":"ithome-20202-cicd-5.html","title":"鐵人賽系列文章- Day 5 淺談本地部署 Kubernetes 的各類選擇"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>鐵人賽系列文章- Day 5 淺談本地部署 Kubernetes 的各類選擇 | Hwchiu Learning Note</title>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%9C%AC%E6%96%87"><span class="nav-number">1.</span> <span class="nav-text">本文</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Kubeadm"><span class="nav-number">1.1.</span> <span class="nav-text">Kubeadm</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Minikube"><span class="nav-number">1.2.</span> <span class="nav-text">Minikube</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#KIND"><span class="nav-number">1.3.</span> <span class="nav-text">KIND</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#K3D"><span class="nav-number">1.4.</span> <span class="nav-text">K3D</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">2.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/ithome-20202-cicd-5.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="鐵人賽系列文章- Day 5 淺談本地部署 Kubernetes 的各類選擇 | Hwchiu Learning Note">
+      <meta itemprop="description" content="ITHOME-2020 系列文章">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          鐵人賽系列文章- Day 5 淺談本地部署 Kubernetes 的各類選擇
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2020-11-04 19:39:26" itemprop="dateCreated datePublished" datetime="2020-11-04T19:39:26+08:00">2020-11-04</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+            <div class="post-description">ITHOME-2020 系列文章</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="本文"><a href="#本文" class="headerlink" title="本文"></a>本文</h1><p>接下來幾天我們將開始探討對於一個本地開發者來說，要怎麼搭建一個 Kubernetes 來使用</p>
+<p>探討這個議題之前，我們要先來問一個問題是</p>
+<p>我們本地開發者，真的需要一個 Kuberntees 嗎? 這個是必要的嗎？</p>
+<p>我認為這個答案是非必要，並不是所有的本地開發者都需要有一個獨立的 Kubernetes 叢集來使用，但是如果有符合下列需求之一，就會需要創建一個本地的 Kubernetes 叢集</p>
+<ol>
+<li>開發的應用程式與 Kubernetes 息息相關，譬如該應用程式會用到 Kubernetes API，這類型應用程式需要部署到 Kubernetes 內才可以發揮其功用</li>
+<li>開發的應用程式需要用到一些 Kubernetes 的資源才能夠看出差異，譬如想確認 Kubernetes HPA 發生時應用程式是否能夠如預期運作。這類型的應用程式也會需要有個本地的 Kubernetes 叢集才測試</li>
+<li>開發人員本身是公司的基礎設施維運人員，譬如要設計 Jenkins 與 Kubernetes 的連動測試，可能會需要在本地先進行相關測試之後才會正式上到公司環境。好處可能是可以先不用開雲端機器，可以先省錢，都用VM來測試相關功能</li>
+<li>開發的應用程式有很多依賴性，譬如需要 redis, kafaka, memcached 等，這種情況下如果 <code>也許</code> 有個本地的 Kuberentes 會比較方便</li>
+</ol>
+<p>除了上述理由之外(一定還有其他情境，我沒有辦法列舉全部），我認為剩下的情境應該都可以透過 docker&#x2F;docker-compose 來完成建置相關環境供開發者測試。 (4) 的條件我認為比較彈性，假如依賴的服務都可以用 docker-compose 直接建立，那其實也不需要有個 Kuberentes，但是如果這些服務本身有一些設定而且 Kubernetes Yaml&#x2F;Helm 都已經準備好, 整體部署與設定所花費的時間比重新研究如何轉移到 Docker-compose 上還來得輕量與快速，那其實也可以考慮就直接上 Kubernetes。</p>
+<p>如果你今天深思熟慮後，確認真的有需要於本地測試 Kuberntes 的需求，我們就可以來思考，對於一個開發者，我希望可以怎麼使用這個本地的 Kubernetes。</p>
+<p>對我個人來說，我希望這套解決方案能夠有下列特性</p>
+<ol>
+<li>容易設定與架設，最好幾個按鈕就好</li>
+<li>能夠都用指令完成，不需要有任何 UI 介入</li>
+<li>能夠模擬多節點最好</li>
+<li>最好能夠把上述的一切都包成一個腳本，一個命令建置完畢</li>
+</ol>
+<p>接下來我們來看一下四套不同的開源軟體， Kubeadm, Minikube, KIND, K3D 這四套的基本介紹，下一章節我們則會從中挑選一些來進行安裝示範</p>
+<h2 id="Kubeadm"><a href="#Kubeadm" class="headerlink" title="Kubeadm"></a>Kubeadm</h2><p>Kubeadm 是由官方維護的開源專案，我認為是非常簡單的一個測試方式，其本身會透過 systemd 的方式維護 Kubelet 之後再透過 container 的方式叫起 controller&#x2F;scheduler&#x2F;kube-proxy 等 Kubernetes 核心元件。</p>
+<p>使用方面 Kubeadm 本身不算困難使用，可以透過指令列的方式來創建一切所需資源，唯一要注意的是安裝完畢之後還需要人為手動安裝 CNI 的解決方案整個 Kubernetes 才算是安裝完畢。</p>
+<p>Kubeadm 本身也支援架設多節點的叢集，只是在使用上沒有這麼方便，需要先創建 Master 節點，並且產生相對應的 token&#x2F;key，接下來其他節點使用 kubeadm 的指令加入到已經創建的叢集中。</p>
+<p>總體來說， Kubeadm 能夠滿足上述要求，但是實作上會稍嫌麻煩，特別是多節點的情況下還要處理 Token&#x2F;key 的資訊，此外 CNI 的安裝也需要自己處理，但是作為一個單節點的測試環境也算是容易上手且堪用</p>
+<h2 id="Minikube"><a href="#Minikube" class="headerlink" title="Minikube"></a>Minikube</h2><p>Minikube 也是由官方維護的專案，其本身的架構一開始是依賴於 VM (虛擬機器) 來幫使用者創建一個全新測試的 Kubernetes 叢集，任何平台的開發者都可以輕鬆只用，因為背後都會幫你起一個全新的 VM 。當 VM 起來之後，其會透過 kubeadm 的方式幫忙建立與設定 Kubernetes 叢集，並且幫你把 CNI 等指令都安裝完成。</p>
+<p>除了依賴 VM 之外，其也有提供不同底層實作，譬如 <code>none</code> 就可以直接在該機器上透過 kubeadm 來建立，基本上整個架構會變得跟 kubeadm 非常類似，比較大的差異是 CNI 也會一併幫你安裝完成。</p>
+<p>此外 Mnikube 本身也有一些屬於自己的套件，可以把一些功能整包裝進去，對於這個功能我的想法是不好也不壞，不壞的地方在於提供一個環境讓使用者去測試功能，著實方便，不好的地方在於可能會讓使用者以為這些功能都是 Kubernetes 本來就有的，反而會有所誤解，甚至對於其背後使用原理都不太清楚就草草學習完畢。</p>
+<p>總體來說， Minikube 也可以滿足上述的部分要求，多節點的部分可能就會跑起來多個 VM 來建立，消耗的資源會相對多一點。</p>
+<h2 id="KIND"><a href="#KIND" class="headerlink" title="KIND"></a>KIND</h2><p>KIND 的全名是 Kubernetes In Docker，顧名思義就是把 Kubernetes 的節點都用 Docker 的方式叫起來運行，每一個 Docker Container 就是一個 Kubernetes 節點，可以充當 Worker 也可以充當 Master.</p>
+<p>使用方面非常簡單，使用 KIND 的指令搭配一個設定檔案就可以輕鬆地建立起 Kubernetes 叢集，由於全部的操作都是由 KIND 完成，所以要建立多節點的方式也非常簡單，只要設定檔案中描述需要多少節點以及各自什麼身份，接下來就一個指令搞定全部，連 CNI 方面都不需要處理， KIND 會自行搞定</p>
+<p>總體來說， KIND 可以滿足上述所有需求，多節點的部分則是用 Docker 來管理，因此在資源與啟動速度方面都有良好的效果，搭配 Vagrant 的方式就可以輕鬆打包一個多節點的 VM 環境供測試者開發，著實方便。</p>
+<h2 id="K3D"><a href="#K3D" class="headerlink" title="K3D"></a>K3D</h2><p>K3D 是由 Rancher 所開發 K3S 的 Docker 版本， K3S 是一個輕量級的 Kubernetes 平台，本身適合用在一些低運算資源系統上</p>
+<p>而 K3D 直接將 K3S 給移植到 Docker 之中，讓使用者可以更方便的創建一個 K3S 叢集。</p>
+<p>使用方便也是很簡單，整個主要架構都在 <code>k3d</code> 這個執行檔案上面，使用該指令搭配不同的參數就可以快速地建立起多節點的 Kubernetes Cluster，此外也可以透過指令動態增加節點，使用上也是非常方便。</p>
+<p>與KIND一樣， CNI 的部分也會一併被處理，所以使用者真的只需要一個指令就可以處理好所有的事情，總體來說， K3D 可以滿足上述所有要求，優點基本上跟 KIND 完全類似，搭配上 Vagrant 真的可以輕鬆地建立起多節點的模擬環境。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a><br>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/ITHOME/" rel="tag"># ITHOME</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/ithome-20202-cicd-4.html" rel="prev" title="鐵人賽系列文章- Day 4 - Helm 操作範例">
+                  <i class="fa fa-chevron-left"></i> 鐵人賽系列文章- Day 4 - Helm 操作範例
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/docker-network-model-snat.html" rel="next" title="Docker 網路入門篇(三) - 網路存取分析">
+                  Docker 網路入門篇(三) - 網路存取分析 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>
