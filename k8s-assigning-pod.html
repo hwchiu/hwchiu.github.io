@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="探討 Kubernetes 內如何控制 Pod 與節點的分配關係">
+<meta property="og:type" content="article">
+<meta property="og:title" content="解密 Assigning Pod To Nodes(上)">
+<meta property="og:url" content="https://www.hwchiu.com/k8s-assigning-pod.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="探討 Kubernetes 內如何控制 Pod 與節點的分配關係">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://hackmd.io/_uploads/B1ElQ3con.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/HkNWFVjs2.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/Skn-9Vjoh.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/B1VN_Sso2.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/BybhYrosn.png">
+<meta property="article:published_time" content="2023-08-04T20:06:15.000Z">
+<meta property="article:modified_time" content="2023-08-05T14:32:02.266Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://hackmd.io/_uploads/B1ElQ3con.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/k8s-assigning-pod.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/k8s-assigning-pod.html","path":"k8s-assigning-pod.html","title":"解密 Assigning Pod To Nodes(上)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>解密 Assigning Pod To Nodes(上) | Hwchiu Learning Note</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-54006186-1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Preface"><span class="nav-number">1.</span> <span class="nav-text">Preface</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Environment"><span class="nav-number">2.</span> <span class="nav-text">Environment</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#NodeName"><span class="nav-number">3.</span> <span class="nav-text">NodeName</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#NodeSelector"><span class="nav-number">4.</span> <span class="nav-text">NodeSelector</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#NodeAffinity"><span class="nav-number">5.</span> <span class="nav-text">NodeAffinity</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#requiredDuringSchedulingIgnoredDuringExecution"><span class="nav-number">5.1.</span> <span class="nav-text">requiredDuringSchedulingIgnoredDuringExecution</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#preferredDuringSchedulingIgnoredDuringExecution"><span class="nav-number">5.2.</span> <span class="nav-text">preferredDuringSchedulingIgnoredDuringExecution</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">6.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">345</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/k8s-assigning-pod.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="解密 Assigning Pod To Nodes(上) | Hwchiu Learning Note">
+      <meta itemprop="description" content="探討 Kubernetes 內如何控制 Pod 與節點的分配關係">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          解密 Assigning Pod To Nodes(上)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2023-08-05 04:06:15 / Modified: 22:32:02" itemprop="dateCreated datePublished" datetime="2023-08-05T04:06:15+08:00">2023-08-05</time>
+    </span>
+
+  
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+            <div class="post-description">探討 Kubernetes 內如何控制 Pod 與節點的分配關係</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="Preface"><a href="#Preface" class="headerlink" title="Preface"></a>Preface</h1><p>本篇文章要來探討 Kubernetes 中有哪些方式可以用來影響 Pod 與 Node 之間的分配關係。</p>
+<p>由於 Kubernetes 本身可以管理多個節點，而節點本身可以有不同的特性，因此不同情境下可能就會希望將 Pod 給分配到特定的節點，譬如</p>
+<ol>
+<li>CPU&#x2F;Memory </li>
+<li>Disk 大小與速度</li>
+<li>網卡速度</li>
+<li>其他特殊裝置</li>
+</ol>
+<p>除了單純考慮節點能力外，很多時候還會考量到所謂的高可用性，特別是雲端環境下節點還會有所謂的 AZ(Availabilty Zone) 的特性，因此就會有</p>
+<ol>
+<li>希望 Pod 可以均勻分布到不同 Zone</li>
+<li>希望不同服務盡可能部署到同 Zone</li>
+</ol>
+<p>其中(2)的考量是部分業者則是會針對跨 Zone 的流量去收費，因此實務上其實有各式各樣的情境需要來調整分配的方式</p>
+<h1 id="Environment"><a href="#Environment" class="headerlink" title="Environment"></a>Environment</h1><p>接下來所探討的實驗環境都會使用基於 <a target="_blank" rel="noopener" href="https://github.com/kubernetes-sigs/kind?WT.mc_id=AZ-MVP-5003331">KIND 0.18.0</a> 所產生的 K8s v1.26.0，該 K8s 叢集由一個控制節點加上四個工作節點組成。<br>除了基本的 Label 外還額外設定了基於 Zone 的 Label 來模擬環境。</p>
+<p><img src="https://hackmd.io/_uploads/B1ElQ3con.png"></p>
+<h1 id="NodeName"><a href="#NodeName" class="headerlink" title="NodeName"></a>NodeName</h1><p>一般來說 Pod 的調度會經由 Scheduler 決定，並且決定後動態的修改 pod.spec.nodeName 這個欄位，最後就由該節點上的 Kubelet 來部署 Pod。<br>而實際上我們也可以直接設定 pod.spec.nodeName 這個欄位來達到強迫指定節點的方式，這個方式是最直接且最高優先度，會直接跳過 Scheduler 的決策過程，另外如果目標節點不存在，則 Pod 會陷入 Pending 的狀態無法部署</p>
+<p>使用上要特別注意</p>
+<ol>
+<li>如果 K8s 本身有設定 <a target="_blank" rel="noopener" href="https://github.com/kubernetes/autoscaler?WT.mc_id=AZ-MVP-5003331">Cluster AutoScaler</a> 同時產生的節點都是亂數名稱，那使用 nodeName 就會變得非常危險</li>
+<li>使用上非常沒有彈性，因此大部分情況都不會使用這個方式</li>
+</ol>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">nodename-pod</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">nodeName:</span> <span class="string">k8slab-worker</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">server</span></span><br><span class="line">      <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br></pre></td></tr></table></figure>
+
+<p>以上述範例來部署， Pod 會直接被指定到 k8slab-worker 此節點，透過 <code>kubectl describe pod</code> 就不會看到任何跟 scheduler 有關的事件</p>
+<p><img src="https://hackmd.io/_uploads/HkNWFVjs2.png"></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Events:</span><br><span class="line">  Type    Reason   Age   From     Message</span><br><span class="line">  ----    ------   ----  ----     -------</span><br><span class="line">  Normal  Pulling  90s   kubelet  Pulling image <span class="string">&quot;hwchiu/netutils&quot;</span></span><br><span class="line">  Normal  Pulled   88s   kubelet  Successfully pulled image <span class="string">&quot;hwchiu/netutils&quot;</span> <span class="keyword">in</span> 1.582945894s (1.582973894s including waiting)</span><br><span class="line">  Normal  Created  88s   kubelet  Created container server</span><br><span class="line">  Normal  Started  88s   kubelet  Started container server</span><br></pre></td></tr></table></figure>
+
+
+
+<h1 id="NodeSelector"><a href="#NodeSelector" class="headerlink" title="NodeSelector"></a>NodeSelector</h1><p>相較於 NodeName 簡單直接的用法， NodeSelector 則是基於 Node Label 的策略提供非常簡單的選擇策略，</p>
+<p>使用方式非常簡單，針對 pod.spec.nodeSelector 去設定目標 label，則 Schedule 就會基於此設定去過濾掉所有不符合的節點。</p>
+<p>舉例來說，我們可以使用 <code>kind.zone: zone1</code> 這個節點當範例，這種情況下所有 <code>kind-worker</code> 以及 <code>kind-worker2</code> 就會是最終節點的候選人</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">node-selector</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">10</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">nodeSelector</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">nodeSelector</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">www-server</span></span><br><span class="line">          <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br><span class="line">      <span class="attr">nodeSelector:</span></span><br><span class="line">        <span class="attr">kind.zone:</span> <span class="string">zone1</span></span><br></pre></td></tr></table></figure>
+
+<p>以上述 10 個 Pod 為範例去部署，可以觀察到這 10 個 Pod 都會座落於 <code>kind.zone: zone1</code> 這個區間</p>
+<p><img src="https://hackmd.io/_uploads/Skn-9Vjoh.png"></p>
+<p>要特別注意的是 NodeSelector 的條件是必須符合的，因此若找不到任何符合該需求的節點，則 Pod 就無法順利運行，會卡在 Pending 的狀態</p>
+<h1 id="NodeAffinity"><a href="#NodeAffinity" class="headerlink" title="NodeAffinity"></a>NodeAffinity</h1><p>Node Affinity 可以視為 NodeSelector 的加強版，一樣是基於 Node Label 來選擇節點但是提供更細部的操作，除了兩種不同的選擇策略外，對於 Label 的決策方式也更加彈性，不是單純的 “Equal” 去比較而已。</p>
+<p>目前其提供兩種選擇策略，分別是<code>requiredDuringSchedulingIgnoredDuringExecution</code> 以及 <code>preferredDuringSchedulingIgnoredDuringExecution</code>.</p>
+<p>requiredDuringSchedulingIgnoredDuringExecution 的概念與原先的 <code>NodeSelector</code> 類似，是個硬性條件，若沒有任何節點符合條件則 Pod 就會處於 Pending 狀態。</p>
+<p>preferredDuringSchedulingIgnoredDuringExecution 則是相較於彈性，就是盡量滿足即可，若沒有滿足則就按照本來 Scheduling 的方式去處理</p>
+<p>此外，由於這類型的操作都跟 Node Label 有關係，因此勢必會有人好奇若動態調整 Node Label 會影響當前運行的 Pod 嗎？<br>因此 <code>IgnoredDuringExecution</code> 這個含意就是字面上的意思，這些決策都會忽略執行期間的 Label 變動，一旦 Pod 被選定指派後，Scheduler 就不會去干涉了。</p>
+<h2 id="requiredDuringSchedulingIgnoredDuringExecution"><a href="#requiredDuringSchedulingIgnoredDuringExecution" class="headerlink" title="requiredDuringSchedulingIgnoredDuringExecution"></a>requiredDuringSchedulingIgnoredDuringExecution</h2><p>所有不熟悉的欄位都建議透過 <code>kubectl explain</code> 來閱讀一下其概念及用法，以下述範例可以觀察到</p>
+<ol>
+<li><code>requiredDuringSchedulingIgnoredDuringExecution</code> 底下要使用 <code>nodeSelectorTerms</code> 以 list 的形式去描述符合的節點資訊，若描述多個資訊則彼此的運算關係為 “OR”，這意味節點只要有符合其中一個關係，就可以被 Scheduler 給納入考慮。<br>2<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">kubectl explain pod.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution</span></span><br><span class="line">KIND:     Pod</span><br><span class="line">VERSION:  v1</span><br><span class="line"></span><br><span class="line">RESOURCE: requiredDuringSchedulingIgnoredDuringExecution &lt;Object&gt;</span><br><span class="line"></span><br><span class="line">DESCRIPTION:</span><br><span class="line">     If the affinity requirements specified by this field are not met at</span><br><span class="line">     scheduling time, the pod will not be scheduled onto the node. If the</span><br><span class="line">     affinity requirements specified by this field cease to be met at some point</span><br><span class="line">     during pod execution (e.g. due to an update), the system may or may not try</span><br><span class="line">     to eventually evict the pod from its node.</span><br><span class="line"></span><br><span class="line">     A node selector represents the union of the results of one or more label</span><br><span class="line">     queries over a set of nodes; that is, it represents the OR of the selectors</span><br><span class="line">     represented by the node selector terms.</span><br><span class="line"></span><br><span class="line">FIELDS:</span><br><span class="line">   nodeSelectorTerms    &lt;[]Object&gt; -required-</span><br><span class="line">     Required. A list of node selector terms. The terms are ORed.</span><br></pre></td></tr></table></figure></li>
+</ol>
+<p>繼續往下看可以看到</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl explain pod.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms</span><br><span class="line">KIND:     Pod</span><br><span class="line">VERSION:  v1</span><br><span class="line"></span><br><span class="line">RESOURCE: nodeSelectorTerms &lt;[]Object&gt;</span><br><span class="line"></span><br><span class="line">DESCRIPTION:</span><br><span class="line">     Required. A list of node selector terms. The terms are ORed.</span><br><span class="line"></span><br><span class="line">     A null or empty node selector term matches no objects. The requirements of</span><br><span class="line">     them are ANDed. The TopologySelectorTerm <span class="built_in">type</span> implements a subset of the</span><br><span class="line">     NodeSelectorTerm.</span><br><span class="line"></span><br><span class="line">FIELDS:</span><br><span class="line">   matchExpressions     &lt;[]Object&gt;</span><br><span class="line">     A list of node selector requirements by node<span class="string">&#x27;s labels.</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">   matchFields  &lt;[]Object&gt;</span></span><br><span class="line"><span class="string">     A list of node selector requirements by node&#x27;</span>s fields.</span><br></pre></td></tr></table></figure>
+
+<p>nodeSelectorTerms 本身支援兩種格式，分別是 Node Labels 以及 Node Fields，所以 API 層面上不單純只有 labels 可以使用。</p>
+<p>這邊繼續往下看一下 matchExpressions 的介紹與用法</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">kubectl explain pod.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms.matchExpressions</span></span><br><span class="line">KIND:     Pod</span><br><span class="line">VERSION:  v1</span><br><span class="line"></span><br><span class="line">RESOURCE: matchExpressions &lt;[]Object&gt;</span><br><span class="line"></span><br><span class="line">DESCRIPTION:</span><br><span class="line">     A list of node selector requirements by node&#x27;s labels.</span><br><span class="line"></span><br><span class="line">     A node selector requirement is a selector that contains values, a key, and</span><br><span class="line">     an operator that relates the key and values.</span><br><span class="line"></span><br><span class="line">FIELDS:</span><br><span class="line">   key  &lt;string&gt; -required-</span><br><span class="line">     The label key that the selector applies to.</span><br><span class="line"></span><br><span class="line">   operator     &lt;string&gt; -required-</span><br><span class="line">     Represents a key&#x27;s relationship to a set of values. Valid operators are In,</span><br><span class="line">     NotIn, Exists, DoesNotExist. Gt, and Lt.</span><br><span class="line"></span><br><span class="line">     Possible enum values:</span><br><span class="line">     - `&quot;DoesNotExist&quot;`</span><br><span class="line">     - `&quot;Exists&quot;`</span><br><span class="line">     - `&quot;Gt&quot;`</span><br><span class="line">     - `&quot;In&quot;`</span><br><span class="line">     - `&quot;Lt&quot;`</span><br><span class="line">     - `&quot;NotIn&quot;`</span><br><span class="line"></span><br><span class="line">   values       &lt;[]string&gt;</span><br><span class="line">     An array of string values. If the operator is In or NotIn, the values array</span><br><span class="line">     must be non-empty. If the operator is Exists or DoesNotExist, the values</span><br><span class="line">     array must be empty. If the operator is Gt or Lt, the values array must</span><br><span class="line">     have a single element, which will be interpreted as an integer. This array</span><br><span class="line">     is replaced during a strategic merge patch.</span><br></pre></td></tr></table></figure>
+
+<p>這邊可以看到 <code>matchExpressions</code> 底下會使用</p>
+<ol>
+<li>Key (Label Key)</li>
+<li>Operator</li>
+<li>Value (Label Value)</li>
+</ol>
+<p>三個欄位來幫你判斷節點是否符合條件，相較於 NodeSelector 來說，這邊的條件更多元，譬如 <code>Exists, NotIn, Gt</code> 等，請參閱 <a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#operators">Operator</a> 來學習更多 Operator 彼此的定義</p>
+<p>以下範例是必須要將 Pod 給部署到所有含有 <code>kind.zone</code> Label 的節點</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">node-affinity-1</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">10</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">node-affinity-1</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">node-affinity-1</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">www-server</span></span><br><span class="line">          <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br><span class="line">      <span class="attr">affinity:</span></span><br><span class="line">        <span class="attr">nodeAffinity:</span></span><br><span class="line">          <span class="attr">requiredDuringSchedulingIgnoredDuringExecution:</span></span><br><span class="line">            <span class="attr">nodeSelectorTerms:</span></span><br><span class="line">              <span class="bullet">-</span> <span class="attr">matchExpressions:</span></span><br><span class="line">                  <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">kind.zone</span></span><br><span class="line">                    <span class="attr">operator:</span> <span class="string">Exists</span></span><br><span class="line">                    <span class="attr">values:</span> []</span><br><span class="line"><span class="string">```</span>    </span><br><span class="line"></span><br><span class="line"><span class="string">部署完畢的結果如下，四個節點都有</span> <span class="string">`kind.zone`</span> <span class="string">此</span> <span class="string">key，所以都符合需求。</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="type">![](https://hackmd.io/_uploads/HyAffrsj3.png)</span></span><br><span class="line"></span><br><span class="line"><span class="string">由於</span> <span class="string">nodeSelectorTerms</span> <span class="string">底下的結果是採取</span> <span class="string">OR</span> <span class="string">運算，因此下列</span> <span class="string">YAML</span> <span class="string">則透過</span> <span class="string">OR</span> <span class="string">的概念去比對多個結果，可以得到跟前述類似的部署結果。</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>apiVersion: apps&#x2F;v1<br>kind: Deployment<br>metadata:<br>  name: node-affinity-2<br>spec:<br>  replicas: 10<br>  selector:<br>    matchLabels:<br>      app: node-affinity-2<br>  template:<br>    metadata:<br>      labels:<br>        app: node-affinity-2<br>    spec:<br>      containers:<br>        - name: www-server<br>          image: hwchiu&#x2F;netutils<br>      affinity:<br>        nodeAffinity:<br>          requiredDuringSchedulingIgnoredDuringExecution:<br>            nodeSelectorTerms:<br>              - matchExpressions:<br>                  - key: kind.zone<br>                    operator: In<br>                    values:<br>                      - zone1<br>              - matchExpressions:<br>                  - key: kind.zone<br>                    operator: In<br>                    values:<br>                      - zone2</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">其他注意事項</span><br><span class="line">1. 如果今天想要達到的是反親和力的操作，想要讓 Pod 遠離某些節點，那就要仰賴 NotIn, DoesNotExist 等運算元來反向操作，同時若</span><br><span class="line">2. 可與 NodeSelector 同時使用，但是使用時就會兩邊條件都要滿足</span><br><span class="line">3. MatchExpressions 底下若有多組 (key/operator/value) 的條件，這些條件彼此則是 AND 的結果</span><br><span class="line"></span><br><span class="line">舉例來說，下列寫法就要求節點同時要擁有 `kind.zone=Zone1` 以及 `kind.zone=Zone2`，而測試環境內沒有任何節點可以滿足，因此所有 Pod 都會處於 Pending 狀態</span><br><span class="line">```yaml=</span><br><span class="line">apiVersion: apps/v1</span><br><span class="line">kind: Deployment</span><br><span class="line">metadata:</span><br><span class="line">  name: node-affinity-3</span><br><span class="line">spec:</span><br><span class="line">  replicas: 10</span><br><span class="line">  selector:</span><br><span class="line">    matchLabels:</span><br><span class="line">      app: node-affinity-3</span><br><span class="line">  template:</span><br><span class="line">    metadata:</span><br><span class="line">      labels:</span><br><span class="line">        app: node-affinity-3</span><br><span class="line">    spec:</span><br><span class="line">      containers:</span><br><span class="line">        - name: www-server</span><br><span class="line">          image: hwchiu/netutils</span><br><span class="line">      affinity:</span><br><span class="line">        nodeAffinity:</span><br><span class="line">          requiredDuringSchedulingIgnoredDuringExecution:</span><br><span class="line">            nodeSelectorTerms:</span><br><span class="line">              - matchExpressions:</span><br><span class="line">                  - key: kind.zone</span><br><span class="line">                    operator: In</span><br><span class="line">                    values:</span><br><span class="line">                      - zone1</span><br><span class="line">                  - key: kind.zone</span><br><span class="line">                    operator: In</span><br><span class="line">                    values:</span><br><span class="line">                      - zone2</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl get pods</span><br><span class="line">NAME                               READY   STATUS    RESTARTS   AGE</span><br><span class="line">node-affinity-3-7c5574dd67-7spjw   0/1     Pending   0          71s</span><br><span class="line">node-affinity-3-7c5574dd67-98pbj   0/1     Pending   0          71s</span><br><span class="line">node-affinity-3-7c5574dd67-9bgfr   0/1     Pending   0          71s</span><br><span class="line">node-affinity-3-7c5574dd67-b9bs4   0/1     Pending   0          71s</span><br><span class="line">node-affinity-3-7c5574dd67-bqm8m   0/1     Pending   0          71s</span><br><span class="line">node-affinity-3-7c5574dd67-glmkx   0/1     Pending   0          71s</span><br><span class="line">node-affinity-3-7c5574dd67-hcmgp   0/1     Pending   0          71s</span><br><span class="line">node-affinity-3-7c5574dd67-l45bv   0/1     Pending   0          71s</span><br><span class="line">node-affinity-3-7c5574dd67-mn7js   0/1     Pending   0          71s</span><br><span class="line">node-affinity-3-7c5574dd67-th2pd   0/1     Pending   0          71s</span><br></pre></td></tr></table></figure>
+
+
+<h2 id="preferredDuringSchedulingIgnoredDuringExecution"><a href="#preferredDuringSchedulingIgnoredDuringExecution" class="headerlink" title="preferredDuringSchedulingIgnoredDuringExecution"></a>preferredDuringSchedulingIgnoredDuringExecution</h2><p>相對於 <code>requiredDuringSchedulingIgnoreDuringExecution</code>， <code>preferred</code> 的版本則是一個偏好的設定，如果有符合就以符合為主，沒有的話也沒關係，因此除非遇到 Taint 或是節點資源不足，不然大部分情況下就不會遇到 Pending 卡住的情況。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_">$ </span><span class="language-bash">kubectl explain pod.spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution</span></span><br><span class="line">KIND:     Pod</span><br><span class="line">VERSION:  v1</span><br><span class="line"></span><br><span class="line">RESOURCE: preferredDuringSchedulingIgnoredDuringExecution &lt;[]Object&gt;</span><br><span class="line"></span><br><span class="line">DESCRIPTION:</span><br><span class="line">     The scheduler will prefer to schedule pods to nodes that satisfy the</span><br><span class="line">     affinity expressions specified by this field, but it may choose a node that</span><br><span class="line">     violates one or more of the expressions. The node that is most preferred is</span><br><span class="line">     the one with the greatest sum of weights, i.e. for each node that meets all</span><br><span class="line">     of the scheduling requirements (resource request, requiredDuringScheduling</span><br><span class="line">     affinity expressions, etc.), compute a sum by iterating through the</span><br><span class="line">     elements of this field and adding &quot;weight&quot; to the sum if the node matches</span><br><span class="line">     the corresponding matchExpressions; the node(s) with the highest sum are</span><br><span class="line">     the most preferred.</span><br><span class="line"></span><br><span class="line">     An empty preferred scheduling term matches all objects with implicit weight</span><br><span class="line">     0 (i.e. it&#x27;s a no-op). A null preferred scheduling term matches no objects</span><br><span class="line">     (i.e. is also a no-op).</span><br><span class="line"></span><br><span class="line">FIELDS:</span><br><span class="line">   preference   &lt;Object&gt; -required-</span><br><span class="line">     A node selector term, associated with the corresponding weight.</span><br><span class="line"></span><br><span class="line">   weight       &lt;integer&gt; -required-</span><br><span class="line">     Weight associated with matching the corresponding nodeSelectorTerm, in the</span><br><span class="line">     range 1-100.</span><br></pre></td></tr></table></figure>
+<p>這邊可以觀察到 preferred 本身透過的是 prefernce 這個欄位來描述 node selector term，同時因為 preference 本身是偏好而非硬性部署，所以還多了 <code>weight</code> 權重的概念，可以讓你透過權重調整 Pod 的分配情況    </p>
+<p>下述範例則使用兩個不同的規則並且給予不同權重，能的話盡量將 Pod 部署到含有 <code>kind.zone:zone2</code> 的節點上</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">node-affinity-4</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">10</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">node-affinity-4</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">node-affinity-4</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">www-server</span></span><br><span class="line">          <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br><span class="line">      <span class="attr">affinity:</span></span><br><span class="line">        <span class="attr">nodeAffinity:</span></span><br><span class="line">          <span class="attr">preferredDuringSchedulingIgnoredDuringExecution:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">weight:</span> <span class="number">1</span></span><br><span class="line">              <span class="attr">preference:</span></span><br><span class="line">                <span class="attr">matchExpressions:</span></span><br><span class="line">                  <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">kind.zone</span></span><br><span class="line">                    <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">                    <span class="attr">values:</span></span><br><span class="line">                      <span class="bullet">-</span> <span class="string">zone1</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">weight:</span> <span class="number">4</span></span><br><span class="line">              <span class="attr">preference:</span></span><br><span class="line">                <span class="attr">matchExpressions:</span></span><br><span class="line">                  <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">kind.zone</span></span><br><span class="line">                    <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">                    <span class="attr">values:</span></span><br><span class="line">                      <span class="bullet">-</span> <span class="string">zone2</span></span><br></pre></td></tr></table></figure>
+
+<p>部署結果如下圖，大部分都座落於 worker3&#x2F;worker4，與預期符合<br><img src="https://hackmd.io/_uploads/B1VN_Sso2.png"></p>
+<p><code>Required</code> 跟 <code>Preferred</code> 兩者是可以互相疊加的，譬如可以透過下列 YAML 達成</p>
+<ol>
+<li>服務只能部署到含有 <code>kind.zone: zone1</code> 的節點</li>
+<li>若節點名稱為 <code>k8slab-worker2</code>，則給予更大權重</li>
+</ol>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">node-affinity-5</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">10</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">node-affinity-5</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">node-affinity-5</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">www-server</span></span><br><span class="line">          <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br><span class="line">      <span class="attr">affinity:</span></span><br><span class="line">        <span class="attr">nodeAffinity:</span></span><br><span class="line">          <span class="attr">requiredDuringSchedulingIgnoredDuringExecution:</span></span><br><span class="line">            <span class="attr">nodeSelectorTerms:</span></span><br><span class="line">              <span class="bullet">-</span> <span class="attr">matchExpressions:</span></span><br><span class="line">                  <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">kind.zone</span></span><br><span class="line">                    <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">                    <span class="attr">values:</span></span><br><span class="line">                      <span class="bullet">-</span> <span class="string">zone1</span></span><br><span class="line">          <span class="attr">preferredDuringSchedulingIgnoredDuringExecution:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">weight:</span> <span class="number">4</span></span><br><span class="line">              <span class="attr">preference:</span></span><br><span class="line">                <span class="attr">matchExpressions:</span></span><br><span class="line">                  <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">kubernetes.io/hostname</span></span><br><span class="line">                    <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">                    <span class="attr">values:</span></span><br><span class="line">                      <span class="bullet">-</span> <span class="string">k8slab-worker2</span></span><br></pre></td></tr></table></figure>
+
+<p><img src="https://hackmd.io/_uploads/BybhYrosn.png"></p>
+<p>為了避免文章過長，因此本篇文章先探討到 NodeAffinity，而下篇文章會繼續從<br>Inter-Pod Affinity 以及 Pod TopologySpreadConstraints</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>詳細可以參閱<br>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/python-yaml.html" rel="prev" title="ruamel.yaml 小筆記">
+                  <i class="fa fa-chevron-left"></i> ruamel.yaml 小筆記
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>
