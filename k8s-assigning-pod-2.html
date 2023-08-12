@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: dark)"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":true,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="探討 Kubernetes 內如何控制 Pod 與節點的分配關係">
+<meta property="og:type" content="article">
+<meta property="og:title" content="解密 Assigning Pod To Nodes(下)">
+<meta property="og:url" content="https://www.hwchiu.com/k8s-assigning-pod-2.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="探討 Kubernetes 內如何控制 Pod 與節點的分配關係">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://hackmd.io/_uploads/BJ5XNkE33.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/BkD4V1Vhn.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/HykSNkNnh.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/HJVMwDEh3.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/Bk8bwwVnh.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/Byx8vPEn3.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/BJ1n2_4n2.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/rJrPpdN3n.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/r1OipdN22.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/SkZ1JtEn2.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/HkKllKE23.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/r1DebtNhh.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/SJzbWt432.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/HkJzWtVn3.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/SkWAL7S33.png">
+<meta property="article:published_time" content="2023-08-12T17:52:57.000Z">
+<meta property="article:modified_time" content="2023-08-12T17:55:05.539Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://hackmd.io/_uploads/BJ5XNkE33.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/k8s-assigning-pod-2.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/k8s-assigning-pod-2.html","path":"k8s-assigning-pod-2.html","title":"解密 Assigning Pod To Nodes(下)"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>解密 Assigning Pod To Nodes(下) | Hwchiu Learning Note</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-54006186-1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Inter-Pod-Anti-Affinity"><span class="nav-number">1.</span> <span class="nav-text">Inter-Pod (Anti)Affinity</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Anti-Affinity"><span class="nav-number">1.1.</span> <span class="nav-text">Anti-Affinity</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Affinity"><span class="nav-number">1.2.</span> <span class="nav-text">Affinity</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#PodTopologySpread"><span class="nav-number">2.</span> <span class="nav-text">PodTopologySpread</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">3.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">4.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">346</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/k8s-assigning-pod-2.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="解密 Assigning Pod To Nodes(下) | Hwchiu Learning Note">
+      <meta itemprop="description" content="探討 Kubernetes 內如何控制 Pod 與節點的分配關係">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          解密 Assigning Pod To Nodes(下)
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2023-08-13 01:52:57 / Modified: 01:55:05" itemprop="dateCreated datePublished" datetime="2023-08-13T01:52:57+08:00">2023-08-13</time>
+    </span>
+
+  
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+            <div class="post-description">探討 Kubernetes 內如何控制 Pod 與節點的分配關係</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>本篇文章要來探討 Kubernetes 中有哪些方式可以用來影響 Pod 與 Node 之間的分配關係。</p>
+<p>對環境與前述章節不熟的請先前往閱讀前篇文章 <a href="https://www.hwchiu.com/k8s-assigning-pod.html">解密 Assigning Pod To Nodes(上)</a></p>
+<h1 id="Inter-Pod-Anti-Affinity"><a href="#Inter-Pod-Anti-Affinity" class="headerlink" title="Inter-Pod (Anti)Affinity"></a>Inter-Pod (Anti)Affinity</h1><p>Inter-Pod Affinity 與 Anti-Affinity 讓使用者根據已在節點上運行的 Pod 的標籤而非 Node 本身的標籤來限制 Pod 可以被調度到哪些節點上。</p>
+<p>所以比較對方已經不單單是 Node 而是 Pod 的標籤。</p>
+<p>而實作上更為精準的說法，其判斷與調度的目標對象並不是節點，而是一個分群後的結果</p>
+<p>舉例來說，我們可以有下列不同的分群結果</p>
+<p><img src="https://hackmd.io/_uploads/BJ5XNkE33.png"><br><img src="https://hackmd.io/_uploads/BkD4V1Vhn.png"><br><img src="https://hackmd.io/_uploads/HykSNkNnh.png"></p>
+<p>分群的方式則是透過 Node 上的 label，透過 key&#x2F;value 的形式將相同 value 的節點給歸類為同一群體，而 Key 的選擇則是透過 “topologyKey” 這個欄位來設定</p>
+<p>舉例來說，如果今天設定<br>topologyKey &#x3D; <code>kubernetes.io/hostname</code>，則就會基於節點的 hostname 來分群，那因為沒有節點有一樣的名稱，所以四個節點就會自動分成四群，如上圖一<br>但是若採用<br>topologyKey &#x3D; <code>kind.zone</code>，則就會基於 <code>kind.zone</code> 的方式去分群，所以分群的結果就會如同上圖二所示，最後分成兩群。</p>
+<p>因此使用 Inter-Pod (Anti)Affinity 時還要先考慮如何將節點分群，常見的方法有</p>
+<ol>
+<li>以節點的名稱分群</li>
+<li>以Zone的分群，特別是雲端環境中希望服務可以部署到不同的 Zone 來達到高可用性。</li>
+</ol>
+<p>這邊要注意的是，官網有提到若有部分節點沒有 <code>topoologyKey</code> 所描述的 Key 那可能會造成些非預期的行為，因此一定要確保所有節點都有對應的 Label key。</p>
+<p>與 NodeAffinity 相似， Inter-Pod Affinity 也提供基於 “Required” 與 “Preferred” 兩種不同的選擇策略，因此設定上的邏輯與格式幾乎完全雷同，幾個唯一的差異是</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl explain pod.spec.affinity.podAffinity.requiredDuringSchedulingIgnoredDuringExecution</span><br><span class="line">KIND:     Pod</span><br><span class="line">VERSION:  v1</span><br><span class="line"></span><br><span class="line">RESOURCE: requiredDuringSchedulingIgnoredDuringExecution &lt;[]Object&gt;</span><br><span class="line"></span><br><span class="line">DESCRIPTION:</span><br><span class="line">     If the affinity requirements specified by this field are not met at</span><br><span class="line">     scheduling time, the pod will not be scheduled onto the node. If the</span><br><span class="line">     affinity requirements specified by this field cease to be met at some point</span><br><span class="line">     during pod execution (e.g. due to a pod label update), the system may or</span><br><span class="line">     may not try to eventually evict the pod from its node. When there are</span><br><span class="line">     multiple elements, the lists of nodes corresponding to each podAffinityTerm</span><br><span class="line">     are intersected, i.e. all terms must be satisfied.</span><br><span class="line"></span><br><span class="line">     Defines a <span class="built_in">set</span> of pods (namely those matching the labelSelector relative to</span><br><span class="line">     the given namespace(s)) that this pod should be co-located (affinity) or</span><br><span class="line">     not co-located (anti-affinity) with, <span class="built_in">where</span> co-located is defined as running</span><br><span class="line">     on a node whose value of the label with key &lt;topologyKey&gt; matches that of</span><br><span class="line">     any node on <span class="built_in">which</span> a pod of the <span class="built_in">set</span> of pods is running</span><br><span class="line"></span><br><span class="line">FIELDS:</span><br><span class="line">   labelSelector        &lt;Object&gt;</span><br><span class="line">     A label query over a <span class="built_in">set</span> of resources, <span class="keyword">in</span> this <span class="keyword">case</span> pods.</span><br><span class="line"></span><br><span class="line">   namespaceSelector    &lt;Object&gt;</span><br><span class="line">     A label query over the <span class="built_in">set</span> of namespaces that the term applies to. The term</span><br><span class="line">     is applied to the union of the namespaces selected by this field and the</span><br><span class="line">     ones listed <span class="keyword">in</span> the namespaces field. null selector and null or empty</span><br><span class="line">     namespaces list means <span class="string">&quot;this pod&#x27;s namespace&quot;</span>. An empty selector (&#123;&#125;)</span><br><span class="line">     matches all namespaces.</span><br><span class="line"></span><br><span class="line">   namespaces   &lt;[]string&gt;</span><br><span class="line">     namespaces specifies a static list of namespace names that the term applies</span><br><span class="line">     to. The term is applied to the union of the namespaces listed <span class="keyword">in</span> this field</span><br><span class="line">     and the ones selected by namespaceSelector. null or empty namespaces list</span><br><span class="line">     and null namespaceSelector means <span class="string">&quot;this pod&#x27;s namespace&quot;</span>.</span><br><span class="line"></span><br><span class="line">   topologyKey  &lt;string&gt; -required-</span><br><span class="line">     This pod should be co-located (affinity) or not co-located (anti-affinity)</span><br><span class="line">     with the pods matching the labelSelector <span class="keyword">in</span> the specified namespaces, <span class="built_in">where</span></span><br><span class="line">     co-located is defined as running on a node whose value of the label with</span><br><span class="line">     key topologyKey matches that of any node on <span class="built_in">which</span> any of the selected pods</span><br><span class="line">     is running. Empty topologyKey is not allowed.</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl explain pod.spec.affinity.podAffinity.preferredDuringSchedulingIgnoredDuringExecution.podAffinityTerm</span><br><span class="line">KIND:     Pod</span><br><span class="line">VERSION:  v1</span><br><span class="line"></span><br><span class="line">RESOURCE: podAffinityTerm &lt;Object&gt;</span><br><span class="line"></span><br><span class="line">DESCRIPTION:</span><br><span class="line">     Required. A pod affinity term, associated with the corresponding weight.</span><br><span class="line"></span><br><span class="line">     Defines a <span class="built_in">set</span> of pods (namely those matching the labelSelector relative to</span><br><span class="line">     the given namespace(s)) that this pod should be co-located (affinity) or</span><br><span class="line">     not co-located (anti-affinity) with, <span class="built_in">where</span> co-located is defined as running</span><br><span class="line">     on a node whose value of the label with key &lt;topologyKey&gt; matches that of</span><br><span class="line">     any node on <span class="built_in">which</span> a pod of the <span class="built_in">set</span> of pods is running</span><br><span class="line"></span><br><span class="line">FIELDS:</span><br><span class="line">   labelSelector        &lt;Object&gt;</span><br><span class="line">     A label query over a <span class="built_in">set</span> of resources, <span class="keyword">in</span> this <span class="keyword">case</span> pods.</span><br><span class="line"></span><br><span class="line">   namespaceSelector    &lt;Object&gt;</span><br><span class="line">     A label query over the <span class="built_in">set</span> of namespaces that the term applies to. The term</span><br><span class="line">     is applied to the union of the namespaces selected by this field and the</span><br><span class="line">     ones listed <span class="keyword">in</span> the namespaces field. null selector and null or empty</span><br><span class="line">     namespaces list means <span class="string">&quot;this pod&#x27;s namespace&quot;</span>. An empty selector (&#123;&#125;)</span><br><span class="line">     matches all namespaces.</span><br><span class="line"></span><br><span class="line">   namespaces   &lt;[]string&gt;</span><br><span class="line">     namespaces specifies a static list of namespace names that the term applies</span><br><span class="line">     to. The term is applied to the union of the namespaces listed <span class="keyword">in</span> this field</span><br><span class="line">     and the ones selected by namespaceSelector. null or empty namespaces list</span><br><span class="line">     and null namespaceSelector means <span class="string">&quot;this pod&#x27;s namespace&quot;</span>.</span><br><span class="line"></span><br><span class="line">   topologyKey  &lt;string&gt; -required-</span><br><span class="line">     This pod should be co-located (affinity) or not co-located (anti-affinity)</span><br><span class="line">     with the pods matching the labelSelector <span class="keyword">in</span> the specified namespaces, <span class="built_in">where</span></span><br><span class="line">     co-located is defined as running on a node whose value of the label with</span><br><span class="line">     key topologyKey matches that of any node on <span class="built_in">which</span> any of the selected pods</span><br><span class="line">     is running. Empty topologyKey is not allowed.</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li>需要透過 <code>topologyKey</code> 來指定如何分群節點</li>
+<li>由於決策是基於 Pod 的 Label 來決定，而 Pod 本身實際上是有 namespace 的概念的，預設情況下只會比較相同 namespace 的 Pod，如果有特別需求的時候還要使用 namespaceSelector 或是 namespace 來選定目標 namespace，則這些 namespace 上的所有 Pod 都會被納入考量</li>
+</ol>
+<p>此外 Anti-Affinity 與 Affinity 實作上有一些關於對稱性的差異，詳細來源為<a target="_blank" rel="noopener" href="https://github.com/kubernetes/design-proposals-archive/blob/main/scheduling/podaffinity.md#a-comment-on-symmetry?WT.mc_id=AZ-MVP-5003331">官方設計文件</a></p>
+<p>對 Anti-Affinity 來說，若服務 A 不想要與服務 B 被調度一起，則隱含服務 B 也不想要跟服務A 一起，但是對 Affinity 來說則沒有這種對稱性，所以兩者部署的演算法有些許不同，以下節錄自<a target="_blank" rel="noopener" href="https://github.com/kubernetes/design-proposals-archive/blob/main/scheduling/podaffinity.md#a-comment-on-symmetry?WT.mc_id=AZ-MVP-5003331">官方設計文件</a></p>
+<p>Anti-Affinity</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">if S1 has the aforementioned RequiredDuringScheduling anti-affinity rule</span><br><span class="line">    if a node is empty, you can schedule S1 or S2 onto the node</span><br><span class="line">    if a node is running S1 (S2), you cannot schedule S2 (S1) onto the node</span><br></pre></td></tr></table></figure>
+<p>這意味如果今天有服務 A 透過 Anti-Affinity 去限制與 B 的調度情況，則部署服務 A 或是服務 B 都會去檢查是否有違反規則，沒有的話則隨意部署。</p>
+<p>Affintiy</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">if S1 has the aforementioned RequiredDuringScheduling affinity rule</span><br><span class="line">    if a node is empty, you can schedule S2 onto the node</span><br><span class="line">    if a node is empty, you cannot schedule S1 onto the node</span><br><span class="line">    if a node is running S2, you can schedule S1 onto the node</span><br><span class="line">    if a node is running S1+S2 and S1 terminates, S2 continues running</span><br><span class="line">    if a node is running S1+S2 and S2 terminates, the system terminates S1 (eventually)</span><br></pre></td></tr></table></figure>
+<p>相同範例來看，服務 A 透過 Affinity 去要求與服務 B 一起的調度情況，根據第二條規則，若服務 B 不存在，則服務 A 會卡住不能調度，處於 Pending 狀況。</p>
+<h2 id="Anti-Affinity"><a href="#Anti-Affinity" class="headerlink" title="Anti-Affinity"></a>Anti-Affinity</h2><p>第一個範例嘗試透過 <code>required</code> 來限制部署情況，而參照對象為自己</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">pod-affinity-1</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">3</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">pod-affinity-1</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">pod-affinity-1</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">www-server</span></span><br><span class="line">          <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br><span class="line">      <span class="attr">affinity:</span></span><br><span class="line">        <span class="attr">podAntiAffinity:</span></span><br><span class="line">          <span class="attr">requiredDuringSchedulingIgnoredDuringExecution:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">labelSelector:</span></span><br><span class="line">              <span class="attr">matchExpressions:</span></span><br><span class="line">              <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">app</span></span><br><span class="line">                <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">                <span class="attr">values:</span></span><br><span class="line">                <span class="bullet">-</span> <span class="string">pod-affinity-1</span></span><br><span class="line">            <span class="attr">topologyKey:</span> <span class="string">&quot;kind.zone&quot;</span></span><br></pre></td></tr></table></figure>
+
+<ol>
+<li>基於 <code>kind.zone</code> 作為 TopologyKey </li>
+<li>使用 <code>AntiAffinity</code> 配上 Required，要求同 ToplogyKey 中彼此不能出現第二個 Pod</li>
+<li>部署三個副本</li>
+</ol>
+<p>根據前述對稱性所描述的規則，若當下環境沒有任何符合規則的 Pod，則可以隨意部署，所以第一個 Pod 可以順利部署。</p>
+<p><img src="https://hackmd.io/_uploads/HJVMwDEh3.png"></p>
+<p>第二個 Pod 部署的時候就會觀察到 Pod1 已經把左邊給佔據了，因此只剩下右邊該群可用</p>
+<p><img src="https://hackmd.io/_uploads/Bk8bwwVnh.png"></p>
+<p>第三個 Pod 部署的時候因為兩個群上面都已經有 Pod 正在運行，而環境中沒有任何其他符合條件的節點可以用，因此最終就會卡到 Pending.</p>
+<p><img src="https://hackmd.io/_uploads/Byx8vPEn3.png"></p>
+<p>由結果可以觀察根據 <code>TopologyKey=kind.zone</code> 來分類，叢集中只能分到兩群，而第三個 Pod 則會因為 AntiAffinity + Required 的效果因此沒有辦法被部署，所以這種使用方法就要特別注意副本數量與分群數量，特別是當透過 HPA 來動態調整副本時更容易出錯。</p>
+<p>若將 <code>Rqeuired</code> 改成 <code>Prefer</code> 的概念的話，則可以達到一樣將 Pod 給分散同時又不會出現 Pending 的狀況，因為此時的條件不是硬性規定，而是參考而已，所以前面兩個 Pod 都會盡量分散，而第三個 Pod 依然有能力被調度。</p>
+<p>這時候得到的結果可能會是如下圖</p>
+<p><img src="https://hackmd.io/_uploads/BJ1n2_4n2.png"></p>
+<p>第二個範例準備兩個檔案，模擬服務 A 與 B 彼此之間的 Anti-Affinity 設定</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">pod-affinity-3</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">3</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">pod-affinity-3</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">pod-affinity-3</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">www-server</span></span><br><span class="line">          <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br><span class="line">      <span class="attr">affinity:</span></span><br><span class="line">        <span class="attr">podAntiAffinity:</span></span><br><span class="line">          <span class="attr">requiredDuringSchedulingIgnoredDuringExecution:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">labelSelector:</span></span><br><span class="line">              <span class="attr">matchExpressions:</span></span><br><span class="line">              <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">app</span></span><br><span class="line">                <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">                <span class="attr">values:</span></span><br><span class="line">                <span class="bullet">-</span> <span class="string">pod-affinity-4</span></span><br><span class="line">            <span class="attr">topologyKey:</span> <span class="string">&quot;kind.zone&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>該範例繼續使用 Anti-Affinity + required 的方式來限制，不過這次的參照對象是別的服務 <code>pod-affinity-4</code>，而環境中目前沒有這個服務出現</p>
+<p>部署上不會出現問題，所有的 Pod 都可以正常運行，接者我們嘗試部署一個沒有任何 Affinity 的 <code>pod-affinity-4</code> 服務</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">pod-affinity-4</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">1</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">pod-affinity-4</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">pod-affinity-4</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">www-server</span></span><br><span class="line">          <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br></pre></td></tr></table></figure>
+
+<p>可以觀察到這時候 pod-affinity-4 這個服務卻卡 Pending 了<br><img src="https://hackmd.io/_uploads/rJrPpdN3n.png"></p>
+<p>透過 <code>kubectl describe</code> 可以看到原因為是因為不滿足當下運行 Pod 的 Anti-Affinity。<br><img src="https://hackmd.io/_uploads/r1OipdN22.png"></p>
+<p>這也是設計文件中所描述的對稱性，因此即使後續服務沒有特別撰寫 Anti-Affinity，其調度的過程中也會根據當下其他 Pod 的資訊來判別是否可以調度</p>
+<h2 id="Affinity"><a href="#Affinity" class="headerlink" title="Affinity"></a>Affinity</h2><p>接下來基於相同概念來測試 Affinity，服務 A 依賴於 服務 B(pod-affinity-6)</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">pod-affinity-5</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">5</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">pod-affinity-5</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">pod-affinity-5</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">www-server</span></span><br><span class="line">          <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br><span class="line">      <span class="attr">affinity:</span></span><br><span class="line">        <span class="attr">podAffinity:</span></span><br><span class="line">          <span class="attr">requiredDuringSchedulingIgnoredDuringExecution:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">labelSelector:</span></span><br><span class="line">              <span class="attr">matchExpressions:</span></span><br><span class="line">              <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">app</span></span><br><span class="line">                <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">                <span class="attr">values:</span></span><br><span class="line">                <span class="bullet">-</span> <span class="string">pod-affinity-6</span></span><br><span class="line">            <span class="attr">topologyKey:</span> <span class="string">&quot;kind.zone&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>與 <code>Anti-Affinity</code> 不同，若當下找不到目標服務， <code>Affinity</code> 則會卡在 Pending 的狀況，沒有辦法部署。<br><img src="https://hackmd.io/_uploads/SkZ1JtEn2.png"></p>
+<p>註: 若參考對象是自己則為特殊情況，不會有 Pending 的情況發生，否則會有 deadlock 的情形出現。</p>
+<p>接下來部署服務 B</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">pod-affinity-6</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">1</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">pod-affinity-6</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">pod-affinity-6</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">www-server</span></span><br><span class="line">          <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br></pre></td></tr></table></figure>
+
+<p>部署下去後可以觀察到服務 A 與 B 幾乎同時順利完成調度的決策，一起被分配到相同的 kind.zone 內<br><img src="https://hackmd.io/_uploads/HkKllKE23.png"></p>
+<p>以過程中來說，最初的服務 A 因為找不到服務 B 可以匹配，所以全部卡 Pending 的狀況<br><img src="https://hackmd.io/_uploads/r1DebtNhh.png"></p>
+<p>而服務 B 本身沒有描述任何 Affinity 的規則，因此本身順利被調度<br><img src="https://hackmd.io/_uploads/SJzbWt432.png"></p>
+<p>當服務 B 被調度到 kind.zone&#x3D;zone1 後，所有卡住的服務 A 就有參照對象可以比較，所已全部 Pod 就直接部署上去了。<br><img src="https://hackmd.io/_uploads/HkJzWtVn3.png"></p>
+<h1 id="PodTopologySpread"><a href="#PodTopologySpread" class="headerlink" title="PodTopologySpread"></a>PodTopologySpread</h1><p>前述所探討的 NodeAffinity 以及 Inter-Pod (Anti)Affinity 可以滿足許多人控制 Pod 調度的需求，然而實際使用上會遇到一些問題</p>
+<ol>
+<li>透過 NodeAffinity 並沒有保證 Pod 可以均勻的分散到各節點上，有可能會遇到分佈不均勻的情況 (<a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/issues/68981?WT.mc_id=AZ-MVP-5003331">66981</a>)</li>
+<li>Inter-Pod Anti Affinity 碰到 Deployment rolling upgrade 時會出問題，新的 Pod 要先被創立但是因為 Anti-Affinity 的限制導致沒有節點可用，所以新版本的 Pod 就會處於 Pending 而整個 Deployment 更新就會卡死 <a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/issues/40358?WT.mc_id=AZ-MVP-5003331">40358</a></li>
+</ol>
+<p>因為上述問題所以就有了 <a target="_blank" rel="noopener" href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-scheduling/895-pod-topology-spread#motivation">Pod Topology Spread</a> 的發展，而整個 <code>Pod Topology Spread</code> 中最重要的一個因素就稱為 Skew，該數值是用來處理 Pod 分配不均勻的問題，其定義為。</p>
+<p>skew &#x3D; Pods number matched in current topology - min Pods matches in a topology</p>
+<p><code>PodTopologySpread</code> 每次分配 Pod 的時候都會針對每個節點計算當下的 Skew 數值並且以數值來影響調度的決策。</p>
+<p>以下圖為範例</p>
+<p><img src="https://hackmd.io/_uploads/SkWAL7S33.png"></p>
+<ol>
+<li><code>topologyKey</code> 將節點分成三群</li>
+<li>每個群上面目前運行的 Pod 數量分別為 <code>3,2,1</code></li>
+<li>群中最少的運行 Pod 數量為 1</li>
+<li>分別計算可以得到每群對應的 Skew 數值為 2,1,0</li>
+</ol>
+<p>下列是透過 <code>kubectl explain</code> 得到的欄位介紹，由於篇幅過程所以只保留重點欄位，實際上還有很多選項不過部分選項即使到 v1.26 都還是 Beta 測試</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl explain pod.spec.topologySpreadConstraints</span><br><span class="line">KIND:     Pod</span><br><span class="line">VERSION:  v1</span><br><span class="line"></span><br><span class="line">RESOURCE: topologySpreadConstraints &lt;[]Object&gt;</span><br><span class="line"></span><br><span class="line">DESCRIPTION:</span><br><span class="line">     TopologySpreadConstraints describes how a group of pods ought to spread</span><br><span class="line">     across topology domains. Scheduler will schedule pods <span class="keyword">in</span> a way <span class="built_in">which</span> abides</span><br><span class="line">     by the constraints. All topologySpreadConstraints are ANDed.</span><br><span class="line"></span><br><span class="line">     TopologySpreadConstraint specifies how to spread matching pods among the</span><br><span class="line">     given topology.</span><br><span class="line"></span><br><span class="line">FIELDS:</span><br><span class="line">   labelSelector        &lt;Object&gt;</span><br><span class="line">     LabelSelector is used to find matching pods. Pods that match this label</span><br><span class="line">     selector are counted to determine the number of pods <span class="keyword">in</span> their corresponding</span><br><span class="line">     topology domain.</span><br><span class="line"></span><br><span class="line">   maxSkew      &lt;<span class="built_in">integer</span>&gt; -required-</span><br><span class="line">     MaxSkew describes the degree to <span class="built_in">which</span> pods may be unevenly distributed.</span><br><span class="line">     required field. Default value is 1 and 0 is not allowed.</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">   topologyKey  &lt;string&gt; -required-</span><br><span class="line">     TopologyKey is the key of node labels. Nodes that have a label with this</span><br><span class="line">     key and identical values are considered to be <span class="keyword">in</span> the same topology. We</span><br><span class="line">     consider each &lt;key, value&gt; as a <span class="string">&quot;bucket&quot;</span>, and try to put balanced number of</span><br><span class="line">     pods into each bucket. </span><br><span class="line"></span><br><span class="line">   whenUnsatisfiable    &lt;string&gt; -required-</span><br><span class="line">     WhenUnsatisfiable indicates how to deal with a pod <span class="keyword">if</span> it doesn<span class="string">&#x27;t satisfy</span></span><br><span class="line"><span class="string">     Possible enum values:</span></span><br><span class="line"><span class="string">     - `&quot;DoNotSchedule&quot;` instructs the scheduler not to schedule the pod when</span></span><br><span class="line"><span class="string">     constraints are not satisfied.</span></span><br><span class="line"><span class="string">     - `&quot;ScheduleAnyway&quot;` instructs the scheduler to schedule the pod even if</span></span><br><span class="line"><span class="string">     constraints are not satisfied.</span></span><br></pre></td></tr></table></figure>
+
+<ol>
+<li>maxSkew 則是用來控制 skew 的上限值，若 Pod 部署到該節點後會使得 Skew 超過此限制，則該節點就會被跳過</li>
+<li>topologyKey 如同 Inter-Pod 的設定，用來判定如何分類節點</li>
+<li>whenUnsatisfiable 則是用來設定當 maxSkew 找不到任何符合規則節點時該怎處理，可以卡在 Pending 狀態或是就忽略當前設定按照其他設定部署</li>
+<li>labelSelector 則是用來選擇要把哪些 Pod 的數量納入考慮</li>
+</ol>
+<p>因此使用上很常透過下列方式讓 Pod 可以均勻地散落到不同的 Zone 內</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">www-server</span></span><br><span class="line">      <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br><span class="line">  <span class="attr">topologySpreadConstraints:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">maxSkew:</span> <span class="number">1</span></span><br><span class="line">    <span class="attr">topologyKey:</span> <span class="string">kind.zone</span></span><br><span class="line">    <span class="attr">whenUnsatisfiable:</span> <span class="string">DoNotSchedule</span></span><br><span class="line">    <span class="attr">labelSelector:</span></span><br><span class="line">      <span class="attr">matchLabels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">pod-ts-1</span></span><br></pre></td></tr></table></figure>
+
+<p>如果要細部調整現在還有下列參數可以使用，使用前請參閱<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/#example-one-topologyspreadconstraint">官方文件</a></p>
+<ol>
+<li>nodeAffinityPolicy: [Honor|Ignore]</li>
+<li>nodeTaintsPolicy: [Honor|Ignore]</li>
+<li>matchLabelKeys: <list></li>
+<li>minDomains: <integer></li>
+</ol>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>本系列文探討如何透過 Kubernetes 內建的方式來影響 Scheduler 調度的決策，這類型的設定能夠於 Zone&#x2F;Region 等架構下達到更好的高可用性設定，此外若 Pod 之間有強烈依賴且希望網路延遲盡可能低的，也可以考慮用這類型的設定來處理。</p>
+<p>使用上請務必確保理解每個欄位的意思，特別是當參數本身為 List 型態的時候，要確認一下其結果是基於 OR 或是 AND 的運算，以免發生結果與預期不符導致花費太多時間除錯。</p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>詳細可以參閱<br>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/k8s-assigning-pod.html" rel="prev" title="解密 Assigning Pod To Nodes(上)">
+                  <i class="fa fa-chevron-left"></i> 解密 Assigning Pod To Nodes(上)
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>
