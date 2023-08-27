@@ -129,7 +129,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">347</span>
+          <span class="site-state-item-count">348</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
@@ -172,6 +172,118 @@
     </div>
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/2016-08-31-825029.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | Hwchiu Learning Note">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/2016-08-31-825029.html" class="post-title-link" itemprop="url">mTCP 讀後筆記</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2016-08-31 14:39:00" itemprop="dateCreated datePublished" datetime="2016-08-31T14:39:00+08:00">2016-08-31</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar-check"></i>
+      </span>
+      <span class="post-meta-item-text">Edited on</span>
+      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>之前在網路上看到了一篇 paper<br><a target="_blank" rel="noopener" href="http://www.ndsl.kaist.edu/~kyoungsoo/papers/mtcp.pdf">mTCP: A Highly Scalable User-level TCP Stack for Multicore Systems</a><br>標題覺得還滿有趣的，就花了些時間將其看完，並且用這篇文章當作筆記</p>
+<h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><ul>
+<li>當前的 TCP connection 中，大部分的封包都是小size的，如何快速的處理這些封包是個提升效能的重點</li>
+<li>根據這篇<a target="_blank" rel="noopener" href="http://dl.acm.org/citation.cfm?id=2464442">論文</a>，在特定的網路環境下(large cellular network)，超過 90% 的 TCP 封包都小於 32KB，超過 50% 的則是小於 4KB。</li>
+<li>當前的 Linux Kenrl 的架構使得處理小封包的速度沒有很好的表現。</li>
+<li>目前世界上有很多種方案嘗試解決此問題。<ul>
+<li>修改 kernel 的，如 MegaPipe, FlexSC</li>
+<li>在 user-space 提供高速的 Packet I&#x2F;O，這部分通常是直接跟網卡操作，跳過 kernel。如 netmap, DPDK, PSIO。</li>
+</ul>
+</li>
+<li>上述的方案都難以應用到現有的系統<ul>
+<li>改 kernel code 對於已經應用的伺服器來說，不是那麼方便</li>
+<li>user-space library 的缺點<ol>
+<li>沒有實作 TCP stack，所以使用者都要自己想辦法去處理整個data (每個 Layer 自行處理）</li>
+<li>沒有提供統一的介面，現存的應用程式很難 porting</li>
+</ol>
+</li>
+</ul>
+</li>
+<li>本篇 paper 提出的一個新的架構 mTCP，宗旨就是解決上述所有問題<ul>
+<li>不修改 kernel, 實作於 user-space</li>
+<li>讓現有的應用程式可以容易使用，快速轉換<ol>
+<li>提供良好的 wrapper 給當前的 BSD-socket API，同時也提供 event 相關的(epoll)</li>
+<li>實作 TCP stack</li>
+<li>架構上要解決當前 kernel 的架構問提，提升整體的處理速度</li>
+</ol>
+</li>
+</ul>
+</li>
+</ul>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2016-08-31-825029.html#more" rel="contents">
+                Read more &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -924,89 +1036,6 @@
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/n-queen-problem.html">
-                Read more &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
-    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/2014-08-23-mininet-and-network-subnet.html">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/uploads/avatar.jpg">
-      <meta itemprop="name" content="Hwchiu">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Hwchiu Learning Note">
-      <meta itemprop="description" content="kubernetes/SDN/DevOps">
-    </span>
-
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | Hwchiu Learning Note">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/2014-08-23-mininet-and-network-subnet.html" class="post-title-link" itemprop="url">Mininet with different network subnet</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">Posted on</span>
-
-      <time title="Created: 2014-08-23 14:17:00" itemprop="dateCreated datePublished" datetime="2014-08-23T14:17:00+08:00">2014-08-23</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar-check"></i>
-      </span>
-      <span class="post-meta-item-text">Edited on</span>
-      <time title="Modified: 2023-06-23 13:16:12" itemprop="dateModified" datetime="2023-06-23T13:16:12+08:00">2023-06-23</time>
-    </span>
-
-  
-</div>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-          <h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><p>我們使用 <code>mn --topo single,3 --mac</code>創造一個有不同subnet的拓墣，使用<code>--mac</code>使得所有host的<strong>MAC Address</strong>更加簡單，能夠使得此實驗變得容易。<br>我們目標是要讓這三個不同subnet的host都能夠互相溝通。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2014-08-23-mininet-and-network-subnet.html#more" rel="contents">
                 Read more &raquo;
               </a>
             </div>

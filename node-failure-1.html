@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: dark)"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":true,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="探討 Kubernetes 如何判定節點為 NotReady 並且當節點損壞時，節點上運行之 Pod 該如何快速反應">
+<meta property="og:type" content="article">
+<meta property="og:title" content="節點崩壞時如何快速處理 Pod">
+<meta property="og:url" content="https://www.hwchiu.com/node-failure-1.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="探討 Kubernetes 如何判定節點為 NotReady 並且當節點損壞時，節點上運行之 Pod 該如何快速反應">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://hackmd.io/_uploads/BkKis_Oah.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/Hk5wyCdp2.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/Sk39kA_T2.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/S1L-xA_62.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/SyLbzR_T2.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/rJ_UKAdp3.png">
+<meta property="article:published_time" content="2023-08-27T14:28:22.000Z">
+<meta property="article:modified_time" content="2023-08-27T14:29:24.000Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="DevOps">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://hackmd.io/_uploads/BkKis_Oah.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/node-failure-1.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/node-failure-1.html","path":"node-failure-1.html","title":"節點崩壞時如何快速處理 Pod"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>節點崩壞時如何快速處理 Pod | Hwchiu Learning Note</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-54006186-1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%AF%A6%E9%A9%97%E7%92%B0%E5%A2%83"><span class="nav-number">2.</span> <span class="nav-text">實驗環境</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%AF%80%E9%BB%9E"><span class="nav-number">3.</span> <span class="nav-text">節點</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#NodeStatus"><span class="nav-number">3.1.</span> <span class="nav-text">NodeStatus</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Lease"><span class="nav-number">3.2.</span> <span class="nav-text">Lease</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Heartbeat"><span class="nav-number">3.2.1.</span> <span class="nav-text">Heartbeat</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Status"><span class="nav-number">3.2.2.</span> <span class="nav-text">Status</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Controller-Manager"><span class="nav-number">3.3.</span> <span class="nav-text">Controller Manager</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Evict-Pod"><span class="nav-number">4.</span> <span class="nav-text">Evict Pod</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">5.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Reference"><span class="nav-number">6.</span> <span class="nav-text">Reference</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">7.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">348</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/node-failure-1.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="節點崩壞時如何快速處理 Pod | Hwchiu Learning Note">
+      <meta itemprop="description" content="探討 Kubernetes 如何判定節點為 NotReady 並且當節點損壞時，節點上運行之 Pod 該如何快速反應">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          節點崩壞時如何快速處理 Pod
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2023-08-27 22:28:22 / Modified: 22:29:24" itemprop="dateCreated datePublished" datetime="2023-08-27T22:28:22+08:00">2023-08-27</time>
+    </span>
+
+  
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+            <div class="post-description">探討 Kubernetes 如何判定節點為 NotReady 並且當節點損壞時，節點上運行之 Pod 該如何快速反應</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>Kubernetes 除了基本的 Pod 類型外也提供諸多更高階的運算類型，如 Deployment, DaemonSet, StatefulSet 等，而這些高階管理器能夠讓你的 Pod 以多副本的方式來提供服務，基於多副本的架構下更容易去達到高可用性的架構。</p>
+<p>然而當 Kubernetes 節點出現故障問題，譬如斷掉，網路損毀，系統損毀等狀況導致該節點暫時不能使用時，節點上的 Pod 該何去何從？</p>
+<p>從高可用性的角度來說，有些人會認為應用程式有多個副本，所以節點壞掉不影響服務運作，但是某些情況下，該應用程式屬於 StatefulSet，因此沒有辦法不停水平擴展，這種情況下就會需要當節點壞損時，相關 Pod 被快速重新調度來提供服務。</p>
+<h1 id="實驗環境"><a href="#實驗環境" class="headerlink" title="實驗環境"></a>實驗環境</h1><p><a target="_blank" rel="noopener" href="https://github.com/kubernetes-sigs/kind?WT.mc_id=AZ-MVP-5003331">KIND</a> 的架構是基於 Docker 去完成，本文的實驗環境是於 Ubuntu 20.04 上以 KIND 創建一個三節點的 Kubernetes 叢集，其中一個節點作為控制平面，另外兩個則作為一般的 Worker.</p>
+<h1 id="節點"><a href="#節點" class="headerlink" title="節點"></a>節點</h1><p>Kubelet 本身屬於節點上的 Agent，其本身會定期計算與回報關於節點的狀態並且通知控制平面，技術上目前有兩種不同的實作方式，其中的分水嶺可以認定為 1.17 以後。</p>
+<p>首先我們要先知道，到底 Kubelet 需要回報什麼資訊給控制平面，以下列指令 <code>kubectl get nodes k8slab-worker2 -o yaml</code> 為範例</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">status:</span></span><br><span class="line">  <span class="attr">addresses:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">address:</span> <span class="number">172.18</span><span class="number">.0</span><span class="number">.2</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">InternalIP</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">address:</span> <span class="string">k8slab-worker2</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">Hostname</span></span><br><span class="line">  <span class="attr">allocatable:</span></span><br><span class="line">    <span class="attr">cpu:</span> <span class="string">&quot;4&quot;</span></span><br><span class="line">    <span class="attr">ephemeral-storage:</span> <span class="string">30298176Ki</span></span><br><span class="line">    <span class="attr">hugepages-1Gi:</span> <span class="string">&quot;0&quot;</span></span><br><span class="line">    <span class="attr">hugepages-2Mi:</span> <span class="string">&quot;0&quot;</span></span><br><span class="line">    <span class="attr">memory:</span> <span class="string">16386892Ki</span></span><br><span class="line">    <span class="attr">pods:</span> <span class="string">&quot;110&quot;</span></span><br><span class="line">  <span class="attr">capacity:</span></span><br><span class="line">    <span class="attr">cpu:</span> <span class="string">&quot;4&quot;</span></span><br><span class="line">    <span class="attr">ephemeral-storage:</span> <span class="string">30298176Ki</span></span><br><span class="line">    <span class="attr">hugepages-1Gi:</span> <span class="string">&quot;0&quot;</span></span><br><span class="line">    <span class="attr">hugepages-2Mi:</span> <span class="string">&quot;0&quot;</span></span><br><span class="line">    <span class="attr">memory:</span> <span class="string">16386892Ki</span></span><br><span class="line">    <span class="attr">pods:</span> <span class="string">&quot;110&quot;</span></span><br><span class="line">  <span class="attr">conditions:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">lastHeartbeatTime:</span> <span class="string">&quot;2023-08-27T03:48:19Z&quot;</span></span><br><span class="line">    <span class="attr">lastTransitionTime:</span> <span class="string">&quot;2023-08-23T17:07:50Z&quot;</span></span><br><span class="line">    <span class="attr">message:</span> <span class="string">kubelet</span> <span class="string">has</span> <span class="string">sufficient</span> <span class="string">memory</span> <span class="string">available</span></span><br><span class="line">    <span class="attr">reason:</span> <span class="string">KubeletHasSufficientMemory</span></span><br><span class="line">    <span class="attr">status:</span> <span class="string">&quot;False&quot;</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">MemoryPressure</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">lastHeartbeatTime:</span> <span class="string">&quot;2023-08-27T03:48:19Z&quot;</span></span><br><span class="line"><span class="string">...</span></span><br></pre></td></tr></table></figure>
+
+<p>基本上整個 status 欄位內的所有資訊都需要由 kubelet 回報，而這些欄位可以觀察到資訊繁多，傳遞的資訊量並不小。</p>
+<p>因此從 kubelet 回傳資訊的角度來看，實際上可以區分成兩種回報</p>
+<ol>
+<li>Status 的內容回報</li>
+<li>Heartbeat 的健康度更新</li>
+</ol>
+<p>而本文所探討的重點，當節點被標示為 “NotReady” 狀況的反應實際上對應到的就是 (2) 的資訊，所謂的 heartbeat 資訊</p>
+<p>從<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/reference/node/node-status/#heartbeats">官方文件</a> 中所述，節點的 Heartbeats 可以區分成兩種方式，分別是</p>
+<ol>
+<li>updates to the .status of a Node</li>
+<li>Lease objects within the kube-node-lease namespace. Each Node has an associated Lease object.</li>
+</ol>
+<p>接下來就針對這兩種實作方式探討一下概念與相關設定檔案。</p>
+<h2 id="NodeStatus"><a href="#NodeStatus" class="headerlink" title="NodeStatus"></a>NodeStatus</h2><p>如同前述， Kubelet 本身會需要回傳節點上的各種運作狀態以及 heartbeat 資訊，而最初的 Kubernetes 則是將這兩個資訊一起更新，其更新的頻率預設是 10 秒，可以透過 <a target="_blank" rel="noopener" href="https://kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/#kubelet-config-k8s-io-v1beta1-KubeletConfiguration">KubeletConfiguration</a><br>內的 <code>nodeStatusUpdateFrequency</code> 的欄位更新</p>
+<p>此外對於每次的狀態更新， kubelet 都有實作重試機制，每次傳遞預設都會嘗試五次，而這個數字目前是不可更改的，寫死於<a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/v1.28.0/pkg/kubelet/kubelet.go#L133?WT.mc_id=AZ-MVP-5003331">程式碼, kubelet.go</a>中</p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> (</span><br><span class="line">	<span class="comment">// nodeStatusUpdateRetry specifies how many times kubelet retries when posting node status failed.</span></span><br><span class="line">	nodeStatusUpdateRetry = <span class="number">5</span></span><br><span class="line">    ....</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(kl *Kubelet)</span></span> updateNodeStatus(ctx context.Context) <span class="type">error</span> &#123;</span><br><span class="line">	klog.V(<span class="number">5</span>).InfoS(<span class="string">&quot;Updating node status&quot;</span>)</span><br><span class="line">	<span class="keyword">for</span> i := <span class="number">0</span>; i &lt; nodeStatusUpdateRetry; i++ &#123;</span><br><span class="line">		<span class="keyword">if</span> err := kl.tryUpdateNodeStatus(ctx, i); err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">if</span> i &gt; <span class="number">0</span> &amp;&amp; kl.onRepeatedHeartbeatFailure != <span class="literal">nil</span> &#123;</span><br><span class="line">				kl.onRepeatedHeartbeatFailure()</span><br><span class="line">			&#125;</span><br><span class="line">			klog.ErrorS(err, <span class="string">&quot;Error updating node status, will retry&quot;</span>)</span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> fmt.Errorf(<span class="string">&quot;update node status exceeds retry count&quot;</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>下圖簡易的描述更新方式<br><img src="https://hackmd.io/_uploads/BkKis_Oah.png"></p>
+<p>然而這種實作方式實務上卻帶來的效能上的瓶頸，每次 kubelet 資訊回報都伴隨大量的狀態資訊，每十秒一次且節點數量過多時，就會對整個 etcd 造成系統壓力使得整個叢集的效能降低，因此 1.13 版本後決定採用新的實作方式並且於 1.17 版本正式宣佈為 stable 版本。</p>
+<h2 id="Lease"><a href="#Lease" class="headerlink" title="Lease"></a>Lease</h2><p>為了改善整個 NodeStatus 更新的效率與效能問題，<a target="_blank" rel="noopener" href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/589-efficient-node-heartbeats?WT.mc_id=AZ-MVP-5003331">Official Proposal</a>被提出並且打算採用基於 Lease 架構來完成，其核心概念就是將前述的 NodeStatus 與 Heartbeat 兩個資訊給拆開，兩件事情獨立去處理。</p>
+<p>Heartbeat 本身的流量負擔小，維持過往的頻率並不會造成多大的效能問題，然而 NodeStatus 的資訊相對龐大，因此其更新頻率就進行調整。</p>
+<h3 id="Heartbeat"><a href="#Heartbeat" class="headerlink" title="Heartbeat"></a>Heartbeat</h3><p>以 Heartbeat 來說，採用 Kubernetes 內建API Lease 的架構，當此架構運作時，可以觀察到系統會自動創建一個名為 <code>kube-node-lease</code> 的 namespace，並且所有個 K8s 節點都會與之對應到一個同名稱的 Lease 物件</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">azureuser@course:~$ kubectl -n kube-node-lease get lease</span><br><span class="line">NAME                   HOLDER                 AGE</span><br><span class="line">k8slab-control-plane   k8slab-control-plane   3d13h</span><br><span class="line">k8slab-worker          k8slab-worker          3d13h</span><br><span class="line">k8slab-worker2         k8slab-worker2         3d13h</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">azureuser@course:~$ kubectl -n kube-node-lease get lease k8slab-worker -o yaml</span><br><span class="line">apiVersion: coordination.k8s.io/v1</span><br><span class="line">kind: Lease</span><br><span class="line">metadata:</span><br><span class="line">  creationTimestamp: <span class="string">&quot;2023-08-23T17:08:00Z&quot;</span></span><br><span class="line">  name: k8slab-worker</span><br><span class="line">  namespace: kube-node-lease</span><br><span class="line">  ownerReferences:</span><br><span class="line">  - apiVersion: v1</span><br><span class="line">    kind: Node</span><br><span class="line">    name: k8slab-worker</span><br><span class="line">    uid: 70c3c25d-dc3d-4ad3-ba3a-36637d3b5b60</span><br><span class="line">  resourceVersion: <span class="string">&quot;623846&quot;</span></span><br><span class="line">  uid: 08013bd8-2dd9-45fe-ad6d-38b77253b437</span><br><span class="line">spec:</span><br><span class="line">  holderIdentity: k8slab-worker</span><br><span class="line">  leaseDurationSeconds: 60</span><br><span class="line">  renewTime: <span class="string">&quot;2023-08-27T03:21:06.584188Z&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>這些 Lease 物件則透過 renewTime 與 holderIdentity 來代表每個節點最後一次更新的時候，這些時間之後會被 Controller 用來判定節點本身是否 Ready&#x2F;NotReady.</p>
+<p>根據 <a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/master/pkg/kubelet/kubelet.go#L862-L873?WT.mc_id=AZ-MVP-5003331">kubelet 原始碼</a></p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> (</span><br><span class="line">	<span class="comment">// nodeLeaseRenewIntervalFraction is the fraction of lease duration to renew the lease</span></span><br><span class="line">	nodeLeaseRenewIntervalFraction = <span class="number">0.25</span></span><br><span class="line">)</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">leaseDuration := time.Duration(kubeCfg.NodeLeaseDurationSeconds) * time.Second</span><br><span class="line">renewInterval := time.Duration(<span class="type">float64</span>(leaseDuration) * nodeLeaseRenewIntervalFraction)</span><br><span class="line">klet.nodeLeaseController = lease.NewController(</span><br><span class="line">    klet.clock,</span><br><span class="line">    klet.heartbeatClient,</span><br><span class="line">    <span class="type">string</span>(klet.nodeName),</span><br><span class="line">    kubeCfg.NodeLeaseDurationSeconds,</span><br><span class="line">    klet.onRepeatedHeartbeatFailure,</span><br><span class="line">    renewInterval,</span><br><span class="line">    <span class="type">string</span>(klet.nodeName),</span><br><span class="line">    v1.NamespaceNodeLease,</span><br><span class="line">    util.SetNodeOwnerFunc(klet.heartbeatClient, <span class="type">string</span>(klet.nodeName)))</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>可以觀察到 renewInternval 的計算方式是 <code>nodeLeaseRenewIntervalFraction</code> * <code>NodeLeaseDurationSeconds</code>，前者是一個固定的常數 0.25，而後者根據 <a target="_blank" rel="noopener" href="https://kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/#kubelet-config-k8s-io-v1beta1-KubeletConfiguration">kubelet</a> 中關於 nodeLeaseDurationSeconds 的介紹，預設值是 <code>40</code>。</p>
+<p>根據這個計算可以得到 0.25 * 40 &#x3D; 10，因此 kubelet 每 10 秒會更新一次。</p>
+<p>根據這個理論，嘗試透過指令觀察 Lease 物件的變化<br><code>kubectl -n kube-node-lease get lease k8slab-worker2 -o yaml -w</code></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">coordination.k8s.io/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Lease</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">creationTimestamp:</span> <span class="string">&quot;2023-08-23T17:08:00Z&quot;</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">k8slab-worker2</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">kube-node-lease</span></span><br><span class="line">  <span class="attr">ownerReferences:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line">    <span class="attr">kind:</span> <span class="string">Node</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">k8slab-worker2</span></span><br><span class="line">    <span class="attr">uid:</span> <span class="string">5ad224c5-11ad-4939-8cfa-0066eb86d6b9</span></span><br><span class="line">  <span class="attr">resourceVersion:</span> <span class="string">&quot;655385&quot;</span></span><br><span class="line">  <span class="attr">uid:</span> <span class="string">bf558925-25b8-4483-9f9d-4a78521afa4c</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">holderIdentity:</span> <span class="string">k8slab-worker2</span></span><br><span class="line">  <span class="attr">leaseDurationSeconds:</span> <span class="number">40</span></span><br><span class="line">  <span class="attr">renewTime:</span> <span class="string">&quot;2023-08-27T07:39:35.899240Z&quot;</span></span><br><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">coordination.k8s.io/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Lease</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">creationTimestamp:</span> <span class="string">&quot;2023-08-23T17:08:00Z&quot;</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">k8slab-worker2</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">kube-node-lease</span></span><br><span class="line">  <span class="attr">ownerReferences:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line">    <span class="attr">kind:</span> <span class="string">Node</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">k8slab-worker2</span></span><br><span class="line">    <span class="attr">uid:</span> <span class="string">5ad224c5-11ad-4939-8cfa-0066eb86d6b9</span></span><br><span class="line">  <span class="attr">resourceVersion:</span> <span class="string">&quot;655405&quot;</span></span><br><span class="line">  <span class="attr">uid:</span> <span class="string">bf558925-25b8-4483-9f9d-4a78521afa4c</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">holderIdentity:</span> <span class="string">k8slab-worker2</span></span><br><span class="line">  <span class="attr">leaseDurationSeconds:</span> <span class="number">40</span></span><br><span class="line">  <span class="attr">renewTime:</span> <span class="string">&quot;2023-08-27T07:39:45.982209Z&quot;</span></span><br></pre></td></tr></table></figure>
+<p>從上述物件的更新狀態，觀察 renewTime 的差異，分別是 <strong>07:39:45</strong> 與 <strong>07:39:35</strong>，其差值為 10 秒，與理論一致。</p>
+<p>嘗試將該 leaseDurationSeconds 改成 60 秒，觀察 <code>renewTime</code> 的變化。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">coordination.k8s.io/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Lease</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">creationTimestamp:</span> <span class="string">&quot;2023-08-23T17:08:00Z&quot;</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">k8slab-worker</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">kube-node-lease</span></span><br><span class="line">  <span class="attr">ownerReferences:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line">    <span class="attr">kind:</span> <span class="string">Node</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">k8slab-worker</span></span><br><span class="line">    <span class="attr">uid:</span> <span class="string">70c3c25d-dc3d-4ad3-ba3a-36637d3b5b60</span></span><br><span class="line">  <span class="attr">resourceVersion:</span> <span class="string">&quot;654971&quot;</span></span><br><span class="line">  <span class="attr">uid:</span> <span class="string">08013bd8-2dd9-45fe-ad6d-38b77253b437</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">holderIdentity:</span> <span class="string">k8slab-worker</span></span><br><span class="line">  <span class="attr">leaseDurationSeconds:</span> <span class="number">60</span></span><br><span class="line">  <span class="attr">renewTime:</span> <span class="string">&quot;2023-08-27T07:36:14.454825Z&quot;</span></span><br><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">coordination.k8s.io/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Lease</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">creationTimestamp:</span> <span class="string">&quot;2023-08-23T17:08:00Z&quot;</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">k8slab-worker</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">kube-node-lease</span></span><br><span class="line">  <span class="attr">ownerReferences:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line">    <span class="attr">kind:</span> <span class="string">Node</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">k8slab-worker</span></span><br><span class="line">    <span class="attr">uid:</span> <span class="string">70c3c25d-dc3d-4ad3-ba3a-36637d3b5b60</span></span><br><span class="line">  <span class="attr">resourceVersion:</span> <span class="string">&quot;655003&quot;</span></span><br><span class="line">  <span class="attr">uid:</span> <span class="string">08013bd8-2dd9-45fe-ad6d-38b77253b437</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">holderIdentity:</span> <span class="string">k8slab-worker</span></span><br><span class="line">  <span class="attr">leaseDurationSeconds:</span> <span class="number">60</span></span><br><span class="line">  <span class="attr">renewTime:</span> <span class="string">&quot;2023-08-27T07:36:29.654757Z&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>可以觀察到兩個時間分別為 <strong>07:36:29</strong> 與 <strong>07:36:14</strong>，間隔為 15 秒，與計算理論相符。</p>
+<p>Lease 架構下透過此方式來更新節點的最新 heartbeat 狀態，至於 Controller 是如何利用這些資訊判斷節點是否為 Ready&#x2F;NotReady 等等就會介紹。</p>
+<p>以下列圖來總結一下 Lease 架構下 Heartbeat 的更新方式<br><img src="https://hackmd.io/_uploads/Hk5wyCdp2.png"></p>
+<h3 id="Status"><a href="#Status" class="headerlink" title="Status"></a>Status</h3><p>為了改善 Status 傳送資料頻繁造成 etcd 壓力的問題，新架構中將 Status 的傳送機制進行調整，首先將 Status 分成兩個階段</p>
+<ol>
+<li>計算</li>
+<li>回報</li>
+</ol>
+<p><strong>計算</strong>階段就是去統計收集當前節點上的資訊，而<strong>回報</strong>則是將這些資訊給回報給 API Server，而這兩個階段是獨立進行，因此彼此的運作週期是不一致的。</p>
+<p>以<strong>計算</strong>來說，目前預設情況下是每 <strong>10s</strong> 去計算一次，而<strong>回報</strong>部分則有兩個步驟</p>
+<ol>
+<li>根據<strong>計算</strong>結果，若有任何有意義的更新則馬上回報給 API Server</li>
+<li>否則，等待 <strong>5m</strong> 的時間才更新到 API Server。</li>
+</ol>
+<p>根據 (<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/#kubelet-config-k8s-io-v1beta1-KubeletConfiguration">https://kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/#kubelet-config-k8s-io-v1beta1-KubeletConfiguration</a>) 中的介紹，可以透過 <strong>nodeStatusUpdateFrequency</strong> 與 <strong>nodeStatusReportFrequency</strong> 兩個變數來分別調整相關頻率。</p>
+<p>根據說明</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">nodeStatusUpdateFrequency is the frequency that kubelet computes node status. </span><br><span class="line">If node lease feature is not enabled, it is also the frequency that kubelet posts node status to master. </span><br><span class="line">Note: When node lease feature is not enabled, be cautious when changing the constant,</span><br><span class="line">it must work with nodeMonitorGracePeriod in nodecontroller. Default: &quot;10s&quot;</span><br><span class="line"></span><br><span class="line">nodeStatusReportFrequency is the frequency that kubelet posts </span><br><span class="line">node status to master if node status does not change. Kubelet will ignore this frequency and post node status immediately if any </span><br><span class="line">change is detected. It is only used when node lease feature is enabled. nodeStatusReportFrequency&#x27;s default value is 5m. </span><br><span class="line">But if nodeStatusUpdateFrequency is set explicitly, nodeStatusReportFrequency&#x27;s default value will be set </span><br><span class="line">to nodeStatusUpdateFrequency for backward compatibility. Default: &quot;5m&quot;</span><br></pre></td></tr></table></figure>
+
+<p>根據 <a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/v1.28.0/pkg/kubelet/kubelet_node_status.go#L570">kubelet 相關程式碼</a></p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">originalNode, err := kl.heartbeatClient.CoreV1().Nodes().Get(ctx, <span class="type">string</span>(kl.nodeName), opts)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> fmt.Errorf(<span class="string">&quot;error getting node %q: %v&quot;</span>, kl.nodeName, err)</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">if</span> originalNode == <span class="literal">nil</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> fmt.Errorf(<span class="string">&quot;nil %q node object&quot;</span>, kl.nodeName)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">node, changed := kl.updateNode(ctx, originalNode)</span><br><span class="line">shouldPatchNodeStatus := changed || kl.clock.Since(kl.lastStatusReportTime) &gt;= kl.nodeStatusReportFrequency</span><br></pre></td></tr></table></figure>
+
+<p>每次進行 NodeStatus 更新時都會嘗試跟當前物件進行比對，只有當有物件發生改變或是時間超過 <strong>nodeStatusReportFrequency</strong> 時才會真正的發送資訊到 API Server。</p>
+<p>藉由這種機制降低整個更新頻率，並降低頻繁更新造成的效能影響。</p>
+<p>將兩者結合起來的話，其示意圖如下<br><img src="https://hackmd.io/_uploads/Sk39kA_T2.png"></p>
+<p>以預設設定下，運作邏輯圖如下， Kubelet 如今產生兩條不同的路，一條負責 Status，一條負責 Heartbeat</p>
+<p><img src="https://hackmd.io/_uploads/S1L-xA_62.png"></p>
+<h2 id="Controller-Manager"><a href="#Controller-Manager" class="headerlink" title="Controller Manager"></a>Controller Manager</h2><p>前述探討了 Kubelet 是如何回報節點到控制平面，而真正判別節點為 Reday&#x2F;NotReady 則是由 Controller 內的 node lifecycle controller 來判別的。</p>
+<p>其概念很簡單，就是定期去檢查每個節點對應的 Lease 物件狀態，只要該 Lease 物件超過一定時間沒有 Renew，就認定該節點太久沒有回報資訊，因此會將其狀態設定為 NotReady。</p>
+<p>上述概念內有兩個參數可以設定</p>
+<ol>
+<li>Controller 多久去檢查 Lease 物件</li>
+<li>Renew 時間超過多久沒有更新視為 NotReady</li>
+</ol>
+<p>根據 <a target="_blank" rel="noopener" href="https://kubernetes.io/docs/reference/command-line-tools-reference/kube-controller-manager/">kube-controller-manager</a> 中所述，有兩個參數可以調整，分別是<br><strong>–node-monitor-period duration</strong> 與 <strong>–node-monitor-grace-period duration</strong></p>
+<p><strong>node-monitor-period</strong> 的說明如下 (預設 5s)</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">The period for syncing NodeStatus in cloud-node-lifecycle-controller.</span><br></pre></td></tr></table></figure>
+
+<p>而由 <a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/v1.28.0/pkg/controller/nodelifecycle/node_lifecycle_controller.go#L502-L507?WT.mc_id=AZ-MVP-5003331">Controller 原始碼</a></p>
+<p>可以觀察到下列的設定</p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line"><span class="comment">// Incorporate the results of node health signal pushed from kubelet to master.</span></span><br><span class="line"><span class="keyword">go</span> wait.UntilWithContext(ctx, <span class="function"><span class="keyword">func</span><span class="params">(ctx context.Context)</span></span> &#123;</span><br><span class="line">    <span class="keyword">if</span> err := nc.monitorNodeHealth(ctx); err != <span class="literal">nil</span> &#123;</span><br><span class="line">        logger.Error(err, <span class="string">&quot;Error monitoring node health&quot;</span>)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;, nc.nodeMonitorPeriod)</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>期透過 go routine 每 nodeMonitorPeriod 的時間就去執行一次 <strong>monitorNodeHealth</strong> 來檢查節點的狀況。</p>
+<p>而 <strong>node-monitor-grace-period</strong> 的說明如下(預設 40s)</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Amount of time which we allow running Node to be unresponsive before marking it unhealthy. Must be N times more than kubelet&#x27;s nodeStatusUpdateFrequency, where N means number of retries allowed for kubelet to post node status.</span><br></pre></td></tr></table></figure>
+
+
+<p>根據 <a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/v1.28.0/pkg/controller/nodelifecycle/node_lifecycle_controller.go#L821?WT.mc_id=AZ-MVP-5003331">Controller 原始碼</a></p>
+<figure class="highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(nc *Controller)</span></span> tryUpdateNodeHealth(ctx context.Context, node *v1.Node) (time.Duration, v1.NodeCondition, *v1.NodeCondition, <span class="type">error</span>) &#123;</span><br><span class="line">...</span><br><span class="line">	<span class="keyword">if</span> currentReadyCondition == <span class="literal">nil</span> &#123;</span><br><span class="line">...</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		<span class="comment">// If ready condition is not nil, make a copy of it, since we may modify it in place later.</span></span><br><span class="line">		observedReadyCondition = *currentReadyCondition</span><br><span class="line">		gracePeriod = nc.nodeMonitorGracePeriod</span><br><span class="line">	&#125;</span><br><span class="line">...</span><br><span class="line">	<span class="keyword">if</span> nc.now().After(nodeHealth.probeTimestamp.Add(gracePeriod)) &#123;</span><br><span class="line">		<span class="comment">// NodeReady condition or lease was last set longer ago than gracePeriod, so</span></span><br><span class="line">		<span class="comment">// update it to Unknown (regardless of its current value) in the master.</span></span><br><span class="line">....</span><br><span class="line">	&#125;</span><br><span class="line">....</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>由上述的程式碼可以觀察到，其會先將設定好的 nodeMonitorGracePeriod 賦予到本地變數 gracePeriod，接者就會去檢查當前時間是否超過 lease + gracePeriod， 若是則將節點設定為 NotReady，並且理由設定為 “Unknown”。</p>
+<p>範例如下 (kubectl get node k8slab-worker -o yaml)</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">status:</span></span><br><span class="line">  <span class="attr">conditions:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">lastHeartbeatTime:</span> <span class="string">&quot;2023-08-27T14:03:45Z&quot;</span></span><br><span class="line">    <span class="attr">lastTransitionTime:</span> <span class="string">&quot;2023-08-27T14:04:30Z&quot;</span></span><br><span class="line">    <span class="attr">message:</span> <span class="string">Kubelet</span> <span class="string">stopped</span> <span class="string">posting</span> <span class="string">node</span> <span class="string">status.</span></span><br><span class="line">    <span class="attr">reason:</span> <span class="string">NodeStatusUnknown</span></span><br><span class="line">    <span class="attr">status:</span> <span class="string">Unknown</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">Ready</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+<p>所以將這些概念整合起來，可以得到下列的概念圖，Kubelet 本身與 Controller 是非同步工作，一個負責更新狀態，一個負責確認狀態並且更新</p>
+<p><img src="https://hackmd.io/_uploads/SyLbzR_T2.png"></p>
+<p>而整個邏輯工作流程則可以用下圖來表達<br><img src="https://hackmd.io/_uploads/rJ_UKAdp3.png"></p>
+<h1 id="Evict-Pod"><a href="#Evict-Pod" class="headerlink" title="Evict Pod"></a>Evict Pod</h1><p>前述探討的是 Kubernetes 如何將一個節點視為故障(NotReady)，那當節點為 NotReady 後，節點上運行的 Pod 會多久才被重生?</p>
+<p>這部分 Kubernetes 是利用了 Taint&#x2F;Toleration 的機制來達到自動重生的，詳細說明可以參閱 <a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/#taint-based-evictions">Kubernetes Taint Based Evicition</a>。</p>
+<p>簡單來說，當節點被判定為故障時，會自動被打上一個 <strong>node.kubernetes.io&#x2F;not-ready</strong> 的 Taint，而每個 Pod 可以透過 Toleration 搭配 tolerationSeconds 來決定能夠忍受該節點多久，時間一到無法忍受則自動會被重新部署。</p>
+<p>根據 <a target="_blank" rel="noopener" href="https://kubernetes.io/docs/reference/command-line-tools-reference/kube-apiserver/">API-Server</a> 文件可以發現兩個相關設定</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">--default-not-ready-toleration-seconds int     Default: 300</span><br><span class="line">Indicates the tolerationSeconds of the toleration for notReady:NoExecute </span><br><span class="line">that is added by default to every pod that does </span><br><span class="line">not already have such a toleration.</span><br><span class="line"></span><br><span class="line">--default-unreachable-toleration-seconds int     Default: 300</span><br><span class="line">Indicates the tolerationSeconds of the toleration for unreachable:NoExecute </span><br><span class="line">that is added by default to every pod that does </span><br><span class="line">not already have such a toleration.</span><br></pre></td></tr></table></figure>
+
+<p>這兩個設定預設都是 300 秒，這意味者當節點被標示為損壞後，運行的 Pod 會存活至少 300s 才會被移除重新部署。</p>
+<p>而該數值除了透過 API-Server 設定預設值外，每個 Pod 也可以獨立設定，範例如下</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">tolerations:</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">key:</span> <span class="string">&quot;node.kubernetes.io/unreachable&quot;</span></span><br><span class="line">  <span class="attr">operator:</span> <span class="string">&quot;Exists&quot;</span></span><br><span class="line">  <span class="attr">effect:</span> <span class="string">&quot;NoExecute&quot;</span></span><br><span class="line">  <span class="attr">tolerationSeconds:</span> <span class="number">20</span></span><br></pre></td></tr></table></figure>
+
+<p>因此如果希望 Pod 可以更快的因應節點故障而被重新部署，則部署的時候可以調整 <code>tolerationSeconds</code> 讓其更快被反應，另外也可以從 kubelet&#x2F;controller 的參數去調整讓節點更快的被識別為損壞來觸發節點的重新調度行為。</p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><ol>
+<li>Kubelet 於 1.17 後都採用 Lease 的方式來回報 heartbeat</li>
+<li>Kubelet 與 Controller 是非同步工作，一個負責回報，一個負責監控，彼此間的 timeout 設定上要仔細與小心</li>
+<li>kubelet 上的 <strong>nodeLeaseDurationSeconds</strong> 決定多久更新一次 Lease 物件，目前設定的數值*0.25 則是最後的秒數</li>
+<li>Contoller 上的 <strong>node-monitor-period</strong> 與 <strong>node-monitor-grace-period</strong> 則決定 Controller 多久檢查一次，以及超時多久要判定為 NotReady.</li>
+<li>預設情況下，最快需要 40 秒去偵測節點故障</li>
+<li>預設情況下，每個 Pod 可以於故障節點上存活 500 秒</li>
+<li>預設情況下，一個 Pod 最快需要 540 秒才可以從故障節點中被重新部署</li>
+<li>Pod 可以透過 Taint-Based Evicition 的方式來調整反應時間</li>
+</ol>
+<h1 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/kubernetes-sigs/kubespray/blob/master/docs/kubernetes-reliability.md">https://github.com/kubernetes-sigs/kubespray/blob/master/docs/kubernetes-reliability.md</a></li>
+<li><a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/#taint-based-evictions">https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/#taint-based-evictions</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/589-efficient-node-heartbeats">https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/589-efficient-node-heartbeats</a></li>
+</ul>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>詳細可以參閱<br>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/kind-network.html" rel="prev" title="從 KIND 環境中學到的 DNS 小趣聞">
+                  <i class="fa fa-chevron-left"></i> 從 KIND 環境中學到的 DNS 小趣聞
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>
