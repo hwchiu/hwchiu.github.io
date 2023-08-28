@@ -30,11 +30,11 @@
 <meta property="og:image" content="https://hackmd.io/_uploads/BkKis_Oah.png">
 <meta property="og:image" content="https://hackmd.io/_uploads/Hk5wyCdp2.png">
 <meta property="og:image" content="https://hackmd.io/_uploads/Sk39kA_T2.png">
-<meta property="og:image" content="https://hackmd.io/_uploads/S1L-xA_62.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/Sy_HtFYT3.png">
 <meta property="og:image" content="https://hackmd.io/_uploads/SyLbzR_T2.png">
-<meta property="og:image" content="https://hackmd.io/_uploads/rJ_UKAdp3.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/SJU-KKYan.png">
 <meta property="article:published_time" content="2023-08-27T14:28:22.000Z">
-<meta property="article:modified_time" content="2023-08-28T02:38:47.915Z">
+<meta property="article:modified_time" content="2023-08-28T02:41:13.273Z">
 <meta property="article:author" content="Hwchiu">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="Kubernetes">
@@ -231,7 +231,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">Edited on</span>
-      <time title="Modified: 2023-08-28 10:38:47" itemprop="dateModified" datetime="2023-08-28T10:38:47+08:00">2023-08-28</time>
+      <time title="Modified: 2023-08-28 10:41:13" itemprop="dateModified" datetime="2023-08-28T10:41:13+08:00">2023-08-28</time>
     </span>
 
   
@@ -324,7 +324,7 @@
 <p>藉由這種機制降低整個更新頻率，並降低頻繁更新造成的效能影響。</p>
 <p>將兩者結合起來的話，其示意圖如下<br><img src="https://hackmd.io/_uploads/Sk39kA_T2.png"></p>
 <p>以預設設定下，運作邏輯圖如下， Kubelet 如今產生兩條不同的路，一條負責 Status，一條負責 Heartbeat</p>
-<p><img src="https://hackmd.io/_uploads/S1L-xA_62.png"></p>
+<p><img src="https://hackmd.io/_uploads/Sy_HtFYT3.png"></p>
 <h2 id="Controller-Manager"><a href="#Controller-Manager" class="headerlink" title="Controller Manager"></a>Controller Manager</h2><p>前述探討了 Kubelet 是如何回報節點到控制平面，而真正判別節點為 Reday&#x2F;NotReady 則是由 Controller 內的 node lifecycle controller 來判別的。</p>
 <p>其概念很簡單，就是定期去檢查每個節點對應的 Lease 物件狀態，只要該 Lease 物件超過一定時間沒有 Renew，就認定該節點太久沒有回報資訊，因此會將其狀態設定為 NotReady。</p>
 <p>上述概念內有兩個參數可以設定</p>
@@ -355,7 +355,7 @@
 
 <p>所以將這些概念整合起來，可以得到下列的概念圖，Kubelet 本身與 Controller 是非同步工作，一個負責更新狀態，一個負責確認狀態並且更新</p>
 <p><img src="https://hackmd.io/_uploads/SyLbzR_T2.png"></p>
-<p>而整個邏輯工作流程則可以用下圖來表達<br><img src="https://hackmd.io/_uploads/rJ_UKAdp3.png"></p>
+<p>而整個邏輯工作流程則可以用下圖來表達<br><img src="https://hackmd.io/_uploads/SJU-KKYan.png"></p>
 <h1 id="Evict-Pod"><a href="#Evict-Pod" class="headerlink" title="Evict Pod"></a>Evict Pod</h1><p>前述探討的是 Kubernetes 如何將一個節點視為故障(NotReady)，那當節點為 NotReady 後，節點上運行的 Pod 會多久才被重生?</p>
 <p>這部分 Kubernetes 是利用了 Taint&#x2F;Toleration 的機制來達到自動重生的，詳細說明可以參閱 <a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/#taint-based-evictions">Kubernetes Taint Based Evicition</a>。</p>
 <p>簡單來說，當節點被判定為故障時，會自動被打上一個 <strong>node.kubernetes.io&#x2F;not-ready</strong> 的 Taint，而每個 Pod 可以透過 Toleration 搭配 tolerationSeconds 來決定能夠忍受該節點多久，時間一到無法忍受則自動會被重新部署。</p>
