@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: dark)"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":true,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="探討 GitOps 流程下，Git repo 會去怎麼設計來改善整體工作流程">
+<meta property="og:type" content="article">
+<meta property="og:title" content="GitOps 下的 Git Repo 架構探討">
+<meta property="og:url" content="https://www.hwchiu.com/gitops-git-repo-structure.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="探討 GitOps 流程下，Git repo 會去怎麼設計來改善整體工作流程">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://hackmd.io/_uploads/SJ5pMgMC2.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/rJeI9bG0h.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/r1IgWMzCh.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/Bkp5WzMRh.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/B1nj-MGRn.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/BkeMnXMR2.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/H1b-CQMRn.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/SJ8YamGC3.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/S1dSh4zRh.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/HJAZ6IX02.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/Hy1j0VfAn.png">
+<meta property="article:published_time" content="2023-09-04T17:03:21.000Z">
+<meta property="article:modified_time" content="2023-09-04T17:05:20.621Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="DevOps">
+<meta property="article:tag" content="GitOps">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://hackmd.io/_uploads/SJ5pMgMC2.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/gitops-git-repo-structure.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/gitops-git-repo-structure.html","path":"gitops-git-repo-structure.html","title":"GitOps 下的 Git Repo 架構探討"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>GitOps 下的 Git Repo 架構探討 | Hwchiu Learning Note</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-54006186-1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#GitOps-%E6%8C%91%E6%88%B0"><span class="nav-number">2.</span> <span class="nav-text">GitOps 挑戰</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#K8s-Manifest"><span class="nav-number">3.</span> <span class="nav-text">K8s Manifest</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Vanilla-YAML"><span class="nav-number">3.1.</span> <span class="nav-text">Vanilla YAML</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Helm"><span class="nav-number">3.2.</span> <span class="nav-text">Helm</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Kustomize"><span class="nav-number">3.3.</span> <span class="nav-text">Kustomize</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Jsonnet"><span class="nav-number">3.4.</span> <span class="nav-text">Jsonnet</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Tools"><span class="nav-number">3.5.</span> <span class="nav-text">Tools</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Git-Repo"><span class="nav-number">4.</span> <span class="nav-text">Git Repo</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Code-x2F-YAML-in-the-Same-Repo"><span class="nav-number">4.1.</span> <span class="nav-text">Code&#x2F;YAML in the Same Repo</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Code-x2F-YAML-in-the-Different-Repo"><span class="nav-number">4.2.</span> <span class="nav-text">Code&#x2F;YAML in the Different Repo</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Mixed"><span class="nav-number">4.3.</span> <span class="nav-text">Mixed</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Image-Updater"><span class="nav-number">5.</span> <span class="nav-text">Image Updater</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">6.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">7.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">349</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/gitops-git-repo-structure.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="GitOps 下的 Git Repo 架構探討 | Hwchiu Learning Note">
+      <meta itemprop="description" content="探討 GitOps 流程下，Git repo 會去怎麼設計來改善整體工作流程">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          GitOps 下的 Git Repo 架構探討
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2023-09-05 01:03:21 / Modified: 01:05:20" itemprop="dateCreated datePublished" datetime="2023-09-05T01:03:21+08:00">2023-09-05</time>
+    </span>
+
+  
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+            <div class="post-description">探討 GitOps 流程下，Git repo 會去怎麼設計來改善整體工作流程</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>隨者 GitOps 的日漸普及，ArgoCD, Flux 等解決方案幫助眾多 Kubernetes 環境解決了 CD 的困境與流程。<br>然而 GitOps 意味著 Git + Ops，其中 Git 的使用方式則會依環境與團隊而異。<br>本篇文章嘗試整理幾種可能的使用方式，實務上並沒有一種完美的解決方案，還是要多比較多釐清團隊的需求與能力，打造出適合的方式為主。</p>
+<h1 id="GitOps-挑戰"><a href="#GitOps-挑戰" class="headerlink" title="GitOps 挑戰"></a>GitOps 挑戰</h1><p>若以 GitOps 來部署應用程式到 Kubernetes 中，下圖則是一個可能的流程圖</p>
+<p><img src="https://hackmd.io/_uploads/SJ5pMgMC2.png"></p>
+<p>整個流程包含</p>
+<ol>
+<li>應用程式的原始碼</li>
+<li>容器化後的應用程式</li>
+<li>將容器保存於遠方的容器倉庫</li>
+<li>同時更新以準備最新的 K8s YAML</li>
+<li>GitOps 透過 Webhook 或是 Pulling 機制瞭解 YAML 有更動</li>
+<li>將更動給更新到目標 Kubernetes 叢集內</li>
+<li>Kubernetes 更新應用程式，到容器倉庫抓取最新的應用程式</li>
+</ol>
+<p>上述的流程看起來直觀且簡單，但是實作起來則會有各種不同的變化，其中有幾個問題是常常被探討的</p>
+<ol>
+<li>K8S YAML 要用哪套工具來維護? Helm? Kustomize? Jsonnet?</li>
+<li>Source Code 與 K8s YAML 的歸屬，到底要放到同一個 Git Repo 還是要分開?</li>
+<li>Container 產生新版後，更新 K8s YAML是誰的責任？是應用程式開發者還是 DevOps 人員？</li>
+</ol>
+<p>接下來就針對這三個問題分享一些曾經看過的解法，就如同前述所述，沒有一個完美的解決方案，每個實作方式背後都有被選擇的理由，也許是因為團隊大小，時程壓力..等各種因素。</p>
+<h1 id="K8s-Manifest"><a href="#K8s-Manifest" class="headerlink" title="K8s Manifest"></a>K8s Manifest</h1><p>Kubernetes 資源描述可以基於 YAML 與 JSON 兩種格式，而普遍主流都是基於 YAML 的格式來進行描述，</p>
+<p>底下幫大家快速回憶幾個常見的工具，包含</p>
+<ol>
+<li>Vanilla YAML</li>
+<li>Helm</li>
+<li>Kustomize</li>
+<li>Jsonnet</li>
+</ol>
+<h2 id="Vanilla-YAML"><a href="#Vanilla-YAML" class="headerlink" title="Vanilla YAML"></a>Vanilla YAML</h2><p>直接將所有 Kubernetes 物件以 YAML 格式來描述</p>
+<p>優點:</p>
+<ol>
+<li>直觀，適合初學者</li>
+<li>無需任何工具，準備 YAML 檔案就可以搭配 kubectl 使用</li>
+</ol>
+<p>缺點:</p>
+<ol>
+<li>缺乏彈性，有任何客製化需求就需要維護多份檔案</li>
+<li>沒有版本的概念</li>
+<li>部署環境愈多，維護與使用起來愈複雜與麻煩</li>
+</ol>
+<p>因為上述原因，很少團隊會直接使用這種方式來管理複雜且多環境的應用程式。<br>但是有些第三方解決方案會透過這種方式來定義其使用，原因有</p>
+<ol>
+<li>使用到的 K8s 物件少，不複雜</li>
+<li>專案更專注於應用程式開發，部署部分則由開發者自行處理</li>
+<li>透過 Git Branch 的方式來維護不同版本的差異</li>
+</ol>
+<p>此種方式也很適合初學者用來學習 K8s 的概念與練習，熟悉概念後再使用接下來的工具去管理才不會太陌生。</p>
+<p>以下圖總結來說，每個環境都需要維護一整份近乎一樣的一群檔案，維護上非常困難<br><img src="https://hackmd.io/_uploads/rJeI9bG0h.png"></p>
+<h2 id="Helm"><a href="#Helm" class="headerlink" title="Helm"></a>Helm</h2><p><a target="_blank" rel="noopener" href="https://helm.sh/">Helm</a> 可以說是目前 Kubernetes 應用程式定義最知名的工具之一，透過 Helm Chart 與 Go Template 等機制讓你可以更輕鬆的根據環境客製化部署資源。</p>
+<p>優點：</p>
+<ol>
+<li>基於 Go Template 來動態產出最後的 k8s 資源</li>
+<li>可打包成一個容易散佈與安裝的格式，並且支援版本控制</li>
+<li>支援 Dependency 概念，可以組合出 Umbrella Chart</li>
+<li>生態系豐富，眾多第三方專案都有支援 Helm Chart 的安裝，因此學會 Helm 對於使用這些專案會較少阻力</li>
+</ol>
+<p>缺點:</p>
+<ol>
+<li>學習曲線偏高，Template 的語法可能過於複雜</li>
+<li>需要額外安裝 Helm 指令使用</li>
+<li>有可能還需要額外維護 Helm Chart Server</li>
+</ol>
+<p>Helm 的特性使得團隊只需要針對主體維護一份檔案，針對不同的部署環境準備相對應的 <strong>values.yaml</strong> 就可以動態的產生出符合各環境需求的 K8s 物件，整個流程如下</p>
+<p><img src="https://hackmd.io/_uploads/r1IgWMzCh.png"></p>
+<p>Helm Chart 本身除了本地直接載入使用外，也可以將其打包並且發佈到 Helm Chart 伺服器 去，其本質基本上就是一個 web 伺服器，目前稍微有些規模的開源專案也都會透過這種方式來發布自己專案的 Helm Chart，因此使用者就可以很輕易地選擇所需要的版本並且搭配 values.yaml 來客製化，整個流程類似下圖</p>
+<p><img src="https://hackmd.io/_uploads/Bkp5WzMRh.png"></p>
+<p>此外，有些團隊所開發且交付的不單純只是一個應用程式，而是一個由眾多應用程式所組合而成的服務，這種需求下會採用 Umbrella Chart 的方式，其概念非常簡單</p>
+<ol>
+<li>交付與部署的不是一個應用程式，而是一個完整的服務</li>
+<li>該 Umbrella Helm Chart 實務上會依賴許多更多 Helm Chart</li>
+<li>部署該 Helm Chart 會一併把所有被依賴的 Helm Chart 一併部署</li>
+<li>Umbrella Helm Chart 的 Values.yaml 會龐大且複雜，可以動態決定哪些依賴需要安裝，同時也可以將設定之參數給傳遞過去</li>
+</ol>
+<p>範例如下圖，整個環境中有 <code>5</code> 個 Helm Chart，其中有一個主要的 Helm Chart 會透過 <a target="_blank" rel="noopener" href="https://helm.sh/docs/helm/helm_dependency/">helm dependency</a> 來連結 Helm Chart{A&#x2F;B&#x2F;C&#x2F;D}。<br>使用者只需要準備一個 Values.yaml 並且部署該 Umbrella Chart 即可順利的把整套服，四個 Helm Chart 都一併部署到目標叢集內。</p>
+<p><img src="https://hackmd.io/_uploads/B1nj-MGRn.png"></p>
+<h2 id="Kustomize"><a href="#Kustomize" class="headerlink" title="Kustomize"></a>Kustomize</h2><p>不同於 Helm 使用 Template 的方式，<a target="_blank" rel="noopener" href="https://kustomize.io/">Kustomize</a> 提供更為簡單與乾淨的方式來達到客製化 Kubernetes 資源物件，所有檔案都會維持 K8s 原生的格式，透過 Patch 等疊加的概念來動態修改資源內容。</p>
+<p>優點：</p>
+<ol>
+<li>基於原生 YAML 格式，沒有任何 Template 等語法要學習</li>
+<li>已經整合至 kubectl 中，可以不需要安裝額外指令</li>
+<li>透過疊加與覆蓋的方式來</li>
+</ol>
+<p>缺點：</p>
+<ol>
+<li>生態性不如 Helm 豐富</li>
+<li>沒有版本概念，不方便散佈給不同使用者與客戶</li>
+<li>雖然沒有 Template，但是整體架構與使用方式還是需要學習</li>
+</ol>
+<p>以下例範例來說，我們會於 base 資料夾內準備我們應用程式的基本物件，接者每個環境資料夾內則會準備想要客製化的內容，最後這一切都會依照 kustomization.yaml 的內容全部串連起來。</p>
+<p><img src="https://hackmd.io/_uploads/BkeMnXMR2.png"></p>
+<p>過往需要使用 <strong>kustomize</strong> 這個指令，現在已經整合到 kubectl 中，所以可以直接使用 <strong>kubectl apply -k</strong> 的方式來操作基於 kustomize 的部署格式。</p>
+<p><img src="https://hackmd.io/_uploads/H1b-CQMRn.png"></p>
+<h2 id="Jsonnet"><a href="#Jsonnet" class="headerlink" title="Jsonnet"></a>Jsonnet</h2><p>Jsonnet 則是一種基於 JSON 格式的程式語言，所有的操作都是基於 JSON 並且最後輸出也是 JSON 格式，而前面也有提到 Kubernetes 也接受基於 JSON 格式來描述所有資源狀況，因此也有部分人會採用這種方式來維護 K8s 應用程式。</p>
+<p>簡單來說，就是利用程式語言撰寫的習性來產生 K8s 的物件描述檔案</p>
+<p>優點</p>
+<ol>
+<li>支援 if&#x2F;else, 迴圈, function 等程式語言常見的邏輯</li>
+<li>支援 library 的概念減少重複撰寫程式碼</li>
+</ol>
+<p>缺點:</p>
+<ol>
+<li>要學習全新工具 jsonnet</li>
+<li>文件與生態性不夠豐富</li>
+</ol>
+<p>Jsonnet 本身是針對 Json 物件操作，而 <a target="_blank" rel="noopener" href="https://github.com/jsonnet-libs/k8s">jsonnet k8s</a>與 <a target="_blank" rel="noopener" href="https://github.com/jsonnet-libs/k8s-libsonnet">k8s-libsonnet</a> 則是實作各種介面讓你可以快速產生適合各種版本 Kubernetes 的物件資源。</p>
+<p>舉例來說，下列的語法最後可以產生出一個 k8s deployment + service 的物件，這些檔案都可以被重複利用，還可以被動態覆蓋，整體來說彈性非常高</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">local k = import &quot;vendor/1.27/main.libsonnet&quot;;</span><br><span class="line"></span><br><span class="line">local s= &#123;</span><br><span class="line">  name: &quot;demo&quot;,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">[</span><br><span class="line">   k.apps.v1.deployment.new(name=&quot;demo&quot;, containers=[</span><br><span class="line">     k.core.v1.container.new(name=&quot;demo&quot;, image=&quot;hwchiu/netutils&quot;)</span><br><span class="line">   ]),</span><br><span class="line">   k.core.v1.service.new(&quot;demo&quot;, s, 5000)</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line">azureuser@course:~/jsonnet$ jsonnet --yaml-stream main.jsonnet</span><br><span class="line">---</span><br><span class="line">&#123;</span><br><span class="line">   &quot;apiVersion&quot;: &quot;apps/v1&quot;,</span><br><span class="line">   &quot;kind&quot;: &quot;Deployment&quot;,</span><br><span class="line">   &quot;metadata&quot;: &#123;</span><br><span class="line">      &quot;name&quot;: &quot;demo&quot;</span><br><span class="line">   &#125;,</span><br><span class="line">   &quot;spec&quot;: &#123;</span><br><span class="line">      &quot;replicas&quot;: 1,</span><br><span class="line">      &quot;selector&quot;: &#123;</span><br><span class="line">         &quot;matchLabels&quot;: &#123;</span><br><span class="line">            &quot;name&quot;: &quot;demo&quot;</span><br><span class="line">         &#125;</span><br><span class="line">      &#125;,</span><br><span class="line">      &quot;template&quot;: &#123;</span><br><span class="line">         &quot;metadata&quot;: &#123;</span><br><span class="line">            &quot;labels&quot;: &#123;</span><br><span class="line">               &quot;name&quot;: &quot;demo&quot;</span><br><span class="line">            &#125;</span><br><span class="line">         &#125;,</span><br><span class="line">         &quot;spec&quot;: &#123;</span><br><span class="line">            &quot;containers&quot;: [</span><br><span class="line">               &#123;</span><br><span class="line">                  &quot;image&quot;: &quot;hwchiu/netutils&quot;,</span><br><span class="line">                  &quot;name&quot;: &quot;demo&quot;</span><br><span class="line">               &#125;</span><br><span class="line">            ]</span><br><span class="line">         &#125;</span><br><span class="line">      &#125;</span><br><span class="line">   &#125;</span><br><span class="line">&#125;</span><br><span class="line">---</span><br><span class="line">&#123;</span><br><span class="line">   &quot;apiVersion&quot;: &quot;v1&quot;,</span><br><span class="line">   &quot;kind&quot;: &quot;Service&quot;,</span><br><span class="line">   &quot;metadata&quot;: &#123;</span><br><span class="line">      &quot;name&quot;: &quot;demo&quot;</span><br><span class="line">   &#125;,</span><br><span class="line">   &quot;spec&quot;: &#123;</span><br><span class="line">      &quot;ports&quot;: [</span><br><span class="line">         5000</span><br><span class="line">      ],</span><br><span class="line">      &quot;selector&quot;: &#123;</span><br><span class="line">         &quot;name&quot;: &quot;demo&quot;</span><br><span class="line">      &#125;</span><br><span class="line">   &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>整個流程大致上如下，撰寫各種 jsonnet 的檔案，最後透過 jsonnet 指令產生出符合 K8s 需求的檔案，接者使用 kubectl 指令將其 Apply 到目標叢集。<br><img src="https://hackmd.io/_uploads/SJ8YamGC3.png"></p>
+<h2 id="Tools"><a href="#Tools" class="headerlink" title="Tools"></a>Tools</h2><p>上述四種工具沒有絕對的好壞且 ArgoCD 都支援，所以只要其特性與優缺點符合團隊所需，事實上都可以嘗試使用。</p>
+<p>實務上更多可能概念則是混用，畢竟現在太多開源專案都是基於 Helm 去發布，而團隊可能採用 Kustomize&#x2F;Jsonnet 的方式來管理自己的應用程式，所以實際上這些不同方式可能會同時存在，反正 ArgoCD 都支援都可以部署，唯一的問題則是使用者要有相關的背景知識來使用，除錯與設定。</p>
+<h1 id="Git-Repo"><a href="#Git-Repo" class="headerlink" title="Git Repo"></a>Git Repo</h1><p>從 Source Code 與 K8s Manifest 的角度來看，常見有兩種選擇</p>
+<ol>
+<li>每一個應用程式有一個專屬的 Git Repo，含有該應用程式的 Source Code , Dockerfile 以及 K8s 相關物件檔案</li>
+<li>每一個應用程式有一個專屬的 Git Repo，含有該應用程式的 Source Code 與 Dockerfile。另外會有一個專屬的 Git Repo 包含所有應用程式所需要的 K8s 物件檔案。</li>
+</ol>
+<h2 id="Code-x2F-YAML-in-the-Same-Repo"><a href="#Code-x2F-YAML-in-the-Same-Repo" class="headerlink" title="Code&#x2F;YAML in the Same Repo"></a>Code&#x2F;YAML in the Same Repo</h2><p>第一種概念如下<br><img src="https://hackmd.io/_uploads/S1dSh4zRh.png"></p>
+<p>這種模式下的特性有</p>
+<ol>
+<li>從應用程式開發到 K8s 的部署所有資源都放一起，容易查閱彼此關聯</li>
+<li>如果應用程式有任何需求修改，可以連部署 YAML 一起修改，譬如新增某個環境變數的讀取。</li>
+<li>CI&#x2F;CD Pipeline 可處理所有事情，甚至可以搭配 KIND 等架構來測試 K8s 部署</li>
+<li>如果採用 Helm Chart 的話，可於 CI&#x2F;CD pipeline 流程中一起打包並且發布</li>
+<li>如果要採用 jsonnet&#x2F;kustomize 的方式來處理，則跨應用共享的檔案就不方便處理</li>
+<li>可透過 Git branch&#x2F;tag 的方式來控制版本</li>
+<li>維運人員很難輕鬆的瞭解到系統上全面使用的部署方式與內容，必須要每個 Git repo 逐步查找</li>
+</ol>
+<p>此外，採用這種模型也很常面對如何處理 image tag 的問題<br>舉例來說</p>
+<ol>
+<li>開發者開啟一個 PR 加入新功能</li>
+<li>由於使用者並不知道最後產生的 container image tag，因此無法同時更新 K8s YAML 檔案</li>
+</ol>
+<p>常見的解法包含</p>
+<ol>
+<li>永遠都使用 latest tag 來部署應用程式</li>
+<li>開啟第二個 PR 來更新</li>
+<li>創建一個 GitHub App 來動態更新 PR 內容</li>
+</ol>
+<p>因此流程實作上還是有很多細節需要考慮與探討，並沒有想像中的這麼完美簡單。</p>
+<h2 id="Code-x2F-YAML-in-the-Different-Repo"><a href="#Code-x2F-YAML-in-the-Different-Repo" class="headerlink" title="Code&#x2F;YAML in the Different Repo"></a>Code&#x2F;YAML in the Different Repo</h2><p>更多常見的作法則是第二種，權責分離，讓開發人員專心處理自己應用程式的開發與容器化，而準備一個專屬的 Git Repo 來處理所有 GitOps 的管理與部署</p>
+<p>基本概念如下圖<br><img src="https://hackmd.io/_uploads/HJAZ6IX02.png"></p>
+<p>這種架構上常見的特性有</p>
+<ol>
+<li>所有部署物件都放一起，容易查閱快速理解所有部署的差異性</li>
+<li>與應用程式的開發分離，更方便讓開發人員與維運人員分別處理</li>
+<li>若應用程式新版本有任何功能增減需要 YAML 配合，需要到此 Repo 額外處理，不能一次搞定</li>
+<li>由於環境都放一起，kustomize&#x2F;jsonnet 等概念就相對容易共享</li>
+<li>可透過 Branch&#x2F;Folder 等方式來區分不同環境的部署資源</li>
+<li>可有專屬的 CI&#x2F;CD Pipeline 來驗證整體服務的部署，而非單一應用程式</li>
+</ol>
+<p>以 Kustomize 或 Jsonnet 為基底的，很常看到下列的資料結構，透過資料夾來區分不同環境的部署，若有特別的需求還可以搭配 Git tag 的方式來定版，以便未來需要追蹤某個版本部署的內容。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">├── base</span><br><span class="line">│   ├── foo</span><br><span class="line">│   │   ├── deployment.yaml</span><br><span class="line">│   │   ├── kustomization.yaml</span><br><span class="line">│   │   └── service.yaml</span><br><span class="line">│   └── foo2</span><br><span class="line">│       ├── deployment.yaml</span><br><span class="line">│       ├── kustomization.yaml</span><br><span class="line">│       └── service.yaml</span><br><span class="line">└── overlays</span><br><span class="line">    ├── dev</span><br><span class="line">    │   ├── foo</span><br><span class="line">    │   │   ├── kustomization.yaml</span><br><span class="line">    │   │   └── resource.yaml</span><br><span class="line">    │   └── foo2</span><br><span class="line">    │       ├── kustomization.yaml</span><br><span class="line">    │       └── resource.yaml</span><br><span class="line">    └── prod</span><br><span class="line">        ├── foo</span><br><span class="line">        │   ├── kustomization.yaml</span><br><span class="line">        │   └── resource.yaml</span><br><span class="line">        └── foo2</span><br><span class="line">            ├── kustomization.yaml</span><br><span class="line">            └── resource.yaml</span><br></pre></td></tr></table></figure>
+
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">├── base</span><br><span class="line">│   ├── app</span><br><span class="line">│   │   ├── foo</span><br><span class="line">│   │   │   └── app.jsonnet</span><br><span class="line">│   │   └── foo2</span><br><span class="line">│   │       └── app.jsonnet</span><br><span class="line">│   └── component</span><br><span class="line">│       ├── deployment.jsonnet</span><br><span class="line">│       └── service.jsonnet</span><br><span class="line">└── env</span><br><span class="line">    ├── production</span><br><span class="line">    │   ├── foo</span><br><span class="line">    │   │   ├── env.jsonnet</span><br><span class="line">    │   │   └── main.jsonnet</span><br><span class="line">    │   └── foo2</span><br><span class="line">    │       ├── env.jsonnet</span><br><span class="line">    │       └── main.jsonnet</span><br><span class="line">    └── staging</span><br><span class="line">        ├── foo</span><br><span class="line">        │   ├── env.jsonnet</span><br><span class="line">        │   └── main.jsonnet</span><br><span class="line">        └── foo2</span><br><span class="line">            ├── env.jsonnet</span><br><span class="line">            └── main.jsonnet</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>此外，由於 <a target="_blank" rel="noopener" href="https://github.com/kubernetes-sigs/kustomize/blob/master/examples/chart.md">Kustomize</a> 目前也支援使用 Helm Chart 來部署，所以也有可能會看到如下列的變化行，將 Kustomize 與 Helm 給組合一同使用。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line">├── base</span><br><span class="line">│   ├── foo</span><br><span class="line">│   │   ├── deployment.yaml</span><br><span class="line">│   │   ├── kustomization.yaml</span><br><span class="line">│   │   └── service.yaml</span><br><span class="line">│   └── foo2</span><br><span class="line">│       ├── deployment.yaml</span><br><span class="line">│       ├── kustomization.yaml</span><br><span class="line">│       └── service.yaml</span><br><span class="line">├── helm</span><br><span class="line">│   └── app</span><br><span class="line">│       ├── charts</span><br><span class="line">│       ├── Chart.yaml</span><br><span class="line">│       ├── templates</span><br><span class="line">│       │   ├── deployment.yaml</span><br><span class="line">│       │   ├── _helpers.tpl</span><br><span class="line">│       │   ├── hpa.yaml</span><br><span class="line">│       │   ├── ingress.yaml</span><br><span class="line">│       │   ├── NOTES.txt</span><br><span class="line">│       │   ├── serviceaccount.yaml</span><br><span class="line">│       │   ├── service.yaml</span><br><span class="line">│       │   └── tests</span><br><span class="line">│       │       └── test-connection.yaml</span><br><span class="line">│       └── values.yaml</span><br><span class="line">└── overlays</span><br><span class="line">    ├── dev</span><br><span class="line">    │   ├── foo</span><br><span class="line">    │   │   ├── kustomization.yaml</span><br><span class="line">    │   │   └── resource.yaml</span><br><span class="line">    │   └── foo2</span><br><span class="line">    │       ├── kustomization.yaml</span><br><span class="line">    │       └── resource.yaml</span><br><span class="line">    └── prod</span><br><span class="line">        ├── foo</span><br><span class="line">        │   ├── kustomization.yaml</span><br><span class="line">        │   └── resource.yaml</span><br><span class="line">        └── foo2</span><br><span class="line">            ├── kustomization.yaml</span><br><span class="line">            └── resource.yaml</span><br></pre></td></tr></table></figure>
+
+
+<h2 id="Mixed"><a href="#Mixed" class="headerlink" title="Mixed"></a>Mixed</h2><p>由於 Helm Chart 本身可以打包並且推向 Helm Chart Server，因此採用 Helm Chart 的方式更可能看到兩者結合的結果，如下圖。</p>
+<p><img src="https://hackmd.io/_uploads/Hy1j0VfAn.png"></p>
+<p>這種情況下的特性有</p>
+<ol>
+<li>應用程式 Repo 只專心維護 Helm Chart 的發佈與設定</li>
+<li>應用程式 Repo 會透過 CI&#x2F;CD 來打包 Helm Chart 並且推向到 Helm Chart Server</li>
+<li>K8s YAML Repo 內則透過 Helm Chart 指向遠方的 Helm Chart Server 來抓取建置好的檔案，並且搭配不同的 values 來部署到不同環境</li>
+<li>保留分離 Repo 的特性，職權分離，各自有各自的 Git 流程來管理</li>
+</ol>
+<p>由於該架構通常需要一個額外的 Helm Chart Server，這部分因為 Helm Chart v3 支援 OCI 格式，所以可以採用支援 OCI 的 Container Registry，如 ECR, Harbor 等，或是繼續使用傳統的 <a target="_blank" rel="noopener" href="https://github.com/helm/chartmuseum">Chart Museum</a> 來部署。</p>
+<h1 id="Image-Updater"><a href="#Image-Updater" class="headerlink" title="Image Updater"></a>Image Updater</h1><p>採用第二與第三兩種架構下，很多團隊都會探討提升工作流程，特別是當 Container Image 有新版本時，要如何自動更新該 Repo 下的描述檔案。</p>
+<p>有的團隊會採用 <a target="_blank" rel="noopener" href="https://argocd-image-updater.readthedocs.io/en/stable/">Argo Image Updater</a> 或是自行撰寫 CI&#x2F;CD 流程來更新。</p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><ol>
+<li>本篇文章總結了 GitOps 架構下常見的 Git 結構問題，探討了常見的工具與使用方式</li>
+<li>K8s 的應用程式可以採用原生 YAML, Helm, Jsonnet, Kustomize 等方式來管理，不同方式有各自不同的特性以及適合的場景</li>
+<li>沒有一個完美的解法，所有規劃還是要以團隊規模，流程，能力，以及工作等來討論適合的工具</li>
+</ol>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>詳細可以參閱<br>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+              <a href="/tags/DevOps/" rel="tag"># DevOps</a>
+              <a href="/tags/GitOps/" rel="tag"># GitOps</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/node-failure-1.html" rel="prev" title="節點崩壞時如何快速處理 Pod">
+                  <i class="fa fa-chevron-left"></i> 節點崩壞時如何快速處理 Pod
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>
