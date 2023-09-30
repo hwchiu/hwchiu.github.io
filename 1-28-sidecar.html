@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#222" media="(prefers-color-scheme: dark)"><meta name="generator" content="Hexo 7.0.0-rc1">
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha256-HtsXJanqjKTc8vVQjO4YMhiqFoXkfBsjBWcX91T1jr8=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"www.hwchiu.com","root":"/","images":"/images","scheme":"Gemini","darkmode":true,"version":"8.17.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":{"enable":false,"style":null},"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"menu_item":"fadeInDown","post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="嘗試看看 Kubernetes v1.28 的 sidecar 服務帶來的差異性">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kubernetes 1.28 Sidecar Container 初體驗">
+<meta property="og:url" content="https://www.hwchiu.com/1-28-sidecar.html">
+<meta property="og:site_name" content="Hwchiu Learning Note">
+<meta property="og:description" content="嘗試看看 Kubernetes v1.28 的 sidecar 服務帶來的差異性">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://hackmd.io/_uploads/H1NslhSxp.png">
+<meta property="og:image" content="https://hackmd.io/_uploads/Sk3senHea.png">
+<meta property="article:published_time" content="2023-09-30T14:30:58.000Z">
+<meta property="article:modified_time" content="2023-09-30T14:32:05.302Z">
+<meta property="article:author" content="Hwchiu">
+<meta property="article:tag" content="Kubernetes">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://hackmd.io/_uploads/H1NslhSxp.png">
+
+
+<link rel="canonical" href="https://www.hwchiu.com/1-28-sidecar.html">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"en","comments":true,"permalink":"https://www.hwchiu.com/1-28-sidecar.html","path":"1-28-sidecar.html","title":"Kubernetes 1.28 Sidecar Container 初體驗"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Kubernetes 1.28 Sidecar Container 初體驗 | Hwchiu Learning Note</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-54006186-1"></script>
+  <script class="next-config" data-name="google_analytics" type="application/json">{"tracking_id":"UA-54006186-1","only_pageview":false}</script>
+  <script src="/js/third-party/analytics/google-analytics.js"></script>
+
+
+
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <div class="column">
+      <header class="header" itemscope itemtype="http://schema.org/WPHeader"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">Hwchiu Learning Note</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">kubernetes, sdn, linux,devops</p>
+      <img class="custom-logo-image" src="/uploads/hwchiu.jpg" alt="Hwchiu Learning Note">
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger" aria-label="Search" role="button">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu"><li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a></li><li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a></li><li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a></li><li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a></li><li class="menu-item menu-item-sitemap"><a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>Sitemap</a></li>
+  </ul>
+</nav>
+
+
+
+
+</header>
+        
+  
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E7%92%B0%E5%A2%83"><span class="nav-number">1.</span> <span class="nav-text">環境</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#System"><span class="nav-number">1.1.</span> <span class="nav-text">System</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Kubeadm"><span class="nav-number">1.2.</span> <span class="nav-text">Kubeadm</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Experiment"><span class="nav-number">2.</span> <span class="nav-text">Experiment</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Case-1"><span class="nav-number">2.1.</span> <span class="nav-text">Case 1</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Case-2"><span class="nav-number">2.2.</span> <span class="nav-text">Case 2</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary"><span class="nav-number">3.</span> <span class="nav-text">Summary</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Reference"><span class="nav-number">4.</span> <span class="nav-text">Reference</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%80%8B%E4%BA%BA%E8%B3%87%E8%A8%8A"><span class="nav-number">5.</span> <span class="nav-text">個人資訊</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Hwchiu"
+      src="/uploads/avatar.jpg">
+  <p class="site-author-name" itemprop="name">Hwchiu</p>
+  <div class="site-description" itemprop="description">kubernetes/SDN/DevOps</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">351</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">115</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/hwchiu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:sppsorrg@gmail.com" title="E-Mail → mailto:sppsorrg@gmail.com" rel="noopener me" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/hw_chiu" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;hw_chiu" rel="noopener me" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.facebook.com/technologynoteniu" title="FB Page → https:&#x2F;&#x2F;www.facebook.com&#x2F;technologynoteniu" rel="noopener me" target="_blank"><i class="fab fa-facebook fa-fw"></i>FB Page</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.youtube.com/channel/UCoYY8K9fbfDtTY7m68UCATA/videos" title="YouTube → https:&#x2F;&#x2F;www.youtube.com&#x2F;channel&#x2F;UCoYY8K9fbfDtTY7m68UCATA&#x2F;videos" rel="noopener me" target="_blank"><i class="fab fa-youtube fa-fw"></i>YouTube</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://instagram.com/hwchiu" title="Instagram → https:&#x2F;&#x2F;instagram.com&#x2F;hwchiu" rel="noopener me" target="_blank"><i class="fab fa-instagram fa-fw"></i>Instagram</a>
+      </span>
+  </div>
+
+        </div>
+      </div>
+    </div>
+
+    
+  </aside>
+
+
+    </div>
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="https://www.hwchiu.com/1-28-sidecar.html">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.jpg">
+      <meta itemprop="name" content="Hwchiu">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hwchiu Learning Note">
+      <meta itemprop="description" content="kubernetes/SDN/DevOps">
+    </span>
+
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Kubernetes 1.28 Sidecar Container 初體驗 | Hwchiu Learning Note">
+      <meta itemprop="description" content="嘗試看看 Kubernetes v1.28 的 sidecar 服務帶來的差異性">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Kubernetes 1.28 Sidecar Container 初體驗
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2023-09-30 22:30:58 / Modified: 22:32:05" itemprop="dateCreated datePublished" datetime="2023-09-30T22:30:58+08:00">2023-09-30</time>
+    </span>
+
+  
+    <span class="post-meta-item" title="Views" id="busuanzi_container_page_pv">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">Views: </span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+            <div class="post-description">嘗試看看 Kubernetes v1.28 的 sidecar 服務帶來的差異性</div>
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody"><p>本篇文章記錄如何於 Kubernetes 1.28 嚐鮮最新的 sidecar container 功能</p>
+<p>Sidecar Container 是 Kubernetes 內非常著名且常見的設計模式，通常是於 Pod 內部署多個 Container<br>其中 Sidecar Container 會協助主要容器完成各種功能，譬如</p>
+<ol>
+<li>Network Proxy: 如 Service Mesh 架構下幫忙轉發與處理各種網路流量</li>
+<li>Log Collection: 幫忙處理主要容器的 log</li>
+</ol>
+<p>然而對於 Kubernetes 來說，這兩種 container 本質上並無差異，生命週期與管理方式都一樣，這些特性使得 sidecar container 的使用上會造成一些問題</p>
+<ol>
+<li>以 Job 來說，主要容器已經結束結果 sidecar container 還在運行，使得 Job 沒辦法正確判斷 Pod 是否順利結束</li>
+<li>Sidecar container 的啟動順序太晚，使得主要容器啟動時還不能使用，造成錯誤必須要等 containre 重啟</li>
+</ol>
+<p>以(2)來說，常見的範例有</p>
+<ol>
+<li>istio sidecar container 比主要容器晚起來，導致主要容器起來瞬間網路不通</li>
+<li>以 GKE 來說，透過 cloud sql proxy 來存取 Cloud SQL 時， cloud sql proxy 比主要容器晚起來，因此主要容器就沒有辦法連接到 DB 最後產生錯誤</li>
+</ol>
+<p>因此過往都要搭配各種 workaround 來修正。</p>
+<p>而這次 Kubernetes 正式從內部支援 sidecar container 的架構，其獨立的生命週期管理能夠從根本上去解決上述的常見問題，讓整個解決方式更為漂亮。</p>
+<h1 id="環境"><a href="#環境" class="headerlink" title="環境"></a>環境</h1><p>本篇文章基於下列軟體</p>
+<ol>
+<li>Ubuntu 22.04</li>
+<li>Kubeadm: 1.28.2-1.1</li>
+<li>Kubelet: 1.28.2-1.1</li>
+<li>Kubectl: 1.28.2-1.1</li>
+<li>Containerd: 1.6.24-1</li>
+</ol>
+<h2 id="System"><a href="#System" class="headerlink" title="System"></a>System</h2><p>由於環境會使用 kubeadm 來安裝，並且使用 containerd 作為 contaienr runtime，因此準備下列腳本安裝所有相關軟體並且設定相關環境參數</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Add Docker&#x27;s official GPG key:</span></span><br><span class="line">sudo apt-get update</span><br><span class="line">sudo apt-get install ca-certificates curl gnupg</span><br><span class="line">sudo install -m 0755 -d /etc/apt/keyrings</span><br><span class="line">curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg</span><br><span class="line">curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg</span><br><span class="line"></span><br><span class="line">sudo <span class="built_in">chmod</span> a+r /etc/apt/keyrings/docker.gpg</span><br><span class="line"></span><br><span class="line"><span class="comment"># Add the repository to Apt sources:</span></span><br><span class="line"><span class="built_in">echo</span> \</span><br><span class="line">  <span class="string">&quot;deb [arch=&quot;</span>$(dpkg --print-architecture)<span class="string">&quot; signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \</span></span><br><span class="line"><span class="string">  &quot;</span>$(. /etc/os-release &amp;&amp; <span class="built_in">echo</span> <span class="string">&quot;<span class="variable">$VERSION_CODENAME</span>&quot;</span>)<span class="string">&quot; stable&quot;</span> | \</span><br><span class="line">  sudo <span class="built_in">tee</span> /etc/apt/sources.list.d/docker.list &gt; /dev/null</span><br><span class="line"><span class="built_in">echo</span> <span class="string">&#x27;deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /&#x27;</span> | sudo <span class="built_in">tee</span> /etc/apt/sources.list.d/kubernetes.list</span><br><span class="line">sudo apt-get update</span><br><span class="line">sudo apt-get install containerd.io=1.6.24-1</span><br><span class="line">https://github.com/containernetworking/plugins/releases/download/v1.3.0/cni-plugins-linux-amd64-v1.3.0.tgz</span><br><span class="line">sudo <span class="built_in">mkdir</span> -p /opt/cni/bin</span><br><span class="line">sudo tar Cxzvf /opt/cni/bin cni-plugins-linux-amd64-v1.3.0.tgz</span><br><span class="line">sudo apt-get install -y kubelet=1.28.2-1.1 kubeadm=1.28.2-1.1 kubectl=1.28.2-1.1</span><br><span class="line"></span><br><span class="line">sudo modprobe br_netfilter</span><br><span class="line">sudo modprobe overlay</span><br><span class="line">sudo sysctl -w net.ipv4.ip_forward=1</span><br><span class="line"></span><br><span class="line"><span class="built_in">cat</span> &lt;&lt;<span class="string">EOF | sudo tee /etc/sysctl.d/k8s.conf</span></span><br><span class="line"><span class="string">net.bridge.bridge-nf-call-iptables  = 1</span></span><br><span class="line"><span class="string">net.bridge.bridge-nf-call-ip6tables = 1</span></span><br><span class="line"><span class="string">net.ipv4.ip_forward                 = 1</span></span><br><span class="line"><span class="string">EOF</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="built_in">cat</span> &lt;&lt;<span class="string">EOF | sudo tee /etc/modules-load.d/k8s.conf</span></span><br><span class="line"><span class="string">overlay</span></span><br><span class="line"><span class="string">br_netfilter</span></span><br><span class="line"><span class="string">EOF</span></span><br><span class="line"></span><br><span class="line">sudo sysctl --system</span><br><span class="line"></span><br><span class="line">containerd config default | sudo <span class="built_in">tee</span> /etc/containerd/config.toml</span><br><span class="line">sudo sed -i <span class="string">&#x27;s/SystemdCgroup \= false/SystemdCgroup \= true/g&#x27;</span> /etc/containerd/config.toml</span><br><span class="line">sudo systemctl restart containerd</span><br></pre></td></tr></table></figure>
+
+<h2 id="Kubeadm"><a href="#Kubeadm" class="headerlink" title="Kubeadm"></a>Kubeadm</h2><p>準備下列 Kubeadm 檔案來打開 Sidecar Container 的設定檔案 <code>kubeadm.config</code></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">kubeadm.k8s.io/v1beta3</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">ClusterConfiguration</span></span><br><span class="line"><span class="attr">networking:</span></span><br><span class="line">  <span class="attr">podSubnet:</span> <span class="number">192.168</span><span class="number">.0</span><span class="number">.0</span><span class="string">/16</span></span><br><span class="line"><span class="attr">apiServer:</span></span><br><span class="line">  <span class="attr">extraArgs:</span></span><br><span class="line">    <span class="attr">feature-gates:</span> <span class="string">&quot;SidecarContainers=true&quot;</span></span><br><span class="line"><span class="attr">controllerManager:</span></span><br><span class="line">  <span class="attr">extraArgs:</span></span><br><span class="line">    <span class="attr">feature-gates:</span> <span class="string">&quot;SidecarContainers=true&quot;</span></span><br><span class="line"><span class="attr">scheduler:</span></span><br><span class="line">  <span class="attr">extraArgs:</span></span><br><span class="line">    <span class="attr">feature-gates:</span> <span class="string">&quot;SidecarContainers=true&quot;</span></span><br><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">kubelet.config.k8s.io/v1beta1</span></span><br><span class="line"><span class="attr">featureGates:</span></span><br><span class="line">  <span class="attr">SidecarContainers:</span> <span class="literal">true</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">KubeletConfiguration</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo kubeadm init --config=kubeadm.config</span><br></pre></td></tr></table></figure>
+
+<p>創建完畢後安裝 Calico CNI</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/tigera-operator.yaml</span><br><span class="line">kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/custom-resources.yaml</span><br></pre></td></tr></table></figure>
+
+<p>當節點變成 Ready 後，執行下列指令將 taint 給移除</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl taint nodes master node-role.kubernetes.io/control-plane:NoSchedule-</span><br></pre></td></tr></table></figure>
+
+<h1 id="Experiment"><a href="#Experiment" class="headerlink" title="Experiment"></a>Experiment</h1><p>以下來示範兩種 sidecar container 使用上的可能性，並且探討如何使用 1.28 的新功能來解決</p>
+<h2 id="Case-1"><a href="#Case-1" class="headerlink" title="Case 1"></a>Case 1</h2><p>第一個情境探討於 Job 的情況下使用 sidecar container 造成的判定問題</p>
+<p>舉例來說，以下列的 YAML 部署一個有 sidecar container 的 Job 服務，該範例中的 sidecar 單純是個示範，其功能不重要。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">batch/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Job</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">pi</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">pi</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">perl:5.34.0</span></span><br><span class="line">        <span class="attr">command:</span> [<span class="string">&quot;perl&quot;</span>,  <span class="string">&quot;-Mbignum=bpi&quot;</span>, <span class="string">&quot;-wle&quot;</span>, <span class="string">&quot;print bpi(2000)&quot;</span>]</span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">sidecar</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br><span class="line">      <span class="attr">restartPolicy:</span> <span class="string">Never</span></span><br><span class="line">  <span class="attr">backoffLimit:</span> <span class="number">4</span></span><br></pre></td></tr></table></figure>
+
+<p>部署該 YAML 可以觀察到下列情況</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">$</span> <span class="string">kubectl</span> <span class="string">get</span> <span class="string">pods,job</span></span><br><span class="line"><span class="string">NAME</span>           <span class="string">READY</span>   <span class="string">STATUS</span>     <span class="string">RESTARTS</span>   <span class="string">AGE</span></span><br><span class="line"><span class="string">pod/pi-6q4lh</span>   <span class="number">1</span><span class="string">/2</span>     <span class="string">NotReady</span>   <span class="number">0</span>          <span class="string">17m</span></span><br><span class="line"></span><br><span class="line"><span class="string">NAME</span>           <span class="string">COMPLETIONS</span>   <span class="string">DURATION</span>   <span class="string">AGE</span></span><br><span class="line"><span class="string">job.batch/pi</span>   <span class="number">0</span><span class="string">/1</span>           <span class="string">17m</span>        <span class="string">17m</span></span><br></pre></td></tr></table></figure>
+
+<p>主要容器運行完畢結束，但是 sidecar container 繼續運行，因此使得當前的 Pod 沒有辦法達到 “Completed” 的狀態，因此 Job 無法正常判定。</p>
+<p>而現在來嘗試看看 v1.28 的新功能</p>
+<p>該功能的邏輯是建立在一個 “會不停運行的 initContainer” 之上，因此設定上是從 “initContainer” 出發，並且透過 “restartPolicy” 來開啟 sidecar container 的功能。<br>一旦 sidecare contaienr 設定 “RestartyPolicy: Always”，其背後的運作邏輯就會有些許改變</p>
+<ol>
+<li>本身不需要結束就可以繼續往下執行其他 Init Container</li>
+<li>本身若發生問題離開，會自動重啟</li>
+<li>本身的運行狀態不會影響 Pod 本身的狀態判定</li>
+</ol>
+<p>接下來嘗試下列 YAML 檔案，我們將 sidecar container 搬移到 init container 的階段，來試試看這樣的情況下 Pod 是否可以順利結束</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">batch/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Job</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">pi-sidecar</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">initContainers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">network-proxy</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">hwchiu/python-example</span></span><br><span class="line">        <span class="attr">restartPolicy:</span> <span class="string">Always</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">pi</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">perl:5.34.0</span></span><br><span class="line">        <span class="attr">command:</span> [<span class="string">&quot;perl&quot;</span>,  <span class="string">&quot;-Mbignum=bpi&quot;</span>, <span class="string">&quot;-wle&quot;</span>, <span class="string">&quot;print bpi(2000)&quot;</span>]</span><br><span class="line">      <span class="attr">restartPolicy:</span> <span class="string">Never</span></span><br><span class="line">  <span class="attr">backoffLimit:</span> <span class="number">4</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl get pods</span><br><span class="line">NAME               READY   STATUS      RESTARTS   AGE</span><br><span class="line">pi-sidecar-bszf2   0/2     Completed   0          42s</span><br></pre></td></tr></table></figure>
+
+<p>從運作結果來看， Pod 本身所認為的 Conainer 數量依然是 2，但是這時候就可以順利結束完成 Completed 狀態</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">Events:</span><br><span class="line">  Type    Reason     Age   From               Message</span><br><span class="line">  ----    ------     ----  ----               -------</span><br><span class="line">  Normal  Scheduled  79s   default-scheduler  Successfully assigned default/pi-sidecar-bszf2 to master</span><br><span class="line">  Normal  Pulling    78s   kubelet            Pulling image <span class="string">&quot;hwchiu/python-example&quot;</span></span><br><span class="line">  Normal  Pulled     77s   kubelet            Successfully pulled image <span class="string">&quot;hwchiu/python-example&quot;</span> <span class="keyword">in</span> 1.511s (1.511s including waiting)</span><br><span class="line">  Normal  Created    77s   kubelet            Created container sidecar</span><br><span class="line">  Normal  Started    77s   kubelet            Started container sidecar</span><br><span class="line">  Normal  Pulled     76s   kubelet            Container image <span class="string">&quot;perl:5.34.0&quot;</span> already present on machine</span><br><span class="line">  Normal  Created    76s   kubelet            Created container pi</span><br><span class="line">  Normal  Started    76s   kubelet            Started container pi</span><br><span class="line">  Normal  Killing    67s   kubelet            Stopping container network-proxy</span><br></pre></td></tr></table></figure>
+
+<p>另外從 <code>kubectl describe pods</code> 中去觀察，可以看到最後一項 <code>Stopping container network-proxy</code>，這意味當主要容器結束之後，sidecar container(network-proxy) 會自己被系統結束，並不會影響到主要容器的生命週期。</p>
+<h2 id="Case-2"><a href="#Case-2" class="headerlink" title="Case 2"></a>Case 2</h2><p>第二個範例中模擬的情境是透過 sidecar container 達成類似 Proxy 的連線，因此 sidecar contaienr 必須要比主要容器更早啟動。</p>
+<p>以下列 YAML 為範例</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">proxy</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">3</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">run:</span> <span class="string">proxy</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">run:</span> <span class="string">proxy</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">app</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br><span class="line">        <span class="attr">command:</span> [<span class="string">&quot;/bin/sh&quot;</span>]</span><br><span class="line">        <span class="attr">args:</span> [<span class="string">&quot;-c&quot;</span>, <span class="string">&quot;nc -zv localhost 5000 &amp;&amp;  sleep 1d&quot;</span>]</span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">proxy</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">hwchiu/python-example</span></span><br><span class="line">        <span class="attr">ports:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">containerPort:</span> <span class="number">5000</span></span><br><span class="line">        <span class="attr">startupProbe:</span></span><br><span class="line">          <span class="attr">httpGet:</span></span><br><span class="line">            <span class="attr">path:</span> <span class="string">/</span></span><br><span class="line">            <span class="attr">port:</span> <span class="number">5000</span></span><br></pre></td></tr></table></figure>
+
+<p>該範例中部署兩個 Container，其中 sidecar container 是一個聽 5000 port 的服務器，而主要容器起來時若 sidecar 還沒準備好就會直接離開等待下次重啟</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl get pods</span><br><span class="line">NAME                     READY   STATUS    RESTARTS      AGE</span><br><span class="line">proxy-74dc7b8d88-77cft   2/2     Running   1 (49s ago)   52s</span><br><span class="line">proxy-74dc7b8d88-rlz8m   2/2     Running   1 (47s ago)   52s</span><br><span class="line">proxy-74dc7b8d88-zjkdh   2/2     Running   1 (46s ago)   52s</span><br><span class="line">$ kubectl logs -p proxy-74dbbdccd5-cf9pg</span><br><span class="line">Defaulted container <span class="string">&quot;app&quot;</span> out of: app, proxy</span><br><span class="line">localhost [127.0.0.1] 5000 (?) : Connection refused</span><br></pre></td></tr></table></figure>
+
+<p>重上述的部署結果可以觀察到所有的 Pod 都會因為順序問題使得主要容器會重啟一次，從前述失敗的 log 也可以觀察到因為 sidecar container 還沒準備好因此導致運行失敗。<br>透過 <code>kubectl describe pod</code> 觀察相關事件</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">Normal  Scheduled  6m20s                  default-scheduler  Successfully assigned default/proxy-74dbbdccd5-dzdmz to master</span><br><span class="line">Normal  Pulled     6m18s                  kubelet            Successfully pulled image &quot;hwchiu/netutils&quot; in 1.447s (1.447s including waiting)</span><br><span class="line">Normal  Pulling    6m18s                  kubelet            Pulling image &quot;hwchiu/python-example&quot;</span><br><span class="line">Normal  Pulled     6m15s                  kubelet            Successfully pulled image &quot;hwchiu/python-example&quot; in 2.459s (2.459s including waiting)</span><br><span class="line">Normal  Created    6m15s                  kubelet            Created container proxy</span><br><span class="line">Normal  Started    6m15s                  kubelet            Started container proxy</span><br><span class="line">Normal  Pulling    6m14s (x2 over 6m19s)  kubelet            Pulling image &quot;hwchiu/netutils&quot;</span><br><span class="line">Normal  Created    6m13s (x2 over 6m18s)  kubelet            Created container app</span><br><span class="line">Normal  Pulled     6m13s                  kubelet            Successfully pulled image &quot;hwchiu/netutils&quot; in 1.47s (1.47s including waiting)</span><br><span class="line">Normal  Started    6m12s (x2 over 6m18s)  kubelet            Started container app</span><br></pre></td></tr></table></figure>
+
+<p>可以觀察到 Proxy 容器啟動後就馬上去抓取 App 的容器，中間幾乎沒有任何間隔。</p>
+<p>接下來導入 sidecar container 的機制再次嘗試看看</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">proxy-sidecar</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">3</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">run:</span> <span class="string">proxy-sidecar</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">run:</span> <span class="string">proxy-sidecar</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">initContainers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">proxy</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">hwchiu/python-example</span></span><br><span class="line">        <span class="attr">ports:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">containerPort:</span> <span class="number">5000</span></span><br><span class="line">        <span class="attr">restartPolicy:</span> <span class="string">Always</span></span><br><span class="line">        <span class="attr">startupProbe:</span></span><br><span class="line">          <span class="attr">httpGet:</span></span><br><span class="line">            <span class="attr">path:</span> <span class="string">/</span></span><br><span class="line">            <span class="attr">port:</span> <span class="number">5000</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">app</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">hwchiu/netutils</span></span><br><span class="line">        <span class="attr">command:</span> [<span class="string">&quot;/bin/sh&quot;</span>]</span><br><span class="line">        <span class="attr">args:</span> [<span class="string">&quot;-c&quot;</span>, <span class="string">&quot;nc -zv localhost 5000 &amp;&amp;  sleep 1d&quot;</span>]</span><br></pre></td></tr></table></figure>
+
+
+<p>轉換為</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">$ kubectl get pods</span><br><span class="line">proxy-sidecar-5dd9ff76f8-47mll   2/2     Running   0               2m34s</span><br><span class="line">proxy-sidecar-5dd9ff76f8-cmjjs   2/2     Running   0               2m34s</span><br><span class="line">proxy-sidecar-5dd9ff76f8-qctk8   2/2     Running   0               2m34s</span><br><span class="line">$ kubectl describe pods proxy-sidecar-5dd9ff76f8-qctk8</span><br><span class="line">...</span><br><span class="line">  Normal  Scheduled  2m16s  default-scheduler  Successfully assigned default/proxy-sidecar-5dd9ff76f8-qctk8 to master</span><br><span class="line">  Normal  Pulling    2m14s  kubelet            Pulling image <span class="string">&quot;hwchiu/python-example&quot;</span></span><br><span class="line">  Normal  Pulled     2m11s  kubelet            Successfully pulled image <span class="string">&quot;hwchiu/python-example&quot;</span> <span class="keyword">in</span> 1.507s (2.923s including waiting)</span><br><span class="line">  Normal  Created    2m11s  kubelet            Created container proxy</span><br><span class="line">  Normal  Started    2m11s  kubelet            Started container proxy</span><br><span class="line">  Normal  Pulling    2m5s   kubelet            Pulling image <span class="string">&quot;hwchiu/netutils&quot;</span></span><br><span class="line">  Normal  Pulled     2m1s   kubelet            Successfully pulled image <span class="string">&quot;hwchiu/netutils&quot;</span> <span class="keyword">in</span> 1.475s (4.405s including waiting)</span><br><span class="line">  Normal  Created    2m     kubelet            Created container app</span><br><span class="line">  Normal  Started    2m     kubelet            Started container app</span><br></pre></td></tr></table></figure>
+
+<p>當導入 sidecar container 的設定後，可以觀察到 Proxy 容器起後動過了一段時間才去抓取新的 Image，這是因為 sidecar contaienr 會等到其 StartupProbe 結束後才開始往下去執行主要容器，透過這種機制就可以確保 sidecar container 會比主要容器更早運行。</p>
+<p>最後以這兩張圖來呈現一下案例二的流程，過往將所有容器都放到 containers 中來處理 sidecar contaienr 的邏輯。<br><img src="https://hackmd.io/_uploads/H1NslhSxp.png"></p>
+<p>而新版架構則將其設定搬移到 initContainer 中，並且是從 Kubernetes 內部來處理專屬的生命週期</p>
+<p><img src="https://hackmd.io/_uploads/Sk3senHea.png"></p>
+<h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>以目前初次體驗來說， sidecar contaienr 帶來的好處非常的明顯，能夠減少很多過往的 workaround，讓 sidecar contaienr 的模式更加自然，以 <a target="_blank" rel="noopener" href="https://istio.io/latest/blog/2023/native-sidecars/">istio</a> 來說，其新版本也支援使用 k8s 1.28 sidecar 的功能，不過因為還沒測試過因此不確定從 istio 的角度來說<br>實際上會有什麼樣的差異。<br>另外此項功能於 1.28 還只是 alpha 版本，接下來還有 Beta 以及 GA，最快也要兩個版本大概六個月，這樣可能就是 1.30，而各大公有雲平台 (GKE&#x2F;EKS&#x2F;AKS) 想要追到 1.30 想必也不短期內會發生的事情，因此除非自已去調整 feature gate 來啟動，不然短期內應該還很難大量落地。</p>
+<h1 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h1><p><a target="_blank" rel="noopener" href="https://kubernetes.io/blog/2023/08/25/native-sidecar-containers/">https://kubernetes.io/blog/2023/08/25/native-sidecar-containers/</a></p>
+<h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
+<p>詳細可以參閱<br>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a></p>
+<p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
+<p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
+<p>你的捐款將給予我文章成長的動力</p>
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="hwchiu" data-color="#000000" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#fff" data-font-color="#fff" data-coffee-color="#fd0" ></script>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="followme">
+  <span>Welcome to my other publishing channels</span>
+
+  <div class="social-list">
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://twitter.com/hw_chiu">
+            <span class="icon">
+              <i class="fab fa-twitter"></i>
+            </span>
+
+            <span class="label">Twitter</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="https://t.me/technologynote">
+            <span class="icon">
+              <i class="fab fa-telegram"></i>
+            </span>
+
+            <span class="label">Telegram</span>
+          </a>
+      </div>
+
+      <div class="social-item">
+          <a target="_blank" class="social-link" href="/atom.xml">
+            <span class="icon">
+              <i class="fa fa-rss"></i>
+            </span>
+
+            <span class="label">RSS</span>
+          </a>
+      </div>
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"># Kubernetes</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/spark-kubernetes.html" rel="prev" title="Spark SQL, ThriftServer, GCS in Kubernetes.">
+                  <i class="fa fa-chevron-left"></i> Spark SQL, ThriftServer, GCS in Kubernetes.
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+    <div class="comments utterances-container"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Hwchiu</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="Total Visitors">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="Total Views">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <div class="back-to-top" role="button" aria-label="Back to top">
+    <i class="fa fa-arrow-up fa-lg"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"hwchiu/blog-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>
