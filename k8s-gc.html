@@ -29,7 +29,7 @@
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="https://hackmd.io/_uploads/ByrD0ekba.png">
 <meta property="article:published_time" content="2023-10-07T15:57:25.000Z">
-<meta property="article:modified_time" content="2023-10-07T17:34:15.345Z">
+<meta property="article:modified_time" content="2023-10-07T17:51:01.844Z">
 <meta property="article:author" content="Hwchiu">
 <meta property="article:tag" content="Kubernetes">
 <meta property="article:tag" content="Linux">
@@ -226,7 +226,7 @@
         <i class="far fa-calendar-check"></i>
       </span>
       <span class="post-meta-item-text">Edited on</span>
-      <time title="Modified: 2023-10-08 01:34:15" itemprop="dateModified" datetime="2023-10-08T01:34:15+08:00">2023-10-08</time>
+      <time title="Modified: 2023-10-08 01:51:01" itemprop="dateModified" datetime="2023-10-08T01:51:01+08:00">2023-10-08</time>
     </span>
 
   
@@ -304,12 +304,13 @@
 <p>透過 <code>crictl</code> 指令觀察，會發現對於 Kubernetes 來說，並不認為該 Image 有被標示為 pinned</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">$ sudo crictl inspecti docker.io/library/jenkins:2.60.2</span><br><span class="line">&#123;</span><br><span class="line">  &quot;status&quot;: &#123;</span><br><span class="line">    &quot;id&quot;: &quot;sha256:112170efb091e6c02eac19703986e3c59ce11e86b826c1d70a4a4a73a333339b&quot;,</span><br><span class="line">    &quot;repoTags&quot;: [</span><br><span class="line">      &quot;docker.io/library/jenkins:2.60.2&quot;</span><br><span class="line">    ],</span><br><span class="line">    &quot;repoDigests&quot;: [</span><br><span class="line">      &quot;docker.io/library/jenkins@sha256:5d628badc50487581da2b4cb95a7589fe1d39922391e128f6a031273ad351b71&quot;</span><br><span class="line">    ],</span><br><span class="line">    &quot;size&quot;: &quot;366064122&quot;,</span><br><span class="line">    &quot;uid&quot;: null,</span><br><span class="line">    &quot;username&quot;: &quot;jenkins&quot;,</span><br><span class="line">    &quot;spec&quot;: null,</span><br><span class="line">    &quot;pinned&quot;: false</span><br><span class="line">  &#125;,</span><br></pre></td></tr></table></figure>
 
-<p>這是一個 kubelet 實作的 bug，該 bug 已經於<a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/pull/119986">PR Pass Pinned field to kubecontainer.Image
+<p>經過反覆實驗後觀察到若採用 <code>ctr image label</code> 加上的 label 似乎不會被認可為 pinned，只有透過 <code>ctr image pull</code> 的才有辦法被正式被辨識。</p>
+<p>另外 kubelet 沒有辦法辨識的問題實際上是一個實作的 bug，該 bug 已經於<a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/pull/119986">PR Pass Pinned field to kubecontainer.Image
 </a> 給修復，該修復預計於 v1.29 一起釋出。</p>
 <p>因此嘗試下載 v1.29.0-alpha.1 版本的 <a target="_blank" rel="noopener" href="https://dl.k8s.io/v1.29.0-alpha.1/kubernetes-node-linux-amd64.tar.gz">kubelet</a>並且進行替換來驗證，最後整個功能運作如預期，能夠順利的跳過 pinned image。</p>
 <h1 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h1><p>最後以一張圖來概括上述的流程<br><img src="https://hackmd.io/_uploads/ByrD0ekba.png"></p>
 <h1 id="個人資訊"><a href="#個人資訊" class="headerlink" title="個人資訊"></a>個人資訊</h1><p>我目前於 Hiskio 平台上面有開設 Kubernetes 相關課程，歡迎有興趣的人參考並分享，裡面有我從底層到實戰中對於 Kubernetes 的各種想法</p>
-<p>詳細可以參閱<br>線上課程詳細資訊: <a target="_blank" rel="noopener" href="https://course.hwchiu.com/">https://course.hwchiu.com/</a></p>
+<p>詳細可以參閱<br>Linux 工程師維運大全｜從容器幫你重新打造網路基底: <a target="_blank" rel="noopener" href="https://hiskio.com/courses/479/about?hi=5V4NG1VO32YW&s=tc">https://hiskio.com/courses/479/about?hi=5V4NG1VO32YW&amp;s=tc</a><br>Kubernetes實作手冊：基礎入門篇: <a target="_blank" rel="noopener" href="https://hiskio.com/courses/349/about?hi=5R7Q3NO9EP9D&s=tc">https://hiskio.com/courses/349/about?hi=5R7Q3NO9EP9D&amp;s=tc</a><br>K8s 實作手冊 | DevOps 實戰組合包: <a target="_blank" rel="noopener" href="https://hiskio.com/bundles/ZXwe2v9yv?s=tc">https://hiskio.com/bundles/ZXwe2v9yv?s=tc</a><br>打造維運職人力｜掌握 Kubernetes 核心技術，擁抱容器化時代: <a target="_blank" rel="noopener" href="https://hiskio.com/bundles/hCAMPh1K8S?s=tc">https://hiskio.com/bundles/hCAMPh1K8S?s=tc</a></p>
 <p>另外，歡迎按讚加入我個人的粉絲專頁，裡面會定期分享各式各樣的文章，有的是翻譯文章，也有部分是原創文章，主要會聚焦於 CNCF 領域<br><a target="_blank" rel="noopener" href="https://www.facebook.com/technologynoteniu">https://www.facebook.com/technologynoteniu</a></p>
 <p>如果有使用 Telegram 的也可以訂閱下列頻道來，裡面我會定期推播通知各類文章<br><a target="_blank" rel="noopener" href="https://t.me/technologynote">https://t.me/technologynote</a></p>
 <p>你的捐款將給予我文章成長的動力</p>
