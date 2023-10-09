@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkhwchiu=self.webpackChunkhwchiu||[]).push([[53404],{9382:e=>{e.exports=JSON.parse('{"permalink":"/tags/tools","page":1,"postsPerPage":10,"totalPages":1,"totalCount":2,"blogDescription":"Blog","blogTitle":"Blog"}')}}]);
