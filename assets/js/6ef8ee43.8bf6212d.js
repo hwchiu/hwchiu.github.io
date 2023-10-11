@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkhwchiu=self.webpackChunkhwchiu||[]).push([[91767],{68589:e=>{e.exports=JSON.parse('{"label":"Kubevirt","permalink":"/tags/kubevirt","allTagsPath":"/tags","count":1}')}}]);
