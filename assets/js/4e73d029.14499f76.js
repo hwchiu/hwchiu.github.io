@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkhwchiu=self.webpackChunkhwchiu||[]).push([[25587],{41630:a=>{a.exports=JSON.parse('{"label":"GKE","permalink":"/tags/gke","allTagsPath":"/tags","count":2}')}}]);

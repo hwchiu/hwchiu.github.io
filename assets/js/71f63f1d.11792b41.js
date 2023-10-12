@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkhwchiu=self.webpackChunkhwchiu||[]).push([[14583],{85098:s=>{s.exports=JSON.parse('{"label":"Kustomize","permalink":"/tags/kustomize","allTagsPath":"/tags","count":2}')}}]);

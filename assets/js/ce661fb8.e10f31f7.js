@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkhwchiu=self.webpackChunkhwchiu||[]).push([[89714],{72988:a=>{a.exports=JSON.parse('{"label":"Loki","permalink":"/tags/loki","allTagsPath":"/tags","count":1}')}}]);
