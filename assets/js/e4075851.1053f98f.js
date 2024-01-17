@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkhwchiu=self.webpackChunkhwchiu||[]).push([[53921],{68305:e=>{e.exports=JSON.parse('{"permalink":"/tags/kubernetes/page/4","page":4,"postsPerPage":10,"totalPages":4,"totalCount":34,"previousPage":"/tags/kubernetes/page/3","blogDescription":"Blog","blogTitle":"Blog"}')}}]);
